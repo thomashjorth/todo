@@ -221,12 +221,23 @@ dotnet nswag openapi2tsclient `
     /typeStyle:Class
 if ($LASTEXITCODE -ne 0) { throw "NSwag TypeScript generation failed ($LASTEXITCODE)" }
 
-$hash = (Get-FileHash -Algorithm SHA256 -Path $contract).Hash
+# Line endings are normalised before hashing: core.autocrlf gives the working copy
+# CRLF, so a raw byte hash would differ between machines and checkouts.
+$normalized = ([System.IO.File]::ReadAllText($contract)) -replace "`r`n", "`n"
+$sha = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($normalized))
+} finally {
+    $sha.Dispose()
+}
+$hash = [System.BitConverter]::ToString($bytes).Replace('-', '')
 [System.IO.File]::WriteAllText($hashOut, $hash, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Done. Contract hash: $hash"
 ```
 
 Hash-filen er kontrakten mellem kontrakten og den genererede kode: en test i task 6 fejler hvis `openapi.yaml` er ændret uden at generatoren er kørt.
+
+**Linjeskift normaliseres før hashing.** `core.autocrlf` giver arbejdskopien CRLF, så en rå byte-hash ville være maskinafhængig, og testen i task 6 ville fejle grundløst efter en frisk klon. Task 6 skal normalisere på præcis samme måde.
 
 **Step 4: Kør generatoren**
 
@@ -617,6 +628,7 @@ git add -A && git commit -m "✅ Add contract drift test between openapi.yaml an
 
 ```csharp
 using System.Security.Cryptography;
+using System.Text;
 using Todo.TestSupport;
 
 namespace Todo.Api.Tests;
@@ -633,8 +645,12 @@ public class GeneratedCodeFreshnessTests
             "Generated code is missing. Run scripts/generate-api.ps1.");
 
         var recorded = File.ReadAllText(hashFile).Trim();
+
+        // Must match the normalisation in scripts/generate-api.ps1, or the hash
+        // becomes dependent on the checkout's line endings.
+        var normalized = File.ReadAllText(RepoPaths.ContractFile).Replace("\r\n", "\n");
         var current = Convert.ToHexString(
-            SHA256.HashData(File.ReadAllBytes(RepoPaths.ContractFile)));
+            SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
 
         Assert.True(
             string.Equals(recorded, current, StringComparison.OrdinalIgnoreCase),
