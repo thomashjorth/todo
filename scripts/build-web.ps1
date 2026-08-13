@@ -8,3 +8,7 @@ if (-not (Test-Path (Join-Path $web 'node_modules'))) {
 }
 & npm.cmd run build --prefix $web
 if ($LASTEXITCODE -ne 0) { throw "ng build failed ($LASTEXITCODE)" }
+
+# ng build wipes its output directory, which takes the tracked .gitkeep with it.
+$gitkeep = Join-Path (Split-Path -Parent $PSScriptRoot) 'src\Todo.Host\wwwroot\.gitkeep'
+if (-not (Test-Path $gitkeep)) { New-Item -ItemType File -Path $gitkeep | Out-Null }
