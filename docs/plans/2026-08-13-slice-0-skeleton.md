@@ -742,7 +742,7 @@ using System.Drawing;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
-using PhotinoNET;
+using Photino.NET;
 
 namespace Todo.Host;
 
@@ -775,7 +775,8 @@ public static class Program
         new PhotinoWindow()
             .SetTitle("Todo")
             .SetUseOsDefaultSize(false)
-            .SetSize(new Size(1200, 900))
+            // The app lives in a quarter-width column on a 1080p screen, not a wide window.
+            .SetSize(new Size(480, 1000))
             .Center()
             .Load(new Uri(url))
             .WaitForClose();
@@ -953,8 +954,8 @@ export class App {
 `src/Todo.Web/src/app/app.html`:
 
 ```html
-<main class="mx-auto max-w-2xl p-8">
-  <h1 class="text-3xl font-semibold tracking-tight">Todo</h1>
+<main class="mx-auto max-w-2xl p-4 sm:p-8">
+  <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Todo</h1>
   @if (status(); as s) {
     <p data-testid="health" class="mt-2 text-sm text-gray-500">API: {{ s.status }} (v{{ s.version }})</p>
   } @else if (failed()) {
@@ -965,7 +966,7 @@ export class App {
 
 `data-testid` er E2E-testens greb om elementet. Det skal ikke ændres uden at testen ændres med.
 
-Klasserne er Tailwinds standardskala, intet andet. `max-w-2xl` er også det, step 3's verifikation søger efter i den genererede CSS.
+**Appen bruges i en spalte på cirka en fjerdedel af en 1080p-skærm — omkring 480 px bred, altså ~465 px viewport.** Det er under Tailwinds `sm`-brydepunkt på 640 px, så de uprefixede klasser *er* den smalle udgave, og `sm:`/`md:` bruges kun til at udvide når vinduet trækkes bredt. Skriv aldrig et layout der forudsætter bredde. `max-w-2xl` gør ingenting ved 465 px og er præcis det rigtige, når vinduet er stort; den er også det, step 3's verifikation søger efter i den genererede CSS.
 
 **Step 6: Verificér i browseren**
 

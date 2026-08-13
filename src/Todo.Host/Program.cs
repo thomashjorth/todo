@@ -35,7 +35,8 @@ public static class Program
         new PhotinoWindow()
             .SetTitle("Todo")
             .SetUseOsDefaultSize(false)
-            .SetSize(new Size(1200, 900))
+            // The app lives in a quarter-width column on a 1080p screen, not a wide window.
+            .SetSize(new Size(480, 1000))
             .Center()
             .Load(new Uri(url))
             .WaitForClose();
