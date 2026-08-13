@@ -23,6 +23,10 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Styling | Standard Tailwind utility-klasser. Ingen egne CSS/SCSS-regler, ingen egne tokens. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
 | Retro-board | Indsat CSV-eksport. Alle rækker vises, mine er forudvalgt. |
+| Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. |
+| Redigering | Inline i listen. Ingen dialog — ved 480 px ville den dække alt. |
+| Færdige opgaver | Forsvinder straks; en "Vis færdige"-kontakt henter dem frem. |
+| Angular state | Signal-baseret store-service. **Ikke NgRx** — bevidst fravalg. |
 | Mentions | Indbakke der godkendes manuelt, ikke automatisk opgaveoprettelse. |
 | Livscyklus | Frakoblede items markeres færdige og bevares med lokale felter. |
 | Kørsel | Tray-ikon, baggrundssync, Windows-notifikationer. |
@@ -83,6 +87,16 @@ Kildefelter: `SourceId` (streng: `manual`, `jira`, `ado`, `ado-mention`, `retro`
 lokalt**: Jiras due date foreslås ved import, men overskrives aldrig af sync.
 
 `SourceId` er en streng, ikke et enum, så en ny kilde ikke kræver en migrering.
+
+### `SubTask`
+
+`TaskItemId` (FK, cascade delete), `Title`, `IsDone`, `SortOrder`.
+
+En underopgave er en tjeklistelinje: titel og flueben, ét niveau, ingen egen
+deadline og ingen egen plads i deadline-sektionerne. Forælderen viser fremdrift
+som "2/5". **Flueben ved alle underopgaver afslutter ikke forælderen** — det
+gør du selv; automatikken rammer forkert, første gang en tjekliste ikke er
+udtømmende.
 
 ### `Mention`
 
