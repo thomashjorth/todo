@@ -1,6 +1,6 @@
-import { Component, inject } from '@angular/core';
-import { DeadlineBucket } from '../api/todo-client';
-import { TaskStore } from './task-store';
+import { Component, inject, signal } from '@angular/core';
+import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
+import { TaskChanges, TaskStore } from './task-store';
 
 const bucketLabels: Record<DeadlineBucket, string> = {
   [DeadlineBucket.Overdue]: 'Overskredet',
@@ -10,6 +10,12 @@ const bucketLabels: Record<DeadlineBucket, string> = {
   [DeadlineBucket.NoDeadline]: 'Uden deadline',
 };
 
+const statusOptions: readonly { value: TodoStatus; label: string }[] = [
+  { value: TodoStatus.Open, label: 'Åben' },
+  { value: TodoStatus.InProgress, label: 'I gang' },
+  { value: TodoStatus.Done, label: 'Færdig' },
+];
+
 @Component({
   selector: 'app-task-list',
   templateUrl: './task-list.html',
@@ -17,6 +23,8 @@ const bucketLabels: Record<DeadlineBucket, string> = {
 export class TaskList {
   protected readonly store = inject(TaskStore);
   protected readonly overdue = DeadlineBucket.Overdue;
+  protected readonly statusOptions = statusOptions;
+  protected readonly expandedId = signal<string | null>(null);
 
   constructor() {
     // A failed load needs no message of its own: the health line already reports the API down.
@@ -35,5 +43,26 @@ export class TaskList {
 
     input.value = '';
     this.store.add(title).catch(() => {});
+  }
+
+  protected toggle(task: TodoTask): void {
+    this.expandedId.update((id) => (id === task.id ? null : task.id));
+  }
+
+  protected save(task: TodoTask, changes: TaskChanges): void {
+    this.store.update(task, changes).catch(() => {});
+  }
+
+  protected saveStatus(task: TodoTask, status: string): void {
+    this.save(task, { status: status as TodoStatus });
+  }
+
+  protected remove(task: TodoTask): void {
+    this.expandedId.set(null);
+    this.store.remove(task.id).catch(() => {});
+  }
+
+  protected text(value: string): string | undefined {
+    return value.trim() || undefined;
   }
 }

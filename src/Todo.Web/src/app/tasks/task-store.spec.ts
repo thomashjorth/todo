@@ -97,4 +97,66 @@ describe('TaskStore', () => {
     TestBed.inject(HttpTestingController).verify();
     expect(store.tasks()).toEqual([]);
   });
+
+  it('should send the whole task on update, with only the changed field replaced', async () => {
+    const task = new TodoTask({
+      ...taskIn(DeadlineBucket.Today),
+      title: 'Betal regningen',
+      note: 'Husk kontonummeret',
+      deadline: '2026-08-13',
+      requester: 'Anna',
+    });
+    const http = TestBed.inject(HttpTestingController);
+
+    const updated = store.update(task, { requester: 'Bo' });
+
+    const request = http.expectOne(`/api/tasks/${task.id}`);
+    expect(request.request.method).toBe('PUT');
+    expect(JSON.parse(request.request.body)).toEqual({
+      title: 'Betal regningen',
+      note: 'Husk kontonummeret',
+      deadline: '2026-08-13',
+      requester: 'Bo',
+      status: TodoStatus.Open,
+    });
+    request.flush(new Blob([JSON.stringify(task.toJSON())]));
+
+    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
+    await updated;
+  });
+
+  it('should leave the deadline out of the update when it is cleared', async () => {
+    const task = new TodoTask({ ...taskIn(DeadlineBucket.Today), deadline: '2026-08-13' });
+    const http = TestBed.inject(HttpTestingController);
+
+    void store.update(task, { deadline: undefined });
+
+    const request = http.expectOne(`/api/tasks/${task.id}`);
+    expect(JSON.parse(request.request.body).deadline).toBeUndefined();
+  });
+
+  it('should send no request when the update changes nothing', async () => {
+    const task = new TodoTask({ ...taskIn(DeadlineBucket.Today), requester: 'Anna' });
+
+    await store.update(task, { requester: 'Anna', status: TodoStatus.Open });
+
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('should delete a task and reload the list', async () => {
+    const http = TestBed.inject(HttpTestingController);
+
+    const removed = store.remove('abc');
+
+    const request = http.expectOne('/api/tasks/abc');
+    expect(request.request.method).toBe('DELETE');
+    request.flush(new Blob([]), { status: 204, statusText: 'No Content' });
+
+    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
+    await removed;
+
+    expect(store.tasks()).toEqual([]);
+  });
 });

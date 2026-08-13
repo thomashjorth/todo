@@ -97,6 +97,44 @@ describe('TaskList', () => {
     expect(input.value).toBe('');
   });
 
+  it('should expand one row at a time and prefill it with the task', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+    const rows = element.querySelectorAll('[data-testid="task-row"]');
+
+    rows[0].querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const detail = rows[0].querySelector('[data-testid="task-detail"]')!;
+    expect(detail.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('2026-08-10');
+    expect(detail.querySelector<HTMLSelectElement>('select')!.value).toBe('open');
+    expect(rows[1].querySelector('[data-testid="task-detail"]')).toBeNull();
+
+    rows[1].querySelector('button')!.click();
+    fixture.detectChanges();
+
+    expect(rows[0].querySelector('[data-testid="task-detail"]')).toBeNull();
+    expect(rows[1].querySelector('[data-testid="task-detail"]')).not.toBeNull();
+  });
+
+  it('should delete the task without asking first', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/tasks?includeCompleted=false').flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+    const row = element.querySelector('[data-testid="task-row"]')!;
+
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+    row.querySelector<HTMLButtonElement>('[data-testid="delete-task"]')!.click();
+
+    const request = http.expectOne(`/api/tasks/${items[0].id}`);
+    expect(request.request.method).toBe('DELETE');
+  });
+
   it('should not create a task from a blank input', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);

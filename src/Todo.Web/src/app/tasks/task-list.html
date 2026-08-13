@@ -23,12 +23,76 @@
       <ul class="mt-1 divide-y divide-gray-100">
         @for (task of section.tasks; track task.id) {
           <li data-testid="task-row" class="py-2">
-            <p class="text-sm break-words text-gray-900">{{ task.title }}</p>
-            @if (task.deadline) {
-              <p class="text-xs text-gray-500">Deadline: {{ task.deadline }}</p>
-            }
-            @if (task.requester) {
-              <p class="text-xs text-gray-500">Opgavestiller: {{ task.requester }}</p>
+            <button
+              type="button"
+              class="block w-full min-w-0 text-left"
+              (click)="toggle(task)"
+            >
+              <span class="block text-sm break-words text-gray-900">{{ task.title }}</span>
+              @if (task.deadline) {
+                <span class="block text-xs text-gray-500">Deadline: {{ task.deadline }}</span>
+              }
+              @if (task.requester) {
+                <span class="block text-xs text-gray-500">Opgavestiller: {{ task.requester }}</span>
+              }
+            </button>
+            @if (expandedId() === task.id) {
+              <div data-testid="task-detail" class="mt-2 space-y-2 rounded bg-gray-50 p-2">
+                <label class="block">
+                  <span class="block text-xs text-gray-500">Deadline</span>
+                  <input
+                    #deadline
+                    type="date"
+                    class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    [value]="task.deadline ?? ''"
+                    (blur)="save(task, { deadline: text(deadline.value) })"
+                    (keyup.enter)="save(task, { deadline: text(deadline.value) })"
+                  />
+                </label>
+                <label class="block">
+                  <span class="block text-xs text-gray-500">Opgavestiller</span>
+                  <input
+                    #requester
+                    type="text"
+                    class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    [value]="task.requester ?? ''"
+                    (blur)="save(task, { requester: text(requester.value) })"
+                    (keyup.enter)="save(task, { requester: text(requester.value) })"
+                  />
+                </label>
+                <label class="block">
+                  <span class="block text-xs text-gray-500">Note</span>
+                  <textarea
+                    #note
+                    rows="3"
+                    class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    [value]="task.note ?? ''"
+                    (blur)="save(task, { note: text(note.value) })"
+                  ></textarea>
+                </label>
+                <label class="block">
+                  <span class="block text-xs text-gray-500">Status</span>
+                  <select
+                    #status
+                    class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    (change)="saveStatus(task, status.value)"
+                  >
+                    @for (option of statusOptions; track option.value) {
+                      <option [value]="option.value" [selected]="option.value === task.status">
+                        {{ option.label }}
+                      </option>
+                    }
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  data-testid="delete-task"
+                  class="text-xs text-red-600 underline"
+                  (click)="remove(task)"
+                >
+                  Slet opgave
+                </button>
+              </div>
             }
           </li>
         }

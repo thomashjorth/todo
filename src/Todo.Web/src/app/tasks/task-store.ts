@@ -1,6 +1,13 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { CreateTodoTaskRequest, DeadlineBucket, TasksClient, TodoTask } from '../api/todo-client';
+import {
+  CreateTodoTaskRequest,
+  DeadlineBucket,
+  TasksClient,
+  TodoStatus,
+  TodoTask,
+  UpdateTodoTaskRequest,
+} from '../api/todo-client';
 
 const bucketOrder: readonly DeadlineBucket[] = [
   DeadlineBucket.Overdue,
@@ -13,6 +20,14 @@ const bucketOrder: readonly DeadlineBucket[] = [
 export interface TaskSection {
   bucket: DeadlineBucket;
   tasks: TodoTask[];
+}
+
+export interface TaskChanges {
+  title?: string;
+  note?: string;
+  deadline?: string;
+  requester?: string;
+  status?: TodoStatus;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -41,6 +56,31 @@ export class TaskStore {
     }
 
     await firstValueFrom(this.client.createTask(new CreateTodoTaskRequest({ title: trimmed })));
+    await this.load();
+  }
+
+  async update(task: TodoTask, changes: TaskChanges): Promise<void> {
+    const current = {
+      title: task.title,
+      note: task.note,
+      deadline: task.deadline,
+      requester: task.requester,
+      status: task.status,
+    };
+    // A spread rather than ?? so that an explicit undefined clears the field.
+    const next = { ...current, ...changes };
+
+    const keys = Object.keys(current) as (keyof typeof current)[];
+    if (keys.every((key) => next[key] === current[key])) {
+      return;
+    }
+
+    await firstValueFrom(this.client.updateTask(task.id, new UpdateTodoTaskRequest(next)));
+    await this.load();
+  }
+
+  async remove(id: string): Promise<void> {
+    await firstValueFrom(this.client.deleteTask(id));
     await this.load();
   }
 }
