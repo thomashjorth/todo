@@ -6,7 +6,9 @@
 
 **Architecture:** Én proces. `TodoHost.Build(args)` bygger en `WebApplication` der lytter på loopback med tilfældig port og serverer Angular fra `wwwroot`. `Program.Main` åbner et Photino-vindue mod den adresse, medmindre `--headless` er givet. Tests kalder `TodoHost.Build` direkte i egen proces og læser den tildelte adresse — ingen proces-spawning, ingen `WebApplicationFactory`.
 
-**Tech Stack:** .NET 10 (SDK 10.0.300, runtime 10.0.8) · Photino.NET 4.0.16 · NSwag.ConsoleCore 14.7.1 · Angular 22.1.3 · xunit.v3 3.2.2 · Microsoft.Playwright 1.62.0 · YamlDotNet 18.1.0
+**Tech Stack:** .NET 10 (SDK 10.0.300, runtime 10.0.8) · Microsoft.AspNetCore.OpenApi 10.0.11 · Photino.NET 4.0.16 · NSwag.ConsoleCore 14.7.1 · Angular 22.1.3 · xunit.v3 3.2.2 · Microsoft.Playwright 1.62.0 · YamlDotNet 18.1.0
+
+**`Microsoft.AspNetCore.OpenApi` skal være 10.0.11 — ikke 10.0.8.** 10.0.8 har en eksakt afhængighed af `Microsoft.OpenApi` 2.0.0, som har en kendt high severity-sårbarhed (GHSA-v5pm-xwqc-g5wc), så hvert `dotnet restore` udsender `NU1903`. 10.0.11 afhænger i stedet af `Microsoft.OpenApi [2.7.5, 3.0.0)`, som er rettet. Pakken er ikke en del af det delte framework, så 10.0.11 kører fint på runtime 10.0.8.
 
 **Verificeret på maskinen 2026-08-13:** dotnet 10.0.300, node v22.23.1, npm 10.8.2, @angular/cli 22.1.3, nuget.org tilgængelig. **`pwsh` findes ikke** — kun Windows PowerShell 5.1. Derfor installeres Playwright-browsere via `Microsoft.Playwright.Program.Main`, ikke via `playwright.ps1`.
 
@@ -283,6 +285,7 @@ git add -A && git commit -m "✨ Generate C# DTOs and Angular client from the Op
 Test først. Testen ejer HTTP-kontrakten; implementeringen følger efter.
 
 **Files:**
+- Create: `tests/Directory.Build.props`
 - Create: `tests/Todo.TestSupport/Todo.TestSupport.csproj`
 - Create: `tests/Todo.TestSupport/RepoPaths.cs`
 - Create: `tests/Todo.TestSupport/RunningHost.cs`
@@ -299,10 +302,10 @@ Test først. Testen ejer HTTP-kontrakten; implementeringen følger efter.
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <RootNamespace>Todo.Host</RootNamespace>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <PackageReference Include="Photino.NET" Version="4.0.16" />
   </ItemGroup>
   <ItemGroup>
@@ -311,7 +314,26 @@ Test først. Testen ejer HTTP-kontrakten; implementeringen følger efter.
 </Project>
 ```
 
-**Step 2: Opret testsupport-projektet**
+**`<OutputType>Library</OutputType>` skal stå der.** `Microsoft.NET.Sdk.Web` sætter som standard `Exe`, og et `Exe`-projekt uden `Main` fejler med `CS5001: Program does not contain a static 'Main' method suitable for an entry point`. Hosten har først en `Program.cs` i task 7 — indtil da skal `Library` stå eksplicit, ellers kan projektet slet ikke bygge. **Task 7 skifter den tilbage til `Exe`.**
+
+**Step 2: Opret `tests/Directory.Build.props`**
+
+```xml
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <PropertyGroup>
+    <!-- These tests are short-lived and local; threading a CancellationToken through
+         every call buys responsiveness we will never notice. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+</Project>
+```
+
+xunit's analyzer udsender `xUnit1051` for hvert kald der tager en `CancellationToken` uden at få `TestContext.Current.CancellationToken`. Advarslen undertrykkes bevidst ét sted for alle testprojekter, frem for at tråde en `CancellationToken` gennem `RunningHost.StartAsync` og hvert HTTP-kald: testene er få, hurtige og lokale, så mere responsiv annullering er ikke værd at API-støjen. Uden filen dukker de samme advarsler op igen i task 5, 6 og 10.
+
+**`Import`-linjen er ikke til pynt.** MSBuild stopper sin søgning ved den *første* `Directory.Build.props` den finder opad, så en fil i `tests/` afskærer rodens fil — og så mister testprojekterne `TargetFramework`, `Nullable`, `ImplicitUsings` og `LangVersion` i stilhed. `GetPathOfFileAbove` importerer roden manuelt igen. Kontrollér med `dotnet msbuild tests\Todo.Api.Tests\Todo.Api.Tests.csproj -getProperty:TargetFramework`; svaret skal være `net10.0`.
+
+**Step 3: Opret testsupport-projektet**
 
 `tests/Todo.TestSupport/Todo.TestSupport.csproj`:
 
@@ -416,7 +438,7 @@ public sealed class RunningHost : IAsyncDisposable
 }
 ```
 
-**Step 3: Opret testprojektet**
+**Step 4: Opret testprojektet**
 
 `tests/Todo.Api.Tests/Todo.Api.Tests.csproj`:
 
@@ -434,12 +456,17 @@ public sealed class RunningHost : IAsyncDisposable
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
   <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Todo.TestSupport\Todo.TestSupport.csproj" />
   </ItemGroup>
 </Project>
 ```
 
-**Step 4: Skriv den fejlende test**
+**`<Using Include="Xunit" />` skal med.** xunit.v3 3.2.2 leverer ikke selv en implicit global using for `Xunit`, så uden linjen fejler `[Fact]` med `CS0246: The type or namespace name 'FactAttribute' could not be found` — også selv om `ImplicitUsings` er slået til i roden. Alternativet er `using Xunit;` i hver testfil.
+
+**Step 5: Skriv den fejlende test**
 
 `tests/Todo.Api.Tests/HealthEndpointTests.cs`:
 
@@ -469,7 +496,7 @@ public class HealthEndpointTests
 }
 ```
 
-**Step 5: Tilføj projekterne til solution og kør testen**
+**Step 6: Tilføj projekterne til solution og kør testen**
 
 ```bash
 dotnet sln add src/Todo.Host/Todo.Host.csproj tests/Todo.TestSupport/Todo.TestSupport.csproj tests/Todo.Api.Tests/Todo.Api.Tests.csproj
@@ -478,7 +505,7 @@ dotnet sln add src/Todo.Host/Todo.Host.csproj tests/Todo.TestSupport/Todo.TestSu
 Run: `dotnet test tests/Todo.Api.Tests`
 Expected: **compile error** — `TodoHost` findes ikke endnu. Det er den røde fase.
 
-**Step 6: Skriv den minimale implementering**
+**Step 7: Skriv den minimale implementering**
 
 `src/Todo.Host/TodoHost.cs`:
 
@@ -518,12 +545,12 @@ public static class TodoHost
 }
 ```
 
-**Step 7: Kør testen igen**
+**Step 8: Kør testen igen**
 
 Run: `dotnet test tests/Todo.Api.Tests`
-Expected: **1 passed**.
+Expected: **1 passed**, 0 warnings.
 
-**Step 8: Commit**
+**Step 9: Commit**
 
 ```bash
 git add -A && git commit -m "✨ Add host with health endpoint and in-process test harness"
@@ -693,9 +720,20 @@ git add -A && git commit -m "✅ Fail the build when generated code lags the con
 ## Task 7: Photino-vindue og `--headless`
 
 **Files:**
+- Modify: `src/Todo.Host/Todo.Host.csproj`
 - Create: `src/Todo.Host/Program.cs`
 
-**Step 1: Skriv `Program.cs`**
+**Step 1: Skift `OutputType` tilbage til `Exe` — gør det først**
+
+I `src/Todo.Host/Todo.Host.csproj`:
+
+```xml
+    <OutputType>Exe</OutputType>
+```
+
+Task 4 satte bevidst `Library`, fordi et `Exe`-projekt uden `Main` fejler med `CS5001`. Fra og med denne task leverer `Program.cs` et entrypoint, så `Library` er ikke længere korrekt: **glemmer du dette skridt, bygges der aldrig en eksekverbar, og Photino-vinduet kan ikke startes** — `dotnet run --project src/Todo.Host` i step 4 og 5 fejler. Lav ændringen sammen med `Program.cs`, ikke bagefter.
+
+**Step 2: Skriv `Program.cs`**
 
 ```csharp
 using System.Drawing;
@@ -745,7 +783,7 @@ public static class Program
 }
 ```
 
-**Step 2: Sæt en standardadresse i `TodoHost.Build`**
+**Step 3: Sæt en standardadresse i `TodoHost.Build`**
 
 Indsæt lige efter `var builder = WebApplication.CreateBuilder(args);`:
 
@@ -758,31 +796,31 @@ Indsæt lige efter `var builder = WebApplication.CreateBuilder(args);`:
 
 Vinduet skal have en tilfældig ledig port, ikke en fast en der kan være optaget.
 
-**Step 3: Byg**
+**Step 4: Byg**
 
 Run: `dotnet build Todo.sln`
 Expected: `Build succeeded`.
 
-**Step 4: Røgtest — headless**
+**Step 5: Røgtest — headless**
 
 Run: `dotnet run --project src/Todo.Host -- --headless --urls http://127.0.0.1:5199`
 
 Åbn `http://127.0.0.1:5199/api/health` i en browser.
 Expected: `{"status":"ok","version":"1.0.0.0"}`. Stop med Ctrl+C.
 
-**Step 5: Røgtest — vindue**
+**Step 6: Røgtest — vindue**
 
 Run: `dotnet run --project src/Todo.Host`
 Expected: Et vindue med titlen "Todo" åbner. Det viser 404, fordi Angular ikke er bygget endnu — det er forventet og løses i task 9. Luk vinduet; processen skal afslutte af sig selv.
 
 Åbner intet vindue, mangler WebView2-runtime — hent "Evergreen Bootstrapper" fra Microsoft.
 
-**Step 6: Kør alle tests igen**
+**Step 7: Kør alle tests igen**
 
 Run: `dotnet test Todo.sln`
 Expected: **3 passed**. Testene rører ikke `Program.Main`, så de skal være upåvirkede.
 
-**Step 7: Commit**
+**Step 8: Commit**
 
 ```bash
 git add -A && git commit -m "✨ Open a Photino window over the host, with a headless switch"
@@ -993,10 +1031,15 @@ git add -A && git commit -m "✨ Serve the Angular app from the host and proxy t
     <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
   </ItemGroup>
   <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Todo.TestSupport\Todo.TestSupport.csproj" />
   </ItemGroup>
 </Project>
 ```
+
+Også her skal `<Using Include="Xunit" />` med — xunit.v3 3.2.2 har ingen implicit `Xunit`-global using, så `[Fact]` og `IAsyncLifetime` giver `CS0246` uden den. `xUnit1051` er derimod allerede håndteret af `tests/Directory.Build.props` fra task 4, og skal ikke undertrykkes igen her.
 
 **Step 2: Skriv browser-fixturen**
 
