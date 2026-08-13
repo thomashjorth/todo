@@ -84,8 +84,6 @@ export class HealthResponse implements IHealthResponse {
     status!: string;
     version!: string;
 
-    [key: string]: any;
-
     constructor(data?: IHealthResponse) {
         if (data) {
             for (var property in data) {
@@ -97,10 +95,6 @@ export class HealthResponse implements IHealthResponse {
 
     init(_data?: any) {
         if (_data) {
-            for (var property in _data) {
-                if (_data.hasOwnProperty(property))
-                    this[property] = _data[property];
-            }
             this.status = _data["status"];
             this.version = _data["version"];
         }
@@ -115,10 +109,6 @@ export class HealthResponse implements IHealthResponse {
 
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
-        for (var property in this) {
-            if (this.hasOwnProperty(property))
-                data[property] = this[property];
-        }
         data["status"] = this.status;
         data["version"] = this.version;
         return data;
@@ -128,8 +118,6 @@ export class HealthResponse implements IHealthResponse {
 export interface IHealthResponse {
     status: string;
     version: string;
-
-    [key: string]: any;
 }
 
 export class ApiException extends Error {

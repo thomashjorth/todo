@@ -38,15 +38,6 @@ namespace Todo.Contracts
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string Version { get; set; }
 
-        private System.Collections.Generic.IDictionary<string, object> _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
 

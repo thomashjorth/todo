@@ -11,6 +11,9 @@ $hashOut = Join-Path $root 'src\Todo.Contracts\Generated\.source-hash'
 New-Item -ItemType Directory -Force -Path (Split-Path $csOut) | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path $tsOut) | Out-Null
 
+dotnet tool restore
+if ($LASTEXITCODE -ne 0) { throw "dotnet tool restore failed ($LASTEXITCODE)" }
+
 Write-Host 'Generating C# DTOs...'
 dotnet nswag openapi2csclient `
     /input:$contract `
@@ -34,8 +37,7 @@ dotnet nswag openapi2tsclient `
     /typeStyle:Class
 if ($LASTEXITCODE -ne 0) { throw "NSwag TypeScript generation failed ($LASTEXITCODE)" }
 
-# Line endings are normalised before hashing: core.autocrlf gives the working copy
-# CRLF, so a raw byte hash would differ between machines and checkouts.
+# core.autocrlf gives the working copy CRLF, so a raw byte hash would be machine-dependent.
 $normalized = ([System.IO.File]::ReadAllText($contract)) -replace "`r`n", "`n"
 $sha = [System.Security.Cryptography.SHA256]::Create()
 try {
