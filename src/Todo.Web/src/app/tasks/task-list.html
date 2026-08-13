@@ -1,0 +1,31 @@
+<div class="mt-4 space-y-5">
+  @for (section of store.sections(); track section.bucket) {
+    <section
+      data-testid="task-section"
+      class="border-l-2 pl-3"
+      [class]="section.bucket === overdue ? 'border-red-200' : 'border-gray-200'"
+    >
+      <h2
+        class="text-xs font-semibold tracking-wide uppercase"
+        [class]="section.bucket === overdue ? 'text-red-600' : 'text-gray-500'"
+      >
+        {{ label(section.bucket) }}
+      </h2>
+      <ul class="mt-1 divide-y divide-gray-100">
+        @for (task of section.tasks; track task.id) {
+          <li data-testid="task-row" class="py-2">
+            <p class="text-sm break-words text-gray-900">{{ task.title }}</p>
+            @if (task.deadline) {
+              <p class="text-xs text-gray-500">Deadline: {{ task.deadline }}</p>
+            }
+            @if (task.requester) {
+              <p class="text-xs text-gray-500">Opgavestiller: {{ task.requester }}</p>
+            }
+          </li>
+        }
+      </ul>
+    </section>
+  } @empty {
+    <p class="text-sm text-gray-500">Ingen opgaver.</p>
+  }
+</div>

@@ -1,8 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
 import { HealthClient, HealthResponse } from './api/todo-client';
+import { TaskList } from './tasks/task-list';
 
 @Component({
   selector: 'app-root',
+  imports: [TaskList],
   templateUrl: './app.html',
 })
 export class App {
