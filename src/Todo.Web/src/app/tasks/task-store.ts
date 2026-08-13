@@ -1,11 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
+  CreateSubTaskRequest,
   CreateTodoTaskRequest,
   DeadlineBucket,
   TasksClient,
   TodoStatus,
+  TodoSubTask,
   TodoTask,
+  UpdateSubTaskRequest,
   UpdateTodoTaskRequest,
 } from '../api/todo-client';
 
@@ -20,6 +23,10 @@ const bucketOrder: readonly DeadlineBucket[] = [
 export interface TaskSection {
   bucket: DeadlineBucket;
   tasks: TodoTask[];
+}
+
+export function subTaskProgress(task: TodoTask): string {
+  return `${task.subTasks.filter((s) => s.isDone).length}/${task.subTasks.length}`;
 }
 
 export interface TaskChanges {
@@ -96,6 +103,35 @@ export class TaskStore {
 
   async remove(id: string): Promise<void> {
     await firstValueFrom(this.client.deleteTask(id));
+    await this.load();
+  }
+
+  // The subtasks arrive inside their parent task, so every change reloads the list.
+  async addSubTask(taskId: string, title: string): Promise<void> {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    await firstValueFrom(
+      this.client.createSubTask(taskId, new CreateSubTaskRequest({ title: trimmed })),
+    );
+    await this.load();
+  }
+
+  async setSubTaskDone(taskId: string, subTask: TodoSubTask, isDone: boolean): Promise<void> {
+    await firstValueFrom(
+      this.client.updateSubTask(
+        taskId,
+        subTask.id,
+        new UpdateSubTaskRequest({ title: subTask.title, isDone }),
+      ),
+    );
+    await this.load();
+  }
+
+  async removeSubTask(taskId: string, subTaskId: string): Promise<void> {
+    await firstValueFrom(this.client.deleteSubTask(taskId, subTaskId));
     await this.load();
   }
 }

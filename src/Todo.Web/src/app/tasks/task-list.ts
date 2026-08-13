@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
-import { TaskChanges, TaskStore } from './task-store';
+import { DeadlineBucket, TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
+import { TaskChanges, TaskStore, subTaskProgress } from './task-store';
 
 const bucketLabels: Record<DeadlineBucket, string> = {
   [DeadlineBucket.Overdue]: 'Overskredet',
@@ -25,6 +25,7 @@ export class TaskList {
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly statusOptions = statusOptions;
   protected readonly done = TodoStatus.Done;
+  protected readonly progress = subTaskProgress;
   protected readonly expandedId = signal<string | null>(null);
   protected readonly completed = computed(() =>
     this.store.showCompleted() ? this.store.completedTasks() : [],
@@ -67,6 +68,24 @@ export class TaskList {
 
   protected setShowCompleted(value: boolean): void {
     this.store.setShowCompleted(value).catch(() => {});
+  }
+
+  protected createSubTask(task: TodoTask, input: HTMLInputElement): void {
+    const title = input.value;
+    if (!title.trim()) {
+      return;
+    }
+
+    input.value = '';
+    this.store.addSubTask(task.id, title).catch(() => {});
+  }
+
+  protected setSubTaskDone(task: TodoTask, subTask: TodoSubTask, isDone: boolean): void {
+    this.store.setSubTaskDone(task.id, subTask, isDone).catch(() => {});
+  }
+
+  protected removeSubTask(task: TodoTask, subTask: TodoSubTask): void {
+    this.store.removeSubTask(task.id, subTask.id).catch(() => {});
   }
 
   protected remove(task: TodoTask): void {

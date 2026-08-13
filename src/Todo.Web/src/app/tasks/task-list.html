@@ -54,6 +54,11 @@
                     >Opgavestiller: {{ task.requester }}</span
                   >
                 }
+                @if (task.subTasks.length > 0) {
+                  <span data-testid="subtask-progress" class="block text-xs text-gray-500">{{
+                    progress(task)
+                  }}</span>
+                }
               </button>
             </div>
             @if (expandedId() === task.id) {
@@ -104,6 +109,43 @@
                     }
                   </select>
                 </label>
+                <div class="space-y-1">
+                  <span class="block text-xs text-gray-500">Underopgaver</span>
+                  @for (subTask of task.subTasks; track subTask.id) {
+                    <div data-testid="subtask-row" class="flex items-start gap-2">
+                      <input
+                        #subTaskDone
+                        type="checkbox"
+                        class="mt-1 shrink-0"
+                        [checked]="subTask.isDone"
+                        (click)="$event.stopPropagation()"
+                        (change)="setSubTaskDone(task, subTask, subTaskDone.checked)"
+                      />
+                      <span
+                        class="min-w-0 flex-1 text-sm break-words"
+                        [class]="subTask.isDone ? 'text-gray-400 line-through' : 'text-gray-900'"
+                        >{{ subTask.title }}</span
+                      >
+                      <button
+                        type="button"
+                        data-testid="delete-subtask"
+                        aria-label="Slet underopgave"
+                        class="shrink-0 text-xs text-red-600"
+                        (click)="removeSubTask(task, subTask)"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  }
+                  <input
+                    #newSubTask
+                    data-testid="new-subtask-input"
+                    type="text"
+                    placeholder="Ny underopgave"
+                    class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    (keyup.enter)="createSubTask(task, newSubTask)"
+                  />
+                </div>
                 <button
                   type="button"
                   data-testid="delete-task"

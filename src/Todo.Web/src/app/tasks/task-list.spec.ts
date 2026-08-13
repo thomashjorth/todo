@@ -31,6 +31,17 @@ const items = [
   },
 ];
 
+const withSubTasks = [
+  {
+    ...items[0],
+    subTasks: [
+      { id: 'aaaa', title: 'Find kontonummeret', isDone: true },
+      { id: 'bbbb', title: 'Overfør beløbet', isDone: false },
+    ],
+  },
+  items[1],
+];
+
 // The generated client requests responseType 'blob' and decodes it with FileReader,
 // so a flushed response only reaches the template after a later microtask.
 function rendered(fixture: ComponentFixture<TaskList>): Promise<HTMLElement> {
@@ -190,6 +201,95 @@ describe('TaskList', () => {
     expect(
       element.querySelectorAll('[data-testid="task-section"] [data-testid="task-row"]'),
     ).toHaveLength(2);
+  });
+
+  it('should show the ticked-off count on the row that has subtasks', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
+
+    const rows = (await rendered(fixture)).querySelectorAll('[data-testid="task-row"]');
+
+    expect(rows[0].querySelector('[data-testid="subtask-progress"]')!.textContent!.trim()).toBe(
+      '1/2',
+    );
+    expect(rows[1].querySelector('[data-testid="subtask-progress"]')).toBeNull();
+  });
+
+  it('should list the subtasks of the expanded row', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const subTaskRows = row.querySelectorAll('[data-testid="subtask-row"]');
+    expect([...subTaskRows].map((r) => r.querySelector('span')!.textContent)).toEqual([
+      'Find kontonummeret',
+      'Overfør beløbet',
+    ]);
+    expect(subTaskRows[0].querySelector('span')!.className).toContain('line-through');
+    expect(subTaskRows[0].querySelector<HTMLInputElement>('input')!.checked).toBe(true);
+    expect(subTaskRows[1].querySelector<HTMLInputElement>('input')!.checked).toBe(false);
+  });
+
+  it('should add a subtask on Enter and clear the input', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const input = row.querySelector<HTMLInputElement>('[data-testid="new-subtask-input"]')!;
+    input.value = 'Gem kvitteringen';
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+
+    const created = await vi.waitFor(() => http.expectOne(`/api/tasks/${items[0].id}/subtasks`));
+    expect(JSON.parse(created.request.body).title).toBe('Gem kvitteringen');
+    expect(input.value).toBe('');
+  });
+
+  it('should tick a subtask off without collapsing the row', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const checkbox = row.querySelectorAll('[data-testid="subtask-row"]')[1].querySelector('input')!;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    fixture.detectChanges();
+
+    const request = http.expectOne(`/api/tasks/${items[0].id}/subtasks/bbbb`);
+    expect(JSON.parse(request.request.body)).toEqual({ title: 'Overfør beløbet', isDone: true });
+    expect(row.querySelector('[data-testid="task-detail"]')).not.toBeNull();
+  });
+
+  it('should delete a subtask from its own row', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    row.querySelector<HTMLButtonElement>('[data-testid="delete-subtask"]')!.click();
+
+    const request = http.expectOne(`/api/tasks/${items[0].id}/subtasks/aaaa`);
+    expect(request.request.method).toBe('DELETE');
   });
 
   it('should not create a task from a blank input', async () => {

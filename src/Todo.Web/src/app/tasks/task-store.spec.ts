@@ -1,8 +1,14 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { API_BASE_URL, DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
-import { TaskStore } from './task-store';
+import {
+  API_BASE_URL,
+  DeadlineBucket,
+  TodoStatus,
+  TodoSubTask,
+  TodoTask,
+} from '../api/todo-client';
+import { TaskStore, subTaskProgress } from './task-store';
 
 function taskIn(bucket: DeadlineBucket): TodoTask {
   return new TodoTask({
@@ -14,6 +20,10 @@ function taskIn(bucket: DeadlineBucket): TodoTask {
     createdAt: '2026-08-13T18:25:56.60+00:00',
     subTasks: [],
   });
+}
+
+function subTask(title: string): TodoSubTask {
+  return new TodoSubTask({ id: 'sub-1', title, isDone: false });
 }
 
 describe('TaskStore', () => {
@@ -166,6 +176,71 @@ describe('TaskStore', () => {
     await store.update(task, { requester: 'Anna', status: TodoStatus.Open });
 
     TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('should add a subtask from the trimmed title and reload the list', async () => {
+    const http = TestBed.inject(HttpTestingController);
+
+    const added = store.addSubTask('abc', '  Pak køkkenet  ');
+
+    const created = http.expectOne('/api/tasks/abc/subtasks');
+    expect(created.request.method).toBe('POST');
+    expect(JSON.parse(created.request.body).title).toBe('Pak køkkenet');
+    created.flush(new Blob([JSON.stringify(subTask('Pak køkkenet').toJSON())]), {
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
+    await added;
+  });
+
+  it.each(['', '   '])('should send no request for the subtask title %j', async (title) => {
+    await store.addSubTask('abc', title);
+
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('should send the subtask title along when it is ticked off', async () => {
+    const http = TestBed.inject(HttpTestingController);
+
+    void store.setSubTaskDone('abc', subTask('Pak køkkenet'), true);
+
+    const request = http.expectOne(`/api/tasks/abc/subtasks/sub-1`);
+    expect(request.request.method).toBe('PUT');
+    expect(JSON.parse(request.request.body)).toEqual({ title: 'Pak køkkenet', isDone: true });
+  });
+
+  it('should delete a subtask and reload the list', async () => {
+    const http = TestBed.inject(HttpTestingController);
+
+    const removed = store.removeSubTask('abc', 'sub-1');
+
+    const request = http.expectOne('/api/tasks/abc/subtasks/sub-1');
+    expect(request.request.method).toBe('DELETE');
+    request.flush(new Blob([]), { status: 204, statusText: 'No Content' });
+
+    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
+    await removed;
+  });
+
+  it('should count only the ticked subtasks as progress', () => {
+    const task = new TodoTask({
+      ...taskIn(DeadlineBucket.Today),
+      subTasks: [
+        new TodoSubTask({ id: 'a', title: 'Et', isDone: true }),
+        new TodoSubTask({ id: 'b', title: 'To', isDone: false }),
+        new TodoSubTask({ id: 'c', title: 'Tre', isDone: true }),
+      ],
+    });
+
+    expect(subTaskProgress(task)).toBe('2/3');
+  });
+
+  it('should report no progress for a task without subtasks', () => {
+    expect(subTaskProgress(taskIn(DeadlineBucket.Today))).toBe('0/0');
   });
 
   it('should delete a task and reload the list', async () => {
