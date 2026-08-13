@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
+using Todo.Core;
 
 namespace Todo.Host;
 
@@ -17,7 +19,17 @@ public static class TodoHost
 
         builder.Services.AddOpenApi();
 
+        var databasePath = builder.Configuration["Data:Path"] ?? TodoDatabase.DefaultPath;
+        builder.Services.AddDbContext<TodoDbContext>(o => o.UseSqlite($"Data Source={databasePath}"));
+        builder.Services.AddSingleton<IClock, SystemClock>();
+
         var app = builder.Build();
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+            TodoDatabase.PrepareAsync(db, databasePath).GetAwaiter().GetResult();
+        }
 
         app.MapOpenApi();
         app.UseDefaultFiles();

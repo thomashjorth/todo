@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Host;
 
@@ -13,11 +14,13 @@ namespace Todo.TestSupport;
 public sealed class RunningHost : IAsyncDisposable
 {
     private readonly WebApplication _app;
+    private readonly string _databasePath;
 
-    private RunningHost(WebApplication app, string baseUrl)
+    private RunningHost(WebApplication app, string baseUrl, string databasePath)
     {
         _app = app;
         BaseUrl = baseUrl;
+        _databasePath = databasePath;
         Client = new HttpClient { BaseAddress = new Uri(baseUrl) };
     }
 
@@ -27,10 +30,13 @@ public sealed class RunningHost : IAsyncDisposable
 
     public static async Task<RunningHost> StartAsync(params string[] extraArgs)
     {
+        var databasePath = Path.Combine(Path.GetTempPath(), "EdoraTodo.Tests", $"{Guid.NewGuid():N}.db");
+
         string[] args =
         [
             "--urls", "http://127.0.0.1:0",
             "--contentRoot", RepoPaths.HostContentRoot,
+            "--Data:Path", databasePath,
             .. extraArgs
         ];
 
@@ -42,7 +48,7 @@ public sealed class RunningHost : IAsyncDisposable
             .Features.Get<IServerAddressesFeature>()!
             .Addresses.First();
 
-        return new RunningHost(app, baseUrl);
+        return new RunningHost(app, baseUrl, databasePath);
     }
 
     public async ValueTask DisposeAsync()
@@ -50,5 +56,21 @@ public sealed class RunningHost : IAsyncDisposable
         Client.Dispose();
         await _app.StopAsync();
         await _app.DisposeAsync();
+
+        SqliteConnection.ClearAllPools();
+
+        foreach (var file in new[] { _databasePath, $"{_databasePath}-wal", $"{_databasePath}-shm" })
+        {
+            try
+            {
+                File.Delete(file);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
     }
 }
