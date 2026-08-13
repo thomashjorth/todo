@@ -44,6 +44,21 @@ E2E kræver at `scripts\build-web.ps1` er kørt først, så den byggede app ligg
 `src\Todo.Host\wwwroot`. Første E2E-kørsel henter Chromium ned og tager derfor
 et par minutter.
 
+## Databasen
+
+Databasen ligger i `%APPDATA%\EdoraTodo\todo.db`. Migrationer køres ved opstart;
+findes der ventende migrationer, tages der først en kopi som
+`todo.db.bak-<tidsstempel>`. Vil du nulstille alt, så slet filen.
+
+Ny migration:
+
+```
+dotnet tool run dotnet-ef migrations add <Navn> --project src\Todo.Core --startup-project src\Todo.Host
+```
+
+Brug `dotnet tool run dotnet-ef`, ikke `dotnet ef` — den globalt installerede
+`dotnet-ef` 7.0.16 kan ikke læse en EF Core 10-model.
+
 ## Kontrakten
 
 `contracts/openapi.yaml` ejer API'et. Ændrer du den, så kør `scripts\generate-api.ps1`

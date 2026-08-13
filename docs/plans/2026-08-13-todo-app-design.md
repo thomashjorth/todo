@@ -75,18 +75,24 @@ Regel: synkronisering må kun skrive i `Ext*`-felter. Dine egne felter røres al
 
 ### `TaskItem`
 
-Dine felter: `Title`, `Note`, `Deadline`, `Requester`, `Status`
-(Åben / I gang / Færdig), `CompletedAt`, `SortOrder`, `TitleOverridden`.
+Bygget i skive 1: `Id`, `SourceId`, `Title`, `Note`, `Deadline` (`DateOnly?`),
+`Requester`, `Status` (`TodoStatus`, gemt som tekst), `CompletedAt`, `CreatedAt`,
+`SubTasks`.
 
-Kildefelter: `SourceId` (streng: `manual`, `jira`, `ado`, `ado-mention`, `retro`),
-`ExternalKey`, `ExternalUrl`, `ExtTitle`, `ExtStatus`, `ExtAssignee`,
-`ExtRequester`, `LastSyncedAt`, `DetachedAt`, `DetachedReason`.
+Resten af felterne herunder findes **endnu ikke** — de kommer sammen med de
+eksterne kilder, ikke før: `SortOrder`, `TitleOverridden`, `ExternalKey`,
+`ExternalUrl`, `ExtTitle`, `ExtStatus`, `ExtAssignee`, `ExtRequester`,
+`LastSyncedAt`, `DetachedAt`, `DetachedReason`.
+
+`ExternalKey` er den første der mangler: skive 2's dedup ved gen-import hviler på
+den, så skiven starter med en migrering der tilføjer feltet.
 
 `Title` og `Requester` fødes fra kilden ved import. Retter du dem, sætter appen
 `TitleOverridden` og holder fingrene fra dem derefter. **Deadline ejes altid
 lokalt**: Jiras due date foreslås ved import, men overskrives aldrig af sync.
 
 `SourceId` er en streng, ikke et enum, så en ny kilde ikke kræver en migrering.
+I dag står der `manual` i hver eneste række.
 
 ### `SubTask`
 
@@ -257,7 +263,8 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 0. **Skelet** — solution, Photino mod Kestrel, Angular der siger goddag,
    `--headless`, kontrakt-pipeline med NSwag, én Playwright-test. **Færdig.**
 1. **Egne opgaver** — CRUD med titel, note, deadline, opgavestiller, status.
-   Listen med Overskredet / I dag / Denne uge / Senere / Uden deadline.
+   Listen med Overskredet / I dag / Denne uge / Senere / Uden deadline,
+   "Vis færdige" og underopgaver som tjekliste. **Færdig.**
    *Herefter er appen brugbar; resten er tilkobling.*
 2. **Retro-import** — indsat CSV, forhåndsvisning, dedup. Den eneste eksterne
    kilde der hverken kræver tokens, netværk eller kendskab til serverversioner —
