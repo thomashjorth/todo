@@ -9,6 +9,12 @@ public static class TodoHost
     public static WebApplication Build(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        if (builder.Configuration["urls"] is null)
+        {
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+        }
+
         builder.Services.AddOpenApi();
 
         var app = builder.Build();
