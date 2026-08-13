@@ -1,0 +1,32 @@
+openapi: 3.0.4
+info:
+  title: Todo API
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      tags:
+        - Health
+      summary: Reports that the API is running.
+      responses:
+        '200':
+          description: The service is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+      properties:
+        status:
+          type: string
+          example: ok
+        version:
+          type: string
+          example: 1.0.0.0
