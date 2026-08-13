@@ -129,6 +129,7 @@ components:
   schemas:
     HealthResponse:
       type: object
+      additionalProperties: false
       required:
         - status
         - version
@@ -140,6 +141,8 @@ components:
           type: string
           example: 1.0.0.0
 ```
+
+`additionalProperties: false` lukker DTO'en. Uden den genererer NSwag en `[JsonExtensionData]`-pose i C# og en `[key: string]: any` index-signatur i TypeScript, og så er typekontrollen — hele pointen med en genereret klient — sat ud af kraft.
 
 **Step 2: Commit**
 
@@ -162,12 +165,14 @@ git add contracts/openapi.yaml && git commit -m "📝 Add OpenAPI contract with 
 **Step 1: Installér NSwag som lokalt værktøj**
 
 ```bash
-dotnet new tool-manifest
+dotnet new tool-manifest --output .config
 ```
 
 ```bash
 dotnet tool install NSwag.ConsoleCore --version 14.7.1
 ```
+
+`--output .config` er nødvendig: på SDK 10.0.300 skriver `dotnet new tool-manifest` uden flag manifestet i repo-roden, ikke i `.config/`.
 
 Et lokalt værktøj frem for et globalt, så versionen er pinnet i repoet og følger med en fremtidig CI.
 
@@ -198,6 +203,9 @@ $hashOut = Join-Path $root 'src\Todo.Contracts\Generated\.source-hash'
 New-Item -ItemType Directory -Force -Path (Split-Path $csOut) | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path $tsOut) | Out-Null
 
+dotnet tool restore
+if ($LASTEXITCODE -ne 0) { throw "dotnet tool restore failed ($LASTEXITCODE)" }
+
 Write-Host 'Generating C# DTOs...'
 dotnet nswag openapi2csclient `
     /input:$contract `
@@ -221,8 +229,7 @@ dotnet nswag openapi2tsclient `
     /typeStyle:Class
 if ($LASTEXITCODE -ne 0) { throw "NSwag TypeScript generation failed ($LASTEXITCODE)" }
 
-# Line endings are normalised before hashing: core.autocrlf gives the working copy
-# CRLF, so a raw byte hash would differ between machines and checkouts.
+# core.autocrlf gives the working copy CRLF, so a raw byte hash would be machine-dependent.
 $normalized = ([System.IO.File]::ReadAllText($contract)) -replace "`r`n", "`n"
 $sha = [System.Security.Cryptography.SHA256]::Create()
 try {
@@ -235,6 +242,8 @@ $hash = [System.BitConverter]::ToString($bytes).Replace('-', '')
 Write-Host "Done. Contract hash: $hash"
 ```
 
+**`dotnet tool restore` skal med.** Uden den virker `dotnet nswag` kun på en maskine der tilfældigvis har værktøjet i sin resolver-cache; på en frisk klon eller i CI fejler den med "Cannot find command 'nswag'". Det ville gøre pinningen i `.config/dotnet-tools.json` meningsløs.
+
 Hash-filen er kontrakten mellem kontrakten og den genererede kode: en test i task 6 fejler hvis `openapi.yaml` er ændret uden at generatoren er kørt.
 
 **Linjeskift normaliseres før hashing.** `core.autocrlf` giver arbejdskopien CRLF, så en rå byte-hash ville være maskinafhængig, og testen i task 6 ville fejle grundløst efter en frisk klon. Task 6 skal normalisere på præcis samme måde.
@@ -246,9 +255,11 @@ Expected: to filer skrevet plus `Done. Contract hash: <64 hex-tegn>`.
 
 Hvis et flag afvises, kør `dotnet nswag help openapi2tsclient` og ret flaget — versionen kan have omdøbt det.
 
+**Undtagelsen er `/operationGenerationMode`.** NSwag 14.7.1 accepterer `MultipleClientsFromFirstTagAndOperationId`, selv om `dotnet nswag help openapi2tsclient` ikke nævner værdien i sin liste. Hjælpeteksten er ufuldstændig, ikke autoritativ — lad være med at "rette" flaget efter den. Kommandoen kører grønt, og resultatet er en `HealthClient` med metoden `getHealth()`, hvilket er præcis det ønskede.
+
 **Step 5: Læs den genererede C#-fil igennem**
 
-Bekræft at `Todo.Contracts.HealthResponse` findes med `Status` og `Version`. Er der i stedet genereret en klient-klasse, mangler `/generateClientClasses:false`.
+Bekræft at `Todo.Contracts.HealthResponse` findes med `Status` og `Version`. Er der i stedet genereret en klient-klasse, mangler `/generateClientClasses:false`. Er der en `[JsonExtensionData] AdditionalProperties`-pose på DTO'en, mangler `additionalProperties: false` i kontrakten.
 
 **Step 6: Tilføj projektet til solution og byg**
 
@@ -796,6 +807,8 @@ ng new todo-web --directory src/Todo.Web --style=scss --ssr=false --skip-git --p
 ```
 
 Afvises et flag af CLI'en, så drop netop det flag og svar på prompten i stedet.
+
+**`ng new` kan nægte at scaffolde ind i `src/Todo.Web`,** fordi mappen ikke længere er tom — task 3 har allerede lagt den genererede `src/app/api/todo-client.ts` der. Sker det: flyt `src/Todo.Web/src/app/api` midlertidigt væk (fx til `src/Todo.Web.api-backup`), kør `ng new`, flyt mappen tilbage og kør generatoren igen. **Slet ikke den genererede klient** — den er committet med vilje, og et sletningsspor ville se ud som om task 3 aldrig blev kørt.
 
 **Step 2: Genskab den genererede klient**
 
