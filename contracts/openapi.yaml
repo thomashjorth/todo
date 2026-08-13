@@ -16,6 +16,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+  /api/tasks:
+    get:
+      operationId: listTasks
+      tags:
+        - Tasks
+      parameters:
+        - name: includeCompleted
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: The tasks, ordered by deadline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoTaskListResponse'
+    post:
+      operationId: createTask
+      tags:
+        - Tasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTodoTaskRequest'
+      responses:
+        '201':
+          description: The created task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoTask'
+        '400':
+          description: The request is not valid.
+  /api/tasks/{id}:
+    put:
+      operationId: updateTask
+      tags:
+        - Tasks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTodoTaskRequest'
+      responses:
+        '200':
+          description: The updated task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoTask'
+        '400':
+          description: The request is not valid.
+        '404':
+          description: No task with that id.
+    delete:
+      operationId: deleteTask
+      tags:
+        - Tasks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The task is gone.
+        '404':
+          description: No task with that id.
 components:
   schemas:
     HealthResponse:
@@ -31,3 +114,64 @@ components:
         version:
           type: string
           example: 1.0.0.0
+    TodoStatus:
+      type: string
+      enum: [open, inProgress, done]
+    DeadlineBucket:
+      type: string
+      enum: [overdue, today, thisWeek, later, noDeadline]
+    TodoSubTask:
+      type: object
+      additionalProperties: false
+      required: [id, title, isDone]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        isDone: { type: boolean }
+    TodoTask:
+      type: object
+      additionalProperties: false
+      required: [id, sourceId, title, status, bucket, createdAt, subTasks]
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string }
+        title: { type: string }
+        note: { type: string, nullable: true }
+        deadline: { type: string, format: date, nullable: true }
+        requester: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/TodoStatus' }
+        bucket: { $ref: '#/components/schemas/DeadlineBucket' }
+        completedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        subTasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TodoSubTask'
+    TodoTaskListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TodoTask'
+    CreateTodoTaskRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 500 }
+        note: { type: string, nullable: true }
+        deadline: { type: string, format: date, nullable: true }
+        requester: { type: string, nullable: true }
+    UpdateTodoTaskRequest:
+      type: object
+      additionalProperties: false
+      required: [title, status]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 500 }
+        note: { type: string, nullable: true }
+        deadline: { type: string, format: date, nullable: true }
+        requester: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/TodoStatus' }

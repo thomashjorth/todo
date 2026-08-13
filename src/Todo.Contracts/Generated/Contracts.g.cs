@@ -40,6 +40,170 @@ namespace Todo.Contracts
 
     }
 
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum TodoStatus
+    {
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"open")]
+        [System.Runtime.Serialization.EnumMember(Value = @"open")]
+        Open = 0,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"inProgress")]
+        [System.Runtime.Serialization.EnumMember(Value = @"inProgress")]
+        InProgress = 1,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"done")]
+        [System.Runtime.Serialization.EnumMember(Value = @"done")]
+        Done = 2,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum DeadlineBucket
+    {
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"overdue")]
+        [System.Runtime.Serialization.EnumMember(Value = @"overdue")]
+        Overdue = 0,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"today")]
+        [System.Runtime.Serialization.EnumMember(Value = @"today")]
+        Today = 1,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"thisWeek")]
+        [System.Runtime.Serialization.EnumMember(Value = @"thisWeek")]
+        ThisWeek = 2,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"later")]
+        [System.Runtime.Serialization.EnumMember(Value = @"later")]
+        Later = 3,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"noDeadline")]
+        [System.Runtime.Serialization.EnumMember(Value = @"noDeadline")]
+        NoDeadline = 4,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class TodoSubTask
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("isDone")]
+        public bool IsDone { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class TodoTask
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("sourceId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string SourceId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("deadline")]
+        public System.DateOnly? Deadline { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
+        public string Requester { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<TodoStatus>))]
+        public TodoStatus Status { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("bucket")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<DeadlineBucket>))]
+        public DeadlineBucket Bucket { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("completedAt")]
+        public System.DateTimeOffset? CompletedAt { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreatedAt { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("subTasks")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<TodoSubTask> SubTasks { get; set; } = new System.Collections.ObjectModel.Collection<TodoSubTask>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class TodoTaskListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("items")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<TodoTask> Items { get; set; } = new System.Collections.ObjectModel.Collection<TodoTask>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class CreateTodoTaskRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.StringLength(500, MinimumLength = 1)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("deadline")]
+        public System.DateOnly? Deadline { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
+        public string Requester { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class UpdateTodoTaskRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.StringLength(500, MinimumLength = 1)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("deadline")]
+        public System.DateOnly? Deadline { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
+        public string Requester { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<TodoStatus>))]
+        public TodoStatus Status { get; set; }
+
+    }
+
 
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]

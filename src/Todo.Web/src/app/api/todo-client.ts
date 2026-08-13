@@ -80,6 +80,255 @@ export class HealthClient {
     }
 }
 
+@Injectable({
+    providedIn: 'root'
+})
+export class TasksClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * @param includeCompleted (optional) 
+     * @return The tasks, ordered by deadline.
+     */
+    listTasks(includeCompleted: boolean | undefined): Observable<TodoTaskListResponse> {
+        let url_ = this.baseUrl + "/api/tasks?";
+        if (includeCompleted === null)
+            throw new globalThis.Error("The parameter 'includeCompleted' cannot be null.");
+        else if (includeCompleted !== undefined)
+            url_ += "includeCompleted=" + encodeURIComponent("" + includeCompleted) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processListTasks(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processListTasks(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<TodoTaskListResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<TodoTaskListResponse>;
+        }));
+    }
+
+    protected processListTasks(response: HttpResponseBase): Observable<TodoTaskListResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = TodoTaskListResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return The created task.
+     */
+    createTask(body: CreateTodoTaskRequest): Observable<TodoTask> {
+        let url_ = this.baseUrl + "/api/tasks";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processCreateTask(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processCreateTask(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<TodoTask>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<TodoTask>;
+        }));
+    }
+
+    protected processCreateTask(response: HttpResponseBase): Observable<TodoTask> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 201) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result201: any = null;
+            let resultData201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result201 = TodoTask.fromJS(resultData201);
+            return _observableOf(result201);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("The request is not valid.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return The updated task.
+     */
+    updateTask(id: string, body: UpdateTodoTaskRequest): Observable<TodoTask> {
+        let url_ = this.baseUrl + "/api/tasks/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processUpdateTask(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processUpdateTask(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<TodoTask>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<TodoTask>;
+        }));
+    }
+
+    protected processUpdateTask(response: HttpResponseBase): Observable<TodoTask> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = TodoTask.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("The request is not valid.", status, _responseText, _headers);
+            }));
+        } else if (status === 404) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("No task with that id.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return The task is gone.
+     */
+    deleteTask(id: string): Observable<void> {
+        let url_ = this.baseUrl + "/api/tasks/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processDeleteTask(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processDeleteTask(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processDeleteTask(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status === 404) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("No task with that id.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
 export class HealthResponse implements IHealthResponse {
     status!: string;
     version!: string;
@@ -118,6 +367,298 @@ export class HealthResponse implements IHealthResponse {
 export interface IHealthResponse {
     status: string;
     version: string;
+}
+
+export enum TodoStatus {
+    Open = "open",
+    InProgress = "inProgress",
+    Done = "done",
+}
+
+export enum DeadlineBucket {
+    Overdue = "overdue",
+    Today = "today",
+    ThisWeek = "thisWeek",
+    Later = "later",
+    NoDeadline = "noDeadline",
+}
+
+export class TodoSubTask implements ITodoSubTask {
+    id!: string;
+    title!: string;
+    isDone!: boolean;
+
+    constructor(data?: ITodoSubTask) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.title = _data["title"];
+            this.isDone = _data["isDone"];
+        }
+    }
+
+    static fromJS(data: any): TodoSubTask {
+        data = typeof data === 'object' ? data : {};
+        let result = new TodoSubTask();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["title"] = this.title;
+        data["isDone"] = this.isDone;
+        return data;
+    }
+}
+
+export interface ITodoSubTask {
+    id: string;
+    title: string;
+    isDone: boolean;
+}
+
+export class TodoTask implements ITodoTask {
+    id!: string;
+    sourceId!: string;
+    title!: string;
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    status!: TodoStatus;
+    bucket!: DeadlineBucket;
+    completedAt?: string | undefined;
+    createdAt!: string;
+    subTasks!: TodoSubTask[];
+
+    constructor(data?: ITodoTask) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.subTasks = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.sourceId = _data["sourceId"];
+            this.title = _data["title"];
+            this.note = _data["note"];
+            this.deadline = _data["deadline"];
+            this.requester = _data["requester"];
+            this.status = _data["status"];
+            this.bucket = _data["bucket"];
+            this.completedAt = _data["completedAt"];
+            this.createdAt = _data["createdAt"];
+            if (Array.isArray(_data["subTasks"])) {
+                this.subTasks = [] as any;
+                for (let item of _data["subTasks"])
+                    this.subTasks!.push(TodoSubTask.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): TodoTask {
+        data = typeof data === 'object' ? data : {};
+        let result = new TodoTask();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["sourceId"] = this.sourceId;
+        data["title"] = this.title;
+        data["note"] = this.note;
+        data["deadline"] = this.deadline;
+        data["requester"] = this.requester;
+        data["status"] = this.status;
+        data["bucket"] = this.bucket;
+        data["completedAt"] = this.completedAt;
+        data["createdAt"] = this.createdAt;
+        if (Array.isArray(this.subTasks)) {
+            data["subTasks"] = [];
+            for (let item of this.subTasks)
+                data["subTasks"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface ITodoTask {
+    id: string;
+    sourceId: string;
+    title: string;
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    status: TodoStatus;
+    bucket: DeadlineBucket;
+    completedAt?: string | undefined;
+    createdAt: string;
+    subTasks: TodoSubTask[];
+}
+
+export class TodoTaskListResponse implements ITodoTaskListResponse {
+    items!: TodoTask[];
+
+    constructor(data?: ITodoTaskListResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.items = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["items"])) {
+                this.items = [] as any;
+                for (let item of _data["items"])
+                    this.items!.push(TodoTask.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): TodoTaskListResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new TodoTaskListResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.items)) {
+            data["items"] = [];
+            for (let item of this.items)
+                data["items"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface ITodoTaskListResponse {
+    items: TodoTask[];
+}
+
+export class CreateTodoTaskRequest implements ICreateTodoTaskRequest {
+    title!: string;
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+
+    constructor(data?: ICreateTodoTaskRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.title = _data["title"];
+            this.note = _data["note"];
+            this.deadline = _data["deadline"];
+            this.requester = _data["requester"];
+        }
+    }
+
+    static fromJS(data: any): CreateTodoTaskRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new CreateTodoTaskRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["title"] = this.title;
+        data["note"] = this.note;
+        data["deadline"] = this.deadline;
+        data["requester"] = this.requester;
+        return data;
+    }
+}
+
+export interface ICreateTodoTaskRequest {
+    title: string;
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+}
+
+export class UpdateTodoTaskRequest implements IUpdateTodoTaskRequest {
+    title!: string;
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    status!: TodoStatus;
+
+    constructor(data?: IUpdateTodoTaskRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.title = _data["title"];
+            this.note = _data["note"];
+            this.deadline = _data["deadline"];
+            this.requester = _data["requester"];
+            this.status = _data["status"];
+        }
+    }
+
+    static fromJS(data: any): UpdateTodoTaskRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new UpdateTodoTaskRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["title"] = this.title;
+        data["note"] = this.note;
+        data["deadline"] = this.deadline;
+        data["requester"] = this.requester;
+        data["status"] = this.status;
+        return data;
+    }
+}
+
+export interface IUpdateTodoTaskRequest {
+    title: string;
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    status: TodoStatus;
 }
 
 export class ApiException extends Error {

@@ -44,6 +44,8 @@ public static class TodoHost
         .WithTags("Health")
         .Produces<HealthResponse>();
 
+        app.MapTasks();
+
         app.MapFallbackToFile("index.html");
 
         return app;

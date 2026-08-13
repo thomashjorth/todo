@@ -21,7 +21,9 @@ dotnet nswag openapi2csclient `
     /namespace:Todo.Contracts `
     /generateClientClasses:false `
     /generateDtoTypes:true `
-    /jsonLibrary:SystemTextJson
+    /dateType:System.DateOnly `
+    /jsonLibrary:SystemTextJson `
+    /jsonLibraryVersion:10.0
 if ($LASTEXITCODE -ne 0) { throw "NSwag C# generation failed ($LASTEXITCODE)" }
 
 Write-Host 'Generating Angular client...'
@@ -34,6 +36,7 @@ dotnet nswag openapi2tsclient `
     /injectionTokenType:InjectionToken `
     /useSingletonProvider:true `
     /operationGenerationMode:MultipleClientsFromFirstTagAndOperationId `
+    /dateTimeType:string `
     /typeStyle:Class
 if ($LASTEXITCODE -ne 0) { throw "NSwag TypeScript generation failed ($LASTEXITCODE)" }
 
