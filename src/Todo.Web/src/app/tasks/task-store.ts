@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { DeadlineBucket, TasksClient, TodoTask } from '../api/todo-client';
+import { CreateTodoTaskRequest, DeadlineBucket, TasksClient, TodoTask } from '../api/todo-client';
 
 const bucketOrder: readonly DeadlineBucket[] = [
   DeadlineBucket.Overdue,
@@ -32,5 +32,15 @@ export class TaskStore {
   async load(): Promise<void> {
     const response = await firstValueFrom(this.client.listTasks(this.showCompleted()));
     this.tasks.set(response.items);
+  }
+
+  async add(title: string): Promise<void> {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    await firstValueFrom(this.client.createTask(new CreateTodoTaskRequest({ title: trimmed })));
+    await this.load();
   }
 }

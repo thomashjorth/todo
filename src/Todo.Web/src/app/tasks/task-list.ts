@@ -26,4 +26,14 @@ export class TaskList {
   protected label(bucket: DeadlineBucket): string {
     return bucketLabels[bucket];
   }
+
+  protected create(input: HTMLInputElement): void {
+    const title = input.value;
+    if (!title.trim()) {
+      return;
+    }
+
+    input.value = '';
+    this.store.add(title).catch(() => {});
+  }
 }

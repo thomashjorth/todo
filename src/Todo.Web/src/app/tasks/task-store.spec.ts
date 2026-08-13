@@ -73,4 +73,28 @@ describe('TaskStore', () => {
 
     expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
   });
+
+  it('should create a task from the trimmed title and reload the list', async () => {
+    const http = TestBed.inject(HttpTestingController);
+
+    const added = store.add('  Køb mælk  ');
+
+    const created = http.expectOne('/api/tasks');
+    expect(created.request.method).toBe('POST');
+    expect(JSON.parse(created.request.body).title).toBe('Køb mælk');
+    created.flush(new Blob([JSON.stringify(taskIn(DeadlineBucket.Today).toJSON())]));
+
+    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    reloaded.flush(new Blob([JSON.stringify({ items: [taskIn(DeadlineBucket.Today).toJSON()] })]));
+    await added;
+
+    expect(store.tasks()).toHaveLength(1);
+  });
+
+  it.each(['', '   '])('should send no request for the title %j', async (title) => {
+    await store.add(title);
+
+    TestBed.inject(HttpTestingController).verify();
+    expect(store.tasks()).toEqual([]);
+  });
 });

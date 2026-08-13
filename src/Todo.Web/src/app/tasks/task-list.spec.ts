@@ -81,4 +81,33 @@ describe('TaskList', () => {
     expect(rows[0].textContent).toContain('Anna');
     expect(rows[1].textContent).not.toContain('Deadline');
   });
+
+  it('should create a task on Enter and clear the input', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/tasks?includeCompleted=false').flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+
+    const input = element.querySelector<HTMLInputElement>('[data-testid="new-task-input"]')!;
+    input.value = 'Vand blomsterne';
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+
+    const created = await vi.waitFor(() => http.expectOne('/api/tasks'));
+    expect(JSON.parse(created.request.body).title).toBe('Vand blomsterne');
+    expect(input.value).toBe('');
+  });
+
+  it('should not create a task from a blank input', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/tasks?includeCompleted=false').flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+
+    const input = element.querySelector<HTMLInputElement>('[data-testid="new-task-input"]')!;
+    input.value = '   ';
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+
+    http.verify();
+    expect(input.value).toBe('   ');
+  });
 });
