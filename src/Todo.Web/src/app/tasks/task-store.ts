@@ -37,16 +37,31 @@ export class TaskStore {
   readonly tasks = signal<TodoTask[]>([]);
   readonly showCompleted = signal(false);
 
+  // The server buckets by deadline only, so a completed task would otherwise linger
+  // in the deadline section it had before it was finished.
+  private readonly openTasks = computed(() =>
+    this.tasks().filter((t) => t.status !== TodoStatus.Done),
+  );
+
+  readonly completedTasks = computed(() =>
+    this.tasks().filter((t) => t.status === TodoStatus.Done),
+  );
+
   // The server orders the list and assigns the buckets; grouping preserves that order.
   readonly sections = computed<TaskSection[]>(() =>
     bucketOrder
-      .map((bucket) => ({ bucket, tasks: this.tasks().filter((t) => t.bucket === bucket) }))
+      .map((bucket) => ({ bucket, tasks: this.openTasks().filter((t) => t.bucket === bucket) }))
       .filter((section) => section.tasks.length > 0),
   );
 
   async load(): Promise<void> {
     const response = await firstValueFrom(this.client.listTasks(this.showCompleted()));
     this.tasks.set(response.items);
+  }
+
+  async setShowCompleted(value: boolean): Promise<void> {
+    this.showCompleted.set(value);
+    await this.load();
   }
 
   async add(title: string): Promise<void> {

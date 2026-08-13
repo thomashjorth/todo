@@ -60,6 +60,20 @@ describe('TaskStore', () => {
     expect(sections.every((s) => s.tasks.length > 0)).toBe(true);
   });
 
+  it('should keep completed tasks out of the deadline sections', () => {
+    const done = new TodoTask({ ...taskIn(DeadlineBucket.Today), status: TodoStatus.Done });
+    store.tasks.set([taskIn(DeadlineBucket.Overdue), done]);
+
+    expect(store.sections().map((s) => s.bucket)).toEqual([DeadlineBucket.Overdue]);
+    expect(store.completedTasks()).toEqual([done]);
+  });
+
+  it('should have no completed tasks while every task is open', () => {
+    store.tasks.set([taskIn(DeadlineBucket.Today), taskIn(DeadlineBucket.Later)]);
+
+    expect(store.completedTasks()).toEqual([]);
+  });
+
   it('should have no sections before anything is loaded', () => {
     expect(store.sections()).toEqual([]);
   });
@@ -72,6 +86,16 @@ describe('TaskStore', () => {
     await loaded;
 
     expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
+  });
+
+  it('should ask the API for completed tasks once they are shown', async () => {
+    const shown = store.setShowCompleted(true);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=true')
+      .flush(new Blob([JSON.stringify({ items: [] })]));
+    await shown;
+
+    expect(store.showCompleted()).toBe(true);
   });
 
   it('should create a task from the trimmed title and reload the list', async () => {

@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
 import { TaskChanges, TaskStore } from './task-store';
 
@@ -24,7 +24,11 @@ export class TaskList {
   protected readonly store = inject(TaskStore);
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly statusOptions = statusOptions;
+  protected readonly done = TodoStatus.Done;
   protected readonly expandedId = signal<string | null>(null);
+  protected readonly completed = computed(() =>
+    this.store.showCompleted() ? this.store.completedTasks() : [],
+  );
 
   constructor() {
     // A failed load needs no message of its own: the health line already reports the API down.
@@ -55,6 +59,14 @@ export class TaskList {
 
   protected saveStatus(task: TodoTask, status: string): void {
     this.save(task, { status: status as TodoStatus });
+  }
+
+  protected setDone(task: TodoTask, isDone: boolean): void {
+    this.save(task, { status: isDone ? TodoStatus.Done : TodoStatus.Open });
+  }
+
+  protected setShowCompleted(value: boolean): void {
+    this.store.setShowCompleted(value).catch(() => {});
   }
 
   protected remove(task: TodoTask): void {

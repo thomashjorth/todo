@@ -85,7 +85,9 @@ describe('TaskList', () => {
   it('should create a task on Enter and clear the input', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
-    http.expectOne('/api/tasks?includeCompleted=false').flush(new Blob([JSON.stringify({ items })]));
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
 
     const input = element.querySelector<HTMLInputElement>('[data-testid="new-task-input"]')!;
@@ -123,7 +125,9 @@ describe('TaskList', () => {
   it('should delete the task without asking first', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
-    http.expectOne('/api/tasks?includeCompleted=false').flush(new Blob([JSON.stringify({ items })]));
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
     const row = element.querySelector('[data-testid="task-row"]')!;
 
@@ -135,10 +139,65 @@ describe('TaskList', () => {
     expect(request.request.method).toBe('DELETE');
   });
 
+  it('should complete a task from the row checkbox without expanding it', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+    const row = element.querySelector('[data-testid="task-row"]')!;
+
+    const checkbox = row.querySelector<HTMLInputElement>('[data-testid="complete-toggle"]')!;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    fixture.detectChanges();
+
+    const request = http.expectOne(`/api/tasks/${items[0].id}`);
+    expect(JSON.parse(request.request.body).status).toBe('done');
+    expect(row.querySelector('[data-testid="task-detail"]')).toBeNull();
+  });
+
+  it('should show completed tasks struck through in their own section', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+
+    element.querySelector<HTMLInputElement>('[data-testid="show-completed"]')!.click();
+    fixture.detectChanges();
+    http
+      .expectOne('/api/tasks?includeCompleted=true')
+      .flush(
+        new Blob([JSON.stringify({ items: [...items, { ...items[0], id: 'x', status: 'done' }] })]),
+      );
+
+    const completed = await vi.waitFor(() => {
+      fixture.detectChanges();
+      const section = element.querySelector('[data-testid="completed-section"]');
+      expect(section).not.toBeNull();
+      return section!;
+    });
+
+    const rows = completed.querySelectorAll('[data-testid="task-row"]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].querySelector('span')!.className).toContain('line-through');
+    expect(
+      rows[0].querySelector<HTMLInputElement>('[data-testid="complete-toggle"]')!.checked,
+    ).toBe(true);
+    expect(
+      element.querySelectorAll('[data-testid="task-section"] [data-testid="task-row"]'),
+    ).toHaveLength(2);
+  });
+
   it('should not create a task from a blank input', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
-    http.expectOne('/api/tasks?includeCompleted=false').flush(new Blob([JSON.stringify({ items })]));
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
 
     const input = element.querySelector<HTMLInputElement>('[data-testid="new-task-input"]')!;
