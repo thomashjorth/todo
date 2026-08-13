@@ -119,8 +119,85 @@ public static class TaskEndpoints
         .WithName("deleteTask")
         .WithTags("Tasks");
 
+        app.MapPost("/api/tasks/{id:guid}/subtasks", async Task<Results<Created<TodoSubTask>, BadRequest, NotFound>> (
+            Guid id, CreateSubTaskRequest request, TodoDbContext db) =>
+        {
+            if (!IsValidTitle(request.Title))
+            {
+                return TypedResults.BadRequest();
+            }
+
+            if (!await db.Tasks.AnyAsync(t => t.Id == id))
+            {
+                return TypedResults.NotFound();
+            }
+
+            var highest = await db.SubTasks
+                .Where(s => s.TaskItemId == id)
+                .MaxAsync(s => (int?)s.SortOrder);
+
+            var subTask = new SubTask
+            {
+                TaskItemId = id,
+                Title = request.Title,
+                SortOrder = highest + 1 ?? 0,
+            };
+
+            db.SubTasks.Add(subTask);
+            await db.SaveChangesAsync();
+
+            return TypedResults.Created($"/api/tasks/{id}/subtasks/{subTask.Id}", ToContract(subTask));
+        })
+        .WithName("createSubTask")
+        .WithTags("Tasks");
+
+        app.MapPut("/api/tasks/{id:guid}/subtasks/{subTaskId:guid}", async Task<Results<Ok<TodoSubTask>, BadRequest, NotFound>> (
+            Guid id, Guid subTaskId, UpdateSubTaskRequest request, TodoDbContext db) =>
+        {
+            if (!IsValidTitle(request.Title))
+            {
+                return TypedResults.BadRequest();
+            }
+
+            var subTask = await FindSubTaskAsync(db, id, subTaskId);
+            if (subTask is null)
+            {
+                return TypedResults.NotFound();
+            }
+
+            // Ticking every box is not the same as finishing the task; only the user closes it.
+            subTask.Title = request.Title;
+            subTask.IsDone = request.IsDone;
+
+            await db.SaveChangesAsync();
+
+            return TypedResults.Ok(ToContract(subTask));
+        })
+        .WithName("updateSubTask")
+        .WithTags("Tasks");
+
+        app.MapDelete("/api/tasks/{id:guid}/subtasks/{subTaskId:guid}", async Task<Results<NoContent, NotFound>> (
+            Guid id, Guid subTaskId, TodoDbContext db) =>
+        {
+            var subTask = await FindSubTaskAsync(db, id, subTaskId);
+            if (subTask is null)
+            {
+                return TypedResults.NotFound();
+            }
+
+            db.SubTasks.Remove(subTask);
+            await db.SaveChangesAsync();
+
+            return TypedResults.NoContent();
+        })
+        .WithName("deleteSubTask")
+        .WithTags("Tasks");
+
         return app;
     }
+
+    private static Task<SubTask?> FindSubTaskAsync(TodoDbContext db, Guid taskId, Guid subTaskId)
+        => db.SubTasks.FirstOrDefaultAsync(s => s.Id == subTaskId && s.TaskItemId == taskId);
 
     private static bool IsValidTitle(string? title)
         => !string.IsNullOrWhiteSpace(title) && title.Length <= TitleMaxLength;
@@ -137,12 +214,14 @@ public static class TaskEndpoints
         Bucket = ToContract(DeadlineBuckets.For(task.Deadline, today)),
         CompletedAt = AsUtc(task.CompletedAt),
         CreatedAt = AsUtc(task.CreatedAt),
-        SubTasks =
-        [
-            .. task.SubTasks
-                .OrderBy(s => s.SortOrder)
-                .Select(s => new TodoSubTask { Id = s.Id, Title = s.Title, IsDone = s.IsDone }),
-        ],
+        SubTasks = [.. task.SubTasks.OrderBy(s => s.SortOrder).Select(ToContract)],
+    };
+
+    private static TodoSubTask ToContract(SubTask subTask) => new()
+    {
+        Id = subTask.Id,
+        Title = subTask.Title,
+        IsDone = subTask.IsDone,
     };
 
     // SQLite hands back DateTime with Kind=Unspecified, which would otherwise be read as local time.

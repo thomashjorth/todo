@@ -28,6 +28,9 @@ public sealed class RunningHost : IAsyncDisposable
 
     public HttpClient Client { get; }
 
+    /// <summary>Lets a test read the database directly, not only through the API.</summary>
+    public IServiceProvider Services => _app.Services;
+
     public static async Task<RunningHost> StartAsync(params string[] extraArgs)
     {
         var databasePath = Path.Combine(Path.GetTempPath(), "EdoraTodo.Tests", $"{Guid.NewGuid():N}.db");

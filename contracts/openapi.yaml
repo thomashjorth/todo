@@ -99,6 +99,92 @@ paths:
           description: The task is gone.
         '404':
           description: No task with that id.
+  /api/tasks/{id}/subtasks:
+    post:
+      operationId: createSubTask
+      tags:
+        - Tasks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubTaskRequest'
+      responses:
+        '201':
+          description: The created subtask.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoSubTask'
+        '400':
+          description: The request is not valid.
+        '404':
+          description: No task with that id.
+  /api/tasks/{id}/subtasks/{subTaskId}:
+    put:
+      operationId: updateSubTask
+      tags:
+        - Tasks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: subTaskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubTaskRequest'
+      responses:
+        '200':
+          description: The updated subtask.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoSubTask'
+        '400':
+          description: The request is not valid.
+        '404':
+          description: No such task or subtask.
+    delete:
+      operationId: deleteSubTask
+      tags:
+        - Tasks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: subTaskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The subtask is gone.
+        '404':
+          description: No such task or subtask.
 components:
   schemas:
     HealthResponse:
@@ -175,3 +261,16 @@ components:
         deadline: { type: string, format: date, nullable: true }
         requester: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/TodoStatus' }
+    CreateSubTaskRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 500 }
+    UpdateSubTaskRequest:
+      type: object
+      additionalProperties: false
+      required: [title, isDone]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 500 }
+        isDone: { type: boolean }
