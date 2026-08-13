@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Todo.Contracts</RootNamespace>
+    <NoWarn>$(NoWarn);CS8618;CS1591</NoWarn>
+  </PropertyGroup>
+</Project>
