@@ -6,7 +6,9 @@
 
 **Architecture:** Én proces. `TodoHost.Build(args)` bygger en `WebApplication` der lytter på loopback med tilfældig port og serverer Angular fra `wwwroot`. `Program.Main` åbner et Photino-vindue mod den adresse, medmindre `--headless` er givet. Tests kalder `TodoHost.Build` direkte i egen proces og læser den tildelte adresse — ingen proces-spawning, ingen `WebApplicationFactory`.
 
-**Tech Stack:** .NET 10 (SDK 10.0.300, runtime 10.0.8) · Microsoft.AspNetCore.OpenApi 10.0.11 · Photino.NET 4.0.16 · NSwag.ConsoleCore 14.7.1 · Angular 22.1.3 · xunit.v3 3.2.2 · Microsoft.Playwright 1.62.0 · YamlDotNet 18.1.0
+**Tech Stack:** .NET 10 (SDK 10.0.300, runtime 10.0.8) · Microsoft.AspNetCore.OpenApi 10.0.11 · Photino.NET 4.0.16 · NSwag.ConsoleCore 14.7.1 · Angular 22.1.3 · Tailwind CSS 4.3.3 · xunit.v3 3.2.2 · Microsoft.Playwright 1.62.0 · YamlDotNet 18.1.0
+
+**Al styling er standard Tailwind.** Der skrives ingen CSS- eller SCSS-regler i dette projekt, hverken globale eller komponent-scoped, og der defineres ingen egne farver eller spacing-skalaer. Angular-projektet oprettes med `--style=css`, og de tomme stylesheets `ng new` genererer, slettes. Gælder alle skiver, ikke kun denne.
 
 **`Microsoft.AspNetCore.OpenApi` skal være 10.0.11 — ikke 10.0.8.** 10.0.8 har en eksakt afhængighed af `Microsoft.OpenApi` 2.0.0, som har en kendt high severity-sårbarhed (GHSA-v5pm-xwqc-g5wc), så hvert `dotnet restore` udsender `NU1903`. 10.0.11 afhænger i stedet af `Microsoft.OpenApi [2.7.5, 3.0.0)`, som er rettet. Pakken er ikke en del af det delte framework, så 10.0.11 kører fint på runtime 10.0.8.
 
@@ -832,16 +834,25 @@ git add -A && git commit -m "✨ Open a Photino window over the host, with a hea
 
 **Files:**
 - Create: `src/Todo.Web/**` (via `ng new`)
+- Create: `src/Todo.Web/.postcssrc.json`
+- Modify: `src/Todo.Web/src/styles.css`
 - Modify: `src/Todo.Web/src/app/app.config.ts`
 - Modify: `src/Todo.Web/src/app/app.ts`
 - Modify: `src/Todo.Web/src/app/app.html`
+- Delete: `src/Todo.Web/src/app/app.css` (komponent-stylesheet, se step 4)
+
+**Al styling løses med standard Tailwind utility-klasser.** Der skrives ingen
+CSS- eller SCSS-regler i dette projekt — hverken globale eller komponent-scoped.
+Skal noget se anderledes ud, findes en Tailwind-klasse; laves der en CSS-regel,
+er det en fejl. Derfor `--style=css` nedenfor: der bliver ingen SCSS at kompilere,
+og de tomme stylesheets `ng new` genererer, slettes frem for at ligge og invitere.
 
 **Step 1: Opret Angular-appen**
 
 Kør i repo-roden:
 
 ```bash
-ng new todo-web --directory src/Todo.Web --style=scss --ssr=false --skip-git --package-manager=npm
+ng new todo-web --directory src/Todo.Web --style=css --ssr=false --skip-git --package-manager=npm
 ```
 
 Afvises et flag af CLI'en, så drop netop det flag og svar på prompten i stedet.
@@ -857,7 +868,41 @@ Expected: `src/Todo.Web/src/app/api/todo-client.ts` findes.
 
 Åbn filen og notér navnet på den genererede service — den bør hedde `HealthClient` med metoden `getHealth()`. Hedder den `Client`, så mangler `/operationGenerationMode:MultipleClientsFromFirstTagAndOperationId`.
 
-**Step 3: Registrér HttpClient og base-URL**
+**Step 3: Installér og opsæt Tailwind**
+
+```bash
+npm.cmd install -D tailwindcss@4.3.3 @tailwindcss/postcss@4.3.3 --prefix src/Todo.Web
+```
+
+Opret `src/Todo.Web/.postcssrc.json`:
+
+```json
+{
+  "plugins": {
+    "@tailwindcss/postcss": {}
+  }
+}
+```
+
+Erstat hele indholdet af `src/Todo.Web/src/styles.css` med den ene linje:
+
+```css
+@import "tailwindcss";
+```
+
+Tailwind 4 kræver ingen `tailwind.config.js` og ingen `@tailwind`-direktiver — den
+ene import og postcss-pluginet er hele opsætningen. Angular CLI opdager
+`.postcssrc.json` af sig selv; der skal intet ind i `angular.json`.
+
+**Verificér at det virker, før du bygger ovenpå:**
+
+Run: `npm.cmd run build --prefix src/Todo.Web`
+Expected: build lykkes, og den genererede CSS-fil under `src/Todo.Host/wwwroot`
+(eller `dist/`, hvis task 9 endnu ikke har flyttet output) indeholder Tailwind-reglerne.
+Konkret tjek: søg efter `max-w-2xl` i den genererede `.css`-fil. Findes klassen ikke,
+er postcss-pluginet ikke aktivt, og alt markup i step 5 vil se ustylet ud.
+
+**Step 4: Registrér HttpClient og base-URL**
 
 I `src/Todo.Web/src/app/app.config.ts`, tilføj til `providers`:
 
@@ -872,9 +917,15 @@ provideHttpClient(),
 
 Tom base-URL, fordi appen serveres fra samme origin som API'et.
 
-**Step 4: Kald API'et fra rodkomponenten**
+**Step 5: Kald API'et fra rodkomponenten**
 
-`src/Todo.Web/src/app/app.ts` (i Angular 20+ hedder filen `app.ts`; hedder den `app.component.ts` hos dig, så brug det navn):
+Slet først komponentens stylesheet, som `ng new` har genereret:
+
+```bash
+git -C C:/privat-git/todo rm --cached src/Todo.Web/src/app/app.css 2>/dev/null; rm -f C:/privat-git/todo/src/Todo.Web/src/app/app.css
+```
+
+`src/Todo.Web/src/app/app.ts` (i Angular 20+ hedder filen `app.ts`; hedder den `app.component.ts` hos dig, så brug det navn). Bemærk at `styleUrl` er fjernet — der er ikke længere en fil at pege på:
 
 ```ts
 import { Component, inject, signal } from '@angular/core';
@@ -883,7 +934,6 @@ import { HealthClient, HealthResponse } from './api/todo-client';
 @Component({
   selector: 'app-root',
   templateUrl: './app.html',
-  styleUrl: './app.scss',
 })
 export class App {
   private readonly health = inject(HealthClient);
@@ -903,19 +953,21 @@ export class App {
 `src/Todo.Web/src/app/app.html`:
 
 ```html
-<main>
-  <h1>Todo</h1>
+<main class="mx-auto max-w-2xl p-8">
+  <h1 class="text-3xl font-semibold tracking-tight">Todo</h1>
   @if (status(); as s) {
-    <p data-testid="health">API: {{ s.status }} (v{{ s.version }})</p>
+    <p data-testid="health" class="mt-2 text-sm text-gray-500">API: {{ s.status }} (v{{ s.version }})</p>
   } @else if (failed()) {
-    <p data-testid="health">API: unavailable</p>
+    <p data-testid="health" class="mt-2 text-sm text-red-600">API: unavailable</p>
   }
 </main>
 ```
 
 `data-testid` er E2E-testens greb om elementet. Det skal ikke ændres uden at testen ændres med.
 
-**Step 5: Verificér i browseren**
+Klasserne er Tailwinds standardskala, intet andet. `max-w-2xl` er også det, step 3's verifikation søger efter i den genererede CSS.
+
+**Step 6: Verificér i browseren**
 
 Start hosten i én terminal:
 
@@ -926,12 +978,14 @@ Og Angular i en anden — bemærk `npm.cmd`, ikke `npm` (PowerShell-shimmen er i
 Run: `npm.cmd start --prefix src/Todo.Web`
 
 Åbn `http://localhost:4200`.
-Expected: Overskriften "Todo". Health-linjen viser sandsynligvis "unavailable" endnu — proxyen kommer i næste task.
+Expected: Overskriften "Todo", sat i Tailwinds typografi og centreret i en spalte — ikke browserens standardskrift. Health-linjen viser sandsynligvis "unavailable" endnu; proxyen kommer i næste task.
 
-**Step 6: Commit**
+Ser siden ustylet ud, er det Tailwind der ikke er koblet på — gå tilbage til step 3 frem for at skrive CSS.
+
+**Step 7: Commit**
 
 ```bash
-git add -A && git commit -m "✨ Add Angular app that reads the API health endpoint"
+git add -A && git commit -m "✨ Add Angular app with Tailwind that reads the API health endpoint"
 ```
 
 ---

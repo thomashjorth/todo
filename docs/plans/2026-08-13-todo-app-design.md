@@ -18,6 +18,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Sync-retning | Læs eksternt, berig lokalt. Eksterne felter er read-only. |
 | Platform | Photino.NET-vindue + ASP.NET Core i én proces, Angular som UI. |
 | Hovedvisning | Én liste sorteret efter deadline, med tidssektioner. |
+| Styling | Standard Tailwind utility-klasser. Ingen egne CSS/SCSS-regler, ingen egne tokens. |
 | Mentions | Indbakke der godkendes manuelt, ikke automatisk opgaveoprettelse. |
 | Livscyklus | Frakoblede items markeres færdige og bevares med lokale felter. |
 | Kørsel | Tray-ikon, baggrundssync, Windows-notifikationer. |
@@ -40,7 +41,7 @@ C:\privat-git\todo\
     Todo.Contracts\      Genererede DTO'er fra openapi.yaml
     Todo.Core\           Domæne, EF Core/SQLite, kildeklienter
     Todo.Host\           Photino-vindue, minimal APIs, tray, baggrundssync
-    Todo.Web\            Angular (standalone components, signals)
+    Todo.Web\            Angular (standalone components, signals, Tailwind)
   tests\
     Todo.Core.Tests\     Unit
     Todo.Contract.Tests\ Klienter mod WireMock.Net + fixtures
