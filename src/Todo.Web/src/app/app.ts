@@ -1,10 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { HealthClient, HealthResponse } from './api/todo-client';
-import { TaskList } from './tasks/task-list';
 
 @Component({
   selector: 'app-root',
-  imports: [TaskList],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './app.html',
 })
 export class App {

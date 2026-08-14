@@ -1,0 +1,81 @@
+<h2 class="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Retro-import</h2>
+
+<label class="mt-3 block">
+  <span class="block text-xs text-gray-600 dark:text-gray-400"
+    >Indsæt eksporten fra retro-boardet</span
+  >
+  <textarea
+    #csvInput
+    data-testid="retro-csv"
+    rows="6"
+    class="mt-1 w-full rounded border border-gray-300 px-2 py-1 font-mono text-xs text-gray-900 dark:border-gray-600 dark:text-gray-100"
+    (input)="csv.set(csvInput.value)"
+  ></textarea>
+</label>
+
+<button
+  type="button"
+  data-testid="retro-analyse"
+  class="mt-2 rounded border border-gray-300 px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:text-gray-100"
+  (click)="analyse()"
+>
+  Analysér
+</button>
+
+@if (store.error(); as message) {
+  <p data-testid="retro-error" role="alert" class="mt-3 text-sm text-red-700 dark:text-red-300">
+    {{ message }}
+  </p>
+}
+
+@if (analysed()) {
+  @if (noneMine()) {
+    <p data-testid="retro-none-mine" class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+      Ingen af rækkerne har dig som ejer.
+    </p>
+  }
+
+  <ul class="mt-3 space-y-2">
+    @for (row of store.rows(); track row.key) {
+      <li data-testid="retro-row" class="rounded border border-gray-200 p-2 dark:border-gray-700">
+        <label class="flex items-start gap-2">
+          <input
+            #pick
+            type="checkbox"
+            class="mt-1 shrink-0"
+            [checked]="isSelected(row)"
+            [disabled]="row.alreadyImported"
+            (change)="select(row, pick.checked)"
+          />
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
+              row.title
+            }}</span>
+            <span class="block text-xs text-gray-600 dark:text-gray-400">Zone: {{ row.zone }}</span>
+            @if (row.owner) {
+              <span class="block text-xs text-gray-600 dark:text-gray-400"
+                >Ejer: {{ row.owner }}</span
+              >
+            }
+            @if (row.deadline) {
+              <span class="block text-xs text-gray-600 dark:text-gray-400"
+                >Deadline: {{ row.deadline }}</span
+              >
+            }
+            @if (row.alreadyImported) {
+              <span
+                data-testid="retro-already-imported"
+                class="block text-xs font-medium text-gray-700 dark:text-gray-300"
+                >importeret tidligere</span
+              >
+            }
+          </span>
+        </label>
+      </li>
+    }
+  </ul>
+
+  <p data-testid="retro-skipped" class="mt-2 text-xs text-gray-600 dark:text-gray-400">
+    Sprang {{ store.skippedRatingCards() }} afstemningskort over.
+  </p>
+}

@@ -1,6 +1,25 @@
 <main class="mx-auto max-w-2xl p-4 sm:p-8">
   <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Todo</h1>
-  <app-task-list />
+  <nav class="mt-2 flex flex-wrap gap-4">
+    <a
+      data-testid="nav-tasks"
+      class="text-sm text-gray-600 dark:text-gray-400"
+      routerLink="/"
+      routerLinkActive="font-semibold text-gray-900 underline dark:text-gray-100"
+      ariaCurrentWhenActive="page"
+      [routerLinkActiveOptions]="{ exact: true }"
+      >Opgaver</a
+    >
+    <a
+      data-testid="nav-import"
+      class="text-sm text-gray-600 dark:text-gray-400"
+      routerLink="/import"
+      routerLinkActive="font-semibold text-gray-900 underline dark:text-gray-100"
+      ariaCurrentWhenActive="page"
+      >Retro-import</a
+    >
+  </nav>
+  <router-outlet />
   @if (status(); as s) {
     <p data-testid="health" class="mt-8 text-xs text-gray-400">
       API: {{ s.status }} (v{{ s.version }})

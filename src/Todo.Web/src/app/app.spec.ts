@@ -1,8 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router, provideRouter } from '@angular/router';
 import { API_BASE_URL } from './api/todo-client';
 import { App } from './app';
+import { routes } from './app.routes';
 
 // The generated client requests responseType 'blob' and decodes it with FileReader,
 // so a flushed response only reaches the template after a later microtask.
@@ -22,6 +24,7 @@ describe('App', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideRouter(routes),
         { provide: API_BASE_URL, useValue: '' },
       ],
     }).compileComponents();
@@ -41,6 +44,34 @@ describe('App', () => {
     expect(await healthText(fixture)).toContain('API: ok (v1.2.3)');
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Todo');
+  });
+
+  it('should link to both screens and mark the current one for a screen reader', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const tasks = () => compiled.querySelector('[data-testid="nav-tasks"]')!;
+    const retro = () => compiled.querySelector('[data-testid="nav-import"]')!;
+
+    // RouterLinkActive applies aria-current in a microtask of its own, so the
+    // attribute lands a change detection cycle after the navigation resolves.
+    const current = () =>
+      vi.waitFor(() => {
+        fixture.detectChanges();
+        const marked = [tasks(), retro()].filter((a) => a.getAttribute('aria-current') === 'page');
+        expect(marked).toHaveLength(1);
+        return marked[0].getAttribute('data-testid');
+      });
+
+    await TestBed.inject(Router).navigate(['/']);
+
+    expect(tasks().getAttribute('href')).toBe('/');
+    expect(retro().getAttribute('href')).toBe('/import');
+    expect(await current()).toBe('nav-tasks');
+
+    await TestBed.inject(Router).navigate(['/import']);
+
+    expect(await current()).toBe('nav-import');
   });
 
   it('should report the API as unavailable when the call fails', async () => {
