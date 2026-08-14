@@ -48,6 +48,10 @@ const note = '**fed** tekst\n\n- et punkt\n\n<script>alert(1)</script>';
 
 const withNote = [{ ...items[0], note }, items[1]];
 
+const linkNote = 'Se [dokumentationen](https://example.com/docs) først';
+
+const withLink = [{ ...items[0], note: linkNote }, items[1]];
+
 // The generated client requests responseType 'blob' and decodes it with FileReader,
 // so a flushed response only reaches the template after a later microtask.
 function rendered(fixture: ComponentFixture<TaskList>): Promise<HTMLElement> {
@@ -320,7 +324,7 @@ describe('TaskList', () => {
     expect(request.request.method).toBe('DELETE');
   });
 
-  it('should show the note as rendered markdown next to the text it is written in', async () => {
+  it('should show the note as rendered markdown rather than as its source', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
       .expectOne('/api/tasks?includeCompleted=false')
@@ -334,7 +338,84 @@ describe('TaskList', () => {
     expect(view.querySelector('strong')!.textContent).toBe('fed');
     expect(view.querySelector('li')!.textContent).toBe('et punkt');
     expect(view.querySelector('script')).toBeNull();
-    expect(row.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe(note);
+    expect(row.querySelector('[data-testid="note-editor"]')).toBeNull();
+  });
+
+  it('should open the editor on the raw markdown when the rendered note is clicked', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withNote })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    row.querySelector<HTMLElement>('[data-testid="note-rendered"]')!.click();
+    fixture.detectChanges();
+
+    const editor = row.querySelector<HTMLTextAreaElement>('[data-testid="note-editor"]')!;
+    expect(editor.value).toBe(note);
+    expect(row.querySelector('[data-testid="note-rendered"]')).toBeNull();
+    expect(document.activeElement).toBe(editor);
+  });
+
+  it('should open the editor from the button as well, for anyone who cannot click', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withNote })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const edit = row.querySelector<HTMLButtonElement>('[data-testid="note-edit"]')!;
+    expect(edit.textContent!.trim()).toBe('Redigér noten');
+    edit.click();
+    fixture.detectChanges();
+
+    expect(row.querySelector<HTMLTextAreaElement>('[data-testid="note-editor"]')!.value).toBe(note);
+    expect(row.querySelector('[data-testid="note-edit"]')).toBeNull();
+  });
+
+  // The editor covers the note, so a click on a link would otherwise be spent opening it.
+  it('should leave a click on a link inside the note alone', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withLink })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    row.querySelector<HTMLAnchorElement>('[data-testid="note-rendered"] a')!.click();
+    fixture.detectChanges();
+
+    expect(row.querySelector('[data-testid="note-editor"]')).toBeNull();
+    expect(row.querySelector('[data-testid="note-rendered"]')).not.toBeNull();
+  });
+
+  it('should save and close the editor on Escape', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withNote })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+    row.querySelector<HTMLElement>('[data-testid="note-rendered"]')!.click();
+    fixture.detectChanges();
+
+    const editor = row.querySelector<HTMLTextAreaElement>('[data-testid="note-editor"]')!;
+    editor.value = '# En overskrift';
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(JSON.parse(http.expectOne(`/api/tasks/${items[0].id}`).request.body).note).toBe(
+      '# En overskrift',
+    );
+    expect(row.querySelector('[data-testid="note-editor"]')).toBeNull();
+    expect(row.querySelector('[data-testid="note-rendered"]')).not.toBeNull();
   });
 
   it('should invite a note where there is none instead of leaving the row bare', async () => {

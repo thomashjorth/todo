@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
@@ -23,13 +23,20 @@ export class TaskList {
   protected readonly done = TodoStatus.Done;
   protected readonly progress = subTaskProgress;
   protected readonly expandedId = signal<string | null>(null);
+  protected readonly editingNote = signal<string | null>(null);
   protected readonly completed = computed(() =>
     this.store.showCompleted() ? this.store.completedTasks() : [],
   );
 
+  private readonly noteEditor = viewChild<ElementRef<HTMLTextAreaElement>>('note');
+
   constructor() {
     // A failed load needs no message of its own: the health line already reports the API down.
     this.store.load().catch(() => {});
+
+    // Without this the click that opened the editor leaves the caret outside it, and the
+    // user has to click a second time to type.
+    effect(() => this.noteEditor()?.nativeElement.focus());
   }
 
   // The API's enum values are the leaves of the key, so a new bucket needs no mapping here.
@@ -56,7 +63,26 @@ export class TaskList {
   }
 
   protected toggle(task: TodoTask): void {
+    this.editingNote.set(null);
     this.expandedId.update((id) => (id === task.id ? null : task.id));
+  }
+
+  protected editNote(task: TodoTask): void {
+    this.editingNote.set(task.id);
+  }
+
+  protected clickNote(task: TodoTask, event: MouseEvent): void {
+    // A link belongs to whoever handles links, not to the editor.
+    if ((event.target as HTMLElement).closest('a')) {
+      return;
+    }
+
+    this.editNote(task);
+  }
+
+  protected stopEditingNote(task: TodoTask, note: string): void {
+    this.editingNote.set(null);
+    this.save(task, { note: this.text(note) });
   }
 
   protected save(task: TodoTask, changes: TaskChanges): void {
@@ -94,6 +120,7 @@ export class TaskList {
   }
 
   protected remove(task: TodoTask): void {
+    this.editingNote.set(null);
     this.expandedId.set(null);
     this.store.remove(task.id).catch(() => {});
   }

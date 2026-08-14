@@ -92,25 +92,45 @@
                   />
                 </label>
                 <div class="space-y-1">
-                  <span class="block text-xs text-gray-500">{{ 'tasks.note' | transloco }}</span>
-                  @if (task.note?.trim()) {
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="block text-xs text-gray-500">{{ 'tasks.note' | transloco }}</span>
+                    @if (editingNote() !== task.id) {
+                      <button
+                        type="button"
+                        data-testid="note-edit"
+                        class="shrink-0 text-xs text-blue-700 underline dark:text-blue-300"
+                        (click)="editNote(task)"
+                      >
+                        {{ 'tasks.editNote' | transloco }}
+                      </button>
+                    }
+                  </div>
+                  @if (editingNote() === task.id) {
+                    <textarea
+                      #note
+                      data-testid="note-editor"
+                      rows="3"
+                      class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                      [value]="task.note ?? ''"
+                      (blur)="stopEditingNote(task, note.value)"
+                      (keydown.escape)="stopEditingNote(task, note.value)"
+                    ></textarea>
+                  } @else if (task.note?.trim()) {
                     <div
                       data-testid="note-rendered"
                       class="prose prose-sm dark:prose-invert max-w-none [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
                       [innerHTML]="rendered(task)"
+                      (click)="clickNote(task, $event)"
                     ></div>
                   } @else {
-                    <p data-testid="note-rendered" class="text-sm text-gray-500 italic">
+                    <p
+                      data-testid="note-rendered"
+                      class="text-sm text-gray-500 italic"
+                      (click)="clickNote(task, $event)"
+                    >
                       {{ 'tasks.noteEmpty' | transloco }}
                     </p>
                   }
-                  <textarea
-                    #note
-                    rows="3"
-                    class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    [value]="task.note ?? ''"
-                    (blur)="save(task, { note: text(note.value) })"
-                  ></textarea>
                 </div>
                 <label class="block">
                   <span class="block text-xs text-gray-500">{{ 'tasks.status' | transloco }}</span>

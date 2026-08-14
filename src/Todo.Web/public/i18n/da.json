@@ -19,6 +19,7 @@
     "requesterValue": "Opgavestiller: {{value}}",
     "note": "Note",
     "noteEmpty": "Tilføj en note",
+    "editNote": "Redigér noten",
     "status": "Status",
     "subTasks": "Underopgaver",
     "newSubTask": "Ny underopgave",

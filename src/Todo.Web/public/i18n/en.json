@@ -19,6 +19,7 @@
     "requesterValue": "Requested by: {{value}}",
     "note": "Note",
     "noteEmpty": "Add a note",
+    "editNote": "Edit note",
     "status": "Status",
     "subTasks": "Subtasks",
     "newSubTask": "New subtask",
