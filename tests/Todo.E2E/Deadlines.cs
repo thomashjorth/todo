@@ -10,6 +10,9 @@ namespace Todo.E2E;
 internal static class Deadlines
 {
     private static readonly CultureInfo Danish = CultureInfo.GetCultureInfo("da-DK");
+    private static readonly CultureInfo English = CultureInfo.GetCultureInfo("en-US");
 
     public static string InDanish(DateOnly date) => date.ToString("d. MMM yyyy", Danish);
+
+    public static string InEnglish(DateOnly date) => date.ToString("MMM d, yyyy", English);
 }

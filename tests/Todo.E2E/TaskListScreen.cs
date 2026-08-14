@@ -38,5 +38,7 @@ public sealed class TaskListScreen(TodoApp app)
 
     public Task<RetroImportScreen> GoToImport() => app.GoToImport();
 
+    public Task<SettingsScreen> GoToSettings() => app.GoToSettings();
+
     internal Task WaitUntilShownAsync() => Assertions.Expect(NewTaskInput).ToBeVisibleAsync();
 }

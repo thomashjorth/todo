@@ -4,6 +4,8 @@ namespace Todo.E2E;
 
 public sealed class SettingsScreen(TodoApp app)
 {
+    public ILocator Heading => Page.GetByRole(AriaRole.Heading, new() { Level = 2 });
+
     public ILocator Language => Page.GetByTestId("language-select");
 
     public ILocator AliasRows => Page.GetByTestId("alias-row");
