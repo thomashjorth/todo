@@ -18,6 +18,7 @@
     "requester": "Opgavestiller",
     "requesterValue": "Opgavestiller: {{value}}",
     "note": "Note",
+    "noteEmpty": "Tilføj en note",
     "status": "Status",
     "subTasks": "Underopgaver",
     "newSubTask": "Ny underopgave",

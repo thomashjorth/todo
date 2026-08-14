@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
+import { renderMarkdown } from '../markdown/render-markdown';
 import { TaskChanges, TaskStore, subTaskProgress } from './task-store';
 
 const statusOptions: readonly TodoStatus[] = [
@@ -38,6 +39,10 @@ export class TaskList {
 
   protected statusKey(status: TodoStatus): string {
     return `tasks.statuses.${status}`;
+  }
+
+  protected rendered(task: TodoTask): string {
+    return renderMarkdown(task.note);
   }
 
   protected create(input: HTMLInputElement): void {

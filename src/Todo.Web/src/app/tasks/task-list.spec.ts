@@ -44,6 +44,10 @@ const withSubTasks = [
   items[1],
 ];
 
+const note = '**fed** tekst\n\n- et punkt\n\n<script>alert(1)</script>';
+
+const withNote = [{ ...items[0], note }, items[1]];
+
 // The generated client requests responseType 'blob' and decodes it with FileReader,
 // so a flushed response only reaches the template after a later microtask.
 function rendered(fixture: ComponentFixture<TaskList>): Promise<HTMLElement> {
@@ -314,6 +318,38 @@ describe('TaskList', () => {
 
     const request = http.expectOne(`/api/tasks/${items[0].id}/subtasks/aaaa`);
     expect(request.request.method).toBe('DELETE');
+  });
+
+  it('should show the note as rendered markdown next to the text it is written in', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withNote })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const view = row.querySelector('[data-testid="note-rendered"]')!;
+    expect(view.querySelector('strong')!.textContent).toBe('fed');
+    expect(view.querySelector('li')!.textContent).toBe('et punkt');
+    expect(view.querySelector('script')).toBeNull();
+    expect(row.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe(note);
+  });
+
+  it('should invite a note where there is none instead of leaving the row bare', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const placeholder = row.querySelector('[data-testid="note-rendered"]')!;
+    expect(placeholder.textContent!.trim()).toBe('Tilføj en note');
+    expect(placeholder.className).toContain('italic');
   });
 
   it('should not create a task from a blank input', async () => {

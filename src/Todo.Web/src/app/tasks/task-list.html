@@ -91,8 +91,19 @@
                     (keyup.enter)="save(task, { requester: text(requester.value) })"
                   />
                 </label>
-                <label class="block">
+                <div class="space-y-1">
                   <span class="block text-xs text-gray-500">{{ 'tasks.note' | transloco }}</span>
+                  @if (task.note?.trim()) {
+                    <div
+                      data-testid="note-rendered"
+                      class="prose prose-sm dark:prose-invert max-w-none [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
+                      [innerHTML]="rendered(task)"
+                    ></div>
+                  } @else {
+                    <p data-testid="note-rendered" class="text-sm text-gray-500 italic">
+                      {{ 'tasks.noteEmpty' | transloco }}
+                    </p>
+                  }
                   <textarea
                     #note
                     rows="3"
@@ -100,7 +111,7 @@
                     [value]="task.note ?? ''"
                     (blur)="save(task, { note: text(note.value) })"
                   ></textarea>
-                </label>
+                </div>
                 <label class="block">
                   <span class="block text-xs text-gray-500">{{ 'tasks.status' | transloco }}</span>
                   <select
