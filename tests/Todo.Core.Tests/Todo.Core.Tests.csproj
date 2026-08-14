@@ -15,4 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Todo.Core\Todo.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Fixtures\retro-board.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
