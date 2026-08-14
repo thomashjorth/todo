@@ -143,8 +143,9 @@ public class RetroCsvParserTests
             "Buy a whiteboard","Mette Kirkegaard","Actions"
             """;
 
-        var exception = Assert.Throws<FormatException>(() => RetroCsvParser.Parse(csv));
+        var exception = Assert.Throws<RetroFormatException>(() => RetroCsvParser.Parse(csv));
 
+        Assert.Equal("retro.missingContentColumn", exception.Code);
         Assert.Contains("Content", exception.Message);
         Assert.Contains("Text", exception.Message);
         Assert.Contains("Zone", exception.Message);

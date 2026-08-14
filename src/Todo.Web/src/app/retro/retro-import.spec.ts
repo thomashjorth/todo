@@ -177,10 +177,15 @@ describe('RetroImport', () => {
     screen.element.querySelector<HTMLButtonElement>('[data-testid="retro-analyse"]')!.click();
     screen.http
       .expectOne('/api/retro/preview')
-      .flush(new Blob([JSON.stringify("It needs a header row with a 'Content' column.")]), {
-        status: 400,
-        statusText: 'Bad Request',
-      });
+      .flush(
+        new Blob([
+          JSON.stringify({
+            code: 'retro.emptyExport',
+            message: "It needs a header row with a 'Content' column.",
+          }),
+        ]),
+        { status: 400, statusText: 'Bad Request' },
+      );
 
     const error = await settled(screen, '[data-testid="retro-error"]');
 
@@ -235,10 +240,15 @@ describe('RetroImport', () => {
     importButton(screen.element).click();
     screen.http
       .expectOne('/api/retro/import')
-      .flush(new Blob([JSON.stringify('A row is missing its title.')]), {
-        status: 400,
-        statusText: 'Bad Request',
-      });
+      .flush(
+        new Blob([
+          JSON.stringify({
+            code: 'retro.rowTitleRequired',
+            message: 'A row is missing its title.',
+          }),
+        ]),
+        { status: 400, statusText: 'Bad Request' },
+      );
 
     const error = await settled(screen, '[data-testid="retro-error"]');
 

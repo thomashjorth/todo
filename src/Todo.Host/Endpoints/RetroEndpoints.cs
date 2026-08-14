@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Todo.Core.Errors;
 using Todo.Core.Retro;
 using Todo.Core.Settings;
 using CoreStatus = Todo.Core.Tasks.TodoStatus;
@@ -16,7 +17,7 @@ public static class RetroEndpoints
 
     public static IEndpointRouteBuilder MapRetro(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/retro/preview", async Task<Results<Ok<RetroPreviewResponse>, BadRequest<string>>> (
+        app.MapPost("/api/retro/preview", async Task<Results<Ok<RetroPreviewResponse>, BadRequest<ApiError>>> (
             RetroPreviewRequest request, TodoDbContext db) =>
         {
             RetroParseResult parsed;
@@ -25,9 +26,9 @@ public static class RetroEndpoints
             {
                 parsed = RetroCsvParser.Parse(request.Csv ?? string.Empty);
             }
-            catch (FormatException exception)
+            catch (RetroFormatException exception)
             {
-                return TypedResults.BadRequest(exception.Message);
+                return ApiErrors.BadRequest(exception.Code, exception.Message);
             }
 
             var aliases = await LoadAliasesAsync(db);
@@ -43,14 +44,17 @@ public static class RetroEndpoints
         .WithTags("Retro")
         .Produces<RetroPreviewResponse>();
 
-        app.MapPost("/api/retro/import", async Task<Results<Ok<RetroImportResponse>, BadRequest<string>>> (
+        app.MapPost("/api/retro/import", async Task<Results<Ok<RetroImportResponse>, BadRequest<ApiError>>> (
             RetroImportRequest request, TodoDbContext db, IClock clock) =>
         {
             var rows = request.Rows ?? [];
 
-            if (rows.Any(row => string.IsNullOrWhiteSpace(row.Key) || !IsValidTitle(row.Title)))
+            foreach (var row in rows)
             {
-                return TypedResults.BadRequest("Every row needs a key and a title of at most 500 characters.");
+                if (ValidateRow(row) is { } invalid)
+                {
+                    return invalid;
+                }
             }
 
             var known = await ImportedKeysAsync(db, [.. rows.Select(row => row.Key)]);
@@ -93,7 +97,7 @@ public static class RetroEndpoints
         .WithTags("Retro")
         .Produces<RetroAliasesResponse>();
 
-        app.MapPut("/api/retro/aliases", async Task<Results<Ok<RetroAliasesResponse>, BadRequest<string>>> (
+        app.MapPut("/api/retro/aliases", async Task<Results<Ok<RetroAliasesResponse>, BadRequest<ApiError>>> (
             RetroAliasesRequest request, TodoDbContext db) =>
         {
             var kept = new List<string>();
@@ -110,7 +114,8 @@ public static class RetroEndpoints
 
                 if (!seen.Add(value))
                 {
-                    return TypedResults.BadRequest($"'{value}' is listed more than once.");
+                    return ApiErrors.BadRequest(
+                        ErrorCodes.RetroDuplicateAlias, $"'{value}' is listed more than once.");
                 }
 
                 kept.Add(value);
@@ -145,8 +150,24 @@ public static class RetroEndpoints
         return new HashSet<string>(found, StringComparer.Ordinal);
     }
 
-    private static bool IsValidTitle(string? title)
-        => !string.IsNullOrWhiteSpace(title) && title.Length <= TitleMaxLength;
+    private static BadRequest<ApiError>? ValidateRow(RetroImportRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.Key))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.RetroRowKeyRequired, "Every row needs a key.");
+        }
+
+        if (string.IsNullOrWhiteSpace(row.Title))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.RetroRowTitleRequired, "Every row needs a title.");
+        }
+
+        return row.Title.Length > TitleMaxLength
+            ? ApiErrors.BadRequest(
+                ErrorCodes.RetroRowTitleTooLong,
+                $"A row title may be at most {TitleMaxLength} characters.")
+            : null;
+    }
 
     private static RetroPreviewRow ToContract(
         RetroRow row, IReadOnlyCollection<string> aliases, IReadOnlySet<string> importedKeys) => new()

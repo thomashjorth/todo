@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
-  ApiException,
+  ApiError,
   RetroAliasesRequest,
   RetroClient,
   RetroImportRequest,
@@ -13,18 +13,9 @@ import {
 
 const genericFailure = 'Noget gik galt. Prøv igen.';
 
-// The API answers a rejected request with the reason as a bare JSON string.
+// A rejected request throws the ApiError body itself; anything else is a failure we cannot explain.
 function messageOf(error: unknown): string {
-  if (!error || !ApiException.isApiException(error) || !error.response) {
-    return genericFailure;
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(error.response);
-    return typeof parsed === 'string' ? parsed : error.response;
-  } catch {
-    return error.response;
-  }
+  return error instanceof ApiError && error.message ? error.message : genericFailure;
 }
 
 @Injectable({ providedIn: 'root' })

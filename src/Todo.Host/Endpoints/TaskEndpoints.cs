@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Todo.Core.Errors;
 using ContractBucket = Todo.Contracts.DeadlineBucket;
 using ContractStatus = Todo.Contracts.TodoStatus;
 using CoreBucket = Todo.Core.Tasks.DeadlineBucket;
@@ -40,12 +41,12 @@ public static class TaskEndpoints
         .WithTags("Tasks")
         .Produces<TodoTaskListResponse>();
 
-        app.MapPost("/api/tasks", async Task<Results<Created<TodoTask>, BadRequest>> (
+        app.MapPost("/api/tasks", async Task<Results<Created<TodoTask>, BadRequest<ApiError>>> (
             CreateTodoTaskRequest request, TodoDbContext db, IClock clock) =>
         {
-            if (!IsValidTitle(request.Title))
+            if (ValidateTaskTitle(request.Title) is { } invalid)
             {
-                return TypedResults.BadRequest();
+                return invalid;
             }
 
             var task = new TaskItem
@@ -67,12 +68,12 @@ public static class TaskEndpoints
         .WithName("createTask")
         .WithTags("Tasks");
 
-        app.MapPut("/api/tasks/{id:guid}", async Task<Results<Ok<TodoTask>, BadRequest, NotFound>> (
+        app.MapPut("/api/tasks/{id:guid}", async Task<Results<Ok<TodoTask>, BadRequest<ApiError>, NotFound>> (
             Guid id, UpdateTodoTaskRequest request, TodoDbContext db, IClock clock) =>
         {
-            if (!IsValidTitle(request.Title))
+            if (ValidateTaskTitle(request.Title) is { } invalid)
             {
-                return TypedResults.BadRequest();
+                return invalid;
             }
 
             var task = await db.Tasks.Include(t => t.SubTasks).FirstOrDefaultAsync(t => t.Id == id);
@@ -117,12 +118,12 @@ public static class TaskEndpoints
         .WithName("deleteTask")
         .WithTags("Tasks");
 
-        app.MapPost("/api/tasks/{id:guid}/subtasks", async Task<Results<Created<TodoSubTask>, BadRequest, NotFound>> (
+        app.MapPost("/api/tasks/{id:guid}/subtasks", async Task<Results<Created<TodoSubTask>, BadRequest<ApiError>, NotFound>> (
             Guid id, CreateSubTaskRequest request, TodoDbContext db) =>
         {
-            if (!IsValidTitle(request.Title))
+            if (ValidateSubTaskTitle(request.Title) is { } invalid)
             {
-                return TypedResults.BadRequest();
+                return invalid;
             }
 
             if (!await db.Tasks.AnyAsync(t => t.Id == id))
@@ -149,12 +150,12 @@ public static class TaskEndpoints
         .WithName("createSubTask")
         .WithTags("Tasks");
 
-        app.MapPut("/api/tasks/{id:guid}/subtasks/{subTaskId:guid}", async Task<Results<Ok<TodoSubTask>, BadRequest, NotFound>> (
+        app.MapPut("/api/tasks/{id:guid}/subtasks/{subTaskId:guid}", async Task<Results<Ok<TodoSubTask>, BadRequest<ApiError>, NotFound>> (
             Guid id, Guid subTaskId, UpdateSubTaskRequest request, TodoDbContext db) =>
         {
-            if (!IsValidTitle(request.Title))
+            if (ValidateSubTaskTitle(request.Title) is { } invalid)
             {
-                return TypedResults.BadRequest();
+                return invalid;
             }
 
             var subTask = await FindSubTaskAsync(db, id, subTaskId);
@@ -197,8 +198,28 @@ public static class TaskEndpoints
     private static Task<SubTask?> FindSubTaskAsync(TodoDbContext db, Guid taskId, Guid subTaskId)
         => db.SubTasks.FirstOrDefaultAsync(s => s.Id == subTaskId && s.TaskItemId == taskId);
 
-    private static bool IsValidTitle(string? title)
-        => !string.IsNullOrWhiteSpace(title) && title.Length <= TitleMaxLength;
+    private static BadRequest<ApiError>? ValidateTaskTitle(string? title)
+        => ValidateTitle(title, ErrorCodes.TaskTitleRequired, ErrorCodes.TaskTitleTooLong, "task");
+
+    private static BadRequest<ApiError>? ValidateSubTaskTitle(string? title)
+        => ValidateTitle(title, ErrorCodes.SubTaskTitleRequired, ErrorCodes.SubTaskTitleTooLong, "subtask");
+
+    private static BadRequest<ApiError>? ValidateTitle(
+        string? title, string requiredCode, string tooLongCode, string subject)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return ApiErrors.BadRequest(requiredCode, $"A {subject} needs a title.");
+        }
+
+        if (title.Length > TitleMaxLength)
+        {
+            return ApiErrors.BadRequest(
+                tooLongCode, $"A {subject} title may be at most {TitleMaxLength} characters.");
+        }
+
+        return null;
+    }
 
     private static TodoTask ToContract(TaskItem task, DateOnly today) => new()
     {

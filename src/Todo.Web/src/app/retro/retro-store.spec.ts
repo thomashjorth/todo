@@ -91,7 +91,10 @@ describe('RetroStore', () => {
 
     http
       .expectOne('/api/retro/preview')
-      .flush(new Blob([JSON.stringify(message)]), { status: 400, statusText: 'Bad Request' });
+      .flush(new Blob([JSON.stringify({ code: 'retro.emptyExport', message })]), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
     await previewed;
 
     expect(store.error()).toBe(message);
@@ -107,7 +110,10 @@ describe('RetroStore', () => {
     const rejected = store.preview('');
     http
       .expectOne('/api/retro/preview')
-      .flush(new Blob([JSON.stringify('nope')]), { status: 400, statusText: 'Bad Request' });
+      .flush(new Blob([JSON.stringify({ code: 'retro.emptyExport', message: 'nope' })]), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
     await rejected;
 
     expect(store.rows()).toEqual([]);
@@ -171,12 +177,17 @@ describe('RetroStore', () => {
 
     http
       .expectOne('/api/retro/aliases')
-      .flush(new Blob([JSON.stringify('Two aliases differ only in casing.')]), {
-        status: 400,
-        statusText: 'Bad Request',
-      });
+      .flush(
+        new Blob([
+          JSON.stringify({
+            code: 'retro.duplicateAlias',
+            message: "'thomas' is listed more than once.",
+          }),
+        ]),
+        { status: 400, statusText: 'Bad Request' },
+      );
     await saved;
 
-    expect(store.error()).toBe('Two aliases differ only in casing.');
+    expect(store.error()).toBe("'thomas' is listed more than once.");
   });
 });

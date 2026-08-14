@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Todo.Core.Errors;
 using Todo.Core.Settings;
 
 namespace Todo.Host.Endpoints;
@@ -19,13 +20,14 @@ public static class SettingsEndpoints
         .WithTags("Settings")
         .Produces<SettingsResponse>();
 
-        app.MapPut("/api/settings", async Task<Results<Ok<SettingsResponse>, BadRequest<string>>> (
+        app.MapPut("/api/settings", async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
             SettingsRequest request, TodoDbContext db) =>
         {
             // No language means "follow the system", which is a value in its own right and not English.
             if (request.Language is { } language && !SupportedLanguages.Contains(language))
             {
-                return TypedResults.BadRequest($"'{language}' is not a supported language.");
+                return ApiErrors.BadRequest(
+                    ErrorCodes.SettingsUnknownLanguage, $"'{language}' is not a supported language.");
             }
 
             await StoreAsync(db, SettingKeys.Language, request.Language);

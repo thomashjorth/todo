@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using CsvHelper;
 using CsvHelper.Configuration;
+using Todo.Core.Errors;
 
 namespace Todo.Core.Retro;
 
@@ -34,7 +35,9 @@ public static partial class RetroCsvParser
 
         if (!csvReader.Read() || !csvReader.ReadHeader())
         {
-            throw new FormatException($"The retro export is empty. It needs a header row with a '{ContentColumn}' column.");
+            throw new RetroFormatException(
+                ErrorCodes.RetroEmptyExport,
+                $"The retro export is empty. It needs a header row with a '{ContentColumn}' column.");
         }
 
         var headers = csvReader.HeaderRecord ?? [];
@@ -42,7 +45,8 @@ public static partial class RetroCsvParser
 
         if (!columns.TryGetValue(ContentColumn, out var contentColumn))
         {
-            throw new FormatException(
+            throw new RetroFormatException(
+                ErrorCodes.RetroMissingContentColumn,
                 $"The retro export has no '{ContentColumn}' column. Columns found: {string.Join(", ", headers)}.");
         }
 

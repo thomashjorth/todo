@@ -54,6 +54,10 @@ paths:
                 $ref: '#/components/schemas/TodoTask'
         '400':
           description: The request is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/tasks/{id}:
     put:
       operationId: updateTask
@@ -81,6 +85,10 @@ paths:
                 $ref: '#/components/schemas/TodoTask'
         '400':
           description: The request is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: No task with that id.
     delete:
@@ -126,6 +134,10 @@ paths:
                 $ref: '#/components/schemas/TodoSubTask'
         '400':
           description: The request is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: No task with that id.
   /api/tasks/{id}/subtasks/{subTaskId}:
@@ -161,6 +173,10 @@ paths:
                 $ref: '#/components/schemas/TodoSubTask'
         '400':
           description: The request is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: No such task or subtask.
     delete:
@@ -206,6 +222,10 @@ paths:
                 $ref: '#/components/schemas/RetroPreviewResponse'
         '400':
           description: The export could not be read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/retro/import:
     post:
       operationId: importRetro
@@ -227,6 +247,10 @@ paths:
                 $ref: '#/components/schemas/RetroImportResponse'
         '400':
           description: The request is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/retro/aliases:
     get:
       operationId: listRetroAliases
@@ -258,6 +282,10 @@ paths:
                 $ref: '#/components/schemas/RetroAliasesResponse'
         '400':
           description: The request is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/settings:
     get:
       operationId: getSettings
@@ -289,8 +317,19 @@ paths:
                 $ref: '#/components/schemas/SettingsResponse'
         '400':
           description: The request is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
 components:
   schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
     HealthResponse:
       type: object
       additionalProperties: false

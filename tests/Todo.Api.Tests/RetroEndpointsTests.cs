@@ -143,7 +143,11 @@ public class RetroEndpointsTests
             "/api/retro/preview", new RetroPreviewRequest { Csv = string.Empty });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("Content", await response.Content.ReadAsStringAsync());
+
+        var error = await response.Content.ReadFromJsonAsync<ApiError>();
+        Assert.NotNull(error);
+        Assert.Equal("retro.emptyExport", error.Code);
+        Assert.Contains("Content", error.Message);
     }
 
     [Fact]
@@ -160,7 +164,11 @@ public class RetroEndpointsTests
             "/api/retro/preview", new RetroPreviewRequest { Csv = csv });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("Content", await response.Content.ReadAsStringAsync());
+
+        var error = await response.Content.ReadFromJsonAsync<ApiError>();
+        Assert.NotNull(error);
+        Assert.Equal("retro.missingContentColumn", error.Code);
+        Assert.Contains("Content", error.Message);
     }
 
     [Fact]
