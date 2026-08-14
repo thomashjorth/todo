@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { API_BASE_URL } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { RetroImport } from './retro-import';
@@ -35,12 +36,11 @@ interface Screen {
   http: HttpTestingController;
 }
 
-function open(aliases: string[] = []): Screen {
+function open(): Screen {
   const fixture = TestBed.createComponent(RetroImport);
   const http = TestBed.inject(HttpTestingController);
   const element = fixture.nativeElement as HTMLElement;
   fixture.detectChanges();
-  http.expectOne('/api/retro/aliases').flush(new Blob([JSON.stringify({ aliases })]));
 
   return { fixture, element, http };
 }
@@ -56,8 +56,8 @@ function settled(screen: Screen, selector: string): Promise<HTMLElement> {
   });
 }
 
-async function analyse(body: unknown, aliases: string[] = []): Promise<Screen> {
-  const screen = open(aliases);
+async function analyse(body: unknown): Promise<Screen> {
+  const screen = open();
 
   const textarea = screen.element.querySelector<HTMLTextAreaElement>('[data-testid="retro-csv"]')!;
   textarea.value = csv;
@@ -87,6 +87,7 @@ describe('RetroImport', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideRouter([]),
         { provide: API_BASE_URL, useValue: '' },
       ],
     }).compileComponents();
@@ -262,64 +263,13 @@ describe('RetroImport', () => {
     );
   });
 
-  it('should add an alias on Enter and analyse the export again', async () => {
-    const screen = await analyse({ rows: [theirs], skippedRatingCards: 0 }, ['TH']);
+  it('should point at the settings page rather than edit the aliases here', () => {
+    const { element } = open();
 
-    const input = screen.element.querySelector<HTMLInputElement>('[data-testid="alias-input"]')!;
-    input.value = '  Mette Kirkegaard  ';
-    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
-
-    const saved = screen.http.expectOne('/api/retro/aliases');
-    expect(saved.request.method).toBe('PUT');
-    expect(JSON.parse(saved.request.body)).toEqual({ aliases: ['TH', 'Mette Kirkegaard'] });
-    expect(input.value).toBe('');
-    saved.flush(new Blob([JSON.stringify({ aliases: ['Mette Kirkegaard', 'TH'] })]));
-
-    const preview = await vi.waitFor(() => screen.http.expectOne('/api/retro/preview'));
-    preview.flush(
-      new Blob([JSON.stringify({ rows: [{ ...theirs, isMine: true }], skippedRatingCards: 0 })]),
-    );
-
-    await vi.waitFor(() => {
-      screen.fixture.detectChanges();
-      expect(checkboxes(screen.element).map((c) => c.checked)).toEqual([true]);
-    });
-
-    const rows = screen.element.querySelectorAll('[data-testid="alias-row"]');
-    expect([...rows].map((r) => r.querySelector('span')!.textContent!.trim())).toEqual([
-      'Mette Kirkegaard',
-      'TH',
-    ]);
-  });
-
-  it('should remove an alias from its own labelled button', async () => {
-    const screen = await analyse({ rows: [mine], skippedRatingCards: 0 }, ['TH', 'Thomas Hjorth']);
-
-    const rows = screen.element.querySelectorAll('[data-testid="alias-row"]');
-    const remove = rows[1].querySelector<HTMLButtonElement>('[data-testid="remove-alias"]')!;
-    expect(remove.getAttribute('aria-label')).toBe('Fjern Thomas Hjorth');
-
-    remove.click();
-
-    const saved = screen.http.expectOne('/api/retro/aliases');
-    expect(saved.request.method).toBe('PUT');
-    expect(JSON.parse(saved.request.body)).toEqual({ aliases: ['TH'] });
-  });
-
-  it('should send no alias request for a blank or repeated name', async () => {
-    const screen = open(['TH']);
-    await vi.waitFor(() => {
-      screen.fixture.detectChanges();
-      expect(screen.element.querySelectorAll('[data-testid="alias-row"]')).toHaveLength(1);
-    });
-
-    const input = screen.element.querySelector<HTMLInputElement>('[data-testid="alias-input"]')!;
-    for (const value of ['   ', 'TH']) {
-      input.value = value;
-      input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
-    }
-
-    screen.http.verify();
-    expect(input.value).toBe('TH');
+    const link = element.querySelector<HTMLAnchorElement>('[data-testid="retro-settings-link"]')!;
+    expect(link.getAttribute('href')).toBe('/settings');
+    expect(link.textContent!.trim()).toBe('Ret dine navne under Indstillinger');
+    expect(element.querySelector('[data-testid="alias-input"]')).toBeNull();
+    expect(element.querySelector('[data-testid="retro-alias-section"]')).toBeNull();
   });
 });

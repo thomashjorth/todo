@@ -42,7 +42,15 @@ public class RetroImportJourneyTests(BrowserFixture fixture) : IClassFixture<Bro
         await Assertions.Expect(RetroImportScreen.PickOf(theirs)).Not.ToBeCheckedAsync();
         await Assertions.Expect(mine).ToContainTextAsync($"{Me} - {MyAction}");
 
-        await import.AddAliasAsync(Me);
+        var settings = await app.GoToSettings();
+
+        await settings.AddAliasAsync(Me);
+
+        // The screen is built anew on the way back, so the export has to be analysed again.
+        import = await settings.GoToImport();
+
+        await import.PasteAsync(Board);
+        await import.AnalyseAsync();
 
         await Assertions.Expect(import.NoneMine).ToHaveCountAsync(0);
         await Assertions.Expect(RetroImportScreen.PickOf(mine)).ToBeCheckedAsync();

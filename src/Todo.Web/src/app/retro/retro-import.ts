@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { RetroPreviewRow } from '../api/todo-client';
 import { pluralKey } from '../i18n/plural-key';
@@ -6,7 +7,7 @@ import { RetroStore } from './retro-store';
 
 @Component({
   selector: 'app-retro-import',
-  imports: [TranslocoPipe],
+  imports: [RouterLink, TranslocoPipe],
   templateUrl: './retro-import.html',
 })
 export class RetroImport {
@@ -26,10 +27,6 @@ export class RetroImport {
   protected readonly noneMine = computed(
     () => this.store.rows().length > 0 && !this.store.rows().some((row) => row.isMine),
   );
-
-  constructor() {
-    void this.store.loadAliases();
-  }
 
   protected analyse(): void {
     this.receipt.set(null);
@@ -65,27 +62,6 @@ export class RetroImport {
       }),
     );
     await this.reanalyse();
-  }
-
-  protected addAlias(input: HTMLInputElement): void {
-    const alias = input.value.trim();
-    if (!alias || this.store.aliases().includes(alias)) {
-      return;
-    }
-
-    input.value = '';
-    void this.saveAliases([...this.store.aliases(), alias]);
-  }
-
-  protected removeAlias(alias: string): void {
-    void this.saveAliases(this.store.aliases().filter((a) => a !== alias));
-  }
-
-  private async saveAliases(aliases: string[]): Promise<void> {
-    await this.store.saveAliases(aliases);
-    if (this.analysed()) {
-      await this.reanalyse();
-    }
   }
 
   private async reanalyse(): Promise<void> {

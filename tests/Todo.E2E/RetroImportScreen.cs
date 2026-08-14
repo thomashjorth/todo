@@ -22,12 +22,6 @@ public sealed class RetroImportScreen(TodoApp app)
 
     public ILocator Receipt => Page.GetByTestId("retro-receipt");
 
-    public ILocator AliasRows => Page.GetByTestId("alias-row");
-
-    private ILocator AliasSection => Page.GetByTestId("retro-alias-section");
-
-    private ILocator AliasInput => Page.GetByTestId("alias-input");
-
     private IPage Page => app.Page;
 
     public ILocator Row(string text) => Rows.Filter(new() { HasText = text });
@@ -40,20 +34,9 @@ public sealed class RetroImportScreen(TodoApp app)
 
     public Task ImportAsync() => ImportButton.ClickAsync();
 
-    public async Task AddAliasAsync(string name)
-    {
-        if (await AliasSection.GetAttributeAsync("open") is null)
-        {
-            await AliasSection.Locator("summary").ClickAsync();
-        }
-
-        await AliasInput.FillAsync(name);
-        await AliasInput.PressAsync("Enter");
-
-        await Assertions.Expect(AliasRows.Filter(new() { HasText = name })).ToBeVisibleAsync();
-    }
-
     public Task<TaskListScreen> GoToTasks() => app.GoToTasks();
+
+    public Task<SettingsScreen> GoToSettings() => app.GoToSettings();
 
     internal Task WaitUntilShownAsync() => Assertions.Expect(Csv).ToBeVisibleAsync();
 }

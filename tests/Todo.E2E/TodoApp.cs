@@ -55,6 +55,16 @@ public sealed class TodoApp
         return screen;
     }
 
+    public async Task<SettingsScreen> GoToSettings()
+    {
+        await Page.GetByTestId("nav-settings").ClickAsync();
+
+        var screen = new SettingsScreen(this);
+        await screen.WaitUntilShownAsync();
+
+        return screen;
+    }
+
     public Task<int> ScrollWidthAsync()
         => Page.EvaluateAsync<int>("document.documentElement.scrollWidth");
 }

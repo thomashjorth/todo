@@ -18,6 +18,14 @@
       ariaCurrentWhenActive="page"
       >{{ 'nav.import' | transloco }}</a
     >
+    <a
+      data-testid="nav-settings"
+      class="text-sm text-gray-600 dark:text-gray-400"
+      routerLink="/settings"
+      routerLinkActive="font-semibold text-gray-900 underline dark:text-gray-100"
+      ariaCurrentWhenActive="page"
+      >{{ 'nav.settings' | transloco }}</a
+    >
   </nav>
   <router-outlet />
   @if (status(); as s) {

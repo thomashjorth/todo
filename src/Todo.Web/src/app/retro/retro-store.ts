@@ -1,8 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
+import { apiErrorMessage } from '../api/api-error-message';
 import {
-  ApiError,
   RetroAliasesRequest,
   RetroClient,
   RetroImportRequest,
@@ -33,7 +33,7 @@ export class RetroStore {
     } catch (error) {
       this.rows.set([]);
       this.skippedRatingCards.set(0);
-      this.error.set(this.messageOf(error));
+      this.error.set(apiErrorMessage(this.transloco, error));
     }
   }
 
@@ -58,17 +58,18 @@ export class RetroStore {
     try {
       return await firstValueFrom(this.client.importRetro(request));
     } catch (error) {
-      this.error.set(this.messageOf(error));
+      this.error.set(apiErrorMessage(this.transloco, error));
       return undefined;
     }
   }
 
   async loadAliases(): Promise<void> {
+    this.error.set(null);
     try {
       const response = await firstValueFrom(this.client.listRetroAliases());
       this.aliases.set(response.aliases);
     } catch (error) {
-      this.error.set(this.messageOf(error));
+      this.error.set(apiErrorMessage(this.transloco, error));
     }
   }
 
@@ -80,22 +81,7 @@ export class RetroStore {
       );
       this.aliases.set(response.aliases);
     } catch (error) {
-      this.error.set(this.messageOf(error));
+      this.error.set(apiErrorMessage(this.transloco, error));
     }
-  }
-
-  // A rejected request throws the ApiError body itself, and its code is the translation key.
-  // A code with no translation yet still says something: the server's own English message.
-  private messageOf(error: unknown): string {
-    if (!(error instanceof ApiError)) {
-      return this.transloco.translate('errors.generic');
-    }
-
-    const key = `errors.${error.code}`;
-    const translated = this.transloco.translate(key);
-
-    return translated === key
-      ? error.message || this.transloco.translate('errors.generic')
-      : translated;
   }
 }

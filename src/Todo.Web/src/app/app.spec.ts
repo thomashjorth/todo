@@ -57,40 +57,45 @@ describe('App', () => {
 
     expect(text('nav-tasks')).toBe('Opgaver');
     expect(text('nav-import')).toBe('Retro-import');
+    expect(text('nav-settings')).toBe('Indstillinger');
 
     TestBed.inject(TranslocoService).setActiveLang('en');
     fixture.detectChanges();
 
     expect(text('nav-tasks')).toBe('Tasks');
     expect(text('nav-import')).toBe('Retro import');
+    expect(text('nav-settings')).toBe('Settings');
   });
 
-  it('should link to both screens and mark the current one for a screen reader', async () => {
+  it('should link to every screen and mark the current one for a screen reader', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    const tasks = () => compiled.querySelector('[data-testid="nav-tasks"]')!;
-    const retro = () => compiled.querySelector('[data-testid="nav-import"]')!;
+    const link = (id: string) => compiled.querySelector(`[data-testid="${id}"]`)!;
+    const links = () => ['nav-tasks', 'nav-import', 'nav-settings'].map(link);
 
     // RouterLinkActive applies aria-current in a microtask of its own, so the
     // attribute lands a change detection cycle after the navigation resolves.
     const current = () =>
       vi.waitFor(() => {
         fixture.detectChanges();
-        const marked = [tasks(), retro()].filter((a) => a.getAttribute('aria-current') === 'page');
+        const marked = links().filter((a) => a.getAttribute('aria-current') === 'page');
         expect(marked).toHaveLength(1);
         return marked[0].getAttribute('data-testid');
       });
 
     await TestBed.inject(Router).navigate(['/']);
 
-    expect(tasks().getAttribute('href')).toBe('/');
-    expect(retro().getAttribute('href')).toBe('/import');
+    expect(links().map((a) => a.getAttribute('href'))).toEqual(['/', '/import', '/settings']);
     expect(await current()).toBe('nav-tasks');
 
     await TestBed.inject(Router).navigate(['/import']);
 
     expect(await current()).toBe('nav-import');
+
+    await TestBed.inject(Router).navigate(['/settings']);
+
+    expect(await current()).toBe('nav-settings');
   });
 
   it('should report the API as unavailable when the call fails', async () => {

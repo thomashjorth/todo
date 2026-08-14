@@ -1,0 +1,70 @@
+<h2 class="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+  {{ 'settings.heading' | transloco }}
+</h2>
+
+<label
+  for="settings-language"
+  class="mt-4 block text-sm font-medium text-gray-900 dark:text-gray-100"
+  >{{ 'settings.language' | transloco }}</label
+>
+<select
+  #language
+  id="settings-language"
+  data-testid="language-select"
+  class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-gray-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+  (change)="choose(language.value)"
+>
+  @for (option of options; track option) {
+    <option [value]="option" [selected]="option === choice()">
+      {{ languageKey(option) | transloco }}
+    </option>
+  }
+</select>
+
+@if (settings.error(); as message) {
+  <p data-testid="settings-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+    {{ message }}
+  </p>
+}
+
+<h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
+  {{ 'settings.aliases.heading' | transloco }}
+</h3>
+
+<ul class="mt-2 space-y-1">
+  @for (alias of retro.aliases(); track alias) {
+    <li data-testid="alias-row" class="flex items-center gap-2">
+      <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+        alias
+      }}</span>
+      <button
+        type="button"
+        data-testid="remove-alias"
+        [attr.aria-label]="'settings.aliases.remove' | transloco: { alias }"
+        class="shrink-0 text-xs text-red-700 dark:text-red-300"
+        (click)="removeAlias(alias)"
+      >
+        ✕
+      </button>
+    </li>
+  }
+</ul>
+
+<label class="mt-2 block">
+  <span class="block text-xs text-gray-700 dark:text-gray-300">{{
+    'settings.aliases.add' | transloco
+  }}</span>
+  <input
+    #aliasInput
+    data-testid="alias-input"
+    type="text"
+    class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-gray-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+    (keyup.enter)="addAlias(aliasInput)"
+  />
+</label>
+
+@if (retro.error(); as message) {
+  <p data-testid="alias-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+    {{ message }}
+  </p>
+}

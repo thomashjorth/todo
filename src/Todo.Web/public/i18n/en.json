@@ -6,7 +6,8 @@
   },
   "nav": {
     "tasks": "Tasks",
-    "import": "Retro import"
+    "import": "Retro import",
+    "settings": "Settings"
   },
   "tasks": {
     "newTask": "New task",
@@ -54,6 +55,16 @@
       "other": "Import {{count}} tasks"
     },
     "receipt": "{{imported}} imported, {{skipped}} skipped",
+    "aliasesLink": "Edit your names in Settings"
+  },
+  "settings": {
+    "heading": "Settings",
+    "language": "Language",
+    "languages": {
+      "system": "Follow the system",
+      "da": "Danish",
+      "en": "English"
+    },
     "aliases": {
       "heading": "Who are you on the board?",
       "add": "Add a name",

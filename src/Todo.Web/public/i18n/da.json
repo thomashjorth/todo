@@ -6,7 +6,8 @@
   },
   "nav": {
     "tasks": "Opgaver",
-    "import": "Retro-import"
+    "import": "Retro-import",
+    "settings": "Indstillinger"
   },
   "tasks": {
     "newTask": "Ny opgave",
@@ -54,6 +55,16 @@
       "other": "Importér {{count}} opgaver"
     },
     "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
+    "aliasesLink": "Ret dine navne under Indstillinger"
+  },
+  "settings": {
+    "heading": "Indstillinger",
+    "language": "Sprog",
+    "languages": {
+      "system": "Følg systemet",
+      "da": "Dansk",
+      "en": "Engelsk"
+    },
     "aliases": {
       "heading": "Hvem er du på boardet?",
       "add": "Tilføj et navn",
