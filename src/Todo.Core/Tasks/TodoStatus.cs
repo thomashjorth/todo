@@ -4,5 +4,7 @@ public enum TodoStatus
 {
     Open,
     InProgress,
+    WaitingFor,
+    Someday,
     Done,
 }

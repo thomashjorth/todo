@@ -18,6 +18,10 @@ public class TaskItem
 
     public TodoStatus Status { get; set; } = TodoStatus.Open;
 
+    public string? WaitingOn { get; set; }
+
+    public DateTime? WaitingSince { get; set; }
+
     public DateTime? CompletedAt { get; set; }
 
     public DateTime CreatedAt { get; set; }

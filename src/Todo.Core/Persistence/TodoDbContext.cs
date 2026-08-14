@@ -20,6 +20,8 @@ public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(
         task.Property(t => t.Status).HasConversion<string>();
         task.HasIndex(t => t.Deadline);
 
+        task.Property(t => t.WaitingOn).HasMaxLength(200);
+
         task.Property(t => t.ExternalKey).HasMaxLength(200);
         task.HasIndex(t => new { t.SourceId, t.ExternalKey });
 
