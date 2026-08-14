@@ -10,6 +10,8 @@ public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(
 
     public DbSet<UserAlias> Aliases => Set<UserAlias>();
 
+    public DbSet<Setting> Settings => Set<Setting>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var task = modelBuilder.Entity<TaskItem>();
@@ -32,5 +34,10 @@ public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(
         var alias = modelBuilder.Entity<UserAlias>();
         alias.Property(a => a.Value).IsRequired().HasMaxLength(200);
         alias.HasIndex(a => a.Value).IsUnique();
+
+        var setting = modelBuilder.Entity<Setting>();
+        setting.HasKey(s => s.Key);
+        setting.Property(s => s.Key).HasMaxLength(100);
+        setting.Property(s => s.Value).IsRequired().HasMaxLength(2000);
     }
 }

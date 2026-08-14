@@ -258,6 +258,37 @@ paths:
                 $ref: '#/components/schemas/RetroAliasesResponse'
         '400':
           description: The request is not valid.
+  /api/settings:
+    get:
+      operationId: getSettings
+      tags:
+        - Settings
+      responses:
+        '200':
+          description: The stored settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+    put:
+      operationId: updateSettings
+      tags:
+        - Settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsRequest'
+      responses:
+        '200':
+          description: The stored settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '400':
+          description: The request is not valid.
 components:
   schemas:
     HealthResponse:
@@ -417,3 +448,19 @@ components:
         aliases:
           type: array
           items: { type: string }
+    SettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        language:
+          type: string
+          nullable: true
+          example: da
+    SettingsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        language:
+          type: string
+          nullable: true
+          example: da

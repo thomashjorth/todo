@@ -45,6 +45,7 @@ public static class TodoHost
 
         app.MapTasks();
         app.MapRetro();
+        app.MapSettings();
 
         app.MapFallbackToFile("index.html");
 

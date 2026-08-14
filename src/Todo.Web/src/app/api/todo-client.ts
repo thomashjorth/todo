@@ -765,6 +765,130 @@ export class RetroClient {
     }
 }
 
+@Injectable({
+    providedIn: 'root'
+})
+export class SettingsClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * @return The stored settings.
+     */
+    getSettings(): Observable<SettingsResponse> {
+        let url_ = this.baseUrl + "/api/settings";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processGetSettings(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processGetSettings(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<SettingsResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<SettingsResponse>;
+        }));
+    }
+
+    protected processGetSettings(response: HttpResponseBase): Observable<SettingsResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = SettingsResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return The stored settings.
+     */
+    updateSettings(body: SettingsRequest): Observable<SettingsResponse> {
+        let url_ = this.baseUrl + "/api/settings";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processUpdateSettings(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processUpdateSettings(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<SettingsResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<SettingsResponse>;
+        }));
+    }
+
+    protected processUpdateSettings(response: HttpResponseBase): Observable<SettingsResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = SettingsResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("The request is not valid.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
 export class HealthResponse implements IHealthResponse {
     status!: string;
     version!: string;
@@ -1551,6 +1675,78 @@ export class RetroAliasesResponse implements IRetroAliasesResponse {
 
 export interface IRetroAliasesResponse {
     aliases: string[];
+}
+
+export class SettingsRequest implements ISettingsRequest {
+    language?: string | undefined;
+
+    constructor(data?: ISettingsRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.language = _data["language"];
+        }
+    }
+
+    static fromJS(data: any): SettingsRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new SettingsRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["language"] = this.language;
+        return data;
+    }
+}
+
+export interface ISettingsRequest {
+    language?: string | undefined;
+}
+
+export class SettingsResponse implements ISettingsResponse {
+    language?: string | undefined;
+
+    constructor(data?: ISettingsResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.language = _data["language"];
+        }
+    }
+
+    static fromJS(data: any): SettingsResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new SettingsResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["language"] = this.language;
+        return data;
+    }
+}
+
+export interface ISettingsResponse {
+    language?: string | undefined;
 }
 
 export class ApiException extends Error {
