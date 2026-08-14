@@ -25,6 +25,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen. |
 | Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
+| Id-type | `Guid` v4 i dag. Skifter til `long` i skive 7 — se afsnit 10. |
 | Tokens | I `Setting`-tabellen i klartekst. **Bevidst valg** — se afsnit 3. |
 | Indstillinger | Én side i appen til sprog, URL'er, tokens, aliaser og sync-interval. |
 | Sprog | Dansk og engelsk med Transloco. Systemets sprog som standard, skiftes i indstillinger. |
@@ -363,14 +364,18 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    strenge og alle markdown-elementer én gang. Samlet i én skive, fordi hver farve
    ellers skulle kontrasttjekkes to gange. **Bemærk: udskudt to gange** — først af
    markdown, så af GTD-tilstandene. Sker det igen, er det værd at spørge hvorfor.
-7. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
+7. **`long` som id** — `Guid` erstattes af `long` på `TaskItem`, `SubTask` og
+   `UserAlias`. Egen skive, fordi den rører primærnøgler, fremmednøgler, kontrakten,
+   begge genererede klienter, alle builders og næsten hver test. **Kan flyttes, men
+   bliver dyrere for hver skive der lægges imellem.** Se afsnit 10.
+8. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
    Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
    en server at teste mod.
-8. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 7 duer.
-9. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
-10. **Baggrundssync, tray og notifikationer.**
-11. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
-12. **Pakning** — self-contained exe, autostart.
+9. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 8 duer.
+10. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+11. **Baggrundssync, tray og notifikationer.**
+12. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
+13. **Pakning** — self-contained exe, autostart.
 
 ## 10. Risici og åbne punkter
 
@@ -389,6 +394,13 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 - **Photino** kræver WebView2-runtime. Til stede på Windows 11 som standard.
 - **Fixtures** kan blive forældede når serverne opgraderes; kontrakt-testene er
   første sted det opdages.
+- **Id'erne er `Guid` v4 og skal være `long`** (besluttet 2026-08-14, planlagt til
+  skive 7). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
+  **tilfældig v4** til **tidsordnet UUIDv7**, som `Guid.CreateVersion7()` giver i
+  .NET 9+. Argumentet for `long` her er et andet: i SQLite bliver `INTEGER PRIMARY
+  KEY` et alias for rowid, og "opgave 42" kan siges højt. Fragmentering er uden
+  betydning ved denne størrelse. **Migreringen bliver dyrere for hver skive der
+  lægges imellem**, fordi hver ny skive tilføjer kode og tests der rører id'er.
 
 ## 11. Forholdet til GTD
 
