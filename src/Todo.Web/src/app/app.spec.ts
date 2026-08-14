@@ -2,9 +2,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
 import { API_BASE_URL } from './api/todo-client';
 import { App } from './app';
 import { routes } from './app.routes';
+import { translocoTesting } from './i18n/transloco.testing';
 
 // The generated client requests responseType 'blob' and decodes it with FileReader,
 // so a flushed response only reaches the template after a later microtask.
@@ -20,7 +22,7 @@ function healthText(fixture: ComponentFixture<App>): Promise<string> {
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [App],
+      imports: [App, translocoTesting()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -44,6 +46,23 @@ describe('App', () => {
     expect(await healthText(fixture)).toContain('API: ok (v1.2.3)');
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Todo');
+  });
+
+  it('should show the navigation in Danish and follow a change of language', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const text = (id: string) =>
+      compiled.querySelector(`[data-testid="${id}"]`)!.textContent!.trim();
+
+    expect(text('nav-tasks')).toBe('Opgaver');
+    expect(text('nav-import')).toBe('Retro-import');
+
+    TestBed.inject(TranslocoService).setActiveLang('en');
+    fixture.detectChanges();
+
+    expect(text('nav-tasks')).toBe('Tasks');
+    expect(text('nav-import')).toBe('Retro import');
   });
 
   it('should link to both screens and mark the current one for a screen reader', async () => {
