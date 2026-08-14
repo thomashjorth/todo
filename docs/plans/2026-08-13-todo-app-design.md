@@ -229,9 +229,10 @@ board-eksport i et tekstfelt, og appen parser den. Kolonnerne er:
 - **Alle øvrige rækker vises, med dine forudvalgt.** Match sker på `Action Owner`
   mod en liste af aliaser i indstillingerne, ikke på `Zone`: ejer og deadline kan
   stå på et kort i en hvilken som helst zone, ikke kun `Actions`.
-- **Import-skærmen skal kunne vise "ingen af dem er dine".** Det er et helt
-  normalt udfald — i eksporten ovenfor ejer Thomas ingen af de to actions. Skærmen
-  må altså ikke antage, at der er noget forudvalgt.
+- **Import-skærmen skal kunne vise "ingen af dem er dine"** uden at ligne en fejl.
+  Det sker, når du ikke har deltaget i den pågældende retro — eksporten ovenfor er
+  netop sådan en. Skærmen må ikke antage, at der er noget forudvalgt, og skal sige
+  hvorfor listen er tom frem for bare at vise ingenting.
 - **To datoformater i samme fil.** `Action Due Date` er `d.M.yyyy` (`24.7.2026`),
   `Created` er `M/d/yy, h:mm tt` (`7/13/26, 4:09 PM`). Begge parses med eksplicit
   format og `InvariantCulture`. Under da-DK fejler `7/13/26` som dato, og et
