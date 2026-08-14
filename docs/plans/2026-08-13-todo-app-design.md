@@ -311,7 +311,7 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    *Herefter er appen brugbar; resten er tilkobling.*
 2. **Retro-import** — indsat CSV, forhåndsvisning, dedup. Den eneste eksterne
    kilde der hverken kræver tokens, netværk eller kendskab til serverversioner —
-   ren tekstparsing ind i skive 1's datamodel. Derfor før Jira.
+   ren tekstparsing ind i skive 1's datamodel. Derfor før Jira. **Færdig.**
 3. **Indstillinger** — `Setting`-tabellen og én indstillingsside. Den er lille og
    giver et hjem til sprogvalg, aliaser og senere tokens og URL'er.
    Aliasredigeringen flytter hertil fra import-skærmen, som beholder et link —
