@@ -22,7 +22,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Vinduesbredde | Primært mål ~480 px (kvart 1080p-skærm). Skal forblive brugbar ved fuld bredde. |
 | Styling | Standard Tailwind utility-klasser. Ingen egne CSS/SCSS-regler, ingen egne tokens. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
-| Retro-board | Indsat CSV-eksport. Alle rækker vises, mine er forudvalgt. |
+| Retro-board | Indsat CSV-eksport. Afstemningskort filtreres væk; rækker hvor `Action Owner` matcher mine aliaser er forudvalgt. |
 | Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. |
 | Redigering | Inline i listen. Ingen dialog — ved 480 px ville den dække alt. |
 | Færdige opgaver | Forsvinder straks; en "Vis færdige"-kontakt henter dem frem. |
@@ -210,26 +210,39 @@ Falder den, er alternativet at læse ADO's notifikations-/alert-feed.
 ### Retro-board (indsat CSV)
 
 Ikke en `ITaskSource` — der er intet API og ingen polling. Du indsætter en
-board-eksport i et tekstfelt, og appen parser den:
+board-eksport i et tekstfelt, og appen parser den. Kolonnerne er:
 
 ```csv
-"Content","Action Owner"
-"THOMAS - Multi sub system tests  FSTYR process flow: ...","Thomas Hjorth Hansen"
+"Content","Author","Created","Zone","Action Due Date","Action Owner"
+"Since we dont have resqueue on FRH …","Thomas Hjorth Hansen","7/13/26, 4:09 PM","Add","24.7.2026","Filip Taskovski Medarbejder"
 ```
 
+**Feltafbildning:** `Content` → titel, `Action Owner` → hvem rækken tilhører,
+`Action Due Date` → deadline, `Author` → opgavestiller (den der rejste punktet).
+`Zone` og `Created` bruges kun til dedup og til at vise kontekst.
+
 - **Rigtig CSV-parsing** (RFC 4180, citerede felter). `split(',')` går i stykker
-  første gang en action indeholder et komma, og det gør de.
-- **Alle rækker vises**, med dine forudvalgt. Så kan en action der blev omfordelt
-  mundtligt på retroen tages med, uden at redigere CSV'en først.
-- **Ingen id-kolonne**, så dedup sker på en hash af normaliseret indhold + ejer.
-  Ved gen-import vises kendte rækker som "importeret tidligere" og er slået fra —
-  ikke skjult, så du kan se at boardet blev genkendt.
-- **`Action Owner` er fritekst.** En liste af aliaser i indstillingerne afgør hvad
-  der er dig. Matcher et alias, strippes også et indledende `"THOMAS - "` fra
-  titlen; det er et ejerskabsmærke i boardet og larmer i en opgaveliste.
-- **Hverken deadline eller opgavestiller findes i eksporten.** Deadline sættes
-  bagefter. Opgavestiller kan udfyldes med et frivilligt felt på import-skærmen,
-  fx `Retro 2026-08-13`.
+  første gang et kort indeholder et komma, og det gør de.
+- **Afstemningskort filtreres væk.** Zonerne `Quality`, `Mood` og `Velocity`
+  indeholder karakterer som `8`, `9/10`, `10/10` — i en typisk eksport er det
+  størstedelen af rækkerne. De må aldrig kunne blive til opgaver.
+- **Alle øvrige rækker vises, med dine forudvalgt.** Match sker på `Action Owner`
+  mod en liste af aliaser i indstillingerne, ikke på `Zone`: ejer og deadline kan
+  stå på et kort i en hvilken som helst zone, ikke kun `Actions`.
+- **Import-skærmen skal kunne vise "ingen af dem er dine".** Det er et helt
+  normalt udfald — i eksporten ovenfor ejer Thomas ingen af de to actions. Skærmen
+  må altså ikke antage, at der er noget forudvalgt.
+- **To datoformater i samme fil.** `Action Due Date` er `d.M.yyyy` (`24.7.2026`),
+  `Created` er `M/d/yy, h:mm tt` (`7/13/26, 4:09 PM`). Begge parses med eksplicit
+  format og `InvariantCulture`. Under da-DK fejler `7/13/26` som dato, og et
+  forkert format bytter stille dag og måned.
+- **Ingen id-kolonne**, så dedup sker på `Content` + `Zone` + `Author` +
+  `Created`. **Indhold alene er ikke nok:** samme tekst optræder både som
+  observation i `Improve` og som aftalt handling i `Actions`, og de to er ikke det
+  samme. Ved gen-import vises kendte rækker som "importeret tidligere" og er slået
+  fra — ikke skjult, så du kan se at boardet blev genkendt.
+- Matcher et alias, strippes et indledende `"NAVN - "` fra titlen; det er et
+  ejerskabsmærke i boardet og larmer i en opgaveliste.
 
 ## 7. SOLID i praksis
 
