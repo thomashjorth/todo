@@ -43,6 +43,22 @@ Det er sikkert at importere det samme board igen. Hver række genkendes på `Con
 `Zone` + `Author` + `Created`, så en række du allerede har importeret står som
 "importeret tidligere" og kan ikke vælges igen.
 
+## Sprog og indstillinger
+
+Skærmen hedder **Indstillinger** i menuen øverst og ligger på ruten `/settings`. Her
+vælger du sprog, og her retter du dine navne på retro-boardet.
+
+Sproget har tre valg: **Følg systemet**, **Dansk** og **Engelsk**. "Følg systemet" er
+standarden — så læses sproget af browserens `navigator.language`, og alt der ikke er
+dansk bliver engelsk. Et valg slår igennem med det samme, uden at siden genindlæses.
+
+Valget gemmes i databasen, ikke i browseren, så det overlever en genstart af appen.
+Vælger du "Følg systemet" igen, slettes indstillingen frem for at blive gemt som en værdi.
+
+Deadlines skrives på det aktive sprog — `14. aug. 2026` mod `Aug 14, 2026`. Datoen bygges
+af de tre tal i `yyyy-MM-dd` og aldrig ved at lade en `Date` fortolke strengen:
+`new Date("2026-08-14")` er midnat UTC og ville stå som den 13. vest for Greenwich.
+
 ## Tests
 
 Backend og end-to-end (xUnit):

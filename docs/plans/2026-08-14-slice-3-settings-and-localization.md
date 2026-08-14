@@ -290,7 +290,17 @@ git add -A && git commit -m "✅ Cover language switching end to end"
 - `dotnet test Todo.sln` og Vitest er grønne, 0 advarsler.
 - Drift-testen er set fejle i task 1, og lagringen af sproget i task 7.
 
-## Til skive 4 (tilgængelighed, tastatur og dark mode)
+## Til skive 4 (markdown i noter)
+
+- Noten er allerede oversat som **etiket** (`tasks.note`); det er indholdet der bliver
+  markdown. Renderet markdown skal ikke gennem Transloco — det er brugerens egne data.
+- Deadline-pipen `deadlineDate` er impure, fordi sproget skifter uden at datoen gør.
+  Alt andet der formaterer efter sprog skal gøre det samme; en pure pipe fejler lydløst
+  og ser rigtig ud, indtil nogen skifter sprog.
+- `prose`-klasserne fra `@tailwindcss/typography` er den eneste vej udenom håndskrevet
+  CSS, og pakken er endnu ikke installeret.
+
+## Til skive 5 (tilgængelighed, tastatur og dark mode)
 
 - Skallen mangler stadig en baggrundsfarve: `<body>` sætter hverken `bg-*` eller `text-*`, så komponenternes `dark:`-farver ville stå på hvid. Det er det første, den skive skal rette.
 - `text-gray-400` på health-linjen er en kendt kontrastovertrædelse (~2,9:1).

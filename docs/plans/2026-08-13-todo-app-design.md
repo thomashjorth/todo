@@ -28,6 +28,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Tokens | I `Setting`-tabellen i klartekst. **Bevidst valg** — se afsnit 3. |
 | Indstillinger | Én side i appen til sprog, URL'er, tokens, aliaser og sync-interval. |
 | Sprog | Dansk og engelsk med Transloco. Systemets sprog som standard, skiftes i indstillinger. |
+| Datoformat | `Intl.DateTimeFormat` med det aktive sprog. Ikke Angulars `DatePipe` — `LOCALE_ID` bindes ved opstart og kan ikke skiftes i runtime. |
 | API-fejl | `{ code, message }` — `code` er en oversættelsesnøgle, `message` engelsk fallback til logs. |
 | Kodeorganisering | Feature-mapper, én type pr. fil (også enums), namespaces følger mapper. |
 | E2E-opsætning | Testdata-builders i `Todo.TestSupport`; navigation kædes via `TodoApp`. |
@@ -163,7 +164,8 @@ Pr. kilde: `LastRunAt`, `LastSuccessAt`, `Watermark`, `LastError`. Driver
 ### `Setting`
 
 Nøgle/værdi: sprog, URL'er, bruger-id pr. system, sync-interval **og tokens**.
-Findes endnu ikke — bygges i skive 3 sammen med indstillingssiden.
+Bygget i skive 3 med `Key` som primærnøgle. Sproget er indtil videre den eneste nøgle,
+og API'et er typet (`{ language }`), så kontrakten ikke lækker lagringsformen.
 
 `UserAlias` er bevidst en egen tabel og flytter ikke ind her: aliaser er en liste,
 ikke en enkelt værdi, og en typet tabel kan have et unikt indeks.
@@ -341,7 +343,7 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    dansk/engelsk med Transloco og systemets sprog som standard. Slået sammen, fordi
    siden ellers kun ville flytte aliasredigeringen fra import-skærmen, og tabellen
    ville blive bygget uden en eneste indstilling at gemme. Sproget er den første.
-   Aliasredigeringen flytter hertil; import-skærmen beholder et link.
+   Aliasredigeringen flytter hertil; import-skærmen beholder et link. **Færdig.**
 4. **Markdown i noter** — noten på en opgave skrives i markdown og vises renderet.
    Klik på den for at redigere. Fuld CommonMark.
 5. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
@@ -366,9 +368,9 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 - **Skallen har ingen baggrundsfarve.** `<body>` sætter hverken baggrund eller
   tekstfarve, så under mørkt systemtema ville komponenternes `dark:`-farver stå på
   hvid. Skive 5 skal sætte den; indtil da undgås fyldte flader.
-- **Flertalsformer i UI-tekster** er ikke håndteret — "Importér 1 opgaver" er
-  bevidst efterladt, fordi Transloco løser det rigtigt i skive 4. At rette strengen
-  først ville betyde at skrive den om to gange.
+- **Opgavelisten har ingen `dark:`-varianter.** Skallen, retro-import og indstillinger
+  har dem; `task-list.html` har ingen eneste. Skive 5 skal tage hele den fil, ikke kun
+  `<body>`.
 - **SQLite-migrationer der fjerner en kolonne** taber dens data lydløst, fordi
   tabellen bygges om. Læs genererede migrationer; backup-kopien før migrering er
   sidste forsvar.
