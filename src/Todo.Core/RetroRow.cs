@@ -8,3 +8,5 @@ public sealed record RetroRow(
     DateOnly? DueDate,
     DateTime? Created,
     string DedupKey);
+
+public sealed record RetroParseResult(IReadOnlyList<RetroRow> Rows, int SkippedRatingCards);

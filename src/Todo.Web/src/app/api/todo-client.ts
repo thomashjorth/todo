@@ -521,6 +521,250 @@ export class TasksClient {
     }
 }
 
+@Injectable({
+    providedIn: 'root'
+})
+export class RetroClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * Reads a retro board export without storing anything.
+     * @return The rows the export contains.
+     */
+    previewRetro(body: RetroPreviewRequest): Observable<RetroPreviewResponse> {
+        let url_ = this.baseUrl + "/api/retro/preview";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processPreviewRetro(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processPreviewRetro(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<RetroPreviewResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<RetroPreviewResponse>;
+        }));
+    }
+
+    protected processPreviewRetro(response: HttpResponseBase): Observable<RetroPreviewResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = RetroPreviewResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("The export could not be read.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Creates a task for every row that is not imported already.
+     * @return How many rows were created and how many were already there.
+     */
+    importRetro(body: RetroImportRequest): Observable<RetroImportResponse> {
+        let url_ = this.baseUrl + "/api/retro/import";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processImportRetro(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processImportRetro(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<RetroImportResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<RetroImportResponse>;
+        }));
+    }
+
+    protected processImportRetro(response: HttpResponseBase): Observable<RetroImportResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = RetroImportResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("The request is not valid.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return The names counted as the user's own.
+     */
+    listRetroAliases(): Observable<RetroAliasesResponse> {
+        let url_ = this.baseUrl + "/api/retro/aliases";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processListRetroAliases(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processListRetroAliases(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<RetroAliasesResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<RetroAliasesResponse>;
+        }));
+    }
+
+    protected processListRetroAliases(response: HttpResponseBase): Observable<RetroAliasesResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = RetroAliasesResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return The stored names.
+     */
+    replaceRetroAliases(body: RetroAliasesRequest): Observable<RetroAliasesResponse> {
+        let url_ = this.baseUrl + "/api/retro/aliases";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processReplaceRetroAliases(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processReplaceRetroAliases(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<RetroAliasesResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<RetroAliasesResponse>;
+        }));
+    }
+
+    protected processReplaceRetroAliases(response: HttpResponseBase): Observable<RetroAliasesResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = RetroAliasesResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("The request is not valid.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
 export class HealthResponse implements IHealthResponse {
     status!: string;
     version!: string;
@@ -927,6 +1171,386 @@ export class UpdateSubTaskRequest implements IUpdateSubTaskRequest {
 export interface IUpdateSubTaskRequest {
     title: string;
     isDone: boolean;
+}
+
+export class RetroPreviewRequest implements IRetroPreviewRequest {
+    csv!: string;
+
+    constructor(data?: IRetroPreviewRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.csv = _data["csv"];
+        }
+    }
+
+    static fromJS(data: any): RetroPreviewRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new RetroPreviewRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["csv"] = this.csv;
+        return data;
+    }
+}
+
+export interface IRetroPreviewRequest {
+    csv: string;
+}
+
+export class RetroPreviewRow implements IRetroPreviewRow {
+    key!: string;
+    title!: string;
+    owner?: string | undefined;
+    author?: string | undefined;
+    zone!: string;
+    deadline?: string | undefined;
+    isMine!: boolean;
+    alreadyImported!: boolean;
+
+    constructor(data?: IRetroPreviewRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.title = _data["title"];
+            this.owner = _data["owner"];
+            this.author = _data["author"];
+            this.zone = _data["zone"];
+            this.deadline = _data["deadline"];
+            this.isMine = _data["isMine"];
+            this.alreadyImported = _data["alreadyImported"];
+        }
+    }
+
+    static fromJS(data: any): RetroPreviewRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new RetroPreviewRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["title"] = this.title;
+        data["owner"] = this.owner;
+        data["author"] = this.author;
+        data["zone"] = this.zone;
+        data["deadline"] = this.deadline;
+        data["isMine"] = this.isMine;
+        data["alreadyImported"] = this.alreadyImported;
+        return data;
+    }
+}
+
+export interface IRetroPreviewRow {
+    key: string;
+    title: string;
+    owner?: string | undefined;
+    author?: string | undefined;
+    zone: string;
+    deadline?: string | undefined;
+    isMine: boolean;
+    alreadyImported: boolean;
+}
+
+export class RetroPreviewResponse implements IRetroPreviewResponse {
+    rows!: RetroPreviewRow[];
+    skippedRatingCards!: number;
+
+    constructor(data?: IRetroPreviewResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(RetroPreviewRow.fromJS(item));
+            }
+            this.skippedRatingCards = _data["skippedRatingCards"];
+        }
+    }
+
+    static fromJS(data: any): RetroPreviewResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new RetroPreviewResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        data["skippedRatingCards"] = this.skippedRatingCards;
+        return data;
+    }
+}
+
+export interface IRetroPreviewResponse {
+    rows: RetroPreviewRow[];
+    skippedRatingCards: number;
+}
+
+export class RetroImportRow implements IRetroImportRow {
+    key!: string;
+    title!: string;
+    requester?: string | undefined;
+    deadline?: string | undefined;
+
+    constructor(data?: IRetroImportRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.title = _data["title"];
+            this.requester = _data["requester"];
+            this.deadline = _data["deadline"];
+        }
+    }
+
+    static fromJS(data: any): RetroImportRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new RetroImportRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["title"] = this.title;
+        data["requester"] = this.requester;
+        data["deadline"] = this.deadline;
+        return data;
+    }
+}
+
+export interface IRetroImportRow {
+    key: string;
+    title: string;
+    requester?: string | undefined;
+    deadline?: string | undefined;
+}
+
+export class RetroImportRequest implements IRetroImportRequest {
+    rows!: RetroImportRow[];
+
+    constructor(data?: IRetroImportRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(RetroImportRow.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): RetroImportRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new RetroImportRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IRetroImportRequest {
+    rows: RetroImportRow[];
+}
+
+export class RetroImportResponse implements IRetroImportResponse {
+    imported!: number;
+    skipped!: number;
+
+    constructor(data?: IRetroImportResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.imported = _data["imported"];
+            this.skipped = _data["skipped"];
+        }
+    }
+
+    static fromJS(data: any): RetroImportResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new RetroImportResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["imported"] = this.imported;
+        data["skipped"] = this.skipped;
+        return data;
+    }
+}
+
+export interface IRetroImportResponse {
+    imported: number;
+    skipped: number;
+}
+
+export class RetroAliasesRequest implements IRetroAliasesRequest {
+    aliases!: string[];
+
+    constructor(data?: IRetroAliasesRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.aliases = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["aliases"])) {
+                this.aliases = [] as any;
+                for (let item of _data["aliases"])
+                    this.aliases!.push(item);
+            }
+        }
+    }
+
+    static fromJS(data: any): RetroAliasesRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new RetroAliasesRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.aliases)) {
+            data["aliases"] = [];
+            for (let item of this.aliases)
+                data["aliases"].push(item);
+        }
+        return data;
+    }
+}
+
+export interface IRetroAliasesRequest {
+    aliases: string[];
+}
+
+export class RetroAliasesResponse implements IRetroAliasesResponse {
+    aliases!: string[];
+
+    constructor(data?: IRetroAliasesResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.aliases = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["aliases"])) {
+                this.aliases = [] as any;
+                for (let item of _data["aliases"])
+                    this.aliases!.push(item);
+            }
+        }
+    }
+
+    static fromJS(data: any): RetroAliasesResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new RetroAliasesResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.aliases)) {
+            data["aliases"] = [];
+            for (let item of this.aliases)
+                data["aliases"].push(item);
+        }
+        return data;
+    }
+}
+
+export interface IRetroAliasesResponse {
+    aliases: string[];
 }
 
 export class ApiException extends Error {

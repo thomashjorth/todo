@@ -20,7 +20,7 @@ public static partial class RetroCsvParser
 
     private static readonly string[] CreatedFormats = ["M/d/yy, h:mm tt", "M/d/yyyy, h:mm tt"];
 
-    public static IReadOnlyList<RetroRow> Parse(string csv)
+    public static RetroParseResult Parse(string csv)
     {
         var configuration = new CsvConfiguration(CultureInfo.InvariantCulture)
         {
@@ -47,13 +47,20 @@ public static partial class RetroCsvParser
         }
 
         var rows = new List<RetroRow>();
+        var skippedRatingCards = 0;
 
         while (csvReader.Read())
         {
             var content = Read(csvReader, contentColumn);
 
-            if (string.IsNullOrWhiteSpace(content) || RatingCard().IsMatch(content.Trim()))
+            if (string.IsNullOrWhiteSpace(content))
             {
+                continue;
+            }
+
+            if (RatingCard().IsMatch(content.Trim()))
+            {
+                skippedRatingCards++;
                 continue;
             }
 
@@ -71,7 +78,7 @@ public static partial class RetroCsvParser
                 DedupKey: DedupKey(content, zone, author, created)));
         }
 
-        return rows;
+        return new RetroParseResult(rows, skippedRatingCards);
     }
 
     private static Dictionary<string, int> IndexColumns(string[] headers)

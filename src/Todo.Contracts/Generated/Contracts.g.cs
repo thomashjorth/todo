@@ -229,6 +229,124 @@ namespace Todo.Contracts
 
     }
 
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetroPreviewRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("csv")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Csv { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetroPreviewRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("owner")]
+        public string Owner { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("author")]
+        public string Author { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("zone")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Zone { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("deadline")]
+        public System.DateOnly? Deadline { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("isMine")]
+        public bool IsMine { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("alreadyImported")]
+        public bool AlreadyImported { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetroPreviewResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<RetroPreviewRow> Rows { get; set; } = new System.Collections.ObjectModel.Collection<RetroPreviewRow>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("skippedRatingCards")]
+        public int SkippedRatingCards { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetroImportRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
+        public string Requester { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("deadline")]
+        public System.DateOnly? Deadline { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetroImportRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<RetroImportRow> Rows { get; set; } = new System.Collections.ObjectModel.Collection<RetroImportRow>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetroImportResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("imported")]
+        public int Imported { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("skipped")]
+        public int Skipped { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetroAliasesRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("aliases")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> Aliases { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class RetroAliasesResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("aliases")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> Aliases { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+    }
+
 
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]

@@ -10,11 +10,15 @@ public class RetroCsvParserTests
     private static string Fixture()
         => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "retro-board.csv"));
 
-    private static RetroRow Single(string csv) => Assert.Single(RetroCsvParser.Parse(csv));
+    private static RetroRow Single(string csv) => Assert.Single(RetroCsvParser.Parse(csv).Rows);
 
     [Fact]
     public void The_export_keeps_only_the_seven_content_rows()
-        => Assert.Equal(7, RetroCsvParser.Parse(Fixture()).Count);
+        => Assert.Equal(7, RetroCsvParser.Parse(Fixture()).Rows.Count);
+
+    [Fact]
+    public void The_export_reports_how_many_rating_cards_it_dropped()
+        => Assert.Equal(18, RetroCsvParser.Parse(Fixture()).SkippedRatingCards);
 
     [Fact]
     public void Rating_cards_are_dropped_but_a_comment_in_the_same_zone_survives()
@@ -36,7 +40,7 @@ public class RetroCsvParserTests
     [Fact]
     public void A_danish_due_date_is_read_as_day_before_month()
     {
-        var row = RetroCsvParser.Parse(Fixture())
+        var row = RetroCsvParser.Parse(Fixture()).Rows
             .First(r => r.Title.StartsWith("Since we dont have resqueue"));
 
         Assert.Equal(new DateOnly(2026, 7, 24), row.DueDate);
@@ -45,7 +49,7 @@ public class RetroCsvParserTests
     [Fact]
     public void An_empty_due_date_is_null_rather_than_an_error()
     {
-        var row = RetroCsvParser.Parse(Fixture())
+        var row = RetroCsvParser.Parse(Fixture()).Rows
             .First(r => r.Title.StartsWith("preperation to retrospektive"));
 
         Assert.Null(row.DueDate);
@@ -65,7 +69,7 @@ public class RetroCsvParserTests
     [Fact]
     public void The_american_created_stamp_is_read_as_month_before_day()
     {
-        var row = RetroCsvParser.Parse(Fixture())
+        var row = RetroCsvParser.Parse(Fixture()).Rows
             .First(r => r.Title.StartsWith("Since we dont have resqueue"));
 
         Assert.Equal(new DateTime(2026, 7, 13, 16, 9, 0), row.Created);
@@ -74,7 +78,7 @@ public class RetroCsvParserTests
     [Fact]
     public void Runs_of_whitespace_in_the_title_collapse_to_one_space()
     {
-        var row = RetroCsvParser.Parse(Fixture())
+        var row = RetroCsvParser.Parse(Fixture()).Rows
             .First(r => r.Title.StartsWith("Multi sub system tests"));
 
         Assert.Equal(
@@ -110,7 +114,7 @@ public class RetroCsvParserTests
     [Fact]
     public void Identical_content_in_two_zones_gets_two_dedup_keys()
     {
-        var rows = RetroCsvParser.Parse(Fixture())
+        var rows = RetroCsvParser.Parse(Fixture()).Rows
             .Where(r => r.Title.StartsWith("Be better at writting down"))
             .ToList();
 
@@ -121,15 +125,15 @@ public class RetroCsvParserTests
     [Fact]
     public void The_same_row_parsed_twice_gets_the_same_dedup_key()
     {
-        var first = RetroCsvParser.Parse(Fixture()).Select(r => r.DedupKey);
-        var second = RetroCsvParser.Parse(Fixture()).Select(r => r.DedupKey);
+        var first = RetroCsvParser.Parse(Fixture()).Rows.Select(r => r.DedupKey);
+        var second = RetroCsvParser.Parse(Fixture()).Rows.Select(r => r.DedupKey);
 
         Assert.Equal(first, second);
     }
 
     [Fact]
     public void A_dedup_key_fits_the_external_key_column()
-        => Assert.All(RetroCsvParser.Parse(Fixture()), r => Assert.Equal(64, r.DedupKey.Length));
+        => Assert.All(RetroCsvParser.Parse(Fixture()).Rows, r => Assert.Equal(64, r.DedupKey.Length));
 
     [Fact]
     public void A_csv_without_a_content_column_says_which_columns_it_found()
@@ -164,7 +168,7 @@ public class RetroCsvParserTests
     [Fact]
     public void An_owner_is_read_from_the_action_owner_column_whatever_the_zone_is()
     {
-        var row = RetroCsvParser.Parse(Fixture())
+        var row = RetroCsvParser.Parse(Fixture()).Rows
             .First(r => r.Title.StartsWith("Since we dont have resqueue"));
 
         Assert.Equal("Add", row.Zone);

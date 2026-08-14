@@ -185,6 +185,79 @@ paths:
           description: The subtask is gone.
         '404':
           description: No such task or subtask.
+  /api/retro/preview:
+    post:
+      operationId: previewRetro
+      tags:
+        - Retro
+      summary: Reads a retro board export without storing anything.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetroPreviewRequest'
+      responses:
+        '200':
+          description: The rows the export contains.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetroPreviewResponse'
+        '400':
+          description: The export could not be read.
+  /api/retro/import:
+    post:
+      operationId: importRetro
+      tags:
+        - Retro
+      summary: Creates a task for every row that is not imported already.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetroImportRequest'
+      responses:
+        '200':
+          description: How many rows were created and how many were already there.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetroImportResponse'
+        '400':
+          description: The request is not valid.
+  /api/retro/aliases:
+    get:
+      operationId: listRetroAliases
+      tags:
+        - Retro
+      responses:
+        '200':
+          description: The names counted as the user's own.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetroAliasesResponse'
+    put:
+      operationId: replaceRetroAliases
+      tags:
+        - Retro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetroAliasesRequest'
+      responses:
+        '200':
+          description: The stored names.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetroAliasesResponse'
+        '400':
+          description: The request is not valid.
 components:
   schemas:
     HealthResponse:
@@ -274,3 +347,73 @@ components:
       properties:
         title: { type: string, minLength: 1, maxLength: 500 }
         isDone: { type: boolean }
+    RetroPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [csv]
+      properties:
+        csv: { type: string }
+    RetroPreviewRow:
+      type: object
+      additionalProperties: false
+      required: [key, title, zone, isMine, alreadyImported]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        owner: { type: string, nullable: true }
+        author: { type: string, nullable: true }
+        zone: { type: string }
+        deadline: { type: string, format: date, nullable: true }
+        isMine: { type: boolean }
+        alreadyImported: { type: boolean }
+    RetroPreviewResponse:
+      type: object
+      additionalProperties: false
+      required: [rows, skippedRatingCards]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetroPreviewRow'
+        skippedRatingCards: { type: integer }
+    RetroImportRow:
+      type: object
+      additionalProperties: false
+      required: [key, title]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        requester: { type: string, nullable: true }
+        deadline: { type: string, format: date, nullable: true }
+    RetroImportRequest:
+      type: object
+      additionalProperties: false
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetroImportRow'
+    RetroImportResponse:
+      type: object
+      additionalProperties: false
+      required: [imported, skipped]
+      properties:
+        imported: { type: integer }
+        skipped: { type: integer }
+    RetroAliasesRequest:
+      type: object
+      additionalProperties: false
+      required: [aliases]
+      properties:
+        aliases:
+          type: array
+          items: { type: string }
+    RetroAliasesResponse:
+      type: object
+      additionalProperties: false
+      required: [aliases]
+      properties:
+        aliases:
+          type: array
+          items: { type: string }

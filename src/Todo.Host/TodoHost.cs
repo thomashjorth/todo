@@ -45,6 +45,7 @@ public static class TodoHost
         .Produces<HealthResponse>();
 
         app.MapTasks();
+        app.MapRetro();
 
         app.MapFallbackToFile("index.html");
 
