@@ -33,7 +33,8 @@ public static class Program
             .Addresses.First();
 
         new PhotinoWindow()
-            .SetTitle("Todo")
+            .SetTitle("Mandalorian ToDo")
+            .SetIconFile(Path.Combine(AppContext.BaseDirectory, "icon.ico"))
             .SetUseOsDefaultSize(false)
             // The app lives in a quarter-width column on a 1080p screen, not a wide window.
             .SetSize(new Size(480, 1000))

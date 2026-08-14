@@ -45,7 +45,7 @@ describe('App', () => {
 
     expect(await healthText(fixture)).toContain('API: ok (v1.2.3)');
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Todo');
+    expect(compiled.querySelector('h1')?.textContent).toContain('Mandalorian ToDo');
   });
 
   it('should show the navigation in Danish and follow a change of language', () => {

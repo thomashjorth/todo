@@ -109,8 +109,8 @@
                     <textarea
                       #note
                       data-testid="note-editor"
-                      rows="3"
-                      class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                      rows="6"
+                      class="field-sizing-content max-h-96 w-full rounded border border-gray-300 px-2 py-1 text-sm"
                       [value]="task.note ?? ''"
                       (blur)="stopEditingNote(task, note.value)"
                       (keydown.escape)="stopEditingNote(task, note.value)"

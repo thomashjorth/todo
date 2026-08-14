@@ -13,7 +13,7 @@ public sealed class TodoApp
 
     public IPage Page { get; }
 
-    public ILocator Heading => Page.GetByRole(AriaRole.Heading, new() { Name = "Todo", Exact = true });
+    public ILocator Heading => Page.GetByRole(AriaRole.Heading, new() { Name = "Mandalorian ToDo", Exact = true });
 
     public ILocator Health => Page.GetByTestId("health");
 

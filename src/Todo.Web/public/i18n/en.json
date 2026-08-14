@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Todo",
+    "title": "Mandalorian ToDo",
     "health": "API: {{status}} (v{{version}})",
     "healthUnavailable": "API: unavailable"
   },
