@@ -17,6 +17,8 @@ public sealed class TaskItemBuilder
     private string? _note;
     private string? _requester;
     private string? _externalKey;
+    private string? _waitingOn;
+    private DateTime? _waitingSince;
     private DateOnly? _deadline;
     private TodoStatus _status = TodoStatus.Open;
 
@@ -94,6 +96,24 @@ public sealed class TaskItemBuilder
         return this;
     }
 
+    /// <summary>Waiting since now, the state the API leaves a task in when it starts waiting.</summary>
+    public TaskItemBuilder WaitingFor(string who) => WaitingFor(who, _clock.UtcNow);
+
+    /// <summary>An older wait, so a test can say how long it has lasted without waiting.</summary>
+    public TaskItemBuilder WaitingFor(string who, DateTime since)
+    {
+        _status = TodoStatus.WaitingFor;
+        _waitingOn = who;
+        _waitingSince = since;
+        return this;
+    }
+
+    public TaskItemBuilder Someday()
+    {
+        _status = TodoStatus.Someday;
+        return this;
+    }
+
     public TaskItemBuilder WithSubTask(string title, bool isDone = false)
     {
         _subTasks.Add(new SubTask { Title = title, IsDone = isDone, SortOrder = _subTasks.Count });
@@ -116,6 +136,8 @@ public sealed class TaskItemBuilder
         Deadline = _deadline,
         Requester = _requester,
         ExternalKey = _externalKey,
+        WaitingOn = _waitingOn,
+        WaitingSince = _waitingSince,
         Status = _status,
         CompletedAt = _status == TodoStatus.Done ? _clock.UtcNow : null,
         CreatedAt = _clock.UtcNow,

@@ -28,6 +28,12 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: includeSomeday
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: The tasks, ordered by deadline.
@@ -366,7 +372,7 @@ components:
           example: 1.0.0.0
     TodoStatus:
       type: string
-      enum: [open, inProgress, done]
+      enum: [open, inProgress, waitingFor, someday, done]
     DeadlineBucket:
       type: string
       enum: [overdue, today, thisWeek, later, noDeadline]
@@ -391,6 +397,9 @@ components:
         requester: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/TodoStatus' }
         bucket: { $ref: '#/components/schemas/DeadlineBucket' }
+        waitingOn: { type: string, nullable: true }
+        waitingSince: { type: string, format: date-time, nullable: true }
+        waitingDays: { type: integer, nullable: true }
         completedAt: { type: string, format: date-time, nullable: true }
         createdAt: { type: string, format: date-time }
         subTasks:
@@ -425,6 +434,7 @@ components:
         deadline: { type: string, format: date, nullable: true }
         requester: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/TodoStatus' }
+        waitingOn: { type: string, nullable: true }
     CreateSubTaskRequest:
       type: object
       additionalProperties: false

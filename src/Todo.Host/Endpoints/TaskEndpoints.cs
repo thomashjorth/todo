@@ -17,13 +17,19 @@ public static class TaskEndpoints
 
     public static IEndpointRouteBuilder MapTasks(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/tasks", async (TodoDbContext db, IClock clock, bool includeCompleted = false) =>
+        app.MapGet("/api/tasks", async (
+            TodoDbContext db, IClock clock, bool includeCompleted = false, bool includeSomeday = false) =>
         {
             IQueryable<TaskItem> query = db.Tasks.Include(t => t.SubTasks);
 
             if (!includeCompleted)
             {
                 query = query.Where(t => t.Status != CoreStatus.Done);
+            }
+
+            if (!includeSomeday)
+            {
+                query = query.Where(t => t.Status != CoreStatus.Someday);
             }
 
             var tasks = await query
@@ -86,6 +92,10 @@ public static class TaskEndpoints
             if (status != task.Status)
             {
                 task.CompletedAt = status == CoreStatus.Done ? clock.UtcNow : null;
+
+                // Only the move into waiting starts the clock, so editing anything else on an
+                // item that is already waiting leaves the elapsed days alone.
+                task.WaitingSince = status == CoreStatus.WaitingFor ? clock.UtcNow : null;
             }
 
             task.Title = request.Title;
@@ -93,6 +103,7 @@ public static class TaskEndpoints
             task.Deadline = request.Deadline;
             task.Requester = request.Requester;
             task.Status = status;
+            task.WaitingOn = status == CoreStatus.WaitingFor ? Trimmed(request.WaitingOn) : null;
 
             await db.SaveChangesAsync();
 
@@ -231,10 +242,25 @@ public static class TaskEndpoints
         Requester = task.Requester,
         Status = ToContract(task.Status),
         Bucket = ToContract(DeadlineBuckets.For(task.Deadline, today)),
+        WaitingOn = task.WaitingOn,
+        WaitingSince = AsUtc(task.WaitingSince),
+        WaitingDays = WaitingDays(task, today),
         CompletedAt = AsUtc(task.CompletedAt),
         CreatedAt = AsUtc(task.CreatedAt),
         SubTasks = [.. task.SubTasks.OrderBy(s => s.SortOrder).Select(ToContract)],
     };
+
+    /// <summary>
+    /// How long the wait has lasted, in whole days, which is the signal a date would leave the
+    /// reader to work out. Null unless the task is waiting.
+    /// </summary>
+    private static int? WaitingDays(TaskItem task, DateOnly today)
+        => task.Status == CoreStatus.WaitingFor && task.WaitingSince is { } since
+            ? today.DayNumber - DateOnly.FromDateTime(since).DayNumber
+            : null;
+
+    private static string? Trimmed(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static TodoSubTask ToContract(SubTask subTask) => new()
     {
@@ -253,6 +279,8 @@ public static class TaskEndpoints
     {
         CoreStatus.Open => ContractStatus.Open,
         CoreStatus.InProgress => ContractStatus.InProgress,
+        CoreStatus.WaitingFor => ContractStatus.WaitingFor,
+        CoreStatus.Someday => ContractStatus.Someday,
         CoreStatus.Done => ContractStatus.Done,
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, null),
     };
@@ -261,6 +289,8 @@ public static class TaskEndpoints
     {
         ContractStatus.Open => CoreStatus.Open,
         ContractStatus.InProgress => CoreStatus.InProgress,
+        ContractStatus.WaitingFor => CoreStatus.WaitingFor,
+        ContractStatus.Someday => CoreStatus.Someday,
         ContractStatus.Done => CoreStatus.Done,
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, null),
     };

@@ -95,14 +95,19 @@ export class TasksClient {
 
     /**
      * @param includeCompleted (optional) 
+     * @param includeSomeday (optional) 
      * @return The tasks, ordered by deadline.
      */
-    listTasks(includeCompleted: boolean | undefined): Observable<TodoTaskListResponse> {
+    listTasks(includeCompleted: boolean | undefined, includeSomeday: boolean | undefined): Observable<TodoTaskListResponse> {
         let url_ = this.baseUrl + "/api/tasks?";
         if (includeCompleted === null)
             throw new globalThis.Error("The parameter 'includeCompleted' cannot be null.");
         else if (includeCompleted !== undefined)
             url_ += "includeCompleted=" + encodeURIComponent("" + includeCompleted) + "&";
+        if (includeSomeday === null)
+            throw new globalThis.Error("The parameter 'includeSomeday' cannot be null.");
+        else if (includeSomeday !== undefined)
+            url_ += "includeSomeday=" + encodeURIComponent("" + includeSomeday) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_ : any = {
@@ -1069,6 +1074,8 @@ export interface IHealthResponse {
 export enum TodoStatus {
     Open = "open",
     InProgress = "inProgress",
+    WaitingFor = "waitingFor",
+    Someday = "someday",
     Done = "done",
 }
 
@@ -1133,6 +1140,9 @@ export class TodoTask implements ITodoTask {
     requester?: string | undefined;
     status!: TodoStatus;
     bucket!: DeadlineBucket;
+    waitingOn?: string | undefined;
+    waitingSince?: string | undefined;
+    waitingDays?: number | undefined;
     completedAt?: string | undefined;
     createdAt!: string;
     subTasks!: TodoSubTask[];
@@ -1159,6 +1169,9 @@ export class TodoTask implements ITodoTask {
             this.requester = _data["requester"];
             this.status = _data["status"];
             this.bucket = _data["bucket"];
+            this.waitingOn = _data["waitingOn"];
+            this.waitingSince = _data["waitingSince"];
+            this.waitingDays = _data["waitingDays"];
             this.completedAt = _data["completedAt"];
             this.createdAt = _data["createdAt"];
             if (Array.isArray(_data["subTasks"])) {
@@ -1186,6 +1199,9 @@ export class TodoTask implements ITodoTask {
         data["requester"] = this.requester;
         data["status"] = this.status;
         data["bucket"] = this.bucket;
+        data["waitingOn"] = this.waitingOn;
+        data["waitingSince"] = this.waitingSince;
+        data["waitingDays"] = this.waitingDays;
         data["completedAt"] = this.completedAt;
         data["createdAt"] = this.createdAt;
         if (Array.isArray(this.subTasks)) {
@@ -1206,6 +1222,9 @@ export interface ITodoTask {
     requester?: string | undefined;
     status: TodoStatus;
     bucket: DeadlineBucket;
+    waitingOn?: string | undefined;
+    waitingSince?: string | undefined;
+    waitingDays?: number | undefined;
     completedAt?: string | undefined;
     createdAt: string;
     subTasks: TodoSubTask[];
@@ -1312,6 +1331,7 @@ export class UpdateTodoTaskRequest implements IUpdateTodoTaskRequest {
     deadline?: string | undefined;
     requester?: string | undefined;
     status!: TodoStatus;
+    waitingOn?: string | undefined;
 
     constructor(data?: IUpdateTodoTaskRequest) {
         if (data) {
@@ -1329,6 +1349,7 @@ export class UpdateTodoTaskRequest implements IUpdateTodoTaskRequest {
             this.deadline = _data["deadline"];
             this.requester = _data["requester"];
             this.status = _data["status"];
+            this.waitingOn = _data["waitingOn"];
         }
     }
 
@@ -1346,6 +1367,7 @@ export class UpdateTodoTaskRequest implements IUpdateTodoTaskRequest {
         data["deadline"] = this.deadline;
         data["requester"] = this.requester;
         data["status"] = this.status;
+        data["waitingOn"] = this.waitingOn;
         return data;
     }
 }
@@ -1356,6 +1378,7 @@ export interface IUpdateTodoTaskRequest {
     deadline?: string | undefined;
     requester?: string | undefined;
     status: TodoStatus;
+    waitingOn?: string | undefined;
 }
 
 export class CreateSubTaskRequest implements ICreateSubTaskRequest {

@@ -66,9 +66,17 @@ namespace Todo.Contracts
         [System.Runtime.Serialization.EnumMember(Value = @"inProgress")]
         InProgress = 1,
 
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"waitingFor")]
+        [System.Runtime.Serialization.EnumMember(Value = @"waitingFor")]
+        WaitingFor = 2,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"someday")]
+        [System.Runtime.Serialization.EnumMember(Value = @"someday")]
+        Someday = 3,
+
         [System.Text.Json.Serialization.JsonStringEnumMemberName(@"done")]
         [System.Runtime.Serialization.EnumMember(Value = @"done")]
-        Done = 2,
+        Done = 4,
 
     }
 
@@ -150,6 +158,15 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<DeadlineBucket>))]
         public DeadlineBucket Bucket { get; set; }
 
+        [System.Text.Json.Serialization.JsonPropertyName("waitingOn")]
+        public string WaitingOn { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
+        public System.DateTimeOffset? WaitingSince { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("waitingDays")]
+        public int? WaitingDays { get; set; }
+
         [System.Text.Json.Serialization.JsonPropertyName("completedAt")]
         public System.DateTimeOffset? CompletedAt { get; set; }
 
@@ -215,6 +232,9 @@ namespace Todo.Contracts
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<TodoStatus>))]
         public TodoStatus Status { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("waitingOn")]
+        public string WaitingOn { get; set; }
 
     }
 

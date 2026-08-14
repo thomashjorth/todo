@@ -62,7 +62,7 @@ export class TaskStore {
   );
 
   async load(): Promise<void> {
-    const response = await firstValueFrom(this.client.listTasks(this.showCompleted()));
+    const response = await firstValueFrom(this.client.listTasks(this.showCompleted(), undefined));
     this.tasks.set(response.items);
   }
 

@@ -14,6 +14,9 @@ public class SystemEndpointsTests
     [Theory]
     [InlineData("http://example.com/docs")]
     [InlineData("https://example.com/docs?q=1#top")]
+    // Marked turns a bare address in a note into a mailto: link, so refusing it would make an
+    // ordinary note report an error on a perfectly reasonable click.
+    [InlineData("mailto:someone@example.com")]
     public async Task A_web_link_is_handed_to_the_launcher(string url)
     {
         var launcher = new RecordingLinkLauncher();
@@ -26,11 +29,10 @@ public class SystemEndpointsTests
     }
 
     // UseShellExecute opens whatever the scheme is registered for, and a note is text somebody
-    // else wrote, so anything but the web has to be turned away before it reaches the launcher.
+    // else wrote, so anything off the list has to be turned away before it reaches the launcher.
     [Theory]
     [InlineData("file:///C:/Windows/System32/cmd.exe")]
     [InlineData("javascript:alert(1)")]
-    [InlineData("mailto:someone@example.com")]
     [InlineData("ms-settings:windowsupdate")]
     [InlineData("/api/tasks")]
     [InlineData("docs/index.html")]
