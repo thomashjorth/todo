@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
+import { DeadlineDate } from '../i18n/deadline-date';
 import { TaskChanges, TaskStore, subTaskProgress } from './task-store';
 
 const statusOptions: readonly TodoStatus[] = [
@@ -11,7 +12,7 @@ const statusOptions: readonly TodoStatus[] = [
 
 @Component({
   selector: 'app-task-list',
-  imports: [TranslocoPipe],
+  imports: [DeadlineDate, TranslocoPipe],
   templateUrl: './task-list.html',
 })
 export class TaskList {

@@ -63,7 +63,7 @@
             }
             @if (row.deadline) {
               <span class="block text-xs text-gray-600 dark:text-gray-400">{{
-                'retro.deadlineValue' | transloco: { value: row.deadline }
+                'retro.deadlineValue' | transloco: { value: row.deadline | deadlineDate }
               }}</span>
             }
             @if (row.alreadyImported) {

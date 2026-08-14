@@ -110,7 +110,7 @@ describe('RetroImport', () => {
     expect(rows[0].textContent).toContain('Write the retro summary');
     expect(rows[0].textContent).toContain('Zone: Actions');
     expect(rows[0].textContent).toContain('Ejer: Thomas Hjorth');
-    expect(rows[0].textContent).toContain('Deadline: 2026-07-24');
+    expect(rows[0].textContent).toContain('Deadline: 24. jul. 2026');
     expect(rows[1].textContent).not.toContain('Deadline');
     expect(element.querySelector('table')).toBeNull();
   });

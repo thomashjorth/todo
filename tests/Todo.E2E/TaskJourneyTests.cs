@@ -27,12 +27,13 @@ public class TaskJourneyTests(BrowserFixture fixture) : IClassFixture<BrowserFix
         await tasks.RowTitled(TaskTitle).ClickAsync();
         await Assertions.Expect(tasks.Detail).ToBeVisibleAsync();
 
-        var today = DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd");
-        await tasks.DeadlineInput.FillAsync(today);
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        await tasks.DeadlineInput.FillAsync(today.ToString("yyyy-MM-dd"));
         await tasks.DeadlineInput.PressAsync("Enter");
 
         await Assertions.Expect(tasks.Section("Uden deadline")).ToHaveCountAsync(0);
-        await Assertions.Expect(tasks.RowsIn("I dag")).ToContainTextAsync($"Deadline: {today}");
+        await Assertions.Expect(tasks.RowsIn("I dag"))
+            .ToContainTextAsync($"Deadline: {Deadlines.InDanish(today)}");
 
         await tasks.NewSubTaskInput.FillAsync("Male bønner");
         await tasks.NewSubTaskInput.PressAsync("Enter");

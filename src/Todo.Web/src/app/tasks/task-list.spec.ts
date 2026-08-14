@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslocoService } from '@jsverse/transloco';
 import { API_BASE_URL } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { TaskList } from './task-list';
@@ -80,7 +81,7 @@ describe('TaskList', () => {
     expect(headings).toEqual(['Overskredet', 'Uden deadline']);
   });
 
-  it('should show the deadline as the plain date string the API returned', async () => {
+  it('should show the deadline written out in the active language', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
       .expectOne('/api/tasks?includeCompleted=false')
@@ -89,9 +90,26 @@ describe('TaskList', () => {
     const rows = (await rendered(fixture)).querySelectorAll('[data-testid="task-row"]');
 
     expect(rows[0].textContent).toContain('Betal regningen');
-    expect(rows[0].textContent).toContain('2026-08-10');
+    expect(rows[0].textContent).toContain('Deadline: 10. aug. 2026');
     expect(rows[0].textContent).toContain('Anna');
     expect(rows[1].textContent).not.toContain('Deadline');
+  });
+
+  // The language changes while the row does not, so a pure date pipe would keep the old format.
+  it('should rewrite the deadline when the language changes under it', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+
+    TestBed.inject(TranslocoService).setActiveLang('en');
+
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      const row = element.querySelector('[data-testid="task-row"]')!;
+      expect(row.textContent).toContain('Deadline: Aug 10, 2026');
+    });
   });
 
   it('should create a task on Enter and clear the input', async () => {

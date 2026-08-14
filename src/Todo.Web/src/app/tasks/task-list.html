@@ -48,7 +48,7 @@
                 <span class="block text-sm break-words text-gray-900">{{ task.title }}</span>
                 @if (task.deadline) {
                   <span class="block text-xs text-gray-500">{{
-                    'tasks.deadlineValue' | transloco: { value: task.deadline }
+                    'tasks.deadlineValue' | transloco: { value: task.deadline | deadlineDate }
                   }}</span>
                 }
                 @if (task.requester) {

@@ -2,12 +2,13 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { RetroPreviewRow } from '../api/todo-client';
+import { DeadlineDate } from '../i18n/deadline-date';
 import { pluralKey } from '../i18n/plural-key';
 import { RetroStore } from './retro-store';
 
 @Component({
   selector: 'app-retro-import',
-  imports: [RouterLink, TranslocoPipe],
+  imports: [DeadlineDate, RouterLink, TranslocoPipe],
   templateUrl: './retro-import.html',
 })
 export class RetroImport {

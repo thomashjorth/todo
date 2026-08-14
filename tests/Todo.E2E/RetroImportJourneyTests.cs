@@ -71,7 +71,8 @@ public class RetroImportJourneyTests(BrowserFixture fixture) : IClassFixture<Bro
 
         await Assertions.Expect(tasks.Rows).ToHaveCountAsync(1);
         await Assertions.Expect(tasks.Rows).ToContainTextAsync(MyAction);
-        await Assertions.Expect(tasks.Rows).ToContainTextAsync("Deadline: 2026-07-24");
+        await Assertions.Expect(tasks.Rows)
+            .ToContainTextAsync($"Deadline: {Deadlines.InDanish(new DateOnly(2026, 7, 24))}");
         await Assertions.Expect(tasks.Rows).ToContainTextAsync($"Opgavestiller: {Me}");
 
         var scrollWidth = await app.ScrollWidthAsync();
