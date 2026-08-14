@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Todo.Contracts;
-using Todo.Core;
+using Todo.Host.Endpoints;
 
 namespace Todo.Host;
 

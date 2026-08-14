@@ -1,6 +1,6 @@
-using Todo.Core;
+using Todo.Core.Tasks;
 
-namespace Todo.Core.Tests;
+namespace Todo.Core.Tests.Tasks;
 
 public class DeadlineBucketsTests
 {

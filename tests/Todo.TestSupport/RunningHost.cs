@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Todo.Core;
+using Todo.Core.Persistence;
 using Todo.Host;
 
 namespace Todo.TestSupport;

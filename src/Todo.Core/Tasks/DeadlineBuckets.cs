@@ -1,13 +1,4 @@
-namespace Todo.Core;
-
-public enum DeadlineBucket
-{
-    Overdue,
-    Today,
-    ThisWeek,
-    Later,
-    NoDeadline,
-}
+namespace Todo.Core.Tasks;
 
 public static class DeadlineBuckets
 {

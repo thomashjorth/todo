@@ -3,11 +3,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
-using Todo.Contracts;
-using Todo.Core;
-using CoreStatus = Todo.Core.TodoStatus;
+using Todo.Core.Retro;
+using Todo.Core.Settings;
+using CoreStatus = Todo.Core.Tasks.TodoStatus;
 
-namespace Todo.Host;
+namespace Todo.Host.Endpoints;
 
 public static class RetroEndpoints
 {

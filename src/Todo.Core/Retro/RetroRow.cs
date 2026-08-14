@@ -1,4 +1,4 @@
-namespace Todo.Core;
+namespace Todo.Core.Retro;
 
 public sealed record RetroRow(
     string Title,
@@ -8,5 +8,3 @@ public sealed record RetroRow(
     DateOnly? DueDate,
     DateTime? Created,
     string DedupKey);
-
-public sealed record RetroParseResult(IReadOnlyList<RetroRow> Rows, int SkippedRatingCards);

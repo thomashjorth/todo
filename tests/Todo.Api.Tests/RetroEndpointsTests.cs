@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
-using Todo.Core;
+using Todo.Core.Persistence;
 using Todo.TestSupport;
 using ContractStatus = Todo.Contracts.TodoStatus;
 

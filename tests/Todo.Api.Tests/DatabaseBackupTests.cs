@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
-using Todo.Core;
+using Todo.Core.Persistence;
 using Todo.TestSupport;
 
 namespace Todo.Api.Tests;

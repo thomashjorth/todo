@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
 using Todo.TestSupport;
-using TodoDbContext = Todo.Core.TodoDbContext;
+using TodoDbContext = Todo.Core.Persistence.TodoDbContext;
 
 namespace Todo.Api.Tests;
 

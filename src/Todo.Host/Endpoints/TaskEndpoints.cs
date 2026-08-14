@@ -3,14 +3,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
-using Todo.Contracts;
-using Todo.Core;
 using ContractBucket = Todo.Contracts.DeadlineBucket;
 using ContractStatus = Todo.Contracts.TodoStatus;
-using CoreBucket = Todo.Core.DeadlineBucket;
-using CoreStatus = Todo.Core.TodoStatus;
+using CoreBucket = Todo.Core.Tasks.DeadlineBucket;
+using CoreStatus = Todo.Core.Tasks.TodoStatus;
 
-namespace Todo.Host;
+namespace Todo.Host.Endpoints;
 
 public static class TaskEndpoints
 {

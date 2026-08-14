@@ -1,4 +1,4 @@
-namespace Todo.Core;
+namespace Todo.Core.Tasks;
 
 public class SubTask
 {

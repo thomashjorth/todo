@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Todo.Core;
+namespace Todo.Core.Persistence;
 
 public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(options)
 {

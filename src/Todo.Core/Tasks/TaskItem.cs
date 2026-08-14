@@ -1,11 +1,4 @@
-namespace Todo.Core;
-
-public enum TodoStatus
-{
-    Open,
-    InProgress,
-    Done,
-}
+namespace Todo.Core.Tasks;
 
 public class TaskItem
 {

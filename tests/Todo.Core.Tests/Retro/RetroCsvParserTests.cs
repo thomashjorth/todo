@@ -1,6 +1,6 @@
-using Todo.Core;
+using Todo.Core.Retro;
 
-namespace Todo.Core.Tests;
+namespace Todo.Core.Tests.Retro;
 
 public class RetroCsvParserTests
 {

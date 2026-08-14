@@ -1,4 +1,4 @@
-namespace Todo.Core;
+namespace Todo.Core.Settings;
 
 public class UserAlias
 {

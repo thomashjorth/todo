@@ -1,11 +1,4 @@
-namespace Todo.Core;
-
-public interface IClock
-{
-    DateTime UtcNow { get; }
-
-    DateOnly Today { get; }
-}
+namespace Todo.Core.Time;
 
 public sealed class SystemClock : IClock
 {

@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using CsvHelper;
 using CsvHelper.Configuration;
 
-namespace Todo.Core;
+namespace Todo.Core.Retro;
 
 public static partial class RetroCsvParser
 {
