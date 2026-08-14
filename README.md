@@ -43,6 +43,19 @@ Det er sikkert at importere det samme board igen. Hver række genkendes på `Con
 `Zone` + `Author` + `Created`, så en række du allerede har importeret står som
 "importeret tidligere" og kan ikke vælges igen.
 
+## Noter i markdown
+
+Noten på en opgave skrives i markdown og vises renderet — fed skrift, punktopstillinger,
+links, kodeblokke og tabeller. Klik på noten for at redigere den; så bytter den renderede
+tekst plads med et tekstfelt med den rå markdown. **Esc** gemmer og lukker igen, og det
+samme gør et klik ud af feltet. Der er ingen gem-knap. Er noten tom, står der en linje
+i stedet, og den kan klikkes på præcis som en note med indhold.
+
+Et klik på et link i noten åbner det i systemets browser i stedet for inde i vinduet.
+Appvinduet har ingen adresselinje, så et link der blev fulgt indeni, ville ikke kunne
+findes tilbage fra. Kun `http` og `https` åbnes — et link til noget andet ville lade en
+note starte et program på maskinen — og afvises det, står begrundelsen under noten.
+
 ## Sprog og indstillinger
 
 Skærmen hedder **Indstillinger** i menuen øverst og ligger på ruten `/settings`. Her

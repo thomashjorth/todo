@@ -353,7 +353,7 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    ville blive bygget uden en eneste indstilling at gemme. Sproget er den første.
    Aliasredigeringen flytter hertil; import-skærmen beholder et link. **Færdig.**
 4. **Markdown i noter** — noten på en opgave skrives i markdown og vises renderet.
-   Klik på den for at redigere. Fuld CommonMark.
+   Klik på den for at redigere. Fuld CommonMark. **Færdig.**
 5. **Venter på og Someday/Maybe** — to nye tilstande, så en opgave kan ligge hos
    en anden eller være parkeret uden at forurene deadline-sektionerne. Den billige
    halvdel af GTD; se afsnit 11.
