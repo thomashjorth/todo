@@ -1,6 +1,6 @@
 using Todo.Core.Time;
 
-namespace Todo.Core.Tests.Time;
+namespace Todo.TestSupport.Time;
 
 public sealed class FixedClock(DateOnly today) : IClock
 {

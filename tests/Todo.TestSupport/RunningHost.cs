@@ -35,6 +35,19 @@ public sealed class RunningHost : IAsyncDisposable
     /// <summary>Lets a test read the database directly, not only through the API.</summary>
     public IServiceProvider Services => _app.Services;
 
+    /// <summary>
+    /// Writes an arranged entity graph to the database in one call, bypassing the API.
+    /// </summary>
+    public async Task AddAndSaveChangesAsync(params object[] entities)
+    {
+        using var scope = _app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+
+        db.AddRange(entities);
+
+        await db.SaveChangesAsync();
+    }
+
     /// <summary>The connection string the host builds for a database path.</summary>
     public static string ConnectionStringFor(string databasePath) => $"Data Source={databasePath}";
 
