@@ -56,15 +56,19 @@ C:\privat-git\todo\
   contracts\openapi.yaml
   src\
     Todo.Contracts\      Genererede DTO'er fra openapi.yaml
-    Todo.Core\           Domæne, EF Core/SQLite, kildeklienter
-    Todo.Host\           Photino-vindue, minimal APIs, tray, baggrundssync
+    Todo.Core\           Tasks\ Retro\ Settings\ Persistence\ Time\
+    Todo.Host\           Program, TodoHost, Endpoints\
     Todo.Web\            Angular (standalone components, signals, Tailwind)
   tests\
-    Todo.Core.Tests\     Unit
-    Todo.Contract.Tests\ Klienter mod WireMock.Net + fixtures
-    Todo.E2E\            Playwright .NET mod hosten
+    Todo.TestSupport\    RunningHost, RepoPaths, Builders\, Time\
+    Todo.Core.Tests\     Unit — ingen I/O
+    Todo.Api.Tests\      Rigtig host, rigtig database, rigtig HTTP
+    Todo.E2E\            Playwright .NET mod hosten, TodoApp + skærmobjekter
   Todo.sln
 ```
+
+`Todo.Contract.Tests` med WireMock kommer først når der er en ekstern server at
+lyve om — altså i skive 6 med Jira.
 
 Udvikling: `dotnet run` + `ng serve` med proxy mod API'et, så frontend har hot
 reload. Publish: `ng build` → `Todo.Host/wwwroot`, derefter self-contained exe.
@@ -98,15 +102,13 @@ Regel: synkronisering må kun skrive i `Ext*`-felter. Dine egne felter røres al
 
 Bygget i skive 1: `Id`, `SourceId`, `Title`, `Note`, `Deadline` (`DateOnly?`),
 `Requester`, `Status` (`TodoStatus`, gemt som tekst), `CompletedAt`, `CreatedAt`,
-`SubTasks`.
+`SubTasks`. Tilføjet i skive 2: `ExternalKey` (nullable, indekseret sammen med
+`SourceId`) — nøglen en importeret række genkendes på.
 
 Resten af felterne herunder findes **endnu ikke** — de kommer sammen med de
-eksterne kilder, ikke før: `SortOrder`, `TitleOverridden`, `ExternalKey`,
-`ExternalUrl`, `ExtTitle`, `ExtStatus`, `ExtAssignee`, `ExtRequester`,
-`LastSyncedAt`, `DetachedAt`, `DetachedReason`.
-
-`ExternalKey` er den første der mangler: skive 2's dedup ved gen-import hviler på
-den, så skiven starter med en migrering der tilføjer feltet.
+eksterne API-kilder, ikke før: `SortOrder`, `TitleOverridden`, `ExternalUrl`,
+`ExtTitle`, `ExtStatus`, `ExtAssignee`, `ExtRequester`, `LastSyncedAt`,
+`DetachedAt`, `DetachedReason`.
 
 `Title` og `Requester` fødes fra kilden ved import. Retter du dem, sætter appen
 `TitleOverridden` og holder fingrene fra dem derefter. **Deadline ejes altid
@@ -137,8 +139,8 @@ Pr. kilde: `LastRunAt`, `LastSuccessAt`, `Watermark`, `LastError`. Driver
 
 ### `Setting`
 
-Nøgle/værdi: URL'er, bruger-id pr. system, sync-interval **og tokens**. Findes
-endnu ikke — bygges i skive 4 sammen med indstillingssiden.
+Nøgle/værdi: sprog, URL'er, bruger-id pr. system, sync-interval **og tokens**.
+Findes endnu ikke — bygges i skive 3 sammen med indstillingssiden.
 
 `UserAlias` er bevidst en egen tabel og flytter ikke ind her: aliaser er en liste,
 ikke en enkelt værdi, og en typet tabel kan have et unikt indeks.
