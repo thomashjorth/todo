@@ -101,7 +101,7 @@ Bekræft desuden at appen stadig starter mod en *eksisterende* database. **Kopi�
 
 **`todo.db` alene er ikke databasen.** I WAL-tilstand ligger de nyeste skrivninger i `todo.db-wal`; kopierer du kun `.db`, får du en tom header og verificerer backup-stien mod ingenting. Præcis den fejl sad i `TodoDatabase` indtil den blev målt: 4 KB kopieret, 103 KB efterladt.
 
-Rør ikke originalen i `%APPDATA%\EdoraTodo\`.
+Rør ikke originalen i `%APPDATA%\TodoApp\`.
 
 **Step 6: Commit**
 

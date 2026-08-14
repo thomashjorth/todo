@@ -78,7 +78,7 @@ tegnet, før den giver testen et skærmobjekt. Hvert skærmobjekt ejer sine egne
 
 ## Databasen
 
-Databasen ligger i `%APPDATA%\EdoraTodo\todo.db`. Migrationer køres ved opstart;
+Databasen ligger i `%APPDATA%\TodoApp\todo.db`. Migrationer køres ved opstart;
 findes der ventende migrationer, tages der først en kopi som
 `todo.db.bak-<tidsstempel>`. Vil du nulstille alt, så slet filen.
 

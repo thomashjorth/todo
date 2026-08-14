@@ -40,7 +40,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Mentions | Indbakke der godkendes manuelt, ikke automatisk opgaveoprettelse. |
 | Livscyklus | Frakoblede items markeres færdige og bevares med lokale felter. |
 | Kørsel | Tray-ikon, baggrundssync, Windows-notifikationer. |
-| Jira | Data Center / Server (`support.edora.dk`), REST v2, PAT som Bearer. |
+| Jira | Selvhostet Data Center / Server, REST v2, PAT som Bearer. |
 | Azure DevOps | Azure DevOps Server (on-prem), PAT. |
 | API-kontrakt | Contract-first: `contracts/openapi.yaml` er sandheden. |
 | Kodegenerering | NSwag → C#-DTO'er + Angular-klient. Genereret kode committes. |
@@ -74,7 +74,7 @@ lyve om — altså i skive 6 med Jira.
 Udvikling: `dotnet run` + `ng serve` med proxy mod API'et, så frontend har hot
 reload. Publish: `ng build` → `Todo.Host/wwwroot`, derefter self-contained exe.
 
-**Data** i `%APPDATA%\EdoraTodo\todo.db` (SQLite/EF Core), aldrig i programmappen.
+**Data** i `%APPDATA%\TodoApp\todo.db` (SQLite/EF Core), aldrig i programmappen.
 **Tokens og konfiguration** i `Setting`-tabellen i databasen, redigerbart fra
 indstillingssiden. Frontend får aldrig et token at se — den gemmer det, og derefter
 er det kun C# der lægger det på udgående kald.
@@ -84,7 +84,7 @@ Alternativet var Windows Credential Manager, og afvejningen blev lagt frem: ét 
 at administrere alt, mod at to arbejdstokens ligger læsbare i en fil. Konsekvenser
 der følger med, og som skal stå her frem for at blive genopdaget:
 
-- `%APPDATA%\EdoraTodo\todo.db` indeholder adgang til Jira og Azure DevOps. Mappen
+- `%APPDATA%\TodoApp\todo.db` indeholder adgang til Jira og Azure DevOps. Mappen
   bør ikke synkroniseres til OneDrive eller lignende.
 - `todo.db.bak-*` fra migreringerne er fulde kopier og dermed lige så hemmelige.
 - Databasefilen må aldrig vedhæftes en fejlrapport eller lægges i et repo.

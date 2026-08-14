@@ -53,7 +53,7 @@ public sealed class RunningHost : IAsyncDisposable
 
     public static Task<RunningHost> StartAsync(params string[] extraArgs)
     {
-        var databasePath = Path.Combine(Path.GetTempPath(), "EdoraTodo.Tests", $"{Guid.NewGuid():N}.db");
+        var databasePath = Path.Combine(Path.GetTempPath(), "TodoApp.Tests", $"{Guid.NewGuid():N}.db");
 
         return StartAsync(databasePath, ownsDatabase: true, extraArgs);
     }

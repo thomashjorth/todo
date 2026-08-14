@@ -374,7 +374,7 @@ public static class TodoDatabase
 {
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "EdoraTodo",
+        "TodoApp",
         "todo.db");
 
     public static async Task PrepareAsync(TodoDbContext db, string databasePath)
@@ -424,7 +424,7 @@ Og efter `var app = builder.Build();`:
 
 **Step 6: Isolér testene fra din rigtige database**
 
-Det her er ikke valgfrit: uden det skriver hver testkørsel i `%APPDATA%\EdoraTodo\todo.db`.
+Det her er ikke valgfrit: uden det skriver hver testkørsel i `%APPDATA%\TodoApp\todo.db`.
 
 I `tests/Todo.TestSupport/RunningHost.cs`, giv `StartAsync` en midlertidig databasesti og ryd op efter den:
 
@@ -434,7 +434,7 @@ I `tests/Todo.TestSupport/RunningHost.cs`, giv `StartAsync` en midlertidig datab
     public static async Task<RunningHost> StartAsync(params string[] extraArgs)
     {
         var databasePath = Path.Combine(
-            Path.GetTempPath(), "EdoraTodo.Tests", $"{Guid.NewGuid():N}.db");
+            Path.GetTempPath(), "TodoApp.Tests", $"{Guid.NewGuid():N}.db");
 
         string[] args =
         [
@@ -462,7 +462,7 @@ dotnet dotnet-ef migrations add InitialCreate --project src/Todo.Core --startup-
 Run: `dotnet test Todo.sln`
 Expected: **12 passed**, 0 warnings. De eksisterende tests starter nu hosten med en rigtig database og skal stadig være grønne.
 
-Bekræft desuden manuelt at der ikke er oprettet noget i `%APPDATA%\EdoraTodo\` af testene.
+Bekræft desuden manuelt at der ikke er oprettet noget i `%APPDATA%\TodoApp\` af testene.
 
 **Step 9: Commit**
 
@@ -915,7 +915,7 @@ git add -A && git commit -m "✅ Cover the full task journey end to end"
 - `dotnet test Todo.sln` og Vitest er grønne, 0 warnings.
 - Drift-testen og friskheds-testen er hver set fejle mindst én gang i denne skive.
 - Ingen CSS- eller SCSS-regler er skrevet.
-- Testene har ikke rørt `%APPDATA%\EdoraTodo\`.
+- Testene har ikke rørt `%APPDATA%\TodoApp\`.
 
 ## Til skive 2 (retro-import)
 

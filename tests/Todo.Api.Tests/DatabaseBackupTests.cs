@@ -21,7 +21,7 @@ public class DatabaseBackupTests
     public async Task Backup_taken_before_a_migration_contains_the_data()
     {
         var directory = Path.Combine(
-            Path.GetTempPath(), "EdoraTodo.Tests", $"backup-{Guid.NewGuid():N}");
+            Path.GetTempPath(), "TodoApp.Tests", $"backup-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
 
         var databasePath = Path.Combine(directory, "todo.db");

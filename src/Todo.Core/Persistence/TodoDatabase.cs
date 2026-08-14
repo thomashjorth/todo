@@ -6,7 +6,7 @@ public static class TodoDatabase
 {
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "EdoraTodo",
+        "TodoApp",
         "todo.db");
 
     public static async Task PrepareAsync(TodoDbContext db, string databasePath)
