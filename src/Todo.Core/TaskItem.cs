@@ -21,6 +21,8 @@ public class TaskItem
 
     public string? Requester { get; set; }
 
+    public string? ExternalKey { get; set; }
+
     public TodoStatus Status { get; set; } = TodoStatus.Open;
 
     public DateTime? CompletedAt { get; set; }

@@ -8,6 +8,8 @@ public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(
 
     public DbSet<SubTask> SubTasks => Set<SubTask>();
 
+    public DbSet<UserAlias> Aliases => Set<UserAlias>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var task = modelBuilder.Entity<TaskItem>();
@@ -16,6 +18,9 @@ public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(
         task.Property(t => t.Status).HasConversion<string>();
         task.HasIndex(t => t.Deadline);
 
+        task.Property(t => t.ExternalKey).HasMaxLength(200);
+        task.HasIndex(t => new { t.SourceId, t.ExternalKey });
+
         task.HasMany(t => t.SubTasks)
             .WithOne()
             .HasForeignKey(s => s.TaskItemId)
@@ -23,5 +28,9 @@ public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(
 
         modelBuilder.Entity<SubTask>()
             .Property(s => s.Title).IsRequired().HasMaxLength(500);
+
+        var alias = modelBuilder.Entity<UserAlias>();
+        alias.Property(a => a.Value).IsRequired().HasMaxLength(200);
+        alias.HasIndex(a => a.Value).IsUnique();
     }
 }
