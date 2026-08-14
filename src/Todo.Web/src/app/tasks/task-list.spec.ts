@@ -377,21 +377,57 @@ describe('TaskList', () => {
     expect(row.querySelector('[data-testid="note-edit"]')).toBeNull();
   });
 
-  // The editor covers the note, so a click on a link would otherwise be spent opening it.
-  it('should leave a click on a link inside the note alone', async () => {
+  // Following the link in place would replace the app with a website, in a window with no way back.
+  it('should send a link in the note to the system browser rather than open the editor', async () => {
     const fixture = TestBed.createComponent(TaskList);
-    TestBed.inject(HttpTestingController)
+    const http = TestBed.inject(HttpTestingController);
+    http
       .expectOne('/api/tasks?includeCompleted=false')
       .flush(new Blob([JSON.stringify({ items: withLink })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
     fixture.detectChanges();
 
-    row.querySelector<HTMLAnchorElement>('[data-testid="note-rendered"] a')!.click();
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    row.querySelector<HTMLAnchorElement>('[data-testid="note-rendered"] a')!.dispatchEvent(click);
     fixture.detectChanges();
 
+    expect(click.defaultPrevented).toBe(true);
+    expect(JSON.parse(http.expectOne('/api/system/open-link').request.body)).toEqual({
+      url: 'https://example.com/docs',
+    });
     expect(row.querySelector('[data-testid="note-editor"]')).toBeNull();
     expect(row.querySelector('[data-testid="note-rendered"]')).not.toBeNull();
+  });
+
+  it('should say beside the note when a link could not be opened', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false')
+      .flush(new Blob([JSON.stringify({ items: withLink })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    row
+      .querySelector<HTMLAnchorElement>('[data-testid="note-rendered"] a')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    http
+      .expectOne('/api/system/open-link')
+      .flush(new Blob([JSON.stringify({ code: 'system.unsupportedScheme', message: 'nope' })]), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
+
+    const error = await vi.waitFor(() => {
+      fixture.detectChanges();
+      const element = row.querySelector('[data-testid="note-link-error"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+
+    expect(error.textContent!.trim()).toBe('Kun http- og https-links kan åbnes.');
   });
 
   it('should save and close the editor on Escape', async () => {

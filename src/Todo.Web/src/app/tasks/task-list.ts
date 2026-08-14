@@ -3,6 +3,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
 import { renderMarkdown } from '../markdown/render-markdown';
+import { SystemStore } from '../system/system-store';
 import { TaskChanges, TaskStore, subTaskProgress } from './task-store';
 
 const statusOptions: readonly TodoStatus[] = [
@@ -18,6 +19,7 @@ const statusOptions: readonly TodoStatus[] = [
 })
 export class TaskList {
   protected readonly store = inject(TaskStore);
+  protected readonly system = inject(SystemStore);
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly statusOptions = statusOptions;
   protected readonly done = TodoStatus.Done;
@@ -63,6 +65,7 @@ export class TaskList {
   }
 
   protected toggle(task: TodoTask): void {
+    this.system.clearError();
     this.editingNote.set(null);
     this.expandedId.update((id) => (id === task.id ? null : task.id));
   }
@@ -72,8 +75,12 @@ export class TaskList {
   }
 
   protected clickNote(task: TodoTask, event: MouseEvent): void {
-    // A link belongs to whoever handles links, not to the editor.
-    if ((event.target as HTMLElement).closest('a')) {
+    const link = (event.target as HTMLElement).closest('a');
+
+    if (link) {
+      // Following the link in place would replace the whole app: this window has no way back.
+      event.preventDefault();
+      this.system.openLink(link.href).catch(() => {});
       return;
     }
 

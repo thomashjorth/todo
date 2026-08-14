@@ -2,12 +2,17 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Host.Endpoints;
+using Todo.Host.Links;
 
 namespace Todo.Host;
 
 public static class TodoHost
 {
-    public static WebApplication Build(string[] args)
+    /// <param name="configureServices">
+    /// Runs after the app's own registrations, so the last word is the caller's. A test replaces
+    /// the parts that reach outside the process with something that only records what it was asked.
+    /// </param>
+    public static WebApplication Build(string[] args, Action<IServiceCollection>? configureServices = null)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +26,9 @@ public static class TodoHost
         var databasePath = builder.Configuration["Data:Path"] ?? TodoDatabase.DefaultPath;
         builder.Services.AddDbContext<TodoDbContext>(o => o.UseSqlite($"Data Source={databasePath}"));
         builder.Services.AddSingleton<IClock, SystemClock>();
+        builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
+
+        configureServices?.Invoke(builder.Services);
 
         var app = builder.Build();
 
@@ -46,6 +54,7 @@ public static class TodoHost
         app.MapTasks();
         app.MapRetro();
         app.MapSettings();
+        app.MapSystem();
 
         app.MapFallbackToFile("index.html");
 

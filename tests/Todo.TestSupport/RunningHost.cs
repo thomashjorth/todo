@@ -52,10 +52,18 @@ public sealed class RunningHost : IAsyncDisposable
     public static string ConnectionStringFor(string databasePath) => $"Data Source={databasePath}";
 
     public static Task<RunningHost> StartAsync(params string[] extraArgs)
+        => StartWithAsync(configureServices: null, extraArgs);
+
+    /// <summary>
+    /// Starts the host with one of its registrations replaced, so a test can stand in for the
+    /// parts that reach outside the process.
+    /// </summary>
+    public static Task<RunningHost> StartWithAsync(
+        Action<IServiceCollection>? configureServices, params string[] extraArgs)
     {
         var databasePath = Path.Combine(Path.GetTempPath(), "TodoApp.Tests", $"{Guid.NewGuid():N}.db");
 
-        return StartAsync(databasePath, ownsDatabase: true, extraArgs);
+        return StartAsync(databasePath, ownsDatabase: true, configureServices, extraArgs);
     }
 
     /// <summary>
@@ -63,10 +71,13 @@ public sealed class RunningHost : IAsyncDisposable
     /// disposal and a second host can be started on top of it.
     /// </summary>
     public static Task<RunningHost> StartAtAsync(string databasePath, params string[] extraArgs) =>
-        StartAsync(databasePath, ownsDatabase: false, extraArgs);
+        StartAsync(databasePath, ownsDatabase: false, configureServices: null, extraArgs);
 
     private static async Task<RunningHost> StartAsync(
-        string databasePath, bool ownsDatabase, string[] extraArgs)
+        string databasePath,
+        bool ownsDatabase,
+        Action<IServiceCollection>? configureServices,
+        string[] extraArgs)
     {
         string[] args =
         [
@@ -76,7 +87,7 @@ public sealed class RunningHost : IAsyncDisposable
             .. extraArgs
         ];
 
-        var app = TodoHost.Build(args);
+        var app = TodoHost.Build(args, configureServices);
         await app.StartAsync();
 
         VerifyPoolKey(app, databasePath);

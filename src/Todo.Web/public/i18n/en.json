@@ -93,6 +93,9 @@
     },
     "settings": {
       "unknownLanguage": "That language is not supported."
+    },
+    "system": {
+      "unsupportedScheme": "Only http and https links can be opened."
     }
   }
 }

@@ -93,6 +93,9 @@
     },
     "settings": {
       "unknownLanguage": "Sproget understøttes ikke."
+    },
+    "system": {
+      "unsupportedScheme": "Kun http- og https-links kan åbnes."
     }
   }
 }

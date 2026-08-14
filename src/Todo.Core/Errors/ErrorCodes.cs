@@ -22,4 +22,6 @@ public static class ErrorCodes
     public const string RetroDuplicateAlias = "retro.duplicateAlias";
 
     public const string SettingsUnknownLanguage = "settings.unknownLanguage";
+
+    public const string SystemUnsupportedScheme = "system.unsupportedScheme";
 }

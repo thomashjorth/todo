@@ -131,6 +131,15 @@
                       {{ 'tasks.noteEmpty' | transloco }}
                     </p>
                   }
+                  @if (system.error(); as message) {
+                    <p
+                      data-testid="note-link-error"
+                      role="alert"
+                      class="text-sm text-red-700 dark:text-red-300"
+                    >
+                      {{ message }}
+                    </p>
+                  }
                 </div>
                 <label class="block">
                   <span class="block text-xs text-gray-500">{{ 'tasks.status' | transloco }}</span>
