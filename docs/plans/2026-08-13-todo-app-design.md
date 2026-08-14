@@ -35,6 +35,8 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Retro-board | Indsat CSV-eksport. Afstemningskort filtreres væk; rækker hvor `Action Owner` matcher mine aliaser er forudvalgt. |
 | Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. |
 | Noter | Fuld CommonMark, vist renderet. Klik på noten for at redigere. |
+| Venter på | Egen status. Egen sektion nederst, altid synlig når den ikke er tom. |
+| Someday/Maybe | Egen status. Skjult bag en kontakt, ligesom færdige. |
 | Redigering | Inline i listen. Ingen dialog — ved 480 px ville den dække alt. |
 | Færdige opgaver | Forsvinder straks; en "Vis færdige"-kontakt henter dem frem. |
 | Angular state | Signal-baseret store-service. **Ikke NgRx** — bevidst fravalg. |
@@ -117,7 +119,13 @@ eksterne API-kilder, ikke før: `SortOrder`, `TitleOverridden`, `ExternalUrl`,
 lokalt**: Jiras due date foreslås ved import, men overskrives aldrig af sync.
 
 `SourceId` er en streng, ikke et enum, så en ny kilde ikke kræver en migrering.
-I dag står der `manual` i hver eneste række.
+I dag står der `manual` eller `retro`.
+
+Skive 5 tilføjer `WaitingOn` (hvem du venter på) og `WaitingSince` (hvornår du
+begyndte at vente), og udvider `TodoStatus` med `WaitingFor` og `Someday`.
+**`WaitingOn` er ikke det samme som `Requester`** — den ene er hvem du venter på,
+den anden er hvem der bad dig. De peger hver sin vej, og at slå dem sammen ville
+gøre begge lister ubrugelige.
 
 ### `SubTask`
 
@@ -346,30 +354,34 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    Aliasredigeringen flytter hertil; import-skærmen beholder et link. **Færdig.**
 4. **Markdown i noter** — noten på en opgave skrives i markdown og vises renderet.
    Klik på den for at redigere. Fuld CommonMark.
-5. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
+5. **Venter på og Someday/Maybe** — to nye tilstande, så en opgave kan ligge hos
+   en anden eller være parkeret uden at forurene deadline-sektionerne. Den billige
+   halvdel af GTD; se afsnit 11.
+6. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
    WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
-   `prefers-color-scheme`. Efter 3 og 4, så gennemgangen rammer alle skærme, alle
+   `prefers-color-scheme`. Efter 3, 4 og 5, så gennemgangen rammer alle skærme, alle
    strenge og alle markdown-elementer én gang. Samlet i én skive, fordi hver farve
-   ellers skulle kontrasttjekkes to gange.
-6. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
+   ellers skulle kontrasttjekkes to gange. **Bemærk: udskudt to gange** — først af
+   markdown, så af GTD-tilstandene. Sker det igen, er det værd at spørge hvorfor.
+7. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
    Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
    en server at teste mod.
-7. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 6 duer.
-8. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
-9. **Baggrundssync, tray og notifikationer.**
-10. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
-11. **Pakning** — self-contained exe, autostart.
+8. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 7 duer.
+9. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+10. **Baggrundssync, tray og notifikationer.**
+11. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
+12. **Pakning** — self-contained exe, autostart.
 
 ## 10. Risici og åbne punkter
 
-- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 6, ikke i 8.
+- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 7, ikke i 9.
 - **Serverversioner** for Jira DC og ADO Server afgør endpoints og API-versioner.
-  Verificeres med "Test forbindelse" i skive 6.
+  Verificeres med "Test forbindelse" i skive 7.
 - **Skallen har ingen baggrundsfarve.** `<body>` sætter hverken baggrund eller
   tekstfarve, så under mørkt systemtema ville komponenternes `dark:`-farver stå på
-  hvid. Skive 5 skal sætte den; indtil da undgås fyldte flader.
+  hvid. Skive 6 skal sætte den; indtil da undgås fyldte flader.
 - **Opgavelisten har ingen `dark:`-varianter.** Skallen, retro-import og indstillinger
-  har dem; `task-list.html` har ingen eneste. Skive 5 skal tage hele den fil, ikke kun
+  har dem; `task-list.html` har ingen eneste. Skive 6 skal tage hele den fil, ikke kun
   `<body>`.
 - **SQLite-migrationer der fjerner en kolonne** taber dens data lydløst, fordi
   tabellen bygges om. Læs genererede migrationer; backup-kopien før migrering er
@@ -377,3 +389,28 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 - **Photino** kræver WebView2-runtime. Til stede på Windows 11 som standard.
 - **Fixtures** kan blive forældede når serverne opgraderes; kontrakt-testene er
   første sted det opdages.
+
+## 11. Forholdet til GTD
+
+Appen er **ikke** et GTD-system, og det er et bevidst valg. Vurderet 2026-08-14
+mod *Getting Things Done*:
+
+Det, appen allerede gør efter bogen: indfangning er friktionsfri (ét felt, Enter),
+den samler fra flere kanaler, og mentions-indbakken er en rigtig *clarify*-fase,
+hvor du beslutter frem for at få noget påtvunget.
+
+Det, den ikke gør, i rækkefølge efter hvor meget det betyder:
+
+- **Deadline er den eneste organiserende akse.** GTD reserverer kalenderen til det,
+  der *skal* ske en bestemt dag, og organiserer resten efter kontekst. Hos os bliver
+  "Uden deadline" en skraldespand, og fristelsen til at sætte falske deadlines for at
+  holde noget synligt er reel — hvilket underminerer de ægte deadlines.
+- **Der er ingen projekter.** Underopgaver er en tjekliste under én opgave; de kan
+  ikke have egen deadline eller stå selvstændigt på listen. Et udfald der kræver
+  flere handlinger på forskellige tidspunkter, kan ikke repræsenteres.
+- **Der er ingen kontekster** og ingen støtte til ugentlig gennemgang, som er GTD's
+  nøglevane.
+
+Skive 5 lukker de to billigste huller: **Venter på** og **Someday/Maybe**. Resten
+står her, så det er et valg og ikke en forglemmelse — og så en senere beslutning om
+at gå hele vejen kan træffes med åbne øjne.
