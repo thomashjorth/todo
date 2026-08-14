@@ -33,6 +33,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | E2E-opsætning | Testdata-builders i `Todo.TestSupport`; navigation kædes via `TodoApp`. |
 | Retro-board | Indsat CSV-eksport. Afstemningskort filtreres væk; rækker hvor `Action Owner` matcher mine aliaser er forudvalgt. |
 | Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. |
+| Noter | Fuld CommonMark, vist renderet. Klik på noten for at redigere. |
 | Redigering | Inline i listen. Ingen dialog — ved 480 px ville den dække alt. |
 | Færdige opgaver | Forsvinder straks; en "Vis færdige"-kontakt henter dem frem. |
 | Angular state | Signal-baseret store-service. **Ikke NgRx** — bevidst fravalg. |
@@ -126,6 +127,28 @@ deadline og ingen egen plads i deadline-sektionerne. Forælderen viser fremdrift
 som "2/5". **Flueben ved alle underopgaver afslutter ikke forælderen** — det
 gør du selv; automatikken rammer forkert, første gang en tjekliste ikke er
 udtømmende.
+
+### Noter i markdown
+
+`TaskItem.Note` er markdown. Den vises renderet, og et klik skifter til
+redigering — ingen knap, ingen dialog. Fuld CommonMark, så tekst kopieret ind
+fra Jira eller et andet værktøj ikke bliver forvansket.
+
+Fire ting følger af det, og de er ikke valgfrie:
+
+- **Tabeller og kodeblokke scroller inde i sig selv**, ikke på siden. Kravet om at
+  siden aldrig scroller vandret ved 465 px står ved magt; det løses med
+  `[&_table]:block [&_table]:overflow-x-auto` og tilsvarende for `pre` — stadig
+  Tailwind-klasser, ingen CSS-fil.
+- **Renderet markdown styles med `@tailwindcss/typography`** (`prose prose-sm
+  dark:prose-invert`). Det er den eneste vej udenom håndskrevet CSS: man kan ikke
+  sætte utility-klasser på HTML, en renderer selv genererer.
+- **Links åbnes i systemets browser.** Et almindeligt link ville navigere hele
+  Photino-vinduet væk til et website uden vej tilbage.
+- **Sanitering sker gennem Angulars `[innerHTML]`**, som fjerner scripts og
+  `javascript:`-URL'er. `dompurify` er unødvendig oveni. Det er ikke teoretisk:
+  noter kan komme fra retro-import og senere fra Jira og ADO, altså tekst andre
+  har skrevet.
 
 ### `Mention`
 
@@ -314,18 +337,18 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 2. **Retro-import** — indsat CSV, forhåndsvisning, dedup. Den eneste eksterne
    kilde der hverken kræver tokens, netværk eller kendskab til serverversioner —
    ren tekstparsing ind i skive 1's datamodel. Derfor før Jira. **Færdig.**
-3. **Indstillinger** — `Setting`-tabellen og én indstillingsside. Den er lille og
-   giver et hjem til sprogvalg, aliaser og senere tokens og URL'er.
-   Aliasredigeringen flytter hertil fra import-skærmen, som beholder et link —
-   ellers ender samme data to steder og bliver uenige med sig selv.
-4. **Lokalisering** — dansk og engelsk med Transloco, systemets sprog som standard,
-   skiftes i indstillinger. Alle eksisterende strenge trækkes ud, datoer formateres
-   pr. locale, og API-fejl bliver til nøgler frontend kan oversætte.
+3. **Indstillinger og lokalisering** — `Setting`-tabellen, én indstillingsside, og
+   dansk/engelsk med Transloco og systemets sprog som standard. Slået sammen, fordi
+   siden ellers kun ville flytte aliasredigeringen fra import-skærmen, og tabellen
+   ville blive bygget uden en eneste indstilling at gemme. Sproget er den første.
+   Aliasredigeringen flytter hertil; import-skærmen beholder et link.
+4. **Markdown i noter** — noten på en opgave skrives i markdown og vises renderet.
+   Klik på den for at redigere. Fuld CommonMark.
 5. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
    WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
-   `prefers-color-scheme`. Efter 3 og 4, så gennemgangen rammer alle skærme og alle
-   strenge én gang. Samlet i én skive, fordi hver farve ellers skulle
-   kontrasttjekkes to gange.
+   `prefers-color-scheme`. Efter 3 og 4, så gennemgangen rammer alle skærme, alle
+   strenge og alle markdown-elementer én gang. Samlet i én skive, fordi hver farve
+   ellers skulle kontrasttjekkes to gange.
 6. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
    Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
    en server at teste mod.
