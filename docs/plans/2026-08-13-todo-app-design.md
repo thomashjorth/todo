@@ -21,6 +21,9 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Hovedvisning | Én liste sorteret efter deadline, med tidssektioner. |
 | Vinduesbredde | Primært mål ~480 px (kvart 1080p-skærm). Skal forblive brugbar ved fuld bredde. |
 | Styling | Standard Tailwind utility-klasser. Ingen egne CSS/SCSS-regler, ingen egne tokens. |
+| Tilgængelighed | WCAG AA i begge temaer. Hver handling skal kunne nås med tastaturet. |
+| Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen. |
+| Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
 | Retro-board | Indsat CSV-eksport. Afstemningskort filtreres væk; rækker hvor `Action Owner` matcher mine aliaser er forudvalgt. |
 | Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. |
@@ -134,9 +137,13 @@ Fire ting følger af at SQLite er valgt, og de skal gøres rigtigt fra skive 1:
   bagefter. `EnsureCreated()` må aldrig bruges: den springer
   `__EFMigrationsHistory` over, og næste migration fejler på en database der
   "allerede findes".
-- **`todo.db` kopieres til `todo.db.bak-<version>` før migrationer køres.** Dataene
-  findes kun på maskinen — ingen server, ingen replika, intet natligt backup. En
-  mislykket migration er permanent tab.
+- **`todo.db` kopieres til `todo.db.bak-<tidsstempel>` før migrationer køres.**
+  Dataene findes kun på maskinen — ingen server, ingen replika, intet natligt
+  backup. En mislykket migration er permanent tab.
+  **Der skal køres `PRAGMA wal_checkpoint(TRUNCATE)` først.** I WAL-tilstand ligger
+  de nyeste skrivninger i `todo.db-wal`, ikke i `todo.db`; en kopi af `.db` alene
+  er en tom header. Det blev opdaget i skive 2 ved at måle på en rigtig backup:
+  4 KB kopieret, 103 KB data efterladt.
 - **Datoer er `DateTime` i UTC, ikke `DateTimeOffset`.** SQLite har ikke rigtige
   typer; EF Core lagrer `DateTimeOffset`, `decimal`, `TimeSpan` og `ulong` som
   tekst, og sortering og sammenligning på dem er ikke korrekt.
@@ -283,14 +290,18 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 2. **Retro-import** — indsat CSV, forhåndsvisning, dedup. Den eneste eksterne
    kilde der hverken kræver tokens, netværk eller kendskab til serverversioner —
    ren tekstparsing ind i skive 1's datamodel. Derfor før Jira.
-3. **Indstillinger og tokens** — indstillingsside, `ICredentialStore`,
+3. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
+   WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
+   `prefers-color-scheme`. Samlet i én skive, fordi hver farve ellers skulle
+   kontrasttjekkes to gange.
+4. **Indstillinger og tokens** — indstillingsside, `ICredentialStore`,
    "Test forbindelse" pr. kilde. Afklarer serverversioner før noget bygges ovenpå.
-4. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
-5. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 4 duer.
-6. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
-7. **Baggrundssync, tray og notifikationer.**
-8. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
-9. **Pakning** — self-contained exe, autostart.
+5. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
+6. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 5 duer.
+7. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+8. **Baggrundssync, tray og notifikationer.**
+9. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
+10. **Pakning** — self-contained exe, autostart.
 
 ## 10. Risici og åbne punkter
 
