@@ -2,7 +2,7 @@
   #newTask
   data-testid="new-task-input"
   type="text"
-  placeholder="Ny opgave"
+  [placeholder]="'tasks.newTask' | transloco"
   class="mt-4 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-500 focus:outline-none"
   (keyup.enter)="create(newTask)"
 />
@@ -15,7 +15,7 @@
     [checked]="store.showCompleted()"
     (change)="setShowCompleted(showCompleted.checked)"
   />
-  Vis færdige
+  {{ 'tasks.showCompleted' | transloco }}
 </label>
 
 <div class="mt-4 space-y-5">
@@ -29,7 +29,7 @@
         class="text-xs font-semibold tracking-wide uppercase"
         [class]="section.bucket === overdue ? 'text-red-600' : 'text-gray-500'"
       >
-        {{ label(section.bucket) }}
+        {{ sectionKey(section.bucket) | transloco }}
       </h2>
       <ul class="mt-1 divide-y divide-gray-100">
         @for (task of section.tasks; track task.id) {
@@ -47,12 +47,14 @@
               <button type="button" class="min-w-0 flex-1 text-left" (click)="toggle(task)">
                 <span class="block text-sm break-words text-gray-900">{{ task.title }}</span>
                 @if (task.deadline) {
-                  <span class="block text-xs text-gray-500">Deadline: {{ task.deadline }}</span>
+                  <span class="block text-xs text-gray-500">{{
+                    'tasks.deadlineValue' | transloco: { value: task.deadline }
+                  }}</span>
                 }
                 @if (task.requester) {
-                  <span class="block text-xs text-gray-500"
-                    >Opgavestiller: {{ task.requester }}</span
-                  >
+                  <span class="block text-xs text-gray-500">{{
+                    'tasks.requesterValue' | transloco: { value: task.requester }
+                  }}</span>
                 }
                 @if (task.subTasks.length > 0) {
                   <span data-testid="subtask-progress" class="block text-xs text-gray-500">{{
@@ -64,7 +66,9 @@
             @if (expandedId() === task.id) {
               <div data-testid="task-detail" class="mt-2 space-y-2 rounded bg-gray-50 p-2">
                 <label class="block">
-                  <span class="block text-xs text-gray-500">Deadline</span>
+                  <span class="block text-xs text-gray-500">{{
+                    'tasks.deadline' | transloco
+                  }}</span>
                   <input
                     #deadline
                     type="date"
@@ -75,7 +79,9 @@
                   />
                 </label>
                 <label class="block">
-                  <span class="block text-xs text-gray-500">Opgavestiller</span>
+                  <span class="block text-xs text-gray-500">{{
+                    'tasks.requester' | transloco
+                  }}</span>
                   <input
                     #requester
                     type="text"
@@ -86,7 +92,7 @@
                   />
                 </label>
                 <label class="block">
-                  <span class="block text-xs text-gray-500">Note</span>
+                  <span class="block text-xs text-gray-500">{{ 'tasks.note' | transloco }}</span>
                   <textarea
                     #note
                     rows="3"
@@ -96,21 +102,23 @@
                   ></textarea>
                 </label>
                 <label class="block">
-                  <span class="block text-xs text-gray-500">Status</span>
+                  <span class="block text-xs text-gray-500">{{ 'tasks.status' | transloco }}</span>
                   <select
                     #status
                     class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     (change)="saveStatus(task, status.value)"
                   >
-                    @for (option of statusOptions; track option.value) {
-                      <option [value]="option.value" [selected]="option.value === task.status">
-                        {{ option.label }}
+                    @for (option of statusOptions; track option) {
+                      <option [value]="option" [selected]="option === task.status">
+                        {{ statusKey(option) | transloco }}
                       </option>
                     }
                   </select>
                 </label>
                 <div class="space-y-1">
-                  <span class="block text-xs text-gray-500">Underopgaver</span>
+                  <span class="block text-xs text-gray-500">{{
+                    'tasks.subTasks' | transloco
+                  }}</span>
                   @for (subTask of task.subTasks; track subTask.id) {
                     <div data-testid="subtask-row" class="flex items-start gap-2">
                       <input
@@ -129,7 +137,7 @@
                       <button
                         type="button"
                         data-testid="delete-subtask"
-                        aria-label="Slet underopgave"
+                        [attr.aria-label]="'tasks.deleteSubTask' | transloco"
                         class="shrink-0 text-xs text-red-600"
                         (click)="removeSubTask(task, subTask)"
                       >
@@ -141,7 +149,7 @@
                     #newSubTask
                     data-testid="new-subtask-input"
                     type="text"
-                    placeholder="Ny underopgave"
+                    [placeholder]="'tasks.newSubTask' | transloco"
                     class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     (keyup.enter)="createSubTask(task, newSubTask)"
                   />
@@ -152,7 +160,7 @@
                   class="text-xs text-red-600 underline"
                   (click)="remove(task)"
                 >
-                  Slet opgave
+                  {{ 'tasks.deleteTask' | transloco }}
                 </button>
               </div>
             }
@@ -162,13 +170,15 @@
     </section>
   } @empty {
     @if (completed().length === 0) {
-      <p class="text-sm text-gray-500">Ingen opgaver.</p>
+      <p class="text-sm text-gray-500">{{ 'tasks.empty' | transloco }}</p>
     }
   }
 
   @if (completed().length > 0) {
     <section data-testid="completed-section" class="border-l-2 border-gray-200 pl-3">
-      <h2 class="text-xs font-semibold tracking-wide text-gray-500 uppercase">Færdige</h2>
+      <h2 class="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+        {{ 'tasks.sections.completed' | transloco }}
+      </h2>
       <ul class="mt-1 divide-y divide-gray-100">
         @for (task of completed(); track task.id) {
           <li data-testid="task-row" class="flex items-start gap-2 py-2">

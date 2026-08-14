@@ -99,6 +99,6 @@ describe('App', () => {
       .expectOne('/api/health')
       .flush(new Blob(['boom']), { status: 500, statusText: 'Server Error' });
 
-    expect(await healthText(fixture)).toContain('API: unavailable');
+    expect(await healthText(fixture)).toContain('API: ikke tilgængelig');
   });
 });

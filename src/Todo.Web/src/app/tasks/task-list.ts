@@ -1,23 +1,17 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
 import { TaskChanges, TaskStore, subTaskProgress } from './task-store';
 
-const bucketLabels: Record<DeadlineBucket, string> = {
-  [DeadlineBucket.Overdue]: 'Overskredet',
-  [DeadlineBucket.Today]: 'I dag',
-  [DeadlineBucket.ThisWeek]: 'Denne uge',
-  [DeadlineBucket.Later]: 'Senere',
-  [DeadlineBucket.NoDeadline]: 'Uden deadline',
-};
-
-const statusOptions: readonly { value: TodoStatus; label: string }[] = [
-  { value: TodoStatus.Open, label: 'Åben' },
-  { value: TodoStatus.InProgress, label: 'I gang' },
-  { value: TodoStatus.Done, label: 'Færdig' },
+const statusOptions: readonly TodoStatus[] = [
+  TodoStatus.Open,
+  TodoStatus.InProgress,
+  TodoStatus.Done,
 ];
 
 @Component({
   selector: 'app-task-list',
+  imports: [TranslocoPipe],
   templateUrl: './task-list.html',
 })
 export class TaskList {
@@ -36,8 +30,13 @@ export class TaskList {
     this.store.load().catch(() => {});
   }
 
-  protected label(bucket: DeadlineBucket): string {
-    return bucketLabels[bucket];
+  // The API's enum values are the leaves of the key, so a new bucket needs no mapping here.
+  protected sectionKey(bucket: DeadlineBucket): string {
+    return `tasks.sections.${bucket}`;
+  }
+
+  protected statusKey(status: TodoStatus): string {
+    return `tasks.statuses.${status}`;
   }
 
   protected create(input: HTMLInputElement): void {

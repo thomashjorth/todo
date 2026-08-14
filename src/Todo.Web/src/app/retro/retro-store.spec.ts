@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL, IRetroPreviewRow, RetroPreviewRow } from '../api/todo-client';
+import { translocoTesting } from '../i18n/transloco.testing';
 import { RetroStore } from './retro-store';
 
 const previewBody = {
@@ -49,6 +50,7 @@ describe('RetroStore', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
+      imports: [translocoTesting()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -85,7 +87,7 @@ describe('RetroStore', () => {
     expect(store.error()).toBeNull();
   });
 
-  it('should show the reason the server rejected the export', async () => {
+  it('should translate the code the server rejected the export with', async () => {
     const message = "The retro export is empty. It needs a header row with a 'Content' column.";
     const previewed = store.preview('');
 
@@ -97,9 +99,26 @@ describe('RetroStore', () => {
       });
     await previewed;
 
-    expect(store.error()).toBe(message);
+    expect(store.error()).toBe(
+      'Eksporten er tom. Den skal have en overskriftsrække med en Content-kolonne.',
+    );
     expect(store.rows()).toEqual([]);
     expect(store.skippedRatingCards()).toBe(0);
+  });
+
+  it('should show the server message for a code no translation file knows', async () => {
+    const message = 'The board is on fire.';
+    const previewed = store.preview('');
+
+    http
+      .expectOne('/api/retro/preview')
+      .flush(new Blob([JSON.stringify({ code: 'retro.boardOnFire', message })]), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
+    await previewed;
+
+    expect(store.error()).toBe(message);
   });
 
   it('should drop the previous rows when a later export is rejected', async () => {
@@ -188,6 +207,6 @@ describe('RetroStore', () => {
       );
     await saved;
 
-    expect(store.error()).toBe("'thomas' is listed more than once.");
+    expect(store.error()).toBe('Det samme navn står på listen mere end én gang.');
   });
 });

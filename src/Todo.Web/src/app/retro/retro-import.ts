@@ -1,14 +1,19 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { RetroPreviewRow } from '../api/todo-client';
+import { pluralKey } from '../i18n/plural-key';
 import { RetroStore } from './retro-store';
 
 @Component({
   selector: 'app-retro-import',
+  imports: [TranslocoPipe],
   templateUrl: './retro-import.html',
 })
 export class RetroImport {
   protected readonly store = inject(RetroStore);
+  private readonly transloco = inject(TranslocoService);
 
+  protected readonly pluralKey = pluralKey;
   protected readonly csv = signal('');
   protected readonly analysed = signal(false);
   protected readonly receipt = signal<string | null>(null);
@@ -53,7 +58,12 @@ export class RetroImport {
       return;
     }
 
-    this.receipt.set(`${result.imported} importeret, ${result.skipped} sprunget over`);
+    this.receipt.set(
+      this.transloco.translate('retro.receipt', {
+        imported: result.imported,
+        skipped: result.skipped,
+      }),
+    );
     await this.reanalyse();
   }
 

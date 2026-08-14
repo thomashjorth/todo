@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../api/todo-client';
+import { translocoTesting } from '../i18n/transloco.testing';
 import { TaskList } from './task-list';
 
 const items = [
@@ -56,7 +57,7 @@ function rendered(fixture: ComponentFixture<TaskList>): Promise<HTMLElement> {
 describe('TaskList', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TaskList],
+      imports: [TaskList, translocoTesting()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -124,6 +125,11 @@ describe('TaskList', () => {
     const detail = rows[0].querySelector('[data-testid="task-detail"]')!;
     expect(detail.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('2026-08-10');
     expect(detail.querySelector<HTMLSelectElement>('select')!.value).toBe('open');
+    expect([...detail.querySelectorAll('option')].map((o) => o.textContent!.trim())).toEqual([
+      'Åben',
+      'I gang',
+      'Færdig',
+    ]);
     expect(rows[1].querySelector('[data-testid="task-detail"]')).toBeNull();
 
     rows[1].querySelector('button')!.click();

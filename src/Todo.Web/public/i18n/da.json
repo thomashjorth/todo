@@ -1,9 +1,85 @@
 {
   "app": {
-    "title": "Todo"
+    "title": "Todo",
+    "health": "API: {{status}} (v{{version}})",
+    "healthUnavailable": "API: ikke tilgængelig"
   },
   "nav": {
     "tasks": "Opgaver",
     "import": "Retro-import"
+  },
+  "tasks": {
+    "newTask": "Ny opgave",
+    "showCompleted": "Vis færdige",
+    "empty": "Ingen opgaver.",
+    "deadline": "Deadline",
+    "deadlineValue": "Deadline: {{value}}",
+    "requester": "Opgavestiller",
+    "requesterValue": "Opgavestiller: {{value}}",
+    "note": "Note",
+    "status": "Status",
+    "subTasks": "Underopgaver",
+    "newSubTask": "Ny underopgave",
+    "deleteSubTask": "Slet underopgave",
+    "deleteTask": "Slet opgave",
+    "sections": {
+      "overdue": "Overskredet",
+      "today": "I dag",
+      "thisWeek": "Denne uge",
+      "later": "Senere",
+      "noDeadline": "Uden deadline",
+      "completed": "Færdige"
+    },
+    "statuses": {
+      "open": "Åben",
+      "inProgress": "I gang",
+      "done": "Færdig"
+    }
+  },
+  "retro": {
+    "heading": "Retro-import",
+    "paste": "Indsæt eksporten fra retro-boardet",
+    "analyse": "Analysér",
+    "noneMine": "Ingen af rækkerne har dig som ejer.",
+    "zoneValue": "Zone: {{value}}",
+    "ownerValue": "Ejer: {{value}}",
+    "deadlineValue": "Deadline: {{value}}",
+    "alreadyImported": "importeret tidligere",
+    "skipped": {
+      "one": "Sprang {{count}} afstemningskort over.",
+      "other": "Sprang {{count}} afstemningskort over."
+    },
+    "import": {
+      "one": "Importér {{count}} opgave",
+      "other": "Importér {{count}} opgaver"
+    },
+    "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
+    "aliases": {
+      "heading": "Hvem er du på boardet?",
+      "add": "Tilføj et navn",
+      "remove": "Fjern {{alias}}"
+    }
+  },
+  "errors": {
+    "generic": "Noget gik galt. Prøv igen.",
+    "task": {
+      "titleRequired": "Opgaven mangler en titel.",
+      "titleTooLong": "Opgavens titel er for lang."
+    },
+    "subTask": {
+      "titleRequired": "Underopgaven mangler en titel.",
+      "titleTooLong": "Underopgavens titel er for lang."
+    },
+    "retro": {
+      "emptyExport": "Eksporten er tom. Den skal have en overskriftsrække med en Content-kolonne.",
+      "missingContentColumn": "Eksporten har ingen Content-kolonne.",
+      "rowKeyRequired": "En række mangler sin nøgle.",
+      "rowTitleRequired": "En række mangler sin titel.",
+      "rowTitleTooLong": "En rækkes titel er for lang.",
+      "duplicateAlias": "Det samme navn står på listen mere end én gang."
+    },
+    "settings": {
+      "unknownLanguage": "Sproget understøttes ikke."
+    }
   }
 }

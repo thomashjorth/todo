@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../api/todo-client';
+import { translocoTesting } from '../i18n/transloco.testing';
 import { RetroImport } from './retro-import';
 
 const csv = '"Content","Author","Zone"\n"Write the retro summary","Thomas Hjorth","Actions"';
@@ -82,7 +83,7 @@ function importButton(element: HTMLElement): HTMLButtonElement {
 describe('RetroImport', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [RetroImport],
+      imports: [RetroImport, translocoTesting()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -117,7 +118,7 @@ describe('RetroImport', () => {
     const { element } = await analyse({ rows: [mine, theirs], skippedRatingCards: 0 });
 
     expect(checkboxes(element).map((c) => c.checked)).toEqual([true, false]);
-    expect(importButton(element).textContent).toContain('Importér 1 opgaver');
+    expect(importButton(element).textContent).toContain('Importér 1 opgave');
     expect(importButton(element).disabled).toBe(false);
     expect(element.querySelector('[data-testid="retro-none-mine"]')).toBeNull();
   });
@@ -189,7 +190,9 @@ describe('RetroImport', () => {
 
     const error = await settled(screen, '[data-testid="retro-error"]');
 
-    expect(error.textContent).toContain("It needs a header row with a 'Content' column.");
+    expect(error.textContent).toContain(
+      'Eksporten er tom. Den skal have en overskriftsrække med en Content-kolonne.',
+    );
     expect(error.getAttribute('role')).toBe('alert');
     expect(screen.element.querySelectorAll('[data-testid="retro-row"]')).toHaveLength(0);
   });
@@ -252,7 +255,7 @@ describe('RetroImport', () => {
 
     const error = await settled(screen, '[data-testid="retro-error"]');
 
-    expect(error.textContent).toContain('A row is missing its title.');
+    expect(error.textContent).toContain('En række mangler sin titel.');
     expect(screen.element.querySelectorAll('[data-testid="retro-row"]')).toHaveLength(1);
     expect(screen.element.querySelector('[data-testid="retro-receipt"]')!.textContent!.trim()).toBe(
       '',

@@ -1,9 +1,85 @@
 {
   "app": {
-    "title": "Todo"
+    "title": "Todo",
+    "health": "API: {{status}} (v{{version}})",
+    "healthUnavailable": "API: unavailable"
   },
   "nav": {
     "tasks": "Tasks",
     "import": "Retro import"
+  },
+  "tasks": {
+    "newTask": "New task",
+    "showCompleted": "Show done",
+    "empty": "No tasks.",
+    "deadline": "Deadline",
+    "deadlineValue": "Deadline: {{value}}",
+    "requester": "Requested by",
+    "requesterValue": "Requested by: {{value}}",
+    "note": "Note",
+    "status": "Status",
+    "subTasks": "Subtasks",
+    "newSubTask": "New subtask",
+    "deleteSubTask": "Delete subtask",
+    "deleteTask": "Delete task",
+    "sections": {
+      "overdue": "Overdue",
+      "today": "Today",
+      "thisWeek": "This week",
+      "later": "Later",
+      "noDeadline": "No deadline",
+      "completed": "Done"
+    },
+    "statuses": {
+      "open": "Open",
+      "inProgress": "In progress",
+      "done": "Done"
+    }
+  },
+  "retro": {
+    "heading": "Retro import",
+    "paste": "Paste the export from the retro board",
+    "analyse": "Analyse",
+    "noneMine": "No row has you as its owner.",
+    "zoneValue": "Zone: {{value}}",
+    "ownerValue": "Owner: {{value}}",
+    "deadlineValue": "Deadline: {{value}}",
+    "alreadyImported": "imported before",
+    "skipped": {
+      "one": "Skipped {{count}} rating card.",
+      "other": "Skipped {{count}} rating cards."
+    },
+    "import": {
+      "one": "Import {{count}} task",
+      "other": "Import {{count}} tasks"
+    },
+    "receipt": "{{imported}} imported, {{skipped}} skipped",
+    "aliases": {
+      "heading": "Who are you on the board?",
+      "add": "Add a name",
+      "remove": "Remove {{alias}}"
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "task": {
+      "titleRequired": "The task needs a title.",
+      "titleTooLong": "The task title is too long."
+    },
+    "subTask": {
+      "titleRequired": "The subtask needs a title.",
+      "titleTooLong": "The subtask title is too long."
+    },
+    "retro": {
+      "emptyExport": "The export is empty. It needs a header row with a Content column.",
+      "missingContentColumn": "The export has no Content column.",
+      "rowKeyRequired": "A row is missing its key.",
+      "rowTitleRequired": "A row is missing its title.",
+      "rowTitleTooLong": "A row title is too long.",
+      "duplicateAlias": "The same name is listed more than once."
+    },
+    "settings": {
+      "unknownLanguage": "That language is not supported."
+    }
   }
 }

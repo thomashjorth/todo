@@ -22,9 +22,11 @@
   <router-outlet />
   @if (status(); as s) {
     <p data-testid="health" class="mt-8 text-xs text-gray-400">
-      API: {{ s.status }} (v{{ s.version }})
+      {{ 'app.health' | transloco: { status: s.status, version: s.version } }}
     </p>
   } @else if (failed()) {
-    <p data-testid="health" class="mt-8 text-xs text-red-600">API: unavailable</p>
+    <p data-testid="health" class="mt-8 text-xs text-red-600">
+      {{ 'app.healthUnavailable' | transloco }}
+    </p>
   }
 </main>
