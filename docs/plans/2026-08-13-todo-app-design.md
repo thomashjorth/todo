@@ -25,6 +25,8 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen. |
 | Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
+| Tokens | I `Setting`-tabellen i klartekst. **Bevidst valg** — se afsnit 3. |
+| Indstillinger | Én side i appen til URL'er, tokens, aliaser og sync-interval. |
 | Retro-board | Indsat CSV-eksport. Afstemningskort filtreres væk; rækker hvor `Action Owner` matcher mine aliaser er forudvalgt. |
 | Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. |
 | Redigering | Inline i listen. Ingen dialog — ved 480 px ville den dække alt. |
@@ -64,10 +66,22 @@ Udvikling: `dotnet run` + `ng serve` med proxy mod API'et, så frontend har hot
 reload. Publish: `ng build` → `Todo.Host/wwwroot`, derefter self-contained exe.
 
 **Data** i `%APPDATA%\EdoraTodo\todo.db` (SQLite/EF Core), aldrig i programmappen.
-**Tokens** i Windows Credential Manager (`EdoraTodo:Jira`, `EdoraTodo:Ado`), aldrig
-i databasen og aldrig i klartekst. Frontend ser dem ikke — kun C# lægger dem på
-udgående kald. Det er hele begrundelsen for at have .NET som skal.
-**Konfiguration** i `settings.json` samme sted, redigerbar fra indstillingssiden.
+**Tokens og konfiguration** i `Setting`-tabellen i databasen, redigerbart fra
+indstillingssiden. Frontend får aldrig et token at se — den gemmer det, og derefter
+er det kun C# der lægger det på udgående kald.
+
+**Tokens gemmes i klartekst. Det er et bevidst valg, truffet 2026-08-14.**
+Alternativet var Windows Credential Manager, og afvejningen blev lagt frem: ét sted
+at administrere alt, mod at to arbejdstokens ligger læsbare i en fil. Konsekvenser
+der følger med, og som skal stå her frem for at blive genopdaget:
+
+- `%APPDATA%\EdoraTodo\todo.db` indeholder adgang til Jira og Azure DevOps. Mappen
+  bør ikke synkroniseres til OneDrive eller lignende.
+- `todo.db.bak-*` fra migreringerne er fulde kopier og dermed lige så hemmelige.
+- Databasefilen må aldrig vedhæftes en fejlrapport eller lægges i et repo.
+
+`ICredentialStore` beholdes som interface med en databasebaseret implementering.
+Skifter beslutningen senere, udskiftes én klasse frem for hvert kaldested.
 
 Hosten skal kunne starte **uden vindue** (`--headless`), så Playwright kan ramme
 Kestrel direkte. Det er et krav fra dag ét, ikke en senere tilføjelse.
@@ -119,7 +133,11 @@ Pr. kilde: `LastRunAt`, `LastSuccessAt`, `Watermark`, `LastError`. Driver
 
 ### `Setting`
 
-URL'er, bruger-id pr. system, sync-interval.
+Nøgle/værdi: URL'er, bruger-id pr. system, sync-interval **og tokens**. Findes
+endnu ikke — bygges i skive 4 sammen med indstillingssiden.
+
+`UserAlias` er bevidst en egen tabel og flytter ikke ind her: aliaser er en liste,
+ikke en enkelt værdi, og en typet tabel kan have et unikt indeks.
 
 Tidsstempler gemmes i UTC og vises i lokal tid. Deadline er en dato uden klokkeslæt.
 "Denne uge" regnes fra mandag (da-DK).
@@ -294,8 +312,12 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
    `prefers-color-scheme`. Samlet i én skive, fordi hver farve ellers skulle
    kontrasttjekkes to gange.
-4. **Indstillinger og tokens** — indstillingsside, `ICredentialStore`,
-   "Test forbindelse" pr. kilde. Afklarer serverversioner før noget bygges ovenpå.
+4. **Indstillinger og tokens** — én indstillingsside der administrerer det hele:
+   URL'er, tokens, sync-interval og dine navne på retro-boardet. `Setting`-tabellen,
+   `ICredentialStore` med databasebackend, og "Test forbindelse" pr. kilde.
+   Aliasredigeringen flytter hertil fra import-skærmen, som beholder et link —
+   ellers ender samme data to steder og bliver uenige med sig selv.
+   Afklarer serverversioner før noget bygges ovenpå.
 5. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
 6. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 5 duer.
 7. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.

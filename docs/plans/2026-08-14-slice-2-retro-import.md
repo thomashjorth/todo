@@ -34,7 +34,7 @@ Feltafbildning: `Content` → titel, `Action Owner` → hvem rækken tilhører, 
 
 ## Bevidst uden for skive 2
 
-Redigering af en importeret række inde på import-skærmen (importér den, redigér den bagefter i listen). Sletning af aliaser fra en rigtig indstillingsside — den bygges i skive 3. Automatisk genkendelse af hvilket board en eksport kommer fra.
+Redigering af en importeret række inde på import-skærmen (importér den, redigér den bagefter i listen). En rigtig indstillingsside — den bygges i skive 4. Automatisk genkendelse af hvilket board en eksport kommer fra.
 
 ---
 
@@ -67,7 +67,7 @@ public class UserAlias
 }
 ```
 
-En egen tabel frem for en generisk `Setting`-nøgle med JSON i: aliaser er en liste af strenge, og en typet tabel kan indekseres og valideres. Den generelle `Setting`-tabel kommer i skive 3, hvor der faktisk er URL'er og intervaller at gemme.
+En egen tabel frem for en generisk `Setting`-nøgle med JSON i: aliaser er en liste af strenge, og en typet tabel kan indekseres og valideres. Den generelle `Setting`-tabel kommer i skive 4, hvor der er URL'er, intervaller og tokens at gemme.
 
 **Step 3: Konfigurér i `TodoDbContext.OnModelCreating`**
 
@@ -329,7 +329,7 @@ git add -A && git commit -m "✨ Add a retro import screen behind the app's firs
 - En sammenklappet sektion "Hvem er du på boardet?" med aliaslisten: tilføj med Enter, fjern med et kryds. `data-testid="alias-input"`, `data-testid="alias-row"`.
 - Efter at have gemt aliaser skal listen genanalyseres, så forudvalget opdateres uden at du skal indsætte CSV'en igen.
 
-Aliaserne bor her frem for på en indstillingsside, fordi det er her du opdager at de er forkerte. Den rigtige indstillingsside kommer i skive 3.
+Aliaserne bor her frem for på en indstillingsside, fordi det er her du opdager at de er forkerte. Den rigtige indstillingsside kommer i skive 4, og redigeringen flytter dertil — import-skærmen beholder kun et link.
 
 Vitest skal dække: intet valgt giver ingen request; `alreadyImported`-rækker kan ikke vælges; forudvalg følger `isMine`.
 
@@ -397,7 +397,7 @@ git add -A && git commit -m "✅ Cover the retro import journey end to end"
 - Drift-testen er set fejle i task 3, og dedup er set fejle i task 6.
 - Ingen CSS- eller SCSS-regler er skrevet.
 
-## Til skive 3
+## Til skive 3 og 4
 
 - Aliaslisten flytter til den rigtige indstillingsside, men bliver liggende i databasen.
 - `Setting`-tabellen bygges der, til URL'er og sync-interval. `UserAlias` bliver stående som egen tabel.
