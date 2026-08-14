@@ -29,6 +29,23 @@ Fra GTD-vurderingen i designdokumentets afsnit 11: **"Venter på"** er en af de 
 
 **Ventetiden vises som antal dage, ikke som en dato.** "siden 3. aug." kræver, at du selv regner; "12 dage" er selve signalet. Serveren udregner det, så der ikke skal dato­regnes i frontend — samme begrundelse som `bucket`.
 
+## To ting arvet fra skive 4, som skal med her
+
+**`mailto:` skal tilføjes til hvidlisten i `SystemEndpoints`.** Marked laver en bar
+e-mailadresse i en note om til et `mailto:`-link, og et klik giver i dag
+*"Kun http- og https-links kan åbnes."* — en fejlmeddelelse for et fuldstændig
+almindeligt notat. `mailto:` åbner brugerens mailprogram med modtageren udfyldt;
+det er en velkendt web-scheme med lav risiko, og afvisningen er mere til gene end
+til gavn. Tilføj den til hvidlisten, opdatér testen der fastslår at `mailto:`
+afvises, og lad `file:` og `javascript:` blive afvist som nu.
+
+**`TaskListScreen.RowTitled` matcher rækkeknappens fulde tilgængelige navn med
+`Exact = true`.** Deadline, opgavestiller og underopgave-fremdrift er allerede
+`<span>`s inde i den knap, så teksten indgår i navnet. Lægger du "venter på"-linjen
+samme sted, holder `RowTitled` op med at matche for **hver** opgave i den tilstand —
+og fejlen ser ud som en manglende række, ikke som en for lang etiket. Læg enten
+teksten uden for knappen, eller giv `RowTitled` et mål der kun er titlen.
+
 ## Bevidst uden for skive 5
 
 Projekter og kontekster — de øvrige GTD-huller, som står beskrevet i designdokumentets afsnit 11 og kræver en langt større omlægning. Automatisk påmindelse om gamle ventende punkter. En ugentlig gennemgang.
