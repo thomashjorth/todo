@@ -65,6 +65,27 @@ public sealed class TodoApp
         return screen;
     }
 
+    /// <summary>
+    /// Reloads and hands back the task list, so a test can tell what the app saved from what it
+    /// only holds in memory.
+    /// </summary>
+    public async Task<TaskListScreen> ReloadAsync()
+    {
+        await Page.ReloadAsync();
+
+        var screen = new TaskListScreen(this);
+        await screen.WaitUntilShownAsync();
+
+        return screen;
+    }
+
     public Task<int> ScrollWidthAsync()
         => Page.EvaluateAsync<int>("document.documentElement.scrollWidth");
+
+    /// <summary>
+    /// The width the page has to lay out in, which a vertical scrollbar makes narrower than
+    /// the viewport.
+    /// </summary>
+    public Task<int> ClientWidthAsync()
+        => Page.EvaluateAsync<int>("document.documentElement.clientWidth");
 }

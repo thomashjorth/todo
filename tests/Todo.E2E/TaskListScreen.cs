@@ -24,6 +24,16 @@ public sealed class TaskListScreen(TodoApp app)
 
     public ILocator SubTaskProgress => Page.GetByTestId("subtask-progress");
 
+    public ILocator NoteRendered => Detail.GetByTestId("note-rendered");
+
+    public ILocator NoteEditor => Detail.GetByTestId("note-editor");
+
+    public ILocator NoteBullets => NoteRendered.Locator("ul > li");
+
+    public ILocator NoteLink => NoteRendered.Locator("a");
+
+    public ILocator NoteTable => NoteRendered.Locator("table");
+
     private IPage Page => app.Page;
 
     public ILocator Section(string heading) => Page.GetByTestId("task-section").Filter(new()
