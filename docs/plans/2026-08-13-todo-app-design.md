@@ -26,7 +26,11 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
 | Tokens | I `Setting`-tabellen i klartekst. **Bevidst valg** — se afsnit 3. |
-| Indstillinger | Én side i appen til URL'er, tokens, aliaser og sync-interval. |
+| Indstillinger | Én side i appen til sprog, URL'er, tokens, aliaser og sync-interval. |
+| Sprog | Dansk og engelsk med Transloco. Systemets sprog som standard, skiftes i indstillinger. |
+| API-fejl | `{ code, message }` — `code` er en oversættelsesnøgle, `message` engelsk fallback til logs. |
+| Kodeorganisering | Feature-mapper, én type pr. fil (også enums), namespaces følger mapper. |
+| E2E-opsætning | Testdata-builders i `Todo.TestSupport`; navigation kædes via `TodoApp`. |
 | Retro-board | Indsat CSV-eksport. Afstemningskort filtreres væk; rækker hvor `Action Owner` matcher mine aliaser er forudvalgt. |
 | Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. |
 | Redigering | Inline i listen. Ingen dialog — ved 480 px ville den dække alt. |
@@ -308,28 +312,38 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 2. **Retro-import** — indsat CSV, forhåndsvisning, dedup. Den eneste eksterne
    kilde der hverken kræver tokens, netværk eller kendskab til serverversioner —
    ren tekstparsing ind i skive 1's datamodel. Derfor før Jira.
-3. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
-   WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
-   `prefers-color-scheme`. Samlet i én skive, fordi hver farve ellers skulle
-   kontrasttjekkes to gange.
-4. **Indstillinger og tokens** — én indstillingsside der administrerer det hele:
-   URL'er, tokens, sync-interval og dine navne på retro-boardet. `Setting`-tabellen,
-   `ICredentialStore` med databasebackend, og "Test forbindelse" pr. kilde.
+3. **Indstillinger** — `Setting`-tabellen og én indstillingsside. Den er lille og
+   giver et hjem til sprogvalg, aliaser og senere tokens og URL'er.
    Aliasredigeringen flytter hertil fra import-skærmen, som beholder et link —
    ellers ender samme data to steder og bliver uenige med sig selv.
-   Afklarer serverversioner før noget bygges ovenpå.
-5. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
-6. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 5 duer.
-7. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
-8. **Baggrundssync, tray og notifikationer.**
-9. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
-10. **Pakning** — self-contained exe, autostart.
+4. **Lokalisering** — dansk og engelsk med Transloco, systemets sprog som standard,
+   skiftes i indstillinger. Alle eksisterende strenge trækkes ud, datoer formateres
+   pr. locale, og API-fejl bliver til nøgler frontend kan oversætte.
+5. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
+   WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
+   `prefers-color-scheme`. Efter 3 og 4, så gennemgangen rammer alle skærme og alle
+   strenge én gang. Samlet i én skive, fordi hver farve ellers skulle
+   kontrasttjekkes to gange.
+6. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
+   Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
+   en server at teste mod.
+7. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 6 duer.
+8. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+9. **Baggrundssync, tray og notifikationer.**
+10. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
+11. **Pakning** — self-contained exe, autostart.
 
 ## 10. Risici og åbne punkter
 
-- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 3, ikke i 6.
+- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 6, ikke i 8.
 - **Serverversioner** for Jira DC og ADO Server afgør endpoints og API-versioner.
-  Verificeres med "Test forbindelse" i skive 3.
+  Verificeres med "Test forbindelse" i skive 6.
+- **Skallen har ingen baggrundsfarve.** `<body>` sætter hverken baggrund eller
+  tekstfarve, så under mørkt systemtema ville komponenternes `dark:`-farver stå på
+  hvid. Skive 5 skal sætte den; indtil da undgås fyldte flader.
+- **Flertalsformer i UI-tekster** er ikke håndteret — "Importér 1 opgaver" er
+  bevidst efterladt, fordi Transloco løser det rigtigt i skive 4. At rette strengen
+  først ville betyde at skrive den om to gange.
 - **SQLite-migrationer der fjerner en kolonne** taber dens data lydløst, fordi
   tabellen bygges om. Læs genererede migrationer; backup-kopien før migrering er
   sidste forsvar.
