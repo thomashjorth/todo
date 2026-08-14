@@ -26,18 +26,22 @@ public class DatabaseBackupTests
 
         var databasePath = Path.Combine(directory, "todo.db");
         var title = $"Survive the migration {Guid.NewGuid():N}";
+        SqliteConnection? anchor = null;
 
         try
         {
             await using (var host = await RunningHost.StartAtAsync(databasePath))
             {
+                anchor = OpenOutsideThePool(databasePath);
+
                 await CreateAsync(host, title);
                 await RollBackLastMigrationAsync(host);
             }
 
             // The host left its pooled connections open, as the shipped app does when its
-            // process ends, so the newest writes are still in the -wal side file and not in
-            // the database file itself. That is the state this backup has to survive.
+            // process ends, and the anchor holds the database open on top of that, so the
+            // newest writes are still in the -wal side file and not in the database file
+            // itself. That is the state this backup has to survive.
             var databaseFileAlone = Path.Combine(directory, "probe.db");
             File.Copy(databasePath, databaseFileAlone);
             Assert.False(
@@ -57,9 +61,36 @@ public class DatabaseBackupTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
+            anchor?.Dispose();
+            RunningHost.ClearConnectionPoolFor(databasePath);
             TryDelete(directory);
         }
+    }
+
+    /// <summary>
+    /// Opens the database outside the connection pool and keeps it open for the whole test.
+    /// SQLite folds the write-ahead log back into the database file when the last connection
+    /// to it closes, and a pooled connection is closed the moment any test in the process
+    /// clears its pool. Without a connection no other test can close, whether the newest
+    /// write is still in the log when this test looks is a race it loses at random.
+    /// </summary>
+    private static SqliteConnection OpenOutsideThePool(string databasePath)
+    {
+        // Mode=ReadWrite so a mistimed call fails loudly instead of creating a second,
+        // empty database beside the one under test.
+        var connection = new SqliteConnection(
+            $"Data Source={databasePath};Mode=ReadWrite;Pooling=False");
+
+        connection.Open();
+
+        // Opening is not enough: SQLite attaches a connection to the write-ahead log only
+        // when it first reads through it, and until then a closing connection still counts
+        // itself the last one and checkpoints.
+        using var attach = connection.CreateCommand();
+        attach.CommandText = "SELECT COUNT(*) FROM sqlite_master;";
+        attach.ExecuteScalar();
+
+        return connection;
     }
 
     /// <summary>
@@ -89,7 +120,9 @@ public class DatabaseBackupTests
 
     private static bool ContainsTaskTitled(string databasePath, string title)
     {
-        using var connection = new SqliteConnection($"Data Source={databasePath}");
+        // Pooling=False so this read does not leave a connection behind holding the copy
+        // open, which would defeat the cleanup at the end of the test.
+        using var connection = new SqliteConnection($"Data Source={databasePath};Pooling=False");
         connection.Open();
 
         using var command = connection.CreateCommand();

@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Todo.Core;
 using Todo.Host;
 
 namespace Todo.TestSupport;
@@ -33,6 +35,9 @@ public sealed class RunningHost : IAsyncDisposable
     /// <summary>Lets a test read the database directly, not only through the API.</summary>
     public IServiceProvider Services => _app.Services;
 
+    /// <summary>The connection string the host builds for a database path.</summary>
+    public static string ConnectionStringFor(string databasePath) => $"Data Source={databasePath}";
+
     public static Task<RunningHost> StartAsync(params string[] extraArgs)
     {
         var databasePath = Path.Combine(Path.GetTempPath(), "EdoraTodo.Tests", $"{Guid.NewGuid():N}.db");
@@ -61,12 +66,47 @@ public sealed class RunningHost : IAsyncDisposable
         var app = TodoHost.Build(args);
         await app.StartAsync();
 
+        VerifyPoolKey(app, databasePath);
+
         var baseUrl = app.Services
             .GetRequiredService<IServer>()
             .Features.Get<IServerAddressesFeature>()!
             .Addresses.First();
 
         return new RunningHost(app, baseUrl, databasePath, ownsDatabase);
+    }
+
+    /// <summary>
+    /// A pool is keyed by its connection string, so clearing the right one depends on
+    /// <see cref="ConnectionStringFor"/> still spelling the database the way the host does.
+    /// Drift would otherwise leave every test database behind without a word.
+    /// </summary>
+    private static void VerifyPoolKey(WebApplication app, string databasePath)
+    {
+        using var scope = app.Services.CreateScope();
+        var actual = scope.ServiceProvider
+            .GetRequiredService<TodoDbContext>()
+            .Database.GetConnectionString();
+
+        if (actual != ConnectionStringFor(databasePath))
+        {
+            throw new InvalidOperationException(
+                $"The host connects with '{actual}', but this helper builds "
+                + $"'{ConnectionStringFor(databasePath)}', which names a different pool.");
+        }
+    }
+
+    /// <summary>
+    /// Closes the pooled connections to one database, so its files can be deleted. Scoped to
+    /// that database on purpose: ClearAllPools would also close connections that tests running
+    /// in parallel are holding open, and closing the last connection to a SQLite database
+    /// folds its write-ahead log into the database file behind their backs.
+    /// </summary>
+    public static void ClearConnectionPoolFor(string databasePath)
+    {
+        using var connection = new SqliteConnection(ConnectionStringFor(databasePath));
+
+        SqliteConnection.ClearPool(connection);
     }
 
     public async ValueTask DisposeAsync()
@@ -84,7 +124,7 @@ public sealed class RunningHost : IAsyncDisposable
             return;
         }
 
-        SqliteConnection.ClearAllPools();
+        ClearConnectionPoolFor(_databasePath);
 
         foreach (var file in new[] { _databasePath, $"{_databasePath}-wal", $"{_databasePath}-shm" })
         {
