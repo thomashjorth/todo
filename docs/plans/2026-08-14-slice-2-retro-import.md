@@ -97,7 +97,11 @@ dotnet tool run dotnet-ef migrations add RetroImport --project src/Todo.Core --s
 Run: `dotnet test Todo.sln`
 Expected: **48 passed**, 0 warnings. Skemaændringen må ikke bryde noget.
 
-Bekræft desuden at appen stadig starter mod en *eksisterende* database: kopiér `%APPDATA%\EdoraTodo\todo.db` til en midlertidig sti, kør hosten med `--Data:Path` mod kopien, og se at migrationen kører og at en backupfil `todo.db.bak-*` bliver skrevet ved siden af. Det er første gang backup-stien bruges i praksis.
+Bekræft desuden at appen stadig starter mod en *eksisterende* database. **Kopiér alle tre filer** — `todo.db`, `todo.db-wal` og `todo.db-shm` — til en midlertidig sti, kør hosten med `--Data:Path` mod kopien, og se at dine eksisterende opgaver stadig kan hentes, og at en backupfil `todo.db.bak-*` bliver skrevet ved siden af.
+
+**`todo.db` alene er ikke databasen.** I WAL-tilstand ligger de nyeste skrivninger i `todo.db-wal`; kopierer du kun `.db`, får du en tom header og verificerer backup-stien mod ingenting. Præcis den fejl sad i `TodoDatabase` indtil den blev målt: 4 KB kopieret, 103 KB efterladt.
+
+Rør ikke originalen i `%APPDATA%\EdoraTodo\`.
 
 **Step 6: Commit**
 
