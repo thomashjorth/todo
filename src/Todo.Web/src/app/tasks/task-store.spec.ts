@@ -78,6 +78,40 @@ describe('TaskStore', () => {
     expect(store.completedTasks()).toEqual([done]);
   });
 
+  it('should keep a waiting task out of the deadline sections and list it on its own', () => {
+    const waiting = new TodoTask({
+      ...taskIn(DeadlineBucket.Later),
+      status: TodoStatus.WaitingFor,
+      waitingOn: 'Bo',
+      waitingDays: 0,
+    });
+    store.tasks.set([taskIn(DeadlineBucket.Today), waiting]);
+
+    expect(store.sections().map((s) => s.bucket)).toEqual([DeadlineBucket.Today]);
+    expect(store.sections().flatMap((s) => s.tasks)).not.toContain(waiting);
+    expect(store.waitingTasks()).toEqual([waiting]);
+  });
+
+  it('should show a parked task in the someday list and nowhere else', () => {
+    const parked = new TodoTask({ ...taskIn(DeadlineBucket.Today), status: TodoStatus.Someday });
+    store.tasks.set([parked]);
+
+    expect(store.sections()).toEqual([]);
+    expect(store.waitingTasks()).toEqual([]);
+    expect(store.completedTasks()).toEqual([]);
+    expect(store.somedayTasks()).toEqual([parked]);
+  });
+
+  it('should ask the API for parked tasks once they are shown', async () => {
+    const shown = store.setShowSomeday(true);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items: [] })]));
+    await shown;
+
+    expect(store.showSomeday()).toBe(true);
+  });
+
   it('should have no completed tasks while every task is open', () => {
     store.tasks.set([taskIn(DeadlineBucket.Today), taskIn(DeadlineBucket.Later)]);
 
@@ -91,7 +125,7 @@ describe('TaskStore', () => {
   it('should load the tasks the API returns, excluding completed ones by default', async () => {
     const loaded = store.load();
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
       .flush(new Blob([JSON.stringify({ items: [taskIn(DeadlineBucket.Today).toJSON()] })]));
     await loaded;
 
@@ -101,7 +135,7 @@ describe('TaskStore', () => {
   it('should ask the API for completed tasks once they are shown', async () => {
     const shown = store.setShowCompleted(true);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=true')
+      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
       .flush(new Blob([JSON.stringify({ items: [] })]));
     await shown;
 
@@ -118,7 +152,9 @@ describe('TaskStore', () => {
     expect(JSON.parse(created.request.body).title).toBe('Køb mælk');
     created.flush(new Blob([JSON.stringify(taskIn(DeadlineBucket.Today).toJSON())]));
 
-    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    const reloaded = await vi.waitFor(() =>
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+    );
     reloaded.flush(new Blob([JSON.stringify({ items: [taskIn(DeadlineBucket.Today).toJSON()] })]));
     await added;
 
@@ -155,9 +191,23 @@ describe('TaskStore', () => {
     });
     request.flush(new Blob([JSON.stringify(task.toJSON())]));
 
-    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    const reloaded = await vi.waitFor(() =>
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+    );
     reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
     await updated;
+  });
+
+  it('should send who the task is waiting on together with the new status', async () => {
+    const task = taskIn(DeadlineBucket.Today);
+
+    void store.update(task, { status: TodoStatus.WaitingFor, waitingOn: 'Bo' });
+
+    const body = JSON.parse(
+      TestBed.inject(HttpTestingController).expectOne(`/api/tasks/${task.id}`).request.body,
+    );
+    expect(body.status).toBe(TodoStatus.WaitingFor);
+    expect(body.waitingOn).toBe('Bo');
   });
 
   it('should leave the deadline out of the update when it is cleared', async () => {
@@ -191,7 +241,9 @@ describe('TaskStore', () => {
       statusText: 'Created',
     });
 
-    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    const reloaded = await vi.waitFor(() =>
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+    );
     reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
     await added;
   });
@@ -221,7 +273,9 @@ describe('TaskStore', () => {
     expect(request.request.method).toBe('DELETE');
     request.flush(new Blob([]), { status: 204, statusText: 'No Content' });
 
-    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    const reloaded = await vi.waitFor(() =>
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+    );
     reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
     await removed;
   });
@@ -252,7 +306,9 @@ describe('TaskStore', () => {
     expect(request.request.method).toBe('DELETE');
     request.flush(new Blob([]), { status: 204, statusText: 'No Content' });
 
-    const reloaded = await vi.waitFor(() => http.expectOne('/api/tasks?includeCompleted=false'));
+    const reloaded = await vi.waitFor(() =>
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+    );
     reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
     await removed;
 
