@@ -7,4 +7,7 @@ public enum DeadlineBucket
     ThisWeek,
     Later,
     NoDeadline,
+
+    /// <summary>Has a start date in the future, so it is not actionable yet.</summary>
+    Deferred,
 }

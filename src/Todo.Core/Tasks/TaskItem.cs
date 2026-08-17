@@ -12,6 +12,9 @@ public class TaskItem
 
     public DateOnly? Deadline { get; set; }
 
+    /// <summary>The day the task becomes actionable. Until then it is deferred.</summary>
+    public DateOnly? DeferUntil { get; set; }
+
     public string? Requester { get; set; }
 
     public string? ExternalKey { get; set; }

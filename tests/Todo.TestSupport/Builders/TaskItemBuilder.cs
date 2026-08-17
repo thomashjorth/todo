@@ -20,6 +20,7 @@ public sealed class TaskItemBuilder
     private string? _waitingOn;
     private DateTime? _waitingSince;
     private DateOnly? _deadline;
+    private DateOnly? _deferUntil;
     private TodoStatus _status = TodoStatus.Open;
 
     public TaskItemBuilder()
@@ -60,7 +61,8 @@ public sealed class TaskItemBuilder
         var lastDay = Enumerable.Range(1, DaysInAWeek)
             .Select(today.AddDays)
             .Cast<DateOnly?>()
-            .LastOrDefault(date => DeadlineBuckets.For(date, today) == DeadlineBucket.ThisWeek);
+            .LastOrDefault(date =>
+                DeadlineBuckets.For(date, null, today) == DeadlineBucket.ThisWeek);
 
         if (lastDay is not { } date)
         {
@@ -70,6 +72,13 @@ public sealed class TaskItemBuilder
         }
 
         return DueOn(date);
+    }
+
+    /// <summary>A start date, which defers the task until that day arrives.</summary>
+    public TaskItemBuilder DeferredUntil(DateOnly deferUntil)
+    {
+        _deferUntil = deferUntil;
+        return this;
     }
 
     public TaskItemBuilder WithoutDeadline()
@@ -134,6 +143,7 @@ public sealed class TaskItemBuilder
         Title = _title,
         Note = _note,
         Deadline = _deadline,
+        DeferUntil = _deferUntil,
         Requester = _requester,
         ExternalKey = _externalKey,
         WaitingOn = _waitingOn,

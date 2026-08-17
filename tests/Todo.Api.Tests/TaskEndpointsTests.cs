@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Todo.Contracts;
+using Todo.TestSupport.Builders;
 
 namespace Todo.Api.Tests;
 
@@ -42,11 +43,18 @@ public class TaskEndpointsTests : TaskApiTest
         var yesterday = Today.AddDays(-1);
         await CreateAsync("On the wire", yesterday);
 
+        // A start date cannot be posted yet, so this one is arranged straight in the database.
+        var nextWeek = Today.AddDays(7);
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder().Titled("Deferred on the wire").DeferredUntil(nextWeek).Build());
+
         var json = await Client.GetStringAsync("/api/tasks");
 
         Assert.Contains("\"status\":\"open\"", json);
         Assert.Contains("\"bucket\":\"overdue\"", json);
         Assert.Contains($"\"deadline\":\"{yesterday:yyyy-MM-dd}\"", json);
+        Assert.Contains("\"bucket\":\"deferred\"", json);
+        Assert.Contains($"\"deferUntil\":\"{nextWeek:yyyy-MM-dd}\"", json);
     }
 
     [Fact]

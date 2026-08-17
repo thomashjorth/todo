@@ -239,9 +239,10 @@ public static class TaskEndpoints
         Title = task.Title,
         Note = task.Note,
         Deadline = task.Deadline,
+        DeferUntil = task.DeferUntil,
         Requester = task.Requester,
         Status = ToContract(task.Status),
-        Bucket = ToContract(DeadlineBuckets.For(task.Deadline, today)),
+        Bucket = ToContract(DeadlineBuckets.For(task.Deadline, task.DeferUntil, today)),
         WaitingOn = task.WaitingOn,
         WaitingSince = AsUtc(task.WaitingSince),
         WaitingDays = WaitingDays(task, today),
@@ -302,6 +303,7 @@ public static class TaskEndpoints
         CoreBucket.ThisWeek => ContractBucket.ThisWeek,
         CoreBucket.Later => ContractBucket.Later,
         CoreBucket.NoDeadline => ContractBucket.NoDeadline,
+        CoreBucket.Deferred => ContractBucket.Deferred,
         _ => throw new ArgumentOutOfRangeException(nameof(bucket), bucket, null),
     };
 }

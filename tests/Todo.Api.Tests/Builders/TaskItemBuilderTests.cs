@@ -37,7 +37,7 @@ public class TaskItemBuilderTests
     {
         var task = new TaskItemBuilder(new FixedClock(Wednesday)).Overdue().Build();
 
-        Assert.Equal(CoreBucket.Overdue, DeadlineBuckets.For(task.Deadline, Wednesday));
+        Assert.Equal(CoreBucket.Overdue, DeadlineBuckets.For(task.Deadline, null, Wednesday));
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public class TaskItemBuilderTests
         var task = new TaskItemBuilder(new FixedClock(Wednesday)).DueToday().Build();
 
         Assert.Equal(Wednesday, task.Deadline);
-        Assert.Equal(CoreBucket.Today, DeadlineBuckets.For(task.Deadline, Wednesday));
+        Assert.Equal(CoreBucket.Today, DeadlineBuckets.For(task.Deadline, null, Wednesday));
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class TaskItemBuilderTests
         var task = new TaskItemBuilder(new FixedClock(Wednesday)).DueThisWeek().Build();
 
         Assert.Equal(Sunday, task.Deadline);
-        Assert.Equal(CoreBucket.ThisWeek, DeadlineBuckets.For(task.Deadline, Wednesday));
+        Assert.Equal(CoreBucket.ThisWeek, DeadlineBuckets.For(task.Deadline, null, Wednesday));
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class TaskItemBuilderTests
         var task = new TaskItemBuilder(new FixedClock(Saturday)).DueThisWeek().Build();
 
         Assert.Equal(Sunday, task.Deadline);
-        Assert.Equal(CoreBucket.ThisWeek, DeadlineBuckets.For(task.Deadline, Saturday));
+        Assert.Equal(CoreBucket.ThisWeek, DeadlineBuckets.For(task.Deadline, null, Saturday));
     }
 
     [Fact]
