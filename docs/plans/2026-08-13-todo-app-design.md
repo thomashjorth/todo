@@ -1,7 +1,7 @@
 # Personlig todo-app — design
 
 Dato: 2026-08-13
-Status: skive 0–5 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
+Status: skive 0–6 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
 maskinens fælder og konventioner i `CLAUDE.md` i roden.
 
 ## 1. Formål
@@ -26,7 +26,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen. |
 | Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
-| Id-type | `Guid` v4 i dag. Skifter til `long` i skive 7 — se afsnit 10. |
+| Id-type | `Guid` v4 i dag. Skifter til `long` i skive 8 — se afsnit 10. |
 | Tokens | I `Setting`-tabellen i klartekst. **Bevidst valg** — se afsnit 3. |
 | Indstillinger | Én side i appen til sprog, URL'er, tokens, aliaser og sync-interval. |
 | Sprog | Dansk og engelsk med Transloco. Systemets sprog som standard, skiftes i indstillinger. |
@@ -359,38 +359,39 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 5. **Venter på og Someday/Maybe** — to nye tilstande, så en opgave kan ligge hos
    en anden eller være parkeret uden at forurene deadline-sektionerne. Den billige
    halvdel af GTD; se afsnit 11. **Færdig.**
-6. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
+6. **TypeScript strict mode** — `strict` og `strictTemplates` slås til, og opgaverækken
+   udtrækkes til en rigtig børnekomponent med et typet `input()`. **Færdig.**
+   *Bemærk at flagene alene var gratis og ikke fangede noget: den delte
+   `#taskRow`-skabelon gav konteksten typen `any`, og `strictTemplates` afstemmer ikke
+   `[ngTemplateOutletContext]`. Børnekomponenten var rettelsen; se afsnit 10.*
+7. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
    WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
    `prefers-color-scheme`. Efter 3, 4 og 5, så gennemgangen rammer alle skærme, alle
    strenge og alle markdown-elementer én gang. Samlet i én skive, fordi hver farve
    ellers skulle kontrasttjekkes to gange. **Bemærk: udskudt to gange** — først af
    markdown, så af GTD-tilstandene. Sker det igen, er det værd at spørge hvorfor.
-7. **`long` som id** — `Guid` erstattes af `long` på `TaskItem`, `SubTask` og
+8. **`long` som id** — `Guid` erstattes af `long` på `TaskItem`, `SubTask` og
    `UserAlias`. Egen skive, fordi den rører primærnøgler, fremmednøgler, kontrakten,
    begge genererede klienter, alle builders og næsten hver test. **Kan flyttes, men
    bliver dyrere for hver skive der lægges imellem.** Se afsnit 10.
-8. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
+9. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
    Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
    en server at teste mod.
-9. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 8 duer.
-10. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
-11. **Baggrundssync, tray og notifikationer.**
-12. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
-13. **Pakning** — self-contained exe, autostart.
+10. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 9 duer.
+11. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+12. **Baggrundssync, tray og notifikationer.**
+13. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
+14. **Pakning** — self-contained exe, autostart.
 
 ### Ønsket, men ikke placeret endnu
 
-Fire ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
+Tre ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
 glemt, og de skal placeres bevidst frem for at glide ind foran tilgængelighed.
 
-- **TypeScript i strict mode.** `tsconfig.json` mangler både `strict` og
-  `strictTemplates`, som `ng new` ellers sætter. Hele frontenden kører altså uden
-  `strictNullChecks` og `noImplicitAny`. Bevist 2026-08-17: en tastefejl i en
-  template-binding gav et grønt build. Bliver dyrere for hver fil der skrives.
 - **Revisionslog med trends.** En hændelseslog ved siden af opgaverne — hvad
   ændrede sig hvornår — som kan bære spørgsmål som "hvor mange lukker jeg om ugen"
   og "hvor længe ligger noget i Venter på". Den er også fundamentet for GTD's
-  ugentlige gennemgang, som appen slet ikke understøtter i dag. Største af de fire.
+  ugentlige gennemgang, som appen slet ikke understøtter i dag. Største af de tre.
 - **"Sådan er den tænkt"-side.** En side der beskriver brugen i GTD-termer.
   Skrives som markdown-filer pr. sprog og renderes med kæden fra skive 4 — prosa
   hører ikke hjemme i oversættelsesnøgler. **Skal også sige hvad værktøjet ikke
@@ -407,25 +408,24 @@ glemt, og de skal placeres bevidst frem for at glide ind foran tilgængelighed.
   Verificeres med "Test forbindelse" i skive 7.
 - **Skallen har ingen baggrundsfarve.** `<body>` sætter hverken baggrund eller
   tekstfarve, så under mørkt systemtema ville komponenternes `dark:`-farver stå på
-  hvid. Skive 6 skal sætte den; indtil da undgås fyldte flader.
+  hvid. Skive 7 skal sætte den; indtil da undgås fyldte flader.
 - **Opgavelisten har ingen `dark:`-varianter.** Skallen, retro-import og indstillinger
-  har dem; `task-list.html` har ingen eneste. Skive 6 skal tage hele den fil, ikke kun
-  `<body>`.
+  har dem; `task-list.html` har ingen eneste. Skive 7 skal tage hele den fil, ikke kun
+  `<body>`. Bemærk at rækkens farver efter skive 6 ligger i `task-row.html`, så
+  gennemgangen skal tage begge filer.
 - **SQLite-migrationer der fjerner en kolonne** taber dens data lydløst, fordi
   tabellen bygges om. Læs genererede migrationer; backup-kopien før migrering er
   sidste forsvar.
 - **Photino** kræver WebView2-runtime. Til stede på Windows 11 som standard.
 - **Fixtures** kan blive forældede når serverne opgraderes; kontrakt-testene er
   første sted det opdages.
-- **Opgaverækkens `ng-template` er utypet.** `task-list.html` deler én
-  `#taskRow`-skabelon mellem alle sektioner, og konteksten kommer ind som `let-task`,
-  altså `any`. Udtrykkene `task.*` i den bliver derfor ikke typechecket — bekræftet
-  ved at stave `task.title` forkert med vilje og se `ng build` gå igennem alligevel.
-  Hvert udtryk er dækket af en vitest-case (den forkerte stavning væltede fire af
-  dem), så hullet fanges af tests og ikke af compileren. En senere skive bør overveje
-  en rigtig børnekomponent med et typet `input()` i stedet for skabelonen.
+- **Opgaverækken er nu en typet børnekomponent** (løst i skive 6). `li[appTaskRow]` med
+  `input.required<TodoTask>()` erstattede den delte `#taskRow`-skabelon, og en tastefejl
+  i bindingen giver nu `TS2551`. Lektionen er, at `strictTemplates` **ikke** dækkede
+  hullet: en delt `ng-template` med `let-`-variabler har konteksttype `any` og bliver
+  aldrig typetjekket, uanset flag, fordi `[ngTemplateOutletContext]` ikke afstemmes.
 - **Id'erne er `Guid` v4 og skal være `long`** (besluttet 2026-08-14, planlagt til
-  skive 7). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
+  skive 8). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
   **tilfældig v4** til **tidsordnet UUIDv7**, som `Guid.CreateVersion7()` giver i
   .NET 9+. Argumentet for `long` her er et andet: i SQLite bliver `INTEGER PRIMARY
   KEY` et alias for rowid, og "opgave 42" kan siges højt. Fragmentering er uden

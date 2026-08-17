@@ -71,6 +71,15 @@ uprefixede klasser **er** den smalle udgave; `sm:`/`md:` bruges kun til at udvid
 **Angular.** Signal-baserede stores ejer al HTTP. Komponenter injicerer aldrig en genereret
 klient og kalder aldrig `.subscribe()`. **Ikke NgRx** — bevidst fravalg.
 
+**En delt `<ng-template>` med `let-`-variabler har konteksttype `any`.** `strictTemplates`
+tjekker den ikke, og `[ngTemplateOutletContext]` afstemmes ikke. Skal en række være
+typetjekket, skal den være en komponent med `input()`. Bruger den `<li>`, så giv den en
+attributvælger (`li[appTaskRow]`) — et eget element ville bryde `divide-y` og listens struktur.
+
+**`@if` indsnævrer ikke et signal-kald.** `@if (task().x != null)` efterlader `task().x` som
+`T | undefined` inde i blokken. Bind med `@let` først. Brug **ikke** `as`, som binder på
+sandhed og taber `0`.
+
 **C#.** Feature-mapper, én type pr. fil (også enums), namespaces følger mapper.
 **Kald aldrig noget `Task` eller `TaskStatus`** — `System.Threading.Tasks` er i scope overalt
 via implicit usings, og kollisionen giver fejl der peger et andet sted hen.
@@ -113,5 +122,5 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 5: **33** Todo.Core.Tests, **106** Todo.Api.Tests, **7** Todo.E2E, **133** Vitest.
+Efter skive 6: **33** Todo.Core.Tests, **106** Todo.Api.Tests, **7** Todo.E2E, **133** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.

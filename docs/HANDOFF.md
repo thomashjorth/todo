@@ -15,37 +15,30 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 3 | Indstillingsside og lokalisering — dansk/engelsk med Transloco, systemets sprog som standard | `2026-08-14-slice-3-settings-and-localization.md` |
 | 4 | Noter i fuld CommonMark, renderet, klik for at redigere. Links åbner i systemets browser | `2026-08-14-slice-4-markdown-notes.md` |
 | 5 | "Venter på" og "Måske" som statusser, med hvem og hvor længe | `2026-08-14-slice-5-waiting-and-someday.md` |
+| 6 | TypeScript strict mode, og opgaverækken som en typet børnekomponent frem for en delt `ng-template` | `2026-08-17-slice-6-typescript-strict.md` |
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, og `ApiTest`/`BrowserTest`-basisklasser.
 
 ## Tilbage — og hvorfor rækkefølgen betyder noget
 
-Tre af punkterne **bliver dyrere jo længere de venter** og leverer ingen ny funktion. Tre kan
+To af punkterne **bliver dyrere jo længere de venter** og leverer ingen ny funktion. Tre kan
 vente uden at koste noget. Det er hele grundlaget for anbefalingen nedenfor.
 
 ### Anbefalet rækkefølge
 
-**1. TypeScript strict mode.** `tsconfig.json` mangler både `strict` og `strictTemplates`, som
-`ng new` ellers sætter. Hele frontenden kører altså uden `strictNullChecks` og `noImplicitAny`.
-Bevist 2026-08-17: en tastefejl i en template-binding (`task.titel`) gav et **grønt build** —
-kun fire Vitest-tests fangede den. Mindst af de tre dyre, og den gør de to næste tryggere:
-uden den finder compileren ikke de steder, hvor et id skifter type.
-
-Bemærk at den delte `#taskRow`-template i `task-list.html` har kontekst-type `any`, så
-`task.*` derinde ikke typetjekkes uanset hvad. Overvej en rigtig børnekomponent.
-
-**2. Tilgængelighed, tastatur og dark mode.** WCAG AA i begge temaer, synligt fokus, hver
+**1. Tilgængelighed, tastatur og dark mode.** WCAG AA i begge temaer, synligt fokus, hver
 handling nåelig med tastaturet, Alt-genvejssystemet, og `prefers-color-scheme`.
 **Udskudt to gange** — først af markdown, så af GTD-tilstandene.
 
 Kendte startpunkter: `<body>` sætter hverken baggrund eller tekstfarve, så komponenternes
 `dark:`-farver ville stå på hvid. `task-list.html` har kun de `dark:`-varianter, skive 4 og 5
-tilføjede. `text-gray-400` på health-linjen er ~2,9:1. Genvejsoverlayet skal bruge
+tilføjede — og rækkens farver ligger efter skive 6 i `task-row.html`, så kontrastgennemgangen
+skal tage begge filer. `text-gray-400` på health-linjen er ~2,9:1. Genvejsoverlayet skal bruge
 oversættelsesnøgler, så det afhænger af skive 3. Alt+D/E/F/Home/pil er stjålet af Chrome under
 udvikling, men frie i Photino-vinduet — vælg bogstaver udenom.
 
-**3. `long` som id.** `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`.
+**2. `long` som id.** `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`.
 Rører primærnøgler, fremmednøgler, kontrakten, begge genererede klienter, alle builders og
 næsten hver test. SQLite gør `INTEGER PRIMARY KEY` til et rowid-alias, og et opgavenummer kan
 siges højt.
