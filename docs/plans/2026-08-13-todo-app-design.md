@@ -74,7 +74,7 @@ C:\privat-git\todo\
 ```
 
 `Todo.Contract.Tests` med WireMock kommer først når der er en ekstern server at
-lyve om — altså i skive 6 med Jira.
+lyve om — altså i skive 9 med Jira.
 
 Udvikling: `dotnet run` + `ng serve` med proxy mod API'et, så frontend har hot
 reload. Publish: `ng build` → `Todo.Host/wwwroot`, derefter self-contained exe.
@@ -403,9 +403,10 @@ glemt, og de skal placeres bevidst frem for at glide ind foran tilgængelighed.
 
 ## 10. Risici og åbne punkter
 
-- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 7, ikke i 9.
+- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 9, ikke i 10 —
+  altså mens "Test forbindelse" bygges, ikke først når ADO-importen skal bruge den.
 - **Serverversioner** for Jira DC og ADO Server afgør endpoints og API-versioner.
-  Verificeres med "Test forbindelse" i skive 7.
+  Verificeres med "Test forbindelse" i skive 9.
 - **Skallen har ingen baggrundsfarve.** `<body>` sætter hverken baggrund eller
   tekstfarve, så under mørkt systemtema ville komponenternes `dark:`-farver stå på
   hvid. Skive 7 skal sætte den; indtil da undgås fyldte flader.

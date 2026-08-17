@@ -71,7 +71,7 @@ livscyklus og arkiv, og pakning til en self-contained exe. Se afsnit 9.
 
 ## Sådan køres en skive
 
-Mønstret der har virket gennem seks skiver:
+Mønstret der har virket gennem syv skiver:
 
 1. Skriv en plan i `docs/plans/YYYY-MM-DD-slice-N-navn.md` med opgaver på 2–5 minutter, komplet
    kode, eksakte kommandoer og forventet output.
