@@ -54,7 +54,7 @@
       <input
         #deadline
         type="date"
-        class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+        class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
         [value]="task().deadline ?? ''"
         (blur)="save({ deadline: text(deadline.value) })"
         (keyup.enter)="save({ deadline: text(deadline.value) })"
@@ -65,7 +65,7 @@
       <input
         #requester
         type="text"
-        class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+        class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
         [value]="task().requester ?? ''"
         (blur)="save({ requester: text(requester.value) })"
         (keyup.enter)="save({ requester: text(requester.value) })"
@@ -90,7 +90,7 @@
           #note
           data-testid="note-editor"
           rows="6"
-          class="field-sizing-content max-h-96 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+          class="field-sizing-content max-h-96 w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
           [value]="task().note ?? ''"
           (blur)="stopEditingNote(note.value)"
           (keydown.escape)="stopEditingNote(note.value)"
@@ -125,7 +125,7 @@
       <span class="block text-xs text-gray-500">{{ 'tasks.status' | transloco }}</span>
       <select
         #status
-        class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+        class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
         (change)="saveStatus(status.value)"
       >
         @for (option of statusOptions; track option) {
@@ -144,7 +144,7 @@
           #waitingOn
           data-testid="waiting-on-input"
           type="text"
-          class="w-full rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:text-gray-100"
+          class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500 dark:text-gray-100"
           [value]="task().waitingOn ?? ''"
           (blur)="save({ waitingOn: text(waitingOn.value) })"
           (keyup.enter)="save({ waitingOn: text(waitingOn.value) })"
@@ -165,7 +165,9 @@
           />
           <span
             class="min-w-0 flex-1 text-sm break-words"
-            [class]="subTask.isDone ? 'text-gray-400 line-through' : 'text-gray-900'"
+            [class]="
+              subTask.isDone ? 'text-gray-500 line-through dark:text-gray-400' : 'text-gray-900'
+            "
             >{{ subTask.title }}</span
           >
           <button
@@ -184,7 +186,7 @@
         data-testid="new-subtask-input"
         type="text"
         [placeholder]="'tasks.newSubTask' | transloco"
-        class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+        class="w-full rounded border border-gray-500 px-2 py-1 text-sm placeholder-gray-500 dark:border-gray-500 dark:placeholder-gray-400"
         (keyup.enter)="createSubTask(newSubTask)"
       />
     </div>

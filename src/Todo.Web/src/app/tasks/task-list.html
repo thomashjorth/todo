@@ -3,7 +3,7 @@
   data-testid="new-task-input"
   type="text"
   [placeholder]="'tasks.newTask' | transloco"
-  class="mt-4 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-500 focus:outline-none"
+  class="mt-4 w-full rounded border border-gray-500 px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-gray-500 focus:outline-none dark:border-gray-500 dark:placeholder-gray-400"
   (keyup.enter)="create(newTask)"
 />
 
@@ -35,7 +35,7 @@
     <section
       data-testid="task-section"
       class="border-l-2 pl-3"
-      [class]="section.bucket === overdue ? 'border-red-200' : 'border-gray-200'"
+      [class]="section.bucket === overdue ? 'border-red-500' : 'border-gray-200'"
     >
       <h2
         class="text-xs font-semibold tracking-wide uppercase"
@@ -67,7 +67,7 @@
   @if (store.waitingTasks().length > 0) {
     <section
       data-testid="waiting-section"
-      class="border-l-2 border-amber-300 pl-3 dark:border-amber-600"
+      class="border-l-2 border-amber-600 pl-3 dark:border-amber-600"
     >
       <h2 class="text-xs font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">
         {{ 'tasks.sections.waiting' | transloco }}
@@ -106,9 +106,10 @@
               (click)="$event.stopPropagation()"
               (change)="setDone(task, reopen.checked)"
             />
-            <span class="min-w-0 flex-1 text-sm break-words text-gray-400 line-through">{{
-              task.title
-            }}</span>
+            <span
+              class="min-w-0 flex-1 text-sm break-words text-gray-500 line-through dark:text-gray-400"
+              >{{ task.title }}</span
+            >
           </li>
         }
       </ul>

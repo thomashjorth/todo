@@ -153,8 +153,9 @@ public sealed class TodoApp
               }
             }
 
-            // Nothing opaque underneath: what shows through is the browser's own canvas, and
-            // this app declares no color-scheme, so that canvas is white in both themes.
+            // Nothing opaque underneath: what shows through is the browser's own canvas. The app
+            // declares color-scheme: light dark, so that canvas follows the theme — but <body> is
+            // opaque in both, so this fallback never fires. White is only the last resort.
             return layers.reduceRight((under, layer) => over(layer, under), [255, 255, 255]);
           };
 
