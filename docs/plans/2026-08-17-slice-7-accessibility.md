@@ -422,9 +422,11 @@ Se afvejningen under Beslutninger — det er et valg, ikke et krav:
 
 **Step 4: De indbyggede kontroller — `color-scheme`, ikke tekstfarver**
 
-Vagten fandt fem `<option>`-poster på 1,05:1 i mørkt tema. De kan **ikke** rettes med `dark:text-*`: statusvælgeren i `task-row.html` har slet ingen farveklasser, og en åben `<option>`-liste males af operativsystemet, ikke af siden. Det samme gælder `<input type="date">`s datovælger, afkrydsningsfelterne og rullepanelerne.
+**Rettet 2026-08-17, efter at Task 3 blev kørt: diagnosen nedenfor var forkert.** Planen sagde, at vagtens fem `<option>`-poster på 1,05:1 skyldtes en OS-malet popup og skulle rettes med `color-scheme`. Det holder ikke. Vagten læser `getComputedStyle(option).color`, altså den **nedarvede forfatterfarve** — `dark:text-gray-100` fra `<body>`, fordi vælgeren ikke har nogen farveklasse — og baggrunden den finder er detaljepanelets `bg-gray-50`, som **mangler en `dark:`-modpart**. Næsten hvid tekst på næsten hvidt panel. En OS-malet popup kommer aldrig ind i målingen.
 
-Den rigtige rettelse er at fortælle browseren, at siden understøtter begge temaer. Tilføj **`scheme-light-dark`** til `<body>` i `src/index.html`:
+**Seks af de femten mørke fejl falder derfor sammen til én manglende `dark:bg-*` på detaljepanelet** — de fem `<option>`-poster, `button[note-edit]` på 1,74:1 og `input[new-subtask-input]`. Det er Task 4's arbejde, og det er den enkeltrettelse med størst effekt i hele sættet.
+
+`scheme-light-dark` er alligevel den rigtige rettelse — bare ikke af det her. Afkrydsningsfelterne, `<input type="date">`s datovælger og rullepanelerne males af operativsystemet, og **dem måler vagten ikke**. Tilføj **`scheme-light-dark`** til `<body>` i `src/index.html`:
 
 ```html
 <body class="scheme-light-dark bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
@@ -434,7 +436,7 @@ Det sætter `color-scheme: light dark`, som browseren selv afstemmer efter syste
 
 **Bemærk konsekvensen for vagten:** `backgroundOf` i `TodoApp.cs` falder tilbage til hvid med kommentaren *"this app declares no color-scheme, so that canvas is white in both themes"*. Det er ikke længere sandt. Tilbagefaldet udløses aldrig nu, fordi `<body>` er uigennemsigtig — men **ret kommentaren**, ellers står der en påstand i koden som ikke holder.
 
-Er de fem `<option>`-poster stadig røde bagefter, så rapportér det frem for at farve `<option>`-elementerne: det ville være at bekæmpe symptomet, og en OS-malet popup lader sig alligevel ikke style pålideligt.
+De fem `<option>`-poster bliver **ikke** grønne af dette — se rettelsen ovenfor. Farv dem ikke: de forsvinder når detaljepanelet får sin `dark:bg-*` i Task 4.
 
 **Step 5: Byg og kør vagten**
 
@@ -464,6 +466,12 @@ Konventionen siger, at hver `bg-*`/`text-*`/`border-*` skal have en `dark:`-modp
 - Modify: `src/Todo.Web/src/app/app.html`
 - Modify: `src/Todo.Web/src/app/tasks/task-list.html`
 - Modify: `src/Todo.Web/src/app/tasks/task-row.html`
+
+**Step 0: Tag detaljepanelet først — det er seks fejl i én rettelse**
+
+`bg-gray-50` på detaljepanelet i `task-row.html` mangler en `dark:`-modpart, og fordi panelet er uigennemsigtigt stopper det vagtens forældre-gennemgang. Alt inde i det måles derfor mod et næsten hvidt panel, uanset hvad `<body>` siger. Det alene forklarer **seks** af de femten mørke fejl: de fem `<option>`-poster på 1,05:1, `button[note-edit]` på 1,74:1 og `input[new-subtask-input]` på 2,49:1.
+
+`bg-gray-50` → `bg-gray-50 dark:bg-gray-800`. Kør vagten straks bagefter og rapportér, hvor mange fejl der faldt væk af den ene ændring — det er tallet der viser, om diagnosen holdt.
 
 **Step 1: Modparterne**
 
