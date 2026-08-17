@@ -142,6 +142,27 @@ describe('TaskStore', () => {
     expect(store.showCompleted()).toBe(true);
   });
 
+  // Flipping both switches in quick succession puts two loads in flight, and nothing orders
+  // their responses. When the older one straggles in last it used to win, and the list silently
+  // lost whatever the newer request had asked for until something else triggered a reload.
+  it('should not let a slow earlier load overwrite a newer list', async () => {
+    const http = TestBed.inject(HttpTestingController);
+
+    const completed = store.setShowCompleted(true);
+    const someday = store.setShowSomeday(true);
+
+    const stale = http.expectOne('/api/tasks?includeCompleted=true&includeSomeday=false');
+    const fresh = http.expectOne('/api/tasks?includeCompleted=true&includeSomeday=true');
+
+    // The newer request answers first; the older one arrives after it.
+    fresh.flush(new Blob([JSON.stringify({ items: [taskIn(DeadlineBucket.Today).toJSON()] })]));
+    stale.flush(new Blob([JSON.stringify({ items: [] })]));
+
+    await Promise.all([completed, someday]);
+
+    expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
+  });
+
   it('should create a task from the trimmed title and reload the list', async () => {
     const http = TestBed.inject(HttpTestingController);
 

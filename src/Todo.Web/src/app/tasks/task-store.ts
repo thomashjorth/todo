@@ -46,6 +46,9 @@ export class TaskStore {
   readonly showCompleted = signal(false);
   readonly showSomeday = signal(false);
 
+  /** Only the newest load may write the list; see the check in `load`. */
+  private loadSequence = 0;
+
   // The server buckets by deadline whatever the status, so a task that is done, waiting or
   // parked would otherwise linger in the deadline section it had before.
   private readonly scheduledTasks = computed(() =>
@@ -75,9 +78,18 @@ export class TaskStore {
   );
 
   async load(): Promise<void> {
+    const sequence = ++this.loadSequence;
     const response = await firstValueFrom(
       this.client.listTasks(this.showCompleted(), this.showSomeday()),
     );
+
+    // Two loads can be in flight at once — flipping both switches quickly does it — and nothing
+    // orders their responses. Without this the older answer can land last and wipe the newer
+    // list, and it stays wrong until something else triggers a reload.
+    if (sequence !== this.loadSequence) {
+      return;
+    }
+
     this.tasks.set(response.items);
   }
 
