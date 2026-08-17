@@ -10,7 +10,7 @@
     #csvInput
     data-testid="retro-csv"
     rows="6"
-    class="mt-1 w-full rounded border border-gray-300 px-2 py-1 font-mono text-xs text-gray-900 dark:border-gray-600 dark:text-gray-100"
+    class="mt-1 w-full rounded border border-gray-500 px-2 py-1 font-mono text-xs text-gray-900 dark:border-gray-500 dark:text-gray-100"
     (input)="csv.set(csvInput.value)"
   ></textarea>
 </label>
@@ -18,7 +18,7 @@
 <button
   type="button"
   data-testid="retro-analyse"
-  class="mt-2 rounded border border-gray-300 px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:text-gray-100"
+  class="mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
   (click)="analyse()"
 >
   {{ 'retro.analyse' | transloco }}
@@ -89,7 +89,7 @@
   <button
     type="button"
     data-testid="retro-import"
-    class="mt-3 rounded border border-gray-300 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-600 dark:text-gray-100 dark:disabled:text-gray-400"
+    class="mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
     [disabled]="selectedRows().length === 0"
     (click)="importSelected()"
   >

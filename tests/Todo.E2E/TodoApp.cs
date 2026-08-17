@@ -95,17 +95,20 @@ public sealed class TodoApp
         => Page.EvaluateAsync<int>("document.documentElement.clientWidth");
 
     /// <summary>
-    /// The outline the browser paints on the focused element. `outline: none` with only a
-    /// border change in its place is what this exists to catch.
+    /// What the browser paints on the focused element, as `testid|outlineStyle|outlineWidth|outlineColor`.
+    /// The focused element is part of the answer on purpose: a helper that returns a friendly
+    /// sentinel when nothing is focused reports the one failure it exists to catch as success.
     /// </summary>
     public Task<string> FocusOutlineAsync() => Page.EvaluateAsync<string>(
         """
         () => {
           const el = document.activeElement;
-          if (!el || el === document.body) return 'nothing focused';
+          if (!el || el === document.body) return 'none|no-outline|0px|transparent';
 
           const s = getComputedStyle(el);
-          return `${s.outlineStyle} ${s.outlineWidth}`;
+          const id = el.dataset.testid ?? el.tagName.toLowerCase();
+
+          return `${id}|${s.outlineStyle}|${s.outlineWidth}|${s.outlineColor}`;
         }
         """);
 
