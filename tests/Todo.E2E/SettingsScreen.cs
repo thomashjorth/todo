@@ -21,10 +21,19 @@ public sealed class SettingsScreen(TodoApp app)
 
     public async Task AddAliasAsync(string name)
     {
-        await AliasInput.FillAsync(name);
-        await AliasInput.PressAsync("Enter");
+        await SubmitAliasAsync(name);
 
         await Assertions.Expect(AliasRows.Filter(new() { HasText = name })).ToBeVisibleAsync();
+    }
+
+    /// <summary>
+    /// Types a name and submits it without waiting for a row: the API can reject one, and the
+    /// rejection is what a caller is sometimes after.
+    /// </summary>
+    public async Task SubmitAliasAsync(string name)
+    {
+        await AliasInput.FillAsync(name);
+        await AliasInput.PressAsync("Enter");
     }
 
     public Task<RetroImportScreen> GoToImport() => app.GoToImport();

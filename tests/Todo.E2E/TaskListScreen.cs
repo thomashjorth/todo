@@ -42,6 +42,11 @@ public sealed class TaskListScreen(TodoApp app)
 
     public ILocator NoteEditor => Detail.GetByTestId("note-editor");
 
+    public ILocator NoteEditButton => Detail.GetByTestId("note-edit");
+
+    /// <summary>Says that opening a note's link failed, which only a failed request puts here.</summary>
+    public ILocator NoteLinkError => Detail.GetByTestId("note-link-error");
+
     public ILocator NoteBullets => NoteRendered.Locator("ul > li");
 
     public ILocator NoteLink => NoteRendered.Locator("a");

@@ -183,6 +183,11 @@ public sealed class TodoApp
           const label = (el) =>
             el.tagName.toLowerCase() + (el.dataset.testid ? `[${el.dataset.testid}]` : '');
 
+          const paintsItsValue = new Set([
+            'text', 'search', 'email', 'url', 'tel', 'password', 'number',
+            'date', 'datetime-local', 'month', 'week', 'time',
+          ]);
+
           const failures = [];
 
           const check = (el, style, fg, what, sample) => {
@@ -196,8 +201,11 @@ public sealed class TodoApp
             const r = ratio(over(fg, bg), bg);
 
             if (r < needed) {
-              failures.push(
-                `${label(el)} ${what} "${sample.slice(0, 40)}" ${r.toFixed(2)}:1 needs ${needed}`);
+              // One line per failure, so a multi-line note in a field cannot break the list the
+              // caller reads as its work list.
+              const quoted = sample.replace(/\s+/g, ' ').slice(0, 40);
+
+              failures.push(`${label(el)} ${what} "${quoted}" ${r.toFixed(2)}:1 needs ${needed}`);
             }
           };
 
@@ -213,6 +221,18 @@ public sealed class TodoApp
               .trim();
 
             if (own) check(el, style, channels(style.color), 'text', own);
+
+            // A field's value is a property rather than a child text node, so the walk above is
+            // blind to it: a note editor painted at 2.6:1 passed this test until the value was
+            // measured here. Only the types that paint their value as text are asked — a
+            // checkbox's value is the string "on", and blaming a box for it would be a failure
+            // nobody can see or fix.
+            const painted = el instanceof HTMLTextAreaElement
+              || (el instanceof HTMLInputElement && paintsItsValue.has(el.type));
+
+            if (painted && el.value.trim()) {
+              check(el, style, channels(style.color), 'value', el.value.trim());
+            }
 
             // Placeholder colour lives on ::placeholder, so the walk above cannot see it —
             // and it is text the user reads every time the app opens.
