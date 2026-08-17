@@ -33,6 +33,32 @@ const items = [
   },
 ];
 
+const waiting = {
+  id: '33333333-3333-3333-3333-333333333333',
+  sourceId: 'manual',
+  title: 'Spørg Bo om tallene',
+  deadline: null,
+  requester: null,
+  status: 'waitingFor',
+  bucket: 'noDeadline',
+  waitingOn: 'Bo',
+  waitingSince: '2026-08-14T13:35:15+00:00',
+  waitingDays: 0,
+  completedAt: null,
+  createdAt: '2026-08-13T18:25:56.60+00:00',
+  subTasks: [],
+};
+
+const parked = {
+  ...waiting,
+  id: '44444444-4444-4444-4444-444444444444',
+  title: 'Lær at spille harmonika',
+  status: 'someday',
+  waitingOn: null,
+  waitingSince: null,
+  waitingDays: null,
+};
+
 const withSubTasks = [
   {
     ...items[0],
@@ -60,6 +86,15 @@ function rendered(fixture: ComponentFixture<TaskList>): Promise<HTMLElement> {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelectorAll('[data-testid="task-row"]').length).toBe(items.length);
     return element;
+  });
+}
+
+function shown(fixture: ComponentFixture<TaskList>, selector: string): Promise<HTMLElement> {
+  return vi.waitFor(() => {
+    fixture.detectChanges();
+    const element = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(selector);
+    expect(element).not.toBeNull();
+    return element!;
   });
 }
 
@@ -154,6 +189,8 @@ describe('TaskList', () => {
     expect([...detail.querySelectorAll('option')].map((o) => o.textContent!.trim())).toEqual([
       'Åben',
       'I gang',
+      'Venter på',
+      'Måske',
       'Færdig',
     ]);
     expect(rows[1].querySelector('[data-testid="task-detail"]')).toBeNull();
@@ -467,6 +504,160 @@ describe('TaskList', () => {
     const placeholder = row.querySelector('[data-testid="note-rendered"]')!;
     expect(placeholder.textContent!.trim()).toBe('Tilføj en note');
     expect(placeholder.className).toContain('italic');
+  });
+
+  it('should list a waiting task on its own with who it waits on and for how long', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [...items, waiting] })]));
+
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+
+    expect(section.querySelector('h2')!.textContent!.trim()).toBe('Venter på');
+    const row = section.querySelector('[data-testid="task-row"]')!;
+    expect(row.textContent).toContain('Spørg Bo om tallene');
+    expect(row.textContent).toContain('Venter på: Bo');
+    expect(row.querySelector('[data-testid="waiting-days"]')!.textContent!.trim()).toBe('0 dage');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll(
+        '[data-testid="task-section"] [data-testid="task-row"]',
+      ),
+    ).toHaveLength(items.length);
+  });
+
+  // The E2E screen matches the row button's accessible name in full, so the waiting line has to
+  // stay outside it or every waiting row stops being findable by its title.
+  it('should keep the waiting line out of the row button', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [waiting] })]));
+
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+
+    expect(section.querySelector('button')!.textContent!.trim()).toBe('Spørg Bo om tallene');
+  });
+
+  it('should count a single day of waiting in the singular', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [{ ...waiting, waitingDays: 1 }] })]));
+
+    const days = await shown(fixture, '[data-testid="waiting-days"]');
+
+    expect(days.textContent!.trim()).toBe('1 dag');
+  });
+
+  it('should mark an overdue deadline on a waiting task in red', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(
+        new Blob([
+          JSON.stringify({ items: [{ ...waiting, deadline: '2026-08-10', bucket: 'overdue' }] }),
+        ]),
+      );
+
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+
+    const deadline = [...section.querySelectorAll('span')].find((s) =>
+      s.textContent!.includes('Deadline:'),
+    )!;
+    expect(deadline.className).toContain('text-red-600');
+  });
+
+  it('should ask who the task waits on only while it is waiting', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [items[1], waiting] })]));
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+    const element = fixture.nativeElement as HTMLElement;
+
+    section.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const input = section.querySelector<HTMLInputElement>('[data-testid="waiting-on-input"]')!;
+    expect(input.value).toBe('Bo');
+
+    const open = element.querySelector('[data-testid="task-section"] [data-testid="task-row"]')!;
+    open.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    expect(open.querySelector('[data-testid="waiting-on-input"]')).toBeNull();
+  });
+
+  it('should save who the task waits on when the field loses focus', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [waiting] })]));
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+    section.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const input = section.querySelector<HTMLInputElement>('[data-testid="waiting-on-input"]')!;
+    input.value = 'Anna';
+    input.dispatchEvent(new Event('blur'));
+
+    const request = http.expectOne(`/api/tasks/${waiting.id}`);
+    expect(JSON.parse(request.request.body).waitingOn).toBe('Anna');
+  });
+
+  it('should hide a parked task until the someday toggle is on', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+
+    expect(element.querySelector('[data-testid="someday-section"]')).toBeNull();
+
+    element.querySelector<HTMLInputElement>('[data-testid="show-someday"]')!.click();
+    fixture.detectChanges();
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items: [...items, parked] })]));
+
+    const section = await shown(fixture, '[data-testid="someday-section"]');
+
+    expect(section.querySelector('h2')!.textContent!.trim()).toBe('Måske');
+    expect(section.querySelector('[data-testid="task-row"]')!.textContent).toContain(
+      'Lær at spille harmonika',
+    );
+  });
+
+  it('should let a parked task be expanded so its status can be changed back', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    await rendered(fixture);
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLInputElement>('[data-testid="show-someday"]')!
+      .click();
+    fixture.detectChanges();
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items: [parked] })]));
+    const section = await shown(fixture, '[data-testid="someday-section"]');
+
+    section.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const select = section.querySelector<HTMLSelectElement>('[data-testid="task-detail"] select')!;
+    expect(select.value).toBe('someday');
+
+    select.value = 'open';
+    select.dispatchEvent(new Event('change'));
+
+    expect(JSON.parse(http.expectOne(`/api/tasks/${parked.id}`).request.body).status).toBe('open');
   });
 
   it('should not create a task from a blank input', async () => {

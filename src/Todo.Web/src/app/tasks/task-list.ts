@@ -1,7 +1,9 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
+import { pluralKey } from '../i18n/plural-key';
 import { renderMarkdown } from '../markdown/render-markdown';
 import { SystemStore } from '../system/system-store';
 import { TaskChanges, TaskStore, subTaskProgress } from './task-store';
@@ -9,12 +11,14 @@ import { TaskChanges, TaskStore, subTaskProgress } from './task-store';
 const statusOptions: readonly TodoStatus[] = [
   TodoStatus.Open,
   TodoStatus.InProgress,
+  TodoStatus.WaitingFor,
+  TodoStatus.Someday,
   TodoStatus.Done,
 ];
 
 @Component({
   selector: 'app-task-list',
-  imports: [DeadlineDate, TranslocoPipe],
+  imports: [DeadlineDate, NgTemplateOutlet, TranslocoPipe],
   templateUrl: './task-list.html',
 })
 export class TaskList {
@@ -23,11 +27,15 @@ export class TaskList {
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly statusOptions = statusOptions;
   protected readonly done = TodoStatus.Done;
+  protected readonly waitingFor = TodoStatus.WaitingFor;
   protected readonly progress = subTaskProgress;
   protected readonly expandedId = signal<string | null>(null);
   protected readonly editingNote = signal<string | null>(null);
   protected readonly completed = computed(() =>
     this.store.showCompleted() ? this.store.completedTasks() : [],
+  );
+  protected readonly someday = computed(() =>
+    this.store.showSomeday() ? this.store.somedayTasks() : [],
   );
 
   private readonly noteEditor = viewChild<ElementRef<HTMLTextAreaElement>>('note');
@@ -48,6 +56,10 @@ export class TaskList {
 
   protected statusKey(status: TodoStatus): string {
     return `tasks.statuses.${status}`;
+  }
+
+  protected waitingDaysKey(days: number): string {
+    return pluralKey(days, 'tasks.waitingDays');
   }
 
   protected rendered(task: TodoTask): string {
@@ -106,6 +118,10 @@ export class TaskList {
 
   protected setShowCompleted(value: boolean): void {
     this.store.setShowCompleted(value).catch(() => {});
+  }
+
+  protected setShowSomeday(value: boolean): void {
+    this.store.setShowSomeday(value).catch(() => {});
   }
 
   protected createSubTask(task: TodoTask, input: HTMLInputElement): void {

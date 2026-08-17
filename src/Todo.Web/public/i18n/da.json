@@ -12,11 +12,18 @@
   "tasks": {
     "newTask": "Ny opgave",
     "showCompleted": "Vis færdige",
+    "showSomeday": "Vis måske",
     "empty": "Ingen opgaver.",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",
     "requester": "Opgavestiller",
     "requesterValue": "Opgavestiller: {{value}}",
+    "waitingOn": "Venter på",
+    "waitingOnValue": "Venter på: {{value}}",
+    "waitingDays": {
+      "one": "{{count}} dag",
+      "other": "{{count}} dage"
+    },
     "note": "Note",
     "noteEmpty": "Tilføj en note",
     "editNote": "Redigér noten",
@@ -31,11 +38,15 @@
       "thisWeek": "Denne uge",
       "later": "Senere",
       "noDeadline": "Uden deadline",
-      "completed": "Færdige"
+      "waiting": "Venter på",
+      "completed": "Færdige",
+      "someday": "Måske"
     },
     "statuses": {
       "open": "Åben",
       "inProgress": "I gang",
+      "waitingFor": "Venter på",
+      "someday": "Måske",
       "done": "Færdig"
     }
   },

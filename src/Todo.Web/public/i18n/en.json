@@ -12,11 +12,18 @@
   "tasks": {
     "newTask": "New task",
     "showCompleted": "Show done",
+    "showSomeday": "Show someday",
     "empty": "No tasks.",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",
     "requester": "Requested by",
     "requesterValue": "Requested by: {{value}}",
+    "waitingOn": "Waiting for",
+    "waitingOnValue": "Waiting for: {{value}}",
+    "waitingDays": {
+      "one": "{{count}} day",
+      "other": "{{count}} days"
+    },
     "note": "Note",
     "noteEmpty": "Add a note",
     "editNote": "Edit note",
@@ -31,11 +38,15 @@
       "thisWeek": "This week",
       "later": "Later",
       "noDeadline": "No deadline",
-      "completed": "Done"
+      "waiting": "Waiting for",
+      "completed": "Done",
+      "someday": "Someday"
     },
     "statuses": {
       "open": "Open",
       "inProgress": "In progress",
+      "waitingFor": "Waiting for",
+      "someday": "Someday",
       "done": "Done"
     }
   },
