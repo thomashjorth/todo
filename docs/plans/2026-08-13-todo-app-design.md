@@ -377,6 +377,28 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 12. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
 13. **Pakning** — self-contained exe, autostart.
 
+### Ønsket, men ikke placeret endnu
+
+Fire ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
+glemt, og de skal placeres bevidst frem for at glide ind foran tilgængelighed.
+
+- **TypeScript i strict mode.** `tsconfig.json` mangler både `strict` og
+  `strictTemplates`, som `ng new` ellers sætter. Hele frontenden kører altså uden
+  `strictNullChecks` og `noImplicitAny`. Bevist 2026-08-17: en tastefejl i en
+  template-binding gav et grønt build. Bliver dyrere for hver fil der skrives.
+- **Revisionslog med trends.** En hændelseslog ved siden af opgaverne — hvad
+  ændrede sig hvornår — som kan bære spørgsmål som "hvor mange lukker jeg om ugen"
+  og "hvor længe ligger noget i Venter på". Den er også fundamentet for GTD's
+  ugentlige gennemgang, som appen slet ikke understøtter i dag. Største af de fire.
+- **"Sådan er den tænkt"-side.** En side der beskriver brugen i GTD-termer.
+  Skrives som markdown-filer pr. sprog og renderes med kæden fra skive 4 — prosa
+  hører ikke hjemme i oversættelsesnøgler. **Skal også sige hvad værktøjet ikke
+  gør**, ellers lover den GTD og leverer en deadline-liste; afsnit 11 er materialet.
+- **Swagger-link på health-linjen.** Et klik på "API: ok" åbner API-dokumentationen.
+  Kræver en UI-pakke (Scalar eller Swashbuckles), da .NET 10 ikke har en indbygget,
+  og linket **skal** gennem `/api/system/open-link` — ellers navigerer Photino-vinduet
+  væk fra appen uden vej tilbage.
+
 ## 10. Risici og åbne punkter
 
 - **ADO-mentions** er den mest usikre antagelse. Verificér i skive 7, ikke i 9.
