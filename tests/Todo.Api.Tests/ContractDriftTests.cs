@@ -8,7 +8,7 @@ namespace Todo.Api.Tests;
 /// contracts/openapi.yaml owns the API surface. This fails the build when the
 /// implementation drifts away from it in either direction.
 /// </summary>
-public class ContractDriftTests
+public class ContractDriftTests : ApiTest
 {
     [Fact]
     public async Task Running_api_exposes_exactly_the_operations_in_the_contract()
@@ -39,11 +39,9 @@ public class ContractDriftTests
         return operations;
     }
 
-    private static async Task<SortedSet<string>> OperationsFromRunningAppAsync()
+    private async Task<SortedSet<string>> OperationsFromRunningAppAsync()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        using var stream = await host.Client.GetStreamAsync("/openapi/v1.json");
+        using var stream = await Client.GetStreamAsync("/openapi/v1.json");
         using var document = await JsonDocument.ParseAsync(stream);
 
         var operations = new SortedSet<string>(StringComparer.Ordinal);

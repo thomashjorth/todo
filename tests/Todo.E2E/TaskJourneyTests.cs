@@ -1,9 +1,8 @@
 using Microsoft.Playwright;
-using Todo.TestSupport;
 
 namespace Todo.E2E;
 
-public class TaskJourneyTests(BrowserFixture fixture) : IClassFixture<BrowserFixture>
+public class TaskJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
     private const int ColumnWidth = 480;
     private const string TaskTitle = "Køb kaffe";
@@ -11,13 +10,10 @@ public class TaskJourneyTests(BrowserFixture fixture) : IClassFixture<BrowserFix
     [Fact]
     public async Task A_task_is_created_scheduled_split_into_subtasks_completed_and_shown_again()
     {
-        await using var host = await RunningHost.StartAsync();
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+        var tasks = App.Tasks;
 
-        var app = await TodoApp.OpenAsync(
-            fixture.Browser, host, new() { Width = ColumnWidth, Height = 1000 });
-        var tasks = app.Tasks;
-
-        await Assertions.Expect(app.Health).ToContainTextAsync("API: ok");
+        await Assertions.Expect(App.Health).ToContainTextAsync("API: ok");
 
         await tasks.NewTaskInput.FillAsync(TaskTitle);
         await tasks.NewTaskInput.PressAsync("Enter");
@@ -60,7 +56,7 @@ public class TaskJourneyTests(BrowserFixture fixture) : IClassFixture<BrowserFix
         await Assertions.Expect(tasks.CompletedRows.GetByText(TaskTitle, new() { Exact = true }))
             .ToHaveCSSAsync("text-decoration-line", "line-through");
 
-        var scrollWidth = await app.ScrollWidthAsync();
+        var scrollWidth = await App.ScrollWidthAsync();
         Assert.True(scrollWidth <= ColumnWidth,
             $"The page overflows the {ColumnWidth}px column: scrollWidth was {scrollWidth}.");
     }

@@ -1,10 +1,9 @@
 using Microsoft.Playwright;
-using Todo.TestSupport;
 using Todo.TestSupport.Builders;
 
 namespace Todo.E2E;
 
-public class MarkdownNoteJourneyTests(BrowserFixture fixture) : IClassFixture<BrowserFixture>
+public class MarkdownNoteJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
     private const int ColumnWidth = 480;
     private const string TaskTitle = "Forbered demoen";
@@ -41,14 +40,11 @@ public class MarkdownNoteJourneyTests(BrowserFixture fixture) : IClassFixture<Br
     [Fact]
     public async Task A_note_is_read_as_markdown_edited_by_clicking_it_and_its_links_open_outside()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        await host.AddAndSaveChangesAsync(
+        await Host.AddAndSaveChangesAsync(
             new TaskItemBuilder().Titled(TaskTitle).WithNote(Note).Build());
 
-        var app = await TodoApp.OpenAsync(
-            fixture.Browser, host, new() { Width = ColumnWidth, Height = 1000 });
-        var tasks = app.Tasks;
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+        var tasks = App.Tasks;
 
         await tasks.RowTitled(TaskTitle).ClickAsync();
         await Assertions.Expect(tasks.Detail).ToBeVisibleAsync();
@@ -62,8 +58,8 @@ public class MarkdownNoteJourneyTests(BrowserFixture fixture) : IClassFixture<Br
 
         await tasks.NoteTable.ScrollIntoViewIfNeededAsync();
 
-        var pageWidth = await app.ClientWidthAsync();
-        var scrolledWidth = await app.ScrollWidthAsync();
+        var pageWidth = await App.ClientWidthAsync();
+        var scrolledWidth = await App.ScrollWidthAsync();
         var tableWidth = await tasks.NoteTable.EvaluateAsync<int>("table => table.scrollWidth");
 
         Assert.True(tableWidth > pageWidth,
@@ -84,7 +80,7 @@ public class MarkdownNoteJourneyTests(BrowserFixture fixture) : IClassFixture<Br
         await Assertions.Expect(tasks.NoteEditor).ToHaveCountAsync(0);
         await Assertions.Expect(tasks.NoteBullets).ToHaveTextAsync(BulletsAfter);
 
-        tasks = await app.ReloadAsync();
+        tasks = await App.ReloadAsync();
 
         await tasks.RowTitled(TaskTitle).ClickAsync();
 
@@ -94,13 +90,13 @@ public class MarkdownNoteJourneyTests(BrowserFixture fixture) : IClassFixture<Br
 
         // Letting the request through would ask the operating system to open the link, and a
         // test run has no business putting a browser window on the machine it runs on.
-        await app.Page.RouteAsync("**/api/system/open-link", async route =>
+        await App.Page.RouteAsync("**/api/system/open-link", async route =>
         {
             opened.TrySetResult(route.Request.PostDataJSON()?.GetProperty("url").GetString());
             await route.AbortAsync();
         });
 
-        await app.Page.EvaluateAsync("window.stampedBeforeTheClick = true");
+        await App.Page.EvaluateAsync("window.stampedBeforeTheClick = true");
 
         await tasks.NoteLink.ClickAsync();
 
@@ -109,7 +105,7 @@ public class MarkdownNoteJourneyTests(BrowserFixture fixture) : IClassFixture<Br
         await Assertions.Expect(tasks.NoteBullets).ToHaveTextAsync(BulletsAfter);
 
         Assert.True(
-            await app.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
+            await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
             "The link took the window with it, and this window has no way back.");
     }
 }

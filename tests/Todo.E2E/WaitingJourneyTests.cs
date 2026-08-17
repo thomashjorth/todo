@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
-using Todo.TestSupport;
 using Todo.TestSupport.Builders;
 using Todo.TestSupport.Time;
 
@@ -9,7 +8,7 @@ using IClock = Todo.Core.Time.IClock;
 
 namespace Todo.E2E;
 
-public class WaitingJourneyTests(BrowserFixture fixture) : IClassFixture<BrowserFixture>
+public class WaitingJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
     private const int ColumnWidth = 480;
     private const int DaysWaited = 12;
@@ -23,13 +22,13 @@ public class WaitingJourneyTests(BrowserFixture fixture) : IClassFixture<Browser
     // midnight would turn "12 dage" into 13, and "0 dage" into 1.
     private static readonly FixedClock Clock = new(new DateOnly(2026, 8, 17));
 
+    protected override void ConfigureServices(IServiceCollection services)
+        => services.AddSingleton<IClock>(Clock);
+
     [Fact]
     public async Task A_task_waits_on_someone_is_released_waits_again_from_zero_and_a_third_is_parked()
     {
-        await using var host = await RunningHost.StartWithAsync(
-            services => services.AddSingleton<IClock>(Clock));
-
-        await host.AddAndSaveChangesAsync(
+        await Host.AddAndSaveChangesAsync(
             new TaskItemBuilder(Clock).Titled(DueTodayTitle).DueToday().Build(),
             new TaskItemBuilder(Clock)
                 .Titled(LongWaitTitle)
@@ -37,9 +36,8 @@ public class WaitingJourneyTests(BrowserFixture fixture) : IClassFixture<Browser
                 .Build(),
             new TaskItemBuilder(Clock).Titled(ParkedTitle).Build());
 
-        var app = await TodoApp.OpenAsync(
-            fixture.Browser, host, new() { Width = ColumnWidth, Height = 1000 });
-        var tasks = app.Tasks;
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+        var tasks = App.Tasks;
 
         await Assertions.Expect(tasks.RowsIn("I dag")).ToHaveCountAsync(1);
         await Assertions.Expect(tasks.RowFor(DueTodayTitle))
@@ -94,8 +92,8 @@ public class WaitingJourneyTests(BrowserFixture fixture) : IClassFixture<Browser
         await Assertions.Expect(tasks.SomedayRows).ToHaveCountAsync(1);
         await Assertions.Expect(tasks.SomedayRows).ToContainTextAsync(ParkedTitle);
 
-        var pageWidth = await app.ClientWidthAsync();
-        var scrolledWidth = await app.ScrollWidthAsync();
+        var pageWidth = await App.ClientWidthAsync();
+        var scrolledWidth = await App.ScrollWidthAsync();
 
         Assert.True(scrolledWidth <= pageWidth,
             $"The waiting and parked sections push the page sideways: scrollWidth was {scrolledWidth} "

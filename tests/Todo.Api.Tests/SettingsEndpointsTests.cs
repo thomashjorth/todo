@@ -4,95 +4,82 @@ using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
 using Todo.Core.Persistence;
 using Todo.Core.Settings;
-using Todo.TestSupport;
 
 namespace Todo.Api.Tests;
 
-public class SettingsEndpointsTests
+public class SettingsEndpointsTests : ApiTest
 {
     [Fact]
     public async Task No_language_is_stored_to_begin_with()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        Assert.Null((await GetAsync(host)).Language);
+        Assert.Null((await GetAsync()).Language);
     }
 
     [Fact]
     public async Task A_chosen_language_is_stored_and_read_back()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        Assert.Equal("en", (await PutAsync(host, "en")).Language);
-        Assert.Equal("en", (await GetAsync(host)).Language);
+        Assert.Equal("en", (await PutAsync("en")).Language);
+        Assert.Equal("en", (await GetAsync()).Language);
     }
 
     [Fact]
     public async Task Clearing_the_language_removes_the_row_rather_than_storing_null()
     {
-        await using var host = await RunningHost.StartAsync();
+        await PutAsync("da");
+        Assert.Null((await PutAsync(null)).Language);
 
-        await PutAsync(host, "da");
-        Assert.Null((await PutAsync(host, null)).Language);
-
-        Assert.Null((await GetAsync(host)).Language);
-        Assert.Empty(StoredSettings(host));
+        Assert.Null((await GetAsync()).Language);
+        Assert.Empty(StoredSettings());
     }
 
     [Fact]
     public async Task An_unknown_language_is_rejected()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var response = await PutRawAsync(host, "klingon");
+        var response = await PutRawAsync("klingon");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Null((await GetAsync(host)).Language);
+        Assert.Null((await GetAsync()).Language);
     }
 
     [Fact]
     public async Task An_empty_language_is_rejected()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var response = await PutRawAsync(host, string.Empty);
+        var response = await PutRawAsync(string.Empty);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Null((await GetAsync(host)).Language);
+        Assert.Null((await GetAsync()).Language);
     }
 
     [Fact]
     public async Task Choosing_a_language_twice_overwrites_the_one_row()
     {
-        await using var host = await RunningHost.StartAsync();
+        await PutAsync("en");
+        await PutAsync("en");
 
-        await PutAsync(host, "en");
-        await PutAsync(host, "en");
-
-        var stored = Assert.Single(StoredSettings(host));
+        var stored = Assert.Single(StoredSettings());
         Assert.Equal("language", stored.Key);
         Assert.Equal("en", stored.Value);
     }
 
-    private static List<Setting> StoredSettings(RunningHost host)
+    private List<Setting> StoredSettings()
     {
-        using var scope = host.Services.CreateScope();
+        using var scope = Host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
 
         return [.. db.Settings];
     }
 
-    private static async Task<SettingsResponse> GetAsync(RunningHost host)
+    private async Task<SettingsResponse> GetAsync()
     {
-        var settings = await host.Client.GetFromJsonAsync<SettingsResponse>("/api/settings");
+        var settings = await Client.GetFromJsonAsync<SettingsResponse>("/api/settings");
 
         Assert.NotNull(settings);
         return settings;
     }
 
-    private static async Task<SettingsResponse> PutAsync(RunningHost host, string? language)
+    private async Task<SettingsResponse> PutAsync(string? language)
     {
-        var response = await PutRawAsync(host, language);
+        var response = await PutRawAsync(language);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var settings = await response.Content.ReadFromJsonAsync<SettingsResponse>();
@@ -100,6 +87,6 @@ public class SettingsEndpointsTests
         return settings;
     }
 
-    private static Task<HttpResponseMessage> PutRawAsync(RunningHost host, string? language)
-        => host.Client.PutAsJsonAsync("/api/settings", new SettingsRequest { Language = language });
+    private Task<HttpResponseMessage> PutRawAsync(string? language)
+        => Client.PutAsJsonAsync("/api/settings", new SettingsRequest { Language = language });
 }

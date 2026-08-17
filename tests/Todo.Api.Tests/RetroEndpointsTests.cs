@@ -3,12 +3,11 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
 using Todo.Core.Persistence;
-using Todo.TestSupport;
 using ContractStatus = Todo.Contracts.TodoStatus;
 
 namespace Todo.Api.Tests;
 
-public class RetroEndpointsTests
+public class RetroEndpointsTests : ApiTest
 {
     private const string Header =
         @"""Content"",""Author"",""Created"",""Zone"",""Action Due Date"",""Action Owner""";
@@ -30,11 +29,9 @@ public class RetroEndpointsTests
     [Fact]
     public async Task Preview_marks_the_rows_owned_by_one_of_my_aliases()
     {
-        await using var host = await RunningHost.StartAsync();
+        await SetAliasesAsync("thomas hjorth");
 
-        await SetAliasesAsync(host, "thomas hjorth");
-
-        var preview = await PreviewAsync(host, Board);
+        var preview = await PreviewAsync(Board);
 
         var mine = Assert.Single(preview.Rows, r => r.IsMine);
         Assert.Equal("Write the retro summary", mine.Title);
@@ -48,9 +45,7 @@ public class RetroEndpointsTests
     [Fact]
     public async Task Preview_owns_nothing_when_no_aliases_are_stored()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var preview = await PreviewAsync(host, Board);
+        var preview = await PreviewAsync(Board);
 
         Assert.All(preview.Rows, row => Assert.False(row.IsMine));
         Assert.Equal("Thomas Hjorth - Write the retro summary", preview.Rows.First().Title);
@@ -59,13 +54,11 @@ public class RetroEndpointsTests
     [Fact]
     public async Task Preview_stores_nothing()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var preview = await PreviewAsync(host, Board);
+        var preview = await PreviewAsync(Board);
 
         Assert.Equal(2, preview.Rows.Count);
 
-        using var scope = host.Services.CreateScope();
+        using var scope = Host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
         Assert.Empty(db.Tasks);
     }
@@ -73,9 +66,7 @@ public class RetroEndpointsTests
     [Fact]
     public async Task Preview_reports_how_many_rating_cards_it_dropped()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var preview = await PreviewAsync(host, BoardWithRatings);
+        var preview = await PreviewAsync(BoardWithRatings);
 
         Assert.Equal(3, preview.SkippedRatingCards);
         Assert.Single(preview.Rows);
@@ -84,17 +75,15 @@ public class RetroEndpointsTests
     [Fact]
     public async Task Import_creates_a_retro_task_with_its_deadline_and_requester()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var preview = await PreviewAsync(host, Board);
+        var preview = await PreviewAsync(Board);
         var row = preview.Rows.First(r => r.Title.EndsWith("Write the retro summary"));
 
-        var result = await ImportAsync(host, ToImportRow(row));
+        var result = await ImportAsync(ToImportRow(row));
 
         Assert.Equal(1, result.Imported);
         Assert.Equal(0, result.Skipped);
 
-        var created = Assert.Single(await ListAsync(host));
+        var created = Assert.Single(await ListAsync());
         Assert.Equal("retro", created.SourceId);
         Assert.Equal(row.Title, created.Title);
         Assert.Equal(new DateOnly(2026, 7, 24), created.Deadline);
@@ -105,30 +94,26 @@ public class RetroEndpointsTests
     [Fact]
     public async Task Importing_the_same_rows_twice_creates_nothing_the_second_time()
     {
-        await using var host = await RunningHost.StartAsync();
+        var rows = (await PreviewAsync(Board)).Rows.Select(ToImportRow).ToArray();
 
-        var rows = (await PreviewAsync(host, Board)).Rows.Select(ToImportRow).ToArray();
-
-        var first = await ImportAsync(host, rows);
+        var first = await ImportAsync(rows);
         Assert.Equal(2, first.Imported);
         Assert.Equal(0, first.Skipped);
 
-        var second = await ImportAsync(host, rows);
+        var second = await ImportAsync(rows);
         Assert.Equal(0, second.Imported);
         Assert.Equal(2, second.Skipped);
 
-        Assert.Equal(2, (await ListAsync(host)).Count);
+        Assert.Equal(2, (await ListAsync()).Count);
     }
 
     [Fact]
     public async Task An_imported_row_comes_back_as_already_imported()
     {
-        await using var host = await RunningHost.StartAsync();
+        var row = (await PreviewAsync(Board)).Rows.First();
+        await ImportAsync(ToImportRow(row));
 
-        var row = (await PreviewAsync(host, Board)).Rows.First();
-        await ImportAsync(host, ToImportRow(row));
-
-        var preview = await PreviewAsync(host, Board);
+        var preview = await PreviewAsync(Board);
 
         var imported = Assert.Single(preview.Rows, r => r.AlreadyImported);
         Assert.Equal(row.Key, imported.Key);
@@ -137,9 +122,7 @@ public class RetroEndpointsTests
     [Fact]
     public async Task An_empty_export_is_rejected()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var response = await host.Client.PostAsJsonAsync(
+        var response = await Client.PostAsJsonAsync(
             "/api/retro/preview", new RetroPreviewRequest { Csv = string.Empty });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -153,14 +136,12 @@ public class RetroEndpointsTests
     [Fact]
     public async Task An_export_without_a_content_column_is_rejected()
     {
-        await using var host = await RunningHost.StartAsync();
-
         var csv = """
             "Text","Author","Zone"
             "Buy a whiteboard","Mette Kirkegaard","Actions"
             """;
 
-        var response = await host.Client.PostAsJsonAsync(
+        var response = await Client.PostAsJsonAsync(
             "/api/retro/preview", new RetroPreviewRequest { Csv = csv });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -174,13 +155,11 @@ public class RetroEndpointsTests
     [Fact]
     public async Task Aliases_are_trimmed_stored_and_read_back()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var saved = await SetAliasesAsync(host, "  Thomas Hjorth  ", "TH", "   ");
+        var saved = await SetAliasesAsync("  Thomas Hjorth  ", "TH", "   ");
 
         Assert.Equal(["TH", "Thomas Hjorth"], saved.Aliases);
 
-        var read = await host.Client.GetFromJsonAsync<RetroAliasesResponse>("/api/retro/aliases");
+        var read = await Client.GetFromJsonAsync<RetroAliasesResponse>("/api/retro/aliases");
 
         Assert.NotNull(read);
         Assert.Equal(["TH", "Thomas Hjorth"], read.Aliases);
@@ -189,9 +168,7 @@ public class RetroEndpointsTests
     [Fact]
     public async Task Aliases_that_differ_only_in_case_are_rejected()
     {
-        await using var host = await RunningHost.StartAsync();
-
-        var response = await host.Client.PutAsJsonAsync(
+        var response = await Client.PutAsJsonAsync(
             "/api/retro/aliases", new RetroAliasesRequest { Aliases = ["Thomas", "thomas"] });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -205,9 +182,9 @@ public class RetroEndpointsTests
         Deadline = row.Deadline,
     };
 
-    private static async Task<RetroPreviewResponse> PreviewAsync(RunningHost host, string csv)
+    private async Task<RetroPreviewResponse> PreviewAsync(string csv)
     {
-        var response = await host.Client.PostAsJsonAsync(
+        var response = await Client.PostAsJsonAsync(
             "/api/retro/preview", new RetroPreviewRequest { Csv = csv });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -216,10 +193,9 @@ public class RetroEndpointsTests
         return preview;
     }
 
-    private static async Task<RetroImportResponse> ImportAsync(
-        RunningHost host, params RetroImportRow[] rows)
+    private async Task<RetroImportResponse> ImportAsync(params RetroImportRow[] rows)
     {
-        var response = await host.Client.PostAsJsonAsync(
+        var response = await Client.PostAsJsonAsync(
             "/api/retro/import", new RetroImportRequest { Rows = rows });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -228,10 +204,9 @@ public class RetroEndpointsTests
         return result;
     }
 
-    private static async Task<RetroAliasesResponse> SetAliasesAsync(
-        RunningHost host, params string[] aliases)
+    private async Task<RetroAliasesResponse> SetAliasesAsync(params string[] aliases)
     {
-        var response = await host.Client.PutAsJsonAsync(
+        var response = await Client.PutAsJsonAsync(
             "/api/retro/aliases", new RetroAliasesRequest { Aliases = aliases });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -240,9 +215,9 @@ public class RetroEndpointsTests
         return saved;
     }
 
-    private static async Task<IReadOnlyList<TodoTask>> ListAsync(RunningHost host)
+    private async Task<IReadOnlyList<TodoTask>> ListAsync()
     {
-        var body = await host.Client.GetFromJsonAsync<TodoTaskListResponse>("/api/tasks");
+        var body = await Client.GetFromJsonAsync<TodoTaskListResponse>("/api/tasks");
 
         Assert.NotNull(body);
         return [.. body.Items];

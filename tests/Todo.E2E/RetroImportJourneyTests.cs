@@ -1,9 +1,8 @@
 using Microsoft.Playwright;
-using Todo.TestSupport;
 
 namespace Todo.E2E;
 
-public class RetroImportJourneyTests(BrowserFixture fixture) : IClassFixture<BrowserFixture>
+public class RetroImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
     private const int ColumnWidth = 480;
     private const string Me = "Thomas Hjorth Hansen";
@@ -20,12 +19,9 @@ public class RetroImportJourneyTests(BrowserFixture fixture) : IClassFixture<Bro
     [Fact]
     public async Task A_board_is_pasted_claimed_by_an_alias_imported_once_and_recognised_next_time()
     {
-        await using var host = await RunningHost.StartAsync();
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
 
-        var app = await TodoApp.OpenAsync(
-            fixture.Browser, host, new() { Width = ColumnWidth, Height = 1000 });
-
-        var import = await app.GoToImport();
+        var import = await App.GoToImport();
 
         await import.PasteAsync(Board);
         await import.AnalyseAsync();
@@ -42,7 +38,7 @@ public class RetroImportJourneyTests(BrowserFixture fixture) : IClassFixture<Bro
         await Assertions.Expect(RetroImportScreen.PickOf(theirs)).Not.ToBeCheckedAsync();
         await Assertions.Expect(mine).ToContainTextAsync($"{Me} - {MyAction}");
 
-        var settings = await app.GoToSettings();
+        var settings = await App.GoToSettings();
 
         await settings.AddAliasAsync(Me);
 
@@ -75,7 +71,7 @@ public class RetroImportJourneyTests(BrowserFixture fixture) : IClassFixture<Bro
             .ToContainTextAsync($"Deadline: {Deadlines.InDanish(new DateOnly(2026, 7, 24))}");
         await Assertions.Expect(tasks.Rows).ToContainTextAsync($"Opgavestiller: {Me}");
 
-        var scrollWidth = await app.ScrollWidthAsync();
+        var scrollWidth = await App.ScrollWidthAsync();
         Assert.True(scrollWidth <= ColumnWidth,
             $"The page overflows the {ColumnWidth}px column: scrollWidth was {scrollWidth}.");
     }
