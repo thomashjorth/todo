@@ -1,7 +1,7 @@
 # Personlig todo-app — design
 
 Dato: 2026-08-13
-Status: skive 0–7 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
+Status: skive 0–8 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
 maskinens fælder og konventioner i `CLAUDE.md` i roden.
 
 ## 1. Formål
@@ -23,7 +23,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Vinduesbredde | Primært mål ~480 px (kvart 1080p-skærm). Skal forblive brugbar ved fuld bredde. |
 | Styling | Standard Tailwind utility-klasser. Ingen egne CSS/SCSS-regler, ingen egne tokens. |
 | Tilgængelighed | WCAG AA i begge temaer. Hver handling skal kunne nås med tastaturet. |
-| Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen. |
+| Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen, hvor tasten udfører elementets aktiveringshandling og ikke blot flytter fokus. **Leveret i skive 8.** |
 | Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
 | Id-type | `Guid` v4. Skiftet til `long` er besluttet men **udskudt og uplaceret** — se afsnit 9 og 10. |
@@ -383,7 +383,16 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    for at aktivere dem. Indfrier løftet i afsnit 2. **Placeret her 2026-08-17**, da
    `long` som id blev udskudt og frigjorde nummeret; ingen skive blev omnummereret.
    Planen ligger i `docs/plans/2026-08-17-alt-shortcuts.md`, og skive 7's kontrastvagt
-   er dens forudsætning, fordi mærkaterne er nye farver på skærmen.
+   er dens forudsætning, fordi mærkaterne er nye farver på skærmen. **Færdig.**
+   *Konventionen måtte rettes undervejs, og rettelsen er pointen: den første udgave gav kun
+   elementet fokus — netop som skivens egen plan foreskrev, med begrundelsen at en browser
+   aktiverer et fokuseret link på Enter. Sandt, men det går uden om konventionen afsnit 2
+   navngiver. En genvej udfører elementets **aktiveringshandling**: et tekstfelt får fokus,
+   fordi det ikke har andet at gøre, et afkrydsningsfelt skifter, et link følges. Og fordi
+   et programmatisk `click()` ikke selv flytter fokus, kalder den aktiverende gren både
+   `focus()` og `click()` — Windows flytter også fokusringen. Direktivet har derfor
+   `appShortcutAction="focus" | "activate"`, og fem af de seks elementer aktiverer. Fejlen blev
+   fundet af brugeren, ikke af en test. Hvad genvejene stadig **ikke** vagter, står i afsnit 10.*
 9. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
    Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
    en server at teste mod.
@@ -467,6 +476,26 @@ glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede sk
 - **En færdig række har slet ingen knap**, kun et afkrydsningsfelt og et `<span>`, så en
   færdig opgave kan ikke udvides med **noget** indtastningsudstyr. Det er en observation om
   paritet mellem mus og tastatur, ikke et tastaturhul.
+- **Genvejsregistret er last-writer-wins og uden afgrænsning** (opgjort i skive 8).
+  `register('n', …)` to gange overskriver lydløst, og `unregister(key)` kan ikke afgøre, om
+  posten stadig tilhører den der kalder. Angular ødelægger en udgående skærm **efter** at den
+  indkommende har initialiseret, så gjorde to skærme krav på samme bogstav, ville den udgående
+  skærms `unregister` slette den indkommendes mål, og tasten ville dø — hvilket ville ligne
+  "genvejen holdt op med at virke, efter jeg navigerede". **De seks bogstaver er globalt unikke,
+  og det undgår problemet helt**; det er en begrænsning der skal holdes, ikke et tilfælde.
+- **Fem ting om genvejene er uvagtede** (opgjort i skive 8). `window:blur`-grenen der rydder
+  `altHeld` — slettes den, ville mærkaterne blive hængende efter Alt+Tab — er der ingen test på.
+  **Hvilket bogstav hver mærkat viser** er heller ikke dækket: mærkattesten tæller elementer frem
+  for at læse bogstaver, og det er bevidst, fordi kontakten ved siden af V-mærkaten hedder "Vis
+  færdige", så en søgning efter bogstavet ville finde et uanset om mærkaten var tegnet; men en
+  mærkat der renderede `X` frem for `V`, ville bestå. `aria-keyshortcuts` asserteres ingen
+  steder, og direktivet har slet ingen Vitest-spec, så E2E-testene er dens eneste dækning.
+  Endelig er hverken tilbageskiftet med `Alt+V` to gange eller at `preventDefault()` faktisk
+  kaldes dækket.
+- **`ShortcutStore` er `providedIn: 'root'`** (opgjort i skive 8), så Vitest-specs i samme fil
+  deler registret på tværs af `TestBed`-instanser. En test der asserterer, at `activate()` giver
+  `false` for et uregistreret bogstav, kan bestå eller fejle afhængigt af rækkefølgen. Skriv
+  ikke en der afhænger af det.
 - **SQLite-migrationer der fjerner en kolonne** taber dens data lydløst, fordi
   tabellen bygges om. Læs genererede migrationer; backup-kopien før migrering er
   sidste forsvar.

@@ -105,6 +105,28 @@ sandhed og taber `0`.
 lader barnet skygge for basen, og `ng build` blev grønt med `"strict": false` derinde — målt.
 `FrontendStrictnessTests` er derfor vagten på både basen og de to børnekonfigurationer.
 
+**En genvej udfører elementets aktiveringshandling, ikke bare fokus.** Det er
+Windows-konventionen — og HTML's eget `accesskey` — så et tekstfelt får fokus, fordi det ikke har
+andet at gøre, et afkrydsningsfelt skifter, en knap klikkes, et link følges. Gav genvejen kun
+fokus, skulle brugeren trykke Alt+O og **derefter** Enter. Og et programmatisk `click()` flytter
+**ikke** fokus, så en aktiverende genvej skal kalde `focus()` også: Windows flytter fokusringen
+lige så meget som den handler. Direktivet har derfor
+`appShortcutAction="focus" | "activate"`, hvor `'activate'` kalder begge.
+
+**Bogstaverne er `Alt+O/I/S/N/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
+piletasterne, som Chrome stjæler under udvikling. De er frie i Photino-vinduet, men en genvej der
+virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende.
+
+**`Ctrl+Alt` er AltGr på et dansk tastatur.** En global `Alt+bogstav`-lytter skal tjekke
+`!event.ctrlKey && !event.metaKey`, ellers kan brugeren ikke skrive `@`, `£` eller `$` — en fejl
+der dukker op uger senere som "appen æder mine tegn". Og kald kun `preventDefault()` når tasten
+faktisk blev håndteret, så uhåndterede kombinationer stadig når browseren og styresystemet.
+
+**En mærkat inde i et link eller en label indgår i elementets tilgængelige navn**, medmindre den
+bærer `aria-hidden="true"`. Det betyder noget her, fordi E2E-suiten matcher tilgængelige navne i
+deres helhed — `TaskListScreen.RowTitled` matcher rækkeknappens navn præcist. Tastaturhintet når
+hjælpemidler gennem `aria-keyshortcuts` i stedet; den synlige mærkat er kun for øjet.
+
 **C#.** Feature-mapper, én type pr. fil (også enums), namespaces følger mapper.
 **Kald aldrig noget `Task` eller `TaskStatus`** — `System.Threading.Tasks` er i scope overalt
 via implicit usings, og kollisionen giver fejl der peger et andet sted hen.
@@ -166,6 +188,10 @@ forkerte grund.
   `el.value` for de felttyper der faktisk maler deres værdi, med en hvidliste — et
   afkrydsningsfelts værdi er strengen `"on"`, og at give feltet skylden for den ville være en
   fejl ingen kan se eller rette.
+- **En locator der er sand ved et tilfælde, er ikke ærlig.** `span[aria-hidden="true"]` var
+  tilfældigvis unik for genvejsmærkaterne, så optællingen ville have virket — indtil det første
+  dekorative ikon pustede tallet op. Mærkaterne fik `data-testid="shortcut-badge"` i stedet, som
+  navngiver tingen selv.
 - **En udvidet vagt kan finde ingenting og stadig være værd at udvide.** At føre gennemgangen ud
   over noter, underopgaver, de analyserede importrækker og aliasrækkerne gav **nul** nye
   farvefejl — forudsigelsen om at `@tailwindcss/typography` ville fejle holdt ikke. Hvad den til
@@ -174,12 +200,13 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 7: **33** Todo.Core.Tests, **109** Todo.Api.Tests, **14** Todo.E2E, **134** Vitest.
+Efter skive 8: **33** Todo.Core.Tests, **109** Todo.Api.Tests, **22** Todo.E2E, **139** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
-Vitest gik fra 133 til 134 — ikke af tilgængelighedsarbejdet, men af regressionstesten for
-`TaskStore`-fejlen, hvor to loads i luften på én gang kunne lade det ældste svar overskrive den
-nyeste liste.
-E2E gik fra 12 til 14, fordi kontrastvagtens dækning blev udvidet efter første gennemløb: den
-tomme liste er en skærmtilstand rejsen ikke kan nå, og den blev lagt til som en `[Theory]` over
-begge farvetemaer. Tallet flyttede sig altså to gange i samme skive — se 12 i en ældre rapport
-som forældet, ikke som en tabt test.
+Skive 8 lagde **otte** E2E-tests til (14 → 22) — mærkaterne, de seks genveje og AltGr — og **fem**
+Vitest-tests (134 → 139) på `ShortcutStore`.
+Vitest gik fra 133 til 134 i skive 7 — ikke af tilgængelighedsarbejdet, men af regressionstesten
+for `TaskStore`-fejlen, hvor to loads i luften på én gang kunne lade det ældste svar overskrive
+den nyeste liste. Og E2E gik fra 12 til 14 i samme skive, fordi kontrastvagtens dækning blev
+udvidet efter første gennemløb: den tomme liste er en skærmtilstand rejsen ikke kan nå, og den
+blev lagt til som en `[Theory]` over begge farvetemaer. Se 12 og 133 i ældre rapporter som
+forældede, ikke som tabte tests.

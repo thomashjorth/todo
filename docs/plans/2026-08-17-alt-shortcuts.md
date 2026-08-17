@@ -39,6 +39,8 @@ Vælg udenom Chromes `Alt+D/E/F/Home` og piletasterne — de er frie i Photino-v
 | `Alt+V` | Slå "Vis færdige" til og fra |
 | `Alt+M` | Slå "Vis måske" til og fra |
 
+Fem af de seks udfører elementets aktiveringshandling — linkene følges, og de to kontakter skifter og tager fokus. Kun feltet til en ny opgave nøjes med fokus; se rettelsen i Task 2.
+
 **Step 2: Storen**
 
 `shortcut-store.ts` — signal-baseret, som resten af appen. Den ejer `altHeld` og registret:
@@ -135,6 +137,8 @@ git commit -m "⌨️ Store der holder Alt-tilstanden og registret"
 
 `shortcut.ts` — registrerer værtselementet og viser mærkaten. Bemærk `host`-bindingerne frem for en skabelon: direktivet må ikke ændre elementets indhold, fordi rækkeknappens tilgængelige navn matches i sin helhed af E2E-testene.
 
+**Rettet 2026-08-17 — planen var forkert her, og koden nedenfor er den rettede.** Planen foreskrev oprindeligt `() => this.host.nativeElement.focus()` for **alt**, med begrundelsen at en browser aktiverer et fokuseret link på Enter. Det er sandt, men det går uden om den konvention designdokumentets afsnit 2 navngiver: i Windows — og i HTML's eget `accesskey` — udfører tasten elementets **aktiveringshandling**. Et tekstfelt har intet at aktivere og får derfor bare fokus; et afkrydsningsfelt skifter, et link følges. Med fokus alene måtte brugeren trykke Alt+O og **derefter** Enter. Fejlen blev fundet af brugeren, ikke af en test. Den anden halvdel af fejlen: et programmatisk `element.click()` flytter **ikke** fokus, så de to kontakter ville skifte, mens fokusringen blev liggende, hvor Windows flytter den. Derfor et `appShortcutAction` med to tilstande, og `'activate'` kalder `focus()` **og** `click()`. Fem af de seks elementer bruger `'activate'`; kun tekstfeltet beholder `'focus'`.
+
 ```ts
 import { Directive, ElementRef, inject, input, OnDestroy, OnInit } from '@angular/core';
 import { ShortcutStore } from './shortcut-store';
@@ -147,12 +151,24 @@ import { ShortcutStore } from './shortcut-store';
 })
 export class Shortcut implements OnInit, OnDestroy {
   readonly appShortcut = input.required<string>();
+  readonly appShortcutAction = input<'focus' | 'activate'>('focus');
 
   private readonly store = inject(ShortcutStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   ngOnInit(): void {
-    this.store.register(this.appShortcut(), () => this.host.nativeElement.focus());
+    this.store.register(this.appShortcut(), () => {
+      const element = this.host.nativeElement;
+      element.focus();
+
+      // Windows-konventionen: en genvej udfører elementets aktiveringshandling, ikke bare
+      // markerer det. Et afkrydsningsfelt skifter, et link følges. Kun et tekstfelt har
+      // ingen aktivering ud over at få fokus. Fokus flytter i begge tilfælde, fordi et
+      // programmatisk click() ikke selv flytter det.
+      if (this.appShortcutAction() === 'activate') {
+        element.click();
+      }
+    });
   }
 
   ngOnDestroy(): void {

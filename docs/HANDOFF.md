@@ -17,6 +17,7 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 5 | "Venter på" og "Måske" som statusser, med hvem og hvor længe | `2026-08-14-slice-5-waiting-and-someday.md` |
 | 6 | TypeScript strict mode, og opgaverækken som en typet børnekomponent frem for en delt `ng-template` | `2026-08-17-slice-6-typescript-strict.md` |
 | 7 | WCAG AA i begge temaer med en kontrastvagt der måler i browseren, `dark:`-modparter så godt som overalt (én bevidst undtagelse, se designdokumentets afsnit 10), synligt fokus og en tastaturgennemgang | `2026-08-17-slice-7-accessibility.md` |
+| 8 | Alt-genvejssystemet: hold Alt for at se mærkaterne, og Alt+O/I/S/N/V/M udfører elementets aktiveringshandling — links følges, de to kontakter skifter og tager fokus, feltet får fokus | `2026-08-17-alt-shortcuts.md` |
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, og `ApiTest`/`BrowserTest`-basisklasser.
@@ -30,24 +31,11 @@ Fundet fordi `ContrastTests` flakkede (7–9 s frem for 2 s), ikke fordi nogen l
 `load()` har nu en sekvenstæller, og regressionstesten
 `should not let a slow earlier load overwrite a newer list` blev set fejle først.
 
-## I gang
-
-**Skive 8 — Alt-genvejssystemet.** Hold **Alt** for at se genvejene på knapperne, og tryk
-Alt+bogstav for at aktivere dem — Windows-konventionen, som designdokumentets afsnit 2 lover.
-Planen ligger i `docs/plans/2026-08-17-alt-shortcuts.md`. Den blev udskilt af skive 7, fordi den
-skive var en audit med en vagt der siger hvornår den er færdig, mens genvejene er en **ny
-funktion** med egne designvalg: hvilke bogstaver, hvordan mærkaten ser ud, hvad der sker ved
-konflikt.
-
-To ting den skal huske: **Alt+D/E/F/Home og piletasterne er stjålet af Chrome** under udvikling,
-men frie i Photino-vinduet — vælg bogstaver udenom. Og **`Ctrl+Alt` er AltGr på et dansk
-tastatur**; sluger man den, kan brugeren ikke skrive `@`, `£` eller `$`. `ContrastTests` fra
-skive 7 er det der fanger mærkaterne, hvis de ikke holder AA.
-
 ## Tilbage
 
-Ingenting er planlagt efter skive 8. Punkterne nedenfor kan tages i vilkårlig rækkefølge —
-**med én undtagelse**, som står først, fordi den er den eneste der koster noget at udskyde.
+Skive 8 er færdig, og ingenting er planlagt efter den. Punkterne nedenfor kan tages i vilkårlig
+rækkefølge — **med én undtagelse**, som står først, fordi den er den eneste der koster noget at
+udskyde.
 
 **`long` som id — besluttet, planlagt, og bevidst udskudt 2026-08-17.** `Guid` v4 erstattes af
 `long` på `TaskItem`, `SubTask` og `UserAlias`. Planen ligger **færdig** i
@@ -88,7 +76,7 @@ livscyklus og arkiv, og pakning til en self-contained exe. Se afsnit 9.
 
 ## Sådan køres en skive
 
-Mønstret der har virket gennem otte skiver:
+Mønstret der har virket gennem ni skiver:
 
 1. Skriv en plan i `docs/plans/YYYY-MM-DD-slice-N-navn.md` med opgaver på 2–5 minutter, komplet
    kode, eksakte kommandoer og forventet output.
