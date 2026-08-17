@@ -8,6 +8,11 @@ public static class RepoPaths
 
     public static string ContractFile => Path.Combine(Root, "contracts", "openapi.yaml");
 
+    public static string WebRoot => Path.Combine(Root, "src", "Todo.Web");
+
+    public static string WebTsConfigFile(string fileName) =>
+        Path.Combine(WebRoot, fileName);
+
     private static string FindRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

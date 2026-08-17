@@ -80,6 +80,10 @@ attributvælger (`li[appTaskRow]`) — et eget element ville bryde `divide-y` og
 `T | undefined` inde i blokken. Bind med `@let` først. Brug **ikke** `as`, som binder på
 sandhed og taber `0`.
 
+**`strict` kan slås fra i en `tsconfig.app.json` uden at nogen bygning klager.** `extends`
+lader barnet skygge for basen, og `ng build` blev grønt med `"strict": false` derinde — målt.
+`FrontendStrictnessTests` er derfor vagten på både basen og de to børnekonfigurationer.
+
 **C#.** Feature-mapper, én type pr. fil (også enums), namespaces følger mapper.
 **Kald aldrig noget `Task` eller `TaskStatus`** — `System.Threading.Tasks` er i scope overalt
 via implicit usings, og kollisionen giver fejl der peger et andet sted hen.
@@ -122,5 +126,5 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 6: **33** Todo.Core.Tests, **106** Todo.Api.Tests, **7** Todo.E2E, **133** Vitest.
+Efter skive 6: **33** Todo.Core.Tests, **109** Todo.Api.Tests, **7** Todo.E2E, **133** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
