@@ -4,7 +4,7 @@
 
 **Goal:** Appen kan bruges i mørkt systemtema uden at tekst forsvinder, hver farve holder WCAG AA, fokus er synligt, og hver handling kan nås med tastaturet.
 
-**Architecture:** Vagten skrives **først**. En Playwright-test går hele DOM'en igennem i begge farvetemaer, læser `getComputedStyle` og regner kontrastforhold på de farver browseren faktisk maler — den løser den parring mellem tekst og baggrund, som statisk analyse ikke kan. Testen fejler på dagens kode, og hver efterfølgende opgave lukker en del af listen. Derefter fokus, tastatur og Alt-genvejene.
+**Architecture:** Vagten skrives **først**. En Playwright-test går hele DOM'en igennem i begge farvetemaer, læser `getComputedStyle` og regner kontrastforhold på de farver browseren faktisk maler — den løser den parring mellem tekst og baggrund, som statisk analyse ikke kan. Testen fejler på dagens kode, og hver efterfølgende opgave lukker en del af listen. Derefter fokus og tastatur.
 
 **Tech Stack:** Tailwind 4.3.3 (paletten er oklch) · Angular 22 signals · Playwright 1.62.0 · xunit.v3 · Transloco
 
@@ -72,7 +72,7 @@ Fordelt: `app.html` 2, `task-list.html` 8, `task-row.html` 18. `settings.html` o
 
 - **Tre `focus:outline-none`** — `task-list.html:6`, `settings.html:14`, `settings.html:61`. Alle tre fjerner browserens fokusring og sætter kun en 1px kantfarve i stedet (`gray-300` → `gray-500`). Det er den svageste form for fokusmarkering, og på de øvrige kontroller findes den slet ikke som noget bevidst.
 - **Noten er klikbar på en `<div>` og en `<p>`** (`task-row.html:99` og `:106`). Det er ikke et tastaturbrud: knappen `data-testid="note-edit"` giver den samme handling, og links inde i noten er rigtige `<a href>`, som Enter aktiverer. Men affordancen findes kun for musen — værd at vide, ikke værd at lave om.
-- **Alt-genvejssystemet findes ikke.** Designdokumentets afsnit 2 lover *"Hold Alt for at vise genvejene på knapperne"*. Der er ingen kode.
+- **Alt-genvejssystemet findes ikke.** Designdokumentets afsnit 2 lover *"Hold Alt for at vise genvejene på knapperne"*. Der er ingen kode — og det er **udskilt af denne skive**, se nedenfor.
 
 ## Beslutninger
 
@@ -94,16 +94,17 @@ Fordelt: `app.html` 2, `task-list.html` 8, `task-row.html` 18. `settings.html` o
 
 - **`text-gray-400` findes fire steder med to forskellige betydninger.** På health-linjen og på et pladsholder-felt er den "sekundær". På den færdige opgaves titel og på en afkrydset underopgave er den "gennemstreget og dæmpet". Begge skal op til `gray-500`; intentionen holder, kontrasten kommer med.
 - **`placeholder-gray-400` fanges ikke af en almindelig DOM-gennemgang.** Pladsholderfarven ligger på `::placeholder`, ikke på elementet. Vagten skal spørge `getComputedStyle(el, '::placeholder')` særskilt, ellers er den blind for et felt brugeren ser hver gang appen åbnes.
-- **`Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og piletasterne er Chromes** under udvikling, men frie i Photino-vinduet. Vælg bogstaver udenom, ellers virker genvejene i appen og ikke i browseren, og fejlen ligner en fejl i koden.
 - **En kontrasttest der går gennem `body *` rammer også skjult tekst.** Filtrér på `display`, `visibility`, `opacity` og tom tekst, ellers fejler den på noget brugeren ikke kan se — og så bliver den slukket i stedet for læst.
 - **Ret ikke `dark:text-gray-400` til 500.** Se asymmetrien.
-- **Skiven flytter ingen markup og ingen struktur.** Kun farver, fokus og nye genveje. Ændrer et `<span>` plads, brydes `TaskListScreen.RowTitled`, som matcher rækkeknappens fulde tilgængelige navn.
+- **Skiven flytter ingen markup og ingen struktur.** Kun farver og fokus. Ændrer et `<span>` plads, brydes `TaskListScreen.RowTitled`, som matcher rækkeknappens fulde tilgængelige navn.
 
 ## Bevidst uden for skive 7
 
-Projekter og kontekster, revisionsloggen, og "Sådan er den tænkt"-siden.
+**Alt-genvejssystemet — udskilt 2026-08-17 til `docs/plans/2026-08-17-alt-shortcuts.md`.** Skiven her er en audit: målt, afgrænset, med en vagt der siger hvornår den er færdig. Genvejene er en **ny funktion** med egne designvalg — hvilke bogstaver, hvordan mærkaten ser ud, hvad der sker ved konflikt. Designdokumentet lagde dem sammen med begrundelsen *"fordi hver farve ellers skulle kontrasttjekkes to gange"*, men det argument gælder farver, ikke genveje.
 
-**Og en anbefaling om at dele skiven:** Task 1–6 er en audit — målt, afgrænset, med en vagt der siger hvornår den er færdig. Task 7 (Alt-genvejssystemet) er en **ny funktion** med egne designvalg: hvilke bogstaver, hvordan mærkaterne ser ud, hvad der sker ved konflikt. Designdokumentet lagde dem sammen med begrundelsen *"fordi hver farve ellers skulle kontrasttjekkes to gange"* — men det argument gælder farver, ikke genveje. **Overvej at lande Task 1–6 og 8 som skive 7, og gøre genvejene til skive 8.** Planen skriver dem samlet, fordi det er sådan skiven er defineret; delingen er dit kald.
+Genvejsplanen har **denne skive som forudsætning**: mærkaterne er nye farver på skærmen, og `ContrastTests` herfra er det der fanger dem. Den har bevidst ikke fået et skivenummer — den hører i designdokumentets "Ønsket, men ikke placeret endnu", så placeringen bliver en beslutning frem for en glidning. **Derfor omnummereres ingen skiver af denne skive**, i modsætning til skive 6.
+
+Desuden udenfor: projekter og kontekster, revisionsloggen, og "Sådan er den tænkt"-siden.
 
 ---
 
@@ -678,249 +679,7 @@ git commit -m "⌨️ Bevis at en opgave kan skabes og slettes uden mus"
 
 ---
 
-## Task 7: Alt-genvejssystemet
-
-Designdokumentets afsnit 2 lover *"Hold Alt for at vise genvejene på knapperne — Windows-konventionen"*. Det her er den funktion. **Se anbefalingen om at dele skiven** — vurder inden du begynder, om den skal være sin egen skive.
-
-**Files:**
-- Create: `src/Todo.Web/src/app/shortcuts/shortcut-store.ts`
-- Create: `src/Todo.Web/src/app/shortcuts/shortcut.ts`
-- Modify: `src/Todo.Web/src/app/app.html`, `src/Todo.Web/src/app/tasks/task-list.html`
-- Modify: `src/Todo.Web/src/app/i18n/da.json`, `en.json`
-- Create: `src/Todo.Web/src/app/shortcuts/shortcut-store.spec.ts`
-
-**Step 1: Bogstaverne**
-
-Vælg udenom Chromes `Alt+D/E/F/Home` og piletasterne — de er frie i Photino-vinduet, men ikke under udvikling i en browser, og en genvej der kun virker halvdelen af tiden bliver fejlsøgt i den forkerte ende:
-
-| Tast | Handling |
-| --- | --- |
-| `Alt+O` | Gå til Opgaver |
-| `Alt+I` | Gå til Import |
-| `Alt+S` | Gå til Indstillinger |
-| `Alt+N` | Fokusér feltet til en ny opgave |
-| `Alt+V` | Slå "Vis færdige" til og fra |
-| `Alt+M` | Slå "Vis måske" til og fra |
-
-**Step 2: Storen**
-
-`shortcut-store.ts` — signal-baseret, som resten af appen. Den ejer `altHeld` og registret:
-
-```ts
-import { Injectable, signal } from '@angular/core';
-
-@Injectable({ providedIn: 'root' })
-export class ShortcutStore {
-  readonly altHeld = signal(false);
-
-  private readonly targets = new Map<string, () => void>();
-
-  register(key: string, activate: () => void): void {
-    this.targets.set(key.toLowerCase(), activate);
-  }
-
-  unregister(key: string): void {
-    this.targets.delete(key.toLowerCase());
-  }
-
-  /** True when the key was handled, so the caller knows whether to swallow the event. */
-  activate(key: string): boolean {
-    const target = this.targets.get(key.toLowerCase());
-    target?.();
-
-    return target !== undefined;
-  }
-
-  setAltHeld(held: boolean): void {
-    this.altHeld.set(held);
-  }
-}
-```
-
-**Step 3: Direktivet**
-
-`shortcut.ts` — registrerer værtselementet og viser mærkaten. Bemærk `host`-bindingerne frem for en skabelon: direktivet må ikke ændre elementets indhold, fordi rækkeknappens tilgængelige navn matches i sin helhed af E2E-testene.
-
-```ts
-import { Directive, ElementRef, inject, input, OnDestroy, OnInit } from '@angular/core';
-import { ShortcutStore } from './shortcut-store';
-
-@Directive({
-  selector: '[appShortcut]',
-  host: {
-    '[attr.aria-keyshortcuts]': '"Alt+" + appShortcut().toUpperCase()',
-  },
-})
-export class Shortcut implements OnInit, OnDestroy {
-  readonly appShortcut = input.required<string>();
-
-  private readonly store = inject(ShortcutStore);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-
-  ngOnInit(): void {
-    this.store.register(this.appShortcut(), () => this.host.nativeElement.focus());
-  }
-
-  ngOnDestroy(): void {
-    this.store.unregister(this.appShortcut());
-  }
-}
-```
-
-`aria-keyshortcuts` er den standardiserede måde at fortælle en skærmlæser om genvejen; mærkaten på skærmen er kun for øjet.
-
-**Step 4: Lyt efter Alt**
-
-I `app.ts`, med `host`-bindinger frem for `window.addEventListener`, så Angular rydder op selv:
-
-```ts
-  host: {
-    '(document:keydown)': 'onKeyDown($event)',
-    '(document:keyup)': 'onKeyUp($event)',
-    '(window:blur)': 'shortcuts.setAltHeld(false)',
-  },
-```
-
-```ts
-  protected onKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Alt') {
-      this.shortcuts.setAltHeld(true);
-      return;
-    }
-
-    // Alt+letter, and only when Alt is the sole modifier: Ctrl+Alt is AltGr on a Danish
-    // keyboard, and swallowing it would break typing @ and £.
-    if (event.altKey && !event.ctrlKey && !event.metaKey && this.shortcuts.activate(event.key)) {
-      event.preventDefault();
-    }
-  }
-
-  protected onKeyUp(event: KeyboardEvent): void {
-    if (event.key === 'Alt') {
-      this.shortcuts.setAltHeld(false);
-    }
-  }
-```
-
-**`Ctrl+Alt` er AltGr på et dansk tastatur.** Sluger man den, kan brugeren ikke skrive `@`, `£` eller `$`. Det er den slags fejl der bliver rapporteret som "appen æder mine tegn" tre uger senere.
-
-**`window:blur` nulstiller `altHeld`.** Alt+Tab væk fra vinduet giver et keydown uden et keyup, og mærkaterne ville stå tilbage for evigt.
-
-**Step 5: Mærkaterne**
-
-Sæt direktivet på de seks elementer, og vis mærkaten når `shortcuts.altHeld()`. På navigationslinkene i `app.html`:
-
-```html
-    <a
-      data-testid="nav-tasks"
-      appShortcut="o"
-      class="text-sm text-gray-600 dark:text-gray-400"
-      ...
-      >{{ 'nav.tasks' | transloco
-      }}@if (shortcuts.altHeld()) {
-        <span
-          class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
-          >O</span
-        >
-      }</a
-    >
-```
-
-**Mærkaten skal ligge inde i linket, men uden for det tilgængelige navn er ikke muligt her** — teksten indgår i navnet. Tjek at `App.Heading`, `nav-tasks` og de øvrige locatorer stadig matcher; gør de ikke, så brug `aria-hidden="true"` på mærkatens `<span>`, så den forsvinder fra navnet men bliver på skærmen.
-
-Farverne er målt: `text-gray-700` 10,31:1 lyst, `dark:text-gray-300` 12,06:1 mørkt, rammerne 4,84:1 og 6,82:1.
-
-**Step 6: Oversættelsesnøgler**
-
-Genvejsmærkaterne er enkeltbogstaver og hører ikke i oversættelsesfilerne. Men skal der en forklarende linje til — fx *"Hold Alt for at se genvejene"* — skal den have en nøgle i **begge** filer, ellers fejler paritetstesten. Tilføj `shortcuts.hint` til `da.json` og `en.json` hvis du tilføjer teksten; gør du ikke, så tilføj ingen nøgle.
-
-**Step 7: Vitest på storen**
-
-```ts
-import { ShortcutStore } from './shortcut-store';
-
-describe('ShortcutStore', () => {
-  it('should activate a registered target and report that it handled the key', () => {
-    const store = new ShortcutStore();
-    let activated = 0;
-    store.register('n', () => activated++);
-
-    expect(store.activate('n')).toBe(true);
-    expect(activated).toBe(1);
-  });
-
-  it('should report an unregistered key as unhandled so the event is not swallowed', () => {
-    const store = new ShortcutStore();
-
-    expect(store.activate('q')).toBe(false);
-  });
-
-  it('should match the key case-insensitively, because Alt+Shift reports an upper-case key', () => {
-    const store = new ShortcutStore();
-    let activated = 0;
-    store.register('n', () => activated++);
-
-    expect(store.activate('N')).toBe(true);
-    expect(activated).toBe(1);
-  });
-
-  it('should stop activating a target that has been unregistered', () => {
-    const store = new ShortcutStore();
-    store.register('n', () => {
-      throw new Error('should not run');
-    });
-    store.unregister('n');
-
-    expect(store.activate('n')).toBe(false);
-  });
-});
-```
-
-**Step 8: E2E på genvejene**
-
-Tilføj til `KeyboardJourneyTests`:
-
-```csharp
-    [Fact]
-    public async Task Alt_reveals_the_shortcuts_and_Alt_N_focuses_the_new_task_field()
-    {
-        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
-
-        await App.Page.Keyboard.DownAsync("Alt");
-        await Assertions.Expect(App.Page.GetByTestId("nav-tasks")).ToContainTextAsync("O");
-        await App.Page.Keyboard.UpAsync("Alt");
-
-        await App.Page.Keyboard.PressAsync("Alt+n");
-
-        Assert.Equal("new-task-input", await App.Page.EvaluateAsync<string>(
-            "() => document.activeElement?.dataset.testid ?? 'none'"));
-    }
-```
-
-**Step 9: Se vagten fejle**
-
-Fjern `appShortcut="n"` fra feltet, kør testen, og bekræft at den fejler med `none` frem for `new-task-input`. Sæt det tilbage.
-
-**Step 10: Kør alt**
-
-```
-powershell -ExecutionPolicy Bypass -File scripts\build-web.ps1
-npm.cmd run test --prefix src\Todo.Web -- --watch=false
-dotnet test Todo.sln
-```
-
-Kontrastvagten skal stadig være grøn — mærkaterne er nye farver på skærmen, og de er dækket.
-
-**Step 11: Commit**
-
-```
-git add src/Todo.Web/src
-git commit -m "⌨️ Alt viser genvejene og aktiverer dem"
-```
-
----
-
-## Task 8: Dokumentation
+## Task 7: Dokumentation
 
 **Files:**
 - Modify: `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-08-13-todo-app-design.md`
@@ -939,7 +698,7 @@ Tilføj skive 7 til "Færdigt"-tabellen. Fjern punkt 1 fra "Anbefalet rækkeføl
 
 Marker skive 7 **Færdig** i afsnit 9. I afsnit 10 lukkes to punkter: *"Skallen har ingen baggrundsfarve"* og *"Opgavelisten har ingen `dark:`-varianter"*. Erstat dem — som i skive 6 — med ét punkt der registrerer udfaldet og lektionen: at `<body>` uden baggrund gør hele `dark:`-systemet til usynlig tekst frem for blot forkerte farver, og at kontrasten nu er dækket af en vagt frem for af øjemål.
 
-Delte du skiven, så Alt-genvejene blev deres egen: skriv det i afsnit 9 og omnummerér, som skive 6 gjorde.
+**Alt-genvejene er udskilt og skal registreres som sådan.** Tilføj dem til afsnit 9's "Ønsket, men ikke placeret endnu" med en henvisning til `docs/plans/2026-08-17-alt-shortcuts.md`, og skriv at afsnit 2's løfte om Alt derfor stadig er uindfriet. Listen siger i dag "Tre ting" — den bliver fire. **Omnummerér ingen skiver**: genvejene får bevidst ikke et nummer, netop for at undgå den omnummerering skive 6 udløste.
 
 **Step 4: Konventionerne i `CLAUDE.md`**
 
@@ -960,7 +719,7 @@ Og under **Testdisciplin** den nye vagt: at kontrast måles i browseren med `get
 
 **Step 5: Testtal**
 
-Opdatér "Testtal" til "Efter skive 7" med de tal du **målte**. Forventet: 33 Core, 109 Api, 133 + 4 Vitest, og E2E oppe fra 7 til 12. Skriv de faktiske.
+Opdatér "Testtal" til "Efter skive 7" med de tal du **målte**. Forventet: 33 Core, 109 Api, **133 Vitest uændret** (skiven tilføjer ingen frontend-tests), og E2E oppe fra 7 til **12** — 2 fra `ContrastTests`, 2 fra `FocusTests`, 1 fra `KeyboardJourneyTests`. Skriv de faktiske.
 
 **Step 6: Commit**
 
@@ -974,11 +733,11 @@ git commit -m "📝 Ret kontrasttallene og luk de to dark mode-punkter"
 ## Færdig når
 
 - `ContrastTests` er grøn i **begge** farvetemaer over alle fire skærme og det udfoldede detaljepanel.
-- **Vagten er set fejle** på det den beskytter: Task 1 (rød på dagens kode), Task 4 Step 3 (én fjernet `dark:`-modpart), Task 5 Step 2 (`outline: none`), Task 7 Step 9 (fjernet genvej). Alle fire med fejltekst i rapporten.
+- **Vagten er set fejle** på det den beskytter: Task 1 (rød på dagens kode), Task 4 Step 3 (én fjernet `dark:`-modpart), Task 5 Step 2 (`outline: none`). Alle tre med fejltekst i rapporten.
 - `<body>` sætter baggrund og tekstfarve i begge temaer.
 - Ingen `focus:outline-none` er tilbage uden en `focus-visible`-ring ved siden af.
 - En opgave kan skabes, udfoldes og slettes uden mus.
-- Alt viser mærkaterne, og de seks genveje virker. `Ctrl+Alt` gør ikke.
+- Alt-genvejene er registreret som udskilt og uplaceret — **ikke** bygget her.
 - De forkerte kontrasttal er rettet i begge dokumenter, med begrundelsen.
 - Testtallene er skrevet ned som målt, og intet gammelt tal er faldet.
 
