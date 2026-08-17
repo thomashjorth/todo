@@ -23,8 +23,9 @@ public abstract class BrowserTest(BrowserFixture fixture) : IClassFixture<Browse
     {
     }
 
-    protected async Task OpenAppAsync(ViewportSize? viewport = null)
-        => App = await TodoApp.OpenAsync(fixture.Browser, _host, viewport);
+    protected async Task OpenAppAsync(
+        ViewportSize? viewport = null, ColorScheme? colorScheme = null)
+        => App = await TodoApp.OpenAsync(fixture.Browser, _host, viewport, colorScheme);
 
     public async ValueTask InitializeAsync()
         => _host = await RunningHost.StartWithAsync(ConfigureServices);
