@@ -1,34 +1,19 @@
-import { NgTemplateOutlet } from '@angular/common';
-import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { DeadlineBucket, TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
-import { DeadlineDate } from '../i18n/deadline-date';
-import { pluralKey } from '../i18n/plural-key';
-import { renderMarkdown } from '../markdown/render-markdown';
+import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
 import { SystemStore } from '../system/system-store';
-import { TaskChanges, TaskStore, subTaskProgress } from './task-store';
-
-const statusOptions: readonly TodoStatus[] = [
-  TodoStatus.Open,
-  TodoStatus.InProgress,
-  TodoStatus.WaitingFor,
-  TodoStatus.Someday,
-  TodoStatus.Done,
-];
+import { TaskRow } from './task-row';
+import { TaskStore } from './task-store';
 
 @Component({
   selector: 'app-task-list',
-  imports: [DeadlineDate, NgTemplateOutlet, TranslocoPipe],
+  imports: [TaskRow, TranslocoPipe],
   templateUrl: './task-list.html',
 })
 export class TaskList {
   protected readonly store = inject(TaskStore);
-  protected readonly system = inject(SystemStore);
   protected readonly overdue = DeadlineBucket.Overdue;
-  protected readonly statusOptions = statusOptions;
   protected readonly done = TodoStatus.Done;
-  protected readonly waitingFor = TodoStatus.WaitingFor;
-  protected readonly progress = subTaskProgress;
   protected readonly expandedId = signal<string | null>(null);
   protected readonly editingNote = signal<string | null>(null);
   protected readonly completed = computed(() =>
@@ -38,41 +23,25 @@ export class TaskList {
     this.store.showSomeday() ? this.store.somedayTasks() : [],
   );
 
-  private readonly noteEditor = viewChild<ElementRef<HTMLTextAreaElement>>('note');
+  private readonly system = inject(SystemStore);
 
   constructor() {
-    // A failed load needs no message of its own: the health line already reports the API down.
+    // Et fejlet load behøver ingen besked af sig selv: health-linjen melder allerede API'et nede.
     this.store.load().catch(() => {});
-
-    // Without this the click that opened the editor leaves the caret outside it, and the
-    // user has to click a second time to type.
-    effect(() => this.noteEditor()?.nativeElement.focus());
   }
 
-  // The API's enum values are the leaves of the key, so a new bucket needs no mapping here.
+  // API'ets enum-værdier er nøglens blade, så en ny bucket kræver ingen mapning her.
   protected sectionKey(bucket: DeadlineBucket): string {
     return `tasks.sections.${bucket}`;
   }
 
-  protected statusKey(status: TodoStatus): string {
-    return `tasks.statuses.${status}`;
-  }
-
-  protected waitingDaysKey(days: number): string {
-    return pluralKey(days, 'tasks.waitingDays');
-  }
-
-  protected rendered(task: TodoTask): string {
-    return renderMarkdown(task.note);
-  }
-
-  protected create(input: HTMLInputElement): void {
-    const title = input.value;
+  protected create(field: HTMLInputElement): void {
+    const title = field.value;
     if (!title.trim()) {
       return;
     }
 
-    input.value = '';
+    field.value = '';
     this.store.add(title).catch(() => {});
   }
 
@@ -86,34 +55,12 @@ export class TaskList {
     this.editingNote.set(task.id);
   }
 
-  protected clickNote(task: TodoTask, event: MouseEvent): void {
-    const link = (event.target as HTMLElement).closest('a');
-
-    if (link) {
-      // Following the link in place would replace the whole app: this window has no way back.
-      event.preventDefault();
-      this.system.openLink(link.href).catch(() => {});
-      return;
-    }
-
-    this.editNote(task);
-  }
-
-  protected stopEditingNote(task: TodoTask, note: string): void {
+  protected stopEditingNote(): void {
     this.editingNote.set(null);
-    this.save(task, { note: this.text(note) });
-  }
-
-  protected save(task: TodoTask, changes: TaskChanges): void {
-    this.store.update(task, changes).catch(() => {});
-  }
-
-  protected saveStatus(task: TodoTask, status: string): void {
-    this.save(task, { status: status as TodoStatus });
   }
 
   protected setDone(task: TodoTask, isDone: boolean): void {
-    this.save(task, { status: isDone ? TodoStatus.Done : TodoStatus.Open });
+    this.store.update(task, { status: isDone ? TodoStatus.Done : TodoStatus.Open }).catch(() => {});
   }
 
   protected setShowCompleted(value: boolean): void {
@@ -124,31 +71,9 @@ export class TaskList {
     this.store.setShowSomeday(value).catch(() => {});
   }
 
-  protected createSubTask(task: TodoTask, input: HTMLInputElement): void {
-    const title = input.value;
-    if (!title.trim()) {
-      return;
-    }
-
-    input.value = '';
-    this.store.addSubTask(task.id, title).catch(() => {});
-  }
-
-  protected setSubTaskDone(task: TodoTask, subTask: TodoSubTask, isDone: boolean): void {
-    this.store.setSubTaskDone(task.id, subTask, isDone).catch(() => {});
-  }
-
-  protected removeSubTask(task: TodoTask, subTask: TodoSubTask): void {
-    this.store.removeSubTask(task.id, subTask.id).catch(() => {});
-  }
-
   protected remove(task: TodoTask): void {
     this.editingNote.set(null);
     this.expandedId.set(null);
     this.store.remove(task.id).catch(() => {});
-  }
-
-  protected text(value: string): string | undefined {
-    return value.trim() || undefined;
   }
 }

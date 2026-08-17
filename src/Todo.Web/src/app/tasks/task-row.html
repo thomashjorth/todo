@@ -1,0 +1,200 @@
+<div class="flex items-start gap-2">
+  <input
+    #complete
+    data-testid="complete-toggle"
+    type="checkbox"
+    class="mt-1 shrink-0"
+    [checked]="task().status === done"
+    (click)="$event.stopPropagation()"
+    (change)="setDone(complete.checked)"
+  />
+  <div class="min-w-0 flex-1">
+    <button type="button" class="w-full text-left" (click)="toggled.emit()">
+      <span class="block text-sm break-words text-gray-900">{{ task().title }}</span>
+      @if (task().deadline) {
+        <span
+          class="block text-xs"
+          [class]="task().bucket === overdue ? 'text-red-600 dark:text-red-400' : 'text-gray-500'"
+          >{{ 'tasks.deadlineValue' | transloco: { value: task().deadline | deadlineDate } }}</span
+        >
+      }
+      @if (task().requester) {
+        <span class="block text-xs text-gray-500">{{
+          'tasks.requesterValue' | transloco: { value: task().requester }
+        }}</span>
+      }
+      @if (task().subTasks.length > 0) {
+        <span data-testid="subtask-progress" class="block text-xs text-gray-500">{{
+          progress(task())
+        }}</span>
+      }
+    </button>
+    <!-- Uden for knappen med vilje: teksten ville ellers indgå i rækkens tilgængelige navn,
+         som E2E-skærmen matcher i sin helhed. -->
+    @if (task().status === waitingFor) {
+      <p class="flex flex-wrap gap-x-2 text-xs text-gray-600 dark:text-gray-400">
+        @if (task().waitingOn) {
+          <span>{{ 'tasks.waitingOnValue' | transloco: { value: task().waitingOn } }}</span>
+        }
+        <!-- @let, ikke `as`: waitingDays kan være 0, og `as` binder på sandhed. -->
+        @let waitingDays = task().waitingDays;
+        @if (waitingDays != null) {
+          <span data-testid="waiting-days">{{
+            waitingDaysKey(waitingDays) | transloco: { count: waitingDays }
+          }}</span>
+        }
+      </p>
+    }
+  </div>
+</div>
+@if (expanded()) {
+  <div data-testid="task-detail" class="mt-2 space-y-2 rounded bg-gray-50 p-2">
+    <label class="block">
+      <span class="block text-xs text-gray-500">{{ 'tasks.deadline' | transloco }}</span>
+      <input
+        #deadline
+        type="date"
+        class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+        [value]="task().deadline ?? ''"
+        (blur)="save({ deadline: text(deadline.value) })"
+        (keyup.enter)="save({ deadline: text(deadline.value) })"
+      />
+    </label>
+    <label class="block">
+      <span class="block text-xs text-gray-500">{{ 'tasks.requester' | transloco }}</span>
+      <input
+        #requester
+        type="text"
+        class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+        [value]="task().requester ?? ''"
+        (blur)="save({ requester: text(requester.value) })"
+        (keyup.enter)="save({ requester: text(requester.value) })"
+      />
+    </label>
+    <div class="space-y-1">
+      <div class="flex items-center justify-between gap-2">
+        <span class="block text-xs text-gray-500">{{ 'tasks.note' | transloco }}</span>
+        @if (!editingNote()) {
+          <button
+            type="button"
+            data-testid="note-edit"
+            class="shrink-0 text-xs text-blue-700 underline dark:text-blue-300"
+            (click)="noteEditStarted.emit()"
+          >
+            {{ 'tasks.editNote' | transloco }}
+          </button>
+        }
+      </div>
+      @if (editingNote()) {
+        <textarea
+          #note
+          data-testid="note-editor"
+          rows="6"
+          class="field-sizing-content max-h-96 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+          [value]="task().note ?? ''"
+          (blur)="stopEditingNote(note.value)"
+          (keydown.escape)="stopEditingNote(note.value)"
+        ></textarea>
+      } @else if (task().note?.trim()) {
+        <div
+          data-testid="note-rendered"
+          class="prose prose-sm dark:prose-invert max-w-none [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
+          [innerHTML]="rendered(task())"
+          (click)="clickNote($event)"
+        ></div>
+      } @else {
+        <p
+          data-testid="note-rendered"
+          class="text-sm text-gray-500 italic"
+          (click)="clickNote($event)"
+        >
+          {{ 'tasks.noteEmpty' | transloco }}
+        </p>
+      }
+      @if (system.error(); as message) {
+        <p
+          data-testid="note-link-error"
+          role="alert"
+          class="text-sm text-red-700 dark:text-red-300"
+        >
+          {{ message }}
+        </p>
+      }
+    </div>
+    <label class="block">
+      <span class="block text-xs text-gray-500">{{ 'tasks.status' | transloco }}</span>
+      <select
+        #status
+        class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+        (change)="saveStatus(status.value)"
+      >
+        @for (option of statusOptions; track option) {
+          <option [value]="option" [selected]="option === task().status">
+            {{ statusKey(option) | transloco }}
+          </option>
+        }
+      </select>
+    </label>
+    @if (task().status === waitingFor) {
+      <label class="block">
+        <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+          'tasks.waitingOn' | transloco
+        }}</span>
+        <input
+          #waitingOn
+          data-testid="waiting-on-input"
+          type="text"
+          class="w-full rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:text-gray-100"
+          [value]="task().waitingOn ?? ''"
+          (blur)="save({ waitingOn: text(waitingOn.value) })"
+          (keyup.enter)="save({ waitingOn: text(waitingOn.value) })"
+        />
+      </label>
+    }
+    <div class="space-y-1">
+      <span class="block text-xs text-gray-500">{{ 'tasks.subTasks' | transloco }}</span>
+      @for (subTask of task().subTasks; track subTask.id) {
+        <div data-testid="subtask-row" class="flex items-start gap-2">
+          <input
+            #subTaskDone
+            type="checkbox"
+            class="mt-1 shrink-0"
+            [checked]="subTask.isDone"
+            (click)="$event.stopPropagation()"
+            (change)="setSubTaskDone(subTask, subTaskDone.checked)"
+          />
+          <span
+            class="min-w-0 flex-1 text-sm break-words"
+            [class]="subTask.isDone ? 'text-gray-400 line-through' : 'text-gray-900'"
+            >{{ subTask.title }}</span
+          >
+          <button
+            type="button"
+            data-testid="delete-subtask"
+            [attr.aria-label]="'tasks.deleteSubTask' | transloco"
+            class="shrink-0 text-xs text-red-600"
+            (click)="removeSubTask(subTask)"
+          >
+            ✕
+          </button>
+        </div>
+      }
+      <input
+        #newSubTask
+        data-testid="new-subtask-input"
+        type="text"
+        [placeholder]="'tasks.newSubTask' | transloco"
+        class="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+        (keyup.enter)="createSubTask(newSubTask)"
+      />
+    </div>
+    <button
+      type="button"
+      data-testid="delete-task"
+      class="text-xs text-red-600 underline"
+      (click)="removed.emit()"
+    >
+      {{ 'tasks.deleteTask' | transloco }}
+    </button>
+  </div>
+}
