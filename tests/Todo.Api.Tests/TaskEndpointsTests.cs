@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using Todo.Contracts;
-using Todo.TestSupport.Builders;
 
 namespace Todo.Api.Tests;
 
@@ -43,10 +42,12 @@ public class TaskEndpointsTests : TaskApiTest
         var yesterday = Today.AddDays(-1);
         await CreateAsync("On the wire", yesterday);
 
-        // A start date cannot be posted yet, so this one is arranged straight in the database.
         var nextWeek = Today.AddDays(7);
-        await Host.AddAndSaveChangesAsync(
-            new TaskItemBuilder().Titled("Deferred on the wire").DeferredUntil(nextWeek).Build());
+        await PostAsync(new CreateTodoTaskRequest
+        {
+            Title = "Deferred on the wire",
+            DeferUntil = nextWeek,
+        });
 
         var json = await Client.GetStringAsync("/api/tasks");
 
@@ -67,6 +68,94 @@ public class TaskEndpointsTests : TaskApiTest
         var listed = Assert.Single(await ListAsync());
         Assert.Equal(DeadlineBucket.Overdue, listed.Bucket);
         Assert.Equal(Today.AddDays(-1), listed.Deadline);
+    }
+
+    [Fact]
+    public async Task Task_created_with_a_start_date_tomorrow_is_deferred()
+    {
+        var tomorrow = Today.AddDays(1);
+
+        var created = await PostAsync(new CreateTodoTaskRequest
+        {
+            Title = "Book the tickets",
+            DeferUntil = tomorrow,
+        });
+
+        Assert.Equal(tomorrow, created.DeferUntil);
+        Assert.Equal(DeadlineBucket.Deferred, created.Bucket);
+
+        var listed = Assert.Single(await ListAsync());
+        Assert.Equal(tomorrow, listed.DeferUntil);
+        Assert.Equal(DeadlineBucket.Deferred, listed.Bucket);
+    }
+
+    [Fact]
+    public async Task Updating_a_task_can_give_it_a_start_date()
+    {
+        // A deadline far enough out to be its own bucket, so the change of bucket cannot be
+        // mistaken for a task that simply lost its deadline.
+        var later = Today.AddDays(30);
+        var created = await CreateAsync("Plan the trip", later);
+        Assert.Equal(DeadlineBucket.Later, created.Bucket);
+
+        var nextWeek = Today.AddDays(7);
+        var deferred = await PutAsync(created.Id, new UpdateTodoTaskRequest
+        {
+            Title = "Plan the trip",
+            Status = TodoStatus.Open,
+            Deadline = later,
+            DeferUntil = nextWeek,
+        });
+
+        Assert.Equal(nextWeek, deferred.DeferUntil);
+        Assert.Equal(DeadlineBucket.Deferred, deferred.Bucket);
+
+        var listed = Assert.Single(await ListAsync());
+        Assert.Equal(nextWeek, listed.DeferUntil);
+        Assert.Equal(DeadlineBucket.Deferred, listed.Bucket);
+    }
+
+    [Fact]
+    public async Task Updating_a_task_without_a_start_date_clears_it()
+    {
+        var later = Today.AddDays(30);
+        var created = await PostAsync(new CreateTodoTaskRequest
+        {
+            Title = "Plan the trip",
+            Deadline = later,
+            DeferUntil = Today.AddDays(7),
+        });
+        Assert.Equal(DeadlineBucket.Deferred, created.Bucket);
+
+        // Absent means clear, exactly as it does for the deadline. The deadline is repeated so
+        // that it survives, which is also what makes the bucket below say more than "no deadline".
+        var cleared = await PutAsync(created.Id, new
+        {
+            title = "Plan the trip",
+            status = "open",
+            deadline = $"{later:yyyy-MM-dd}",
+        });
+
+        Assert.Null(cleared.DeferUntil);
+        Assert.Equal(later, cleared.Deadline);
+        Assert.Equal(DeadlineBucket.Later, cleared.Bucket);
+
+        var listed = Assert.Single(await ListAsync());
+        Assert.Null(listed.DeferUntil);
+        Assert.Equal(DeadlineBucket.Later, listed.Bucket);
+    }
+
+    [Fact]
+    public async Task Task_created_without_a_start_date_is_not_deferred()
+    {
+        var created = await CreateAsync("Do it today", Today);
+
+        Assert.Null(created.DeferUntil);
+        Assert.Equal(DeadlineBucket.Today, created.Bucket);
+
+        var listed = Assert.Single(await ListAsync());
+        Assert.Null(listed.DeferUntil);
+        Assert.Equal(DeadlineBucket.Today, listed.Bucket);
     }
 
     [Fact]
@@ -285,5 +374,29 @@ public class TaskEndpointsTests : TaskApiTest
         var listed = await ListAsync();
 
         Assert.Equal([soon.Id, later.Id, undated.Id], listed.Select(t => t.Id));
+    }
+
+    /// <summary>A create with the whole body spelled out, for fields the shared helper omits.</summary>
+    private async Task<TodoTask> PostAsync(object body)
+    {
+        var response = await Client.PostAsJsonAsync("/api/tasks", body);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<TodoTask>();
+        Assert.NotNull(created);
+        return created;
+    }
+
+    /// <summary>
+    /// An update with the whole body spelled out, so a test can also leave a field out of it.
+    /// </summary>
+    private async Task<TodoTask> PutAsync(Guid id, object body)
+    {
+        var response = await Client.PutAsJsonAsync($"/api/tasks/{id}", body);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<TodoTask>();
+        Assert.NotNull(updated);
+        return updated;
     }
 }

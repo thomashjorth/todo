@@ -61,6 +61,7 @@ public static class TaskEndpoints
                 Title = request.Title,
                 Note = request.Note,
                 Deadline = request.Deadline,
+                DeferUntil = request.DeferUntil,
                 Requester = request.Requester,
                 Status = CoreStatus.Open,
                 CreatedAt = clock.UtcNow,
@@ -101,6 +102,7 @@ public static class TaskEndpoints
             task.Title = request.Title;
             task.Note = request.Note;
             task.Deadline = request.Deadline;
+            task.DeferUntil = request.DeferUntil;
             task.Requester = request.Requester;
             task.Status = status;
             task.WaitingOn = status == CoreStatus.WaitingFor ? Trimmed(request.WaitingOn) : null;
