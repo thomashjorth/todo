@@ -357,7 +357,7 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    Klik på den for at redigere. Fuld CommonMark. **Færdig.**
 5. **Venter på og Someday/Maybe** — to nye tilstande, så en opgave kan ligge hos
    en anden eller være parkeret uden at forurene deadline-sektionerne. Den billige
-   halvdel af GTD; se afsnit 11.
+   halvdel af GTD; se afsnit 11. **Færdig.**
 6. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
    WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
    `prefers-color-scheme`. Efter 3, 4 og 5, så gennemgangen rammer alle skærme, alle
@@ -394,6 +394,13 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 - **Photino** kræver WebView2-runtime. Til stede på Windows 11 som standard.
 - **Fixtures** kan blive forældede når serverne opgraderes; kontrakt-testene er
   første sted det opdages.
+- **Opgaverækkens `ng-template` er utypet.** `task-list.html` deler én
+  `#taskRow`-skabelon mellem alle sektioner, og konteksten kommer ind som `let-task`,
+  altså `any`. Udtrykkene `task.*` i den bliver derfor ikke typechecket — bekræftet
+  ved at stave `task.title` forkert med vilje og se `ng build` gå igennem alligevel.
+  Hvert udtryk er dækket af en vitest-case (den forkerte stavning væltede fire af
+  dem), så hullet fanges af tests og ikke af compileren. En senere skive bør overveje
+  en rigtig børnekomponent med et typet `input()` i stedet for skabelonen.
 - **Id'erne er `Guid` v4 og skal være `long`** (besluttet 2026-08-14, planlagt til
   skive 7). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
   **tilfældig v4** til **tidsordnet UUIDv7**, som `Guid.CreateVersion7()` giver i
@@ -405,24 +412,35 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 ## 11. Forholdet til GTD
 
 Appen er **ikke** et GTD-system, og det er et bevidst valg. Vurderet 2026-08-14
-mod *Getting Things Done*:
+mod *Getting Things Done*, opdateret 2026-08-17 efter skive 5:
 
 Det, appen allerede gør efter bogen: indfangning er friktionsfri (ét felt, Enter),
 den samler fra flere kanaler, og mentions-indbakken er en rigtig *clarify*-fase,
 hvor du beslutter frem for at få noget påtvunget.
 
-Det, den ikke gør, i rækkefølge efter hvor meget det betyder:
+Det, skive 5 lukkede — de to billigste huller:
+
+- **Venter på** er bygget. En opgave, der ligger hos en anden, har hvem den venter
+  på og hvor mange dage den har ventet, og den står i sin egen sektion frem for at
+  optage plads i dagens.
+- **Someday/Maybe** er bygget som "Måske". En parkeret opgave er ude af syne,
+  indtil "Vis måske" slås til, så listen kan holdes kort uden at noget slettes.
+
+Det, den stadig ikke gør, i rækkefølge efter hvor meget det betyder:
 
 - **Deadline er den eneste organiserende akse.** GTD reserverer kalenderen til det,
   der *skal* ske en bestemt dag, og organiserer resten efter kontekst. Hos os bliver
   "Uden deadline" en skraldespand, og fristelsen til at sætte falske deadlines for at
-  holde noget synligt er reel — hvilket underminerer de ægte deadlines.
+  holde noget synligt er reel — hvilket underminerer de ægte deadlines. Skive 5 tog
+  de ventende og de parkerede opgaver ud af sektionerne, men for alt det, der er
+  tilbage, er deadline stadig den eneste akse.
 - **Der er ingen projekter.** Underopgaver er en tjekliste under én opgave; de kan
   ikke have egen deadline eller stå selvstændigt på listen. Et udfald der kræver
   flere handlinger på forskellige tidspunkter, kan ikke repræsenteres.
 - **Der er ingen kontekster** og ingen støtte til ugentlig gennemgang, som er GTD's
-  nøglevane.
+  nøglevane. "Måske"-listen er præcis den liste, en ugentlig gennemgang ville tage
+  fat i, så hullet er blevet lettere at se — ikke mindre.
 
-Skive 5 lukker de to billigste huller: **Venter på** og **Someday/Maybe**. Resten
-står her, så det er et valg og ikke en forglemmelse — og så en senere beslutning om
-at gå hele vejen kan træffes med åbne øjne.
+Det, der står tilbage, bliver stående her, så det er et valg og ikke en
+forglemmelse — og så en senere beslutning om at gå hele vejen kan træffes med
+åbne øjne.

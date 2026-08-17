@@ -56,6 +56,23 @@ Appvinduet har ingen adresselinje, så et link der blev fulgt indeni, ville ikke
 findes tilbage fra. Kun `http` og `https` åbnes — et link til noget andet ville lade en
 note starte et program på maskinen — og afvises det, står begrundelsen under noten.
 
+## Venter på og Måske
+
+To statusser tager en opgave ud af deadline-sektionerne, uden at den bliver væk.
+
+**Venter på** er til det, du har afleveret, og som en anden skal svare på. Vælger
+du den status, kommer der et felt til hvem du venter på, og opgaven flytter ned i
+sin egen sektion **Venter på**. Den bliver ved med at vise sig — det er hele
+pointen — og linjen under titlen tæller hvor længe: `0 dage` den dag du sætter
+statussen, `12 dage` tolv dage senere. Tælleren starter altså når du sætter
+statussen, ikke da opgaven blev oprettet, og den flytter sig ikke af at du retter
+noget andet på opgaven imens. Sætter du opgaven tilbage til Åben, glemmes både
+navnet og datoen; begynder den at vente igen, tælles der forfra fra nul.
+
+**Måske** er det modsatte: den gemmer sig. En parkeret opgave forsvinder fra
+listen og kommer først frem igen under **Måske**, når du slår **Vis måske** til.
+Sådan kan listen holdes kort uden at noget skal slettes.
+
 ## Sprog og indstillinger
 
 Skærmen hedder **Indstillinger** i menuen øverst og ligger på ruten `/settings`. Her
