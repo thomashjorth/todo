@@ -1,7 +1,8 @@
 # Personlig todo-app — design
 
 Dato: 2026-08-13
-Status: valideret, klar til implementeringsplan
+Status: skive 0–5 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
+maskinens fælder og konventioner i `CLAUDE.md` i roden.
 
 ## 1. Formål
 
