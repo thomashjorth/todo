@@ -80,7 +80,7 @@ læses aldrig fra disk: en publiceret exe har ingen `contracts\`-mappe ved siden
 afsnit 10 om hvorfor der er to OpenAPI-dokumenter.
 
 `Todo.Contract.Tests` med WireMock kommer først når der er en ekstern server at
-lyve om — altså i skive 9 med Jira.
+lyve om — altså i skive 10 med Jira.
 
 Udvikling: `dotnet run` + `ng serve` med proxy mod API'et, så frontend har hot
 reload. Publish: `ng build` → `Todo.Host/wwwroot`, derefter self-contained exe.
@@ -134,6 +134,14 @@ begyndte at vente), og udvider `TodoStatus` med `WaitingFor` og `Someday`.
 **`WaitingOn` er ikke det samme som `Requester`** — den ene er hvem du venter på,
 den anden er hvem der bad dig. De peger hver sin vej, og at slå dem sammen ville
 gøre begge lister ubrugelige.
+
+Skive 9 tilføjer `DeferUntil` (`DateOnly?`) — dagen opgaven *begynder*. **Udskudtheden
+er beregnet, ikke gemt**: der er ingen `Deferred`-status på `TodoStatus` og intet job der
+skal køre ved midnat. `DeadlineBuckets.For` svarer `Deferred`, når startdatoen ligger
+*strengt efter* i dag, så opgaven kommer af sig selv tilbage — ikke fordi noget skrev til
+databasen, men fordi uret siger noget andet i morgen. Feltet ejes altid lokalt som
+`Deadline`, og der valideres ikke på det: en startdato der er passeret betyder blot, at
+opgaven er begyndt, og en startdato efter deadlinen er lovlig.
 
 ### `SubTask`
 
@@ -399,14 +407,23 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    `focus()` og `click()` — Windows flytter også fokusringen. Direktivet har derfor
    `appShortcutAction="focus" | "activate"`, og fem af de seks elementer aktiverer. Fejlen blev
    fundet af brugeren, ikke af en test. Hvad genvejene stadig **ikke** vagter, står i afsnit 10.*
-9. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
-   Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
-   en server at teste mod.
-10. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 9 duer.
-11. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
-12. **Baggrundssync, tray og notifikationer.**
-13. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
-14. **Pakning** — self-contained exe, autostart.
+9. **`DeferUntil` — en startdato** — en opgave kan have en dag hvor den *begynder*, og ligger
+   indtil da i sin egen Udskudt-sektion i stedet for at optage plads i deadline-sektionerne.
+   GTD's *tickler*, og det billigste ægte GTD-hul der var tilbage; se afsnit 11. **Færdig.**
+   *Udskudtheden er beregnet, ikke gemt — ingen ny status, intet midnatsjob, og migreringen er
+   én `AddColumn`. Rækkefølgen mellem Overskredet og Udskudt er load-bearing og genuint
+   kontraintuitiv; se afsnit 10. Skiven fandt desuden en tabsfejl der slet ikke handlede om
+   startdatoen: `TaskStore.update` sender en fuld request, og backenden læser et fraværende felt
+   som "ryd", så en rettelse af noget helt andet slettede en gemt startdato lydløst. Fundet af en
+   test, ikke af en gennemlæsning.*
+10. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
+    Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
+    en server at teste mod.
+11. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 10 duer.
+12. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+13. **Baggrundssync, tray og notifikationer.**
+14. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
+15. **Pakning** — self-contained exe, autostart.
 
 ### Ønsket, men ikke placeret endnu
 
@@ -439,10 +456,10 @@ Den fjerde, Swagger-linket, blev leveret uden for skiverne og står nedenfor som
 
 ## 10. Risici og åbne punkter
 
-- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 9, ikke i 10 —
+- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 10, ikke i 11 —
   altså mens "Test forbindelse" bygges, ikke først når ADO-importen skal bruge den.
 - **Serverversioner** for Jira DC og ADO Server afgør endpoints og API-versioner.
-  Verificeres med "Test forbindelse" i skive 9.
+  Verificeres med "Test forbindelse" i skive 10.
 - **Skallen har nu farver i begge temaer, og det var mere end kosmetik** (løst i skive 7).
   En `<body>` uden baggrund giver ikke blot forkerte farver — den gør hele `dark:`-systemet
   til **usynlig tekst**: `dark:text-gray-100` på hvid er 1,10:1. `<body>` har nu
@@ -553,6 +570,15 @@ Den fjerde, Swagger-linket, blev leveret uden for skiverne og står nedenfor som
   i bindingen giver nu `TS2551`. Lektionen er, at `strictTemplates` **ikke** dækkede
   hullet: en delt `ng-template` med `let-`-variabler har konteksttype `any` og bliver
   aldrig typetjekket, uanset flag, fordi `[ngTemplateOutletContext]` ikke afstemmes.
+- **Overskredet slår Udskudt, og rækkefølgen er load-bearing** (afgjort i skive 9). En opgave kan
+  have både en startdato i fremtiden og en deadline der er løbet ud — den var udskudt, og tiden
+  løb alligevel. De to udsagn modsiger hinanden, så spørgsmålet er ikke hvad der er rigtigt, men
+  hvilken fejl der er værst: **at skjule et tilsagn du allerede har brudt** er værre end at vise
+  noget tidligere end planlagt. Derfor vinder `Overdue` over `Deferred` i `DeadlineBuckets.For`,
+  og grenene må ikke byttes om. Det er værd at vide, at det er genuint kontraintuitivt: den der
+  byggede kernen, uden at have fået reglen med, gættede på det modsatte — at en startdato i
+  fremtiden skulle gemme opgaven uanset deadline. En test og en `<summary>` står vagt om
+  rækkefølgen nu, men gættet kommer igen, hvis begrundelsen ikke står et sted.
 - **Id'erne er `Guid` v4 og skal være `long`** (besluttet 2026-08-14, udskudt og
   uplaceret 2026-08-17). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
   **tilfældig v4** til **tidsordnet UUIDv7**, som `Guid.CreateVersion7()` giver i
@@ -564,7 +590,7 @@ Den fjerde, Swagger-linket, blev leveret uden for skiverne og står nedenfor som
 ## 11. Forholdet til GTD
 
 Appen er **ikke** et GTD-system, og det er et bevidst valg. Vurderet 2026-08-14
-mod *Getting Things Done*, opdateret 2026-08-17 efter skive 5:
+mod *Getting Things Done*, opdateret 2026-08-17 efter skive 5 og igen efter skive 9:
 
 Det, appen allerede gør efter bogen: indfangning er friktionsfri (ét felt, Enter),
 den samler fra flere kanaler, og mentions-indbakken er en rigtig *clarify*-fase,
@@ -578,14 +604,28 @@ Det, skive 5 lukkede — de to billigste huller:
 - **Someday/Maybe** er bygget som "Måske". En parkeret opgave er ude af syne,
   indtil "Vis måske" slås til, så listen kan holdes kort uden at noget slettes.
 
+Det, skive 9 lukkede:
+
+- **En startdato** er bygget. En opgave, der er et rigtigt tilsagn men ikke kan begyndes
+  endnu, får dagen den begynder, og ligger indtil da i Udskudt. Det er GTD's *tickler*
+  uden mappen — og uden noget der skal huskes, for udskudtheden er beregnet af dagens
+  dato frem for gemt.
+- **Måske har nu en nabo, der betyder noget andet.** "Måske" siger *ikke et tilsagn*;
+  Udskudt siger *ikke endnu*. Det er to forskellige beslutninger, og før skive 9 måtte
+  de dele én liste — hvilket gjorde Måske til et sted man lagde begge slags og
+  derfor holdt op med at læse.
+
 Det, den stadig ikke gør, i rækkefølge efter hvor meget det betyder:
 
-- **Deadline er den eneste organiserende akse.** GTD reserverer kalenderen til det,
-  der *skal* ske en bestemt dag, og organiserer resten efter kontekst. Hos os bliver
-  "Uden deadline" en skraldespand, og fristelsen til at sætte falske deadlines for at
-  holde noget synligt er reel — hvilket underminerer de ægte deadlines. Skive 5 tog
-  de ventende og de parkerede opgaver ud af sektionerne, men for alt det, der er
-  tilbage, er deadline stadig den eneste akse.
+- **Deadline er stadig den eneste organiserende akse for alt det, der *er* handlingsklart.**
+  GTD reserverer kalenderen til det, der *skal* ske en bestemt dag, og organiserer resten
+  efter kontekst. Presset på deadline-feltet er lettet af skive 9: noget, der ikke er
+  handlingsklart endnu, skal ikke længere vælge mellem en falsk deadline for at blive
+  synligt og Måske for at komme af vejen — det får en startdato og forsvinder af sig selv
+  indtil den dag. Fristelsen til at lyve om en deadline var reel, og den er blevet mindre.
+  **Men det gælder kun udsættelsen.** For alt det, der er handlingsklart nu, er deadline
+  fortsat den eneste akse, og "Uden deadline" er fortsat en bred bunke uden andet at
+  sortere efter. En rigtig kontekstakse ville revidere afsnit 2 og er ikke sket.
 - **Der er ingen projekter.** Underopgaver er en tjekliste under én opgave; de kan
   ikke have egen deadline eller stå selvstændigt på listen. Et udfald der kræver
   flere handlinger på forskellige tidspunkter, kan ikke repræsenteres.

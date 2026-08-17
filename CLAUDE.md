@@ -156,9 +156,22 @@ via implicit usings, og kollisionen giver fejl der peger et andet sted hen.
 **Sprog.** Dansk er kilden; `en.json` er oversættelsen. Hver brugervendt streng er en nøgle,
 også `aria-label` og `title`. En nøgle skal i **begge** filer, ellers fejler paritetstesten.
 
-**Datoer.** `Deadline` er `DateOnly`. Tidsstempler er `DateTime` i UTC — **aldrig
-`DateTimeOffset`**, som SQLite ikke kan sortere korrekt. En deadline må aldrig gennem
-`new Date(string)`; det parses som UTC-midnat og kan vise dagen før.
+**Datoer.** `Deadline` er `DateOnly`, og `DeferUntil` — startdatoen — er `DateOnly` af samme
+grund. Tidsstempler er `DateTime` i UTC — **aldrig `DateTimeOffset`**, som SQLite ikke kan
+sortere korrekt. En deadline må aldrig gennem `new Date(string)`; det parses som UTC-midnat og
+kan vise dagen før.
+
+**Udskudtheden er beregnet, ikke gemt.** `DeadlineBuckets.For` svarer `Deferred`, når `DeferUntil`
+ligger *strengt efter* i dag — der er ingen `Deferred`-status på `TodoStatus`, og **intet skal
+køre ved midnat**: opgaven kommer tilbage, fordi uret siger noget andet i morgen. Grenenes
+rækkefølge i metoden er load-bearing: `Overdue` slår `Deferred`, fordi det er værre at skjule et
+tilsagn du allerede har brudt end at vise noget tidligere end planlagt. Byt dem ikke om — og
+bemærk, at gættet uden begrundelsen falder den anden vej.
+
+**Backenden læser et fraværende felt som "ryd".** `PUT /api/tasks/{id}` er en fuld erstatning, så
+`TaskStore.update` skal bære **hvert** felt med i sit `current`-objekt. Mangler ét, sletter enhver
+redigering af noget andet det lydløst — sådan tabte en gemt `DeferUntil` sig selv, når man rettede
+deadlinen. Lægger du et felt på kontrakten, så læg det også i `current`.
 
 ## Testdisciplin
 
@@ -180,7 +193,10 @@ forkerte grund.
   klientbredden 465, og en fast forventning fejler af den forkerte grund.
 - **Drift-testen sammenligner kun stier og metoder.** Skemaændringer fanger den ikke — dem
   dækker wire-format-tests, der ser på det rå JSON. Enum-værdier blev serialiseret forkert i
-  en hel skive, før en sådan test blev skrevet.
+  en hel skive, før en sådan test blev skrevet. **En ny enum-værdi er samme sag**: `deferred` på
+  `DeadlineBucket` kan ikke få drift-testen til at fejle, uanset hvordan den serialiseres, så den
+  har sin egen påstand — `"bucket":"deferred"` — i
+  `Wire_format_uses_the_names_the_contract_declares`. Læg en ny værdi der, ikke kun i kontrakten.
 - **Builders er til *arrange*.** De skriver direkte i databasen og springer API'ets validering
   over; brug dem aldrig til selve handlingen en test skal verificere.
 - **Tests må ikke røre `%APPDATA%`.** `RunningHost` giver hver test sin egen midlertidige
@@ -222,11 +238,16 @@ forkerte grund.
 
 ## Testtal
 
-Efter Swagger-linket (uden for skiverne, 2026-08-17): **33** Todo.Core.Tests, **111**
-Todo.Api.Tests, **24** Todo.E2E, **139** Vitest.
+Efter skive 9: **38** Todo.Core.Tests, **115** Todo.Api.Tests, **25** Todo.E2E, **141** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Skive 9 lagde **fem** Core-tests til (33 → 38) — hele grænsefladen om startdatoen i
+`DeadlineBucketsTests`, inklusive at dagen en opgave begynder ikke er udskudt, og at Overskredet
+slår Udskudt — **fire** Api-tests (111 → 115), **én** E2E (24 → 25, `DeferUntilJourneyTests`) og
+**to** Vitest (139 → 141): sektionens plads sidst i `bucketOrder`, og regressionen på at
+`TaskStore.update` bærer `deferUntil` med.
+Før den, efter Swagger-linket: 33 Core, 111 Api, 24 E2E, 139 Vitest.
 Api gik fra 109 til 111 med de to `ContractDocumentTests`, og E2E fra 22 til 24 med de to
-`ApiDocsJourneyTests`. Vitest står stille: linket fik ingen ny frontend-logik.
+`ApiDocsJourneyTests`. Vitest stod stille: linket fik ingen ny frontend-logik.
 Skive 8 lagde **otte** E2E-tests til (14 → 22) — mærkaterne, de seks genveje og AltGr — og **fem**
 Vitest-tests (134 → 139) på `ShortcutStore`.
 Vitest gik fra 133 til 134 i skive 7 — ikke af tilgængelighedsarbejdet, men af regressionstesten

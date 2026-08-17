@@ -18,6 +18,7 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 6 | TypeScript strict mode, og opgaverækken som en typet børnekomponent frem for en delt `ng-template` | `2026-08-17-slice-6-typescript-strict.md` |
 | 7 | WCAG AA i begge temaer med en kontrastvagt der måler i browseren, `dark:`-modparter så godt som overalt (én bevidst undtagelse, se designdokumentets afsnit 10), synligt fokus og en tastaturgennemgang | `2026-08-17-slice-7-accessibility.md` |
 | 8 | Alt-genvejssystemet: hold Alt for at se mærkaterne, og Alt+O/I/S/N/V/M udfører elementets aktiveringshandling — links følges, de to kontakter skifter og tager fokus, feltet får fokus | `2026-08-17-alt-shortcuts.md` |
+| 9 | Startdato (`DeferUntil`): en opgave ligger i Udskudt indtil dagen den begynder. Udskudtheden er **beregnet** af dagens dato, ikke gemt som en status, så intet skal køre ved midnat. Overskredet slår Udskudt — se designdokumentets afsnit 10 | `2026-08-17-slice-9-defer-until.md` |
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, `ApiTest`/`BrowserTest`-basisklasser, og **linket til API-dokumentationen på
@@ -25,7 +26,9 @@ health-linjen** (2026-08-17, plan i `docs/plans/2026-08-17-swagger-link.md`): "A
 knap ved siden af, der beder systemets browser åbne `/scalar/`, hvor kontrakten selv vises fra
 `/openapi/contract.yaml`. **Den fik bevidst ikke et skivenummer** — én affordance, ingen datamodel
 og ingen ny skærm — og et nummer ville have tvunget Jira-importen til 10 og hver skive efter den
-med (ADO, mentions, baggrundssync, livscyklus, pakning). Hvad arbejdet efterlod af viden, står i
+med (ADO, mentions, baggrundssync, livscyklus, pakning). Skive 9 har siden gjort netop det, af en
+anden grund: den rører datamodellen og skærmen og er derfor en skive. Hvad arbejdet efterlod af
+viden, står i
 designdokumentets afsnit 10: appen udstiller **to** OpenAPI-dokumenter med hver sin rolle, en ny
 rute uden for `/api/` skal have `.ExcludeFromDescription()`, og dokumentationssiden er vagtet mod
 at kalde ud.
@@ -41,7 +44,7 @@ Fundet fordi `ContrastTests` flakkede (7–9 s frem for 2 s), ikke fordi nogen l
 
 ## Tilbage
 
-Skive 8 er færdig, og ingenting er planlagt efter den. Punkterne nedenfor kan tages i vilkårlig
+Skive 9 er færdig, og ingenting er planlagt efter den. Punkterne nedenfor kan tages i vilkårlig
 rækkefølge — **med én undtagelse**, som står først, fordi den er den eneste der koster noget at
 udskyde.
 
@@ -58,7 +61,10 @@ ergonomisk, ikke at følge en trend. Fragmentering betyder intet ved denne stør
 **Og bemærk prisen:** den **bliver dyrere for hver skive der lægges imellem**, fordi hver ny
 skive tilføjer kode og tests der rører id'er. Aftrykket er målt til at være mindre end tidligere
 antaget — builderne rører slet ikke `Guid`, og 11 steder i tests, ikke "næsten hver test" — men
-det tal vokser. Udskydes den igen, er det værd at spørge hvorfor.
+det tal vokser. **Den er nu sprunget over tre leverancer i træk**: Alt-genvejene, der overtog
+nummer 8, Swagger-linket uden for skiverne, og skive 9. Den er stadig det eneste punkt der bliver
+dyrere af at vente — alt andet herunder koster det samme om et halvt år. Udskydes den en fjerde
+gang, er det værd at spørge hvorfor.
 
 ### Kan ligge stille
 
@@ -72,6 +78,16 @@ sprog og renderes med kæden fra skive 4 — prosa hører ikke hjemme i oversæt
 **Skal også sige hvad værktøjet ikke gør**, ellers lover den GTD og leverer en deadline-liste.
 Materialet er designdokumentets afsnit 11.
 
+**Resten af GTD-hullerne.** `DeferUntil` var det billigste ægte af dem, og det er leveret i skive
+9 — presset på deadline-feltet er lettet, fordi noget der ikke er handlingsklart endnu ikke
+længere skal vælge mellem en falsk deadline og Måske. Tilbage af designdokumentets afsnit 11 står
+de dyre: **ingen projekter** — underopgaver er en tjekliste under én opgave og kan hverken have
+egen deadline eller stå selvstændigt på listen — **ingen kontekster**, så deadline er fortsat den
+eneste akse for alt det der *er* handlingsklart, og **ingen ugentlig gennemgang**, som er GTD's
+nøglevane. Kontekstaksen er den mest indgribende af de tre: den ville omgøre designdokumentets
+afsnit 2 frem for blot at lægge et felt til. Revisionsloggen ovenfor er fundamentet under
+gennemgangen, så de to hænger sammen.
+
 ### Allerede planlagt i designdokumentet
 
 Jira-import, ADO-import, mentions-indbakke, baggrundssync med tray og notifikationer,
@@ -79,7 +95,7 @@ livscyklus og arkiv, og pakning til en self-contained exe. Se afsnit 9.
 
 ## Sådan køres en skive
 
-Mønstret der har virket gennem ni skiver:
+Mønstret der har virket gennem ti skiver:
 
 1. Skriv en plan i `docs/plans/YYYY-MM-DD-slice-N-navn.md` med opgaver på 2–5 minutter, komplet
    kode, eksakte kommandoer og forventet output.
