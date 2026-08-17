@@ -16,29 +16,28 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 4 | Noter i fuld CommonMark, renderet, klik for at redigere. Links åbner i systemets browser | `2026-08-14-slice-4-markdown-notes.md` |
 | 5 | "Venter på" og "Måske" som statusser, med hvem og hvor længe | `2026-08-14-slice-5-waiting-and-someday.md` |
 | 6 | TypeScript strict mode, og opgaverækken som en typet børnekomponent frem for en delt `ng-template` | `2026-08-17-slice-6-typescript-strict.md` |
+| 7 | WCAG AA i begge temaer med en kontrastvagt der måler i browseren, `dark:`-modparter overalt, synligt fokus og en tastaturgennemgang | `2026-08-17-slice-7-accessibility.md` |
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, og `ApiTest`/`BrowserTest`-basisklasser.
 
+Uden for skiverne, fundet ved et tilfælde: **`TaskStore` kunne lade et forsinket ældre load
+overskrive den nyeste liste.** `setShowCompleted` og `setShowSomeday` sætter hver sit signal og
+kalder derefter `load()`, så to genindlæsninger kan være i luften på én gang uden noget der
+ordner svarene. Ankom det ældste sidst, stod listen forkert indtil noget andet udløste en ny
+indlæsning — slås begge kontakter hurtigt efter hinanden, kunne "Måske"-sektionen forsvinde.
+Fundet fordi `ContrastTests` flakkede (7–9 s frem for 2 s), ikke fordi nogen ledte efter det.
+`load()` har nu en sekvenstæller, og regressionstesten
+`should not let a slow earlier load overwrite a newer list` blev set fejle først.
+
 ## Tilbage — og hvorfor rækkefølgen betyder noget
 
-To af punkterne **bliver dyrere jo længere de venter** og leverer ingen ny funktion. Tre kan
+Ét af punkterne **bliver dyrere jo længere det venter** og leverer ingen ny funktion. Fire kan
 vente uden at koste noget. Det er hele grundlaget for anbefalingen nedenfor.
 
 ### Anbefalet rækkefølge
 
-**1. Tilgængelighed, tastatur og dark mode.** WCAG AA i begge temaer, synligt fokus, hver
-handling nåelig med tastaturet, Alt-genvejssystemet, og `prefers-color-scheme`.
-**Udskudt to gange** — først af markdown, så af GTD-tilstandene.
-
-Kendte startpunkter: `<body>` sætter hverken baggrund eller tekstfarve, så komponenternes
-`dark:`-farver ville stå på hvid. `task-list.html` har kun de `dark:`-varianter, skive 4 og 5
-tilføjede — og rækkens farver ligger efter skive 6 i `task-row.html`, så kontrastgennemgangen
-skal tage begge filer. `text-gray-400` på health-linjen er ~2,9:1. Genvejsoverlayet skal bruge
-oversættelsesnøgler, så det afhænger af skive 3. Alt+D/E/F/Home/pil er stjålet af Chrome under
-udvikling, men frie i Photino-vinduet — vælg bogstaver udenom.
-
-**2. `long` som id.** `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`.
+**1. `long` som id.** `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`.
 Rører primærnøgler, fremmednøgler, kontrakten, begge genererede klienter, alle builders og
 næsten hver test. SQLite gør `INTEGER PRIMARY KEY` til et rowid-alias, og et opgavenummer kan
 siges højt.
@@ -48,6 +47,17 @@ tidsordnet UUIDv7 (`Guid.CreateVersion7()`, .NET 9+). Argumentet her er SQLite-s
 ergonomisk, ikke at følge en trend. Fragmentering betyder intet ved denne størrelse.
 
 ### Kan ligge stille
+
+**Alt-genvejssystemet.** Hold **Alt** for at se genvejene på knapperne, og tryk Alt+bogstav for
+at aktivere dem — Windows-konventionen. Udskilt af skive 7, fordi den skive var en audit med en
+vagt der siger hvornår den er færdig, mens genvejene er en **ny funktion** med egne designvalg:
+hvilke bogstaver, hvordan mærkaten ser ud, hvad der sker ved konflikt. Planen ligger klar i
+`docs/plans/2026-08-17-alt-shortcuts.md` og har bevidst **intet skivenummer** — den skal placeres
+som en beslutning frem for at glide ind foran noget. **Designdokumentets afsnit 2 lover
+genvejene**, så det løfte står uindfriet indtil planen er kørt. Alt+D/E/F/Home og piletasterne er
+stjålet af Chrome under udvikling, men frie i Photino-vinduet — vælg bogstaver udenom.
+Genvejsmærkaterne er brugervendte strenge og skal gennem oversættelsesnøgler, altså skive 3's
+kæde, og `ContrastTests` fra skive 7 er det der fanger dem, hvis de ikke holder AA.
 
 **Revisionslog med trends.** En hændelseslog ved siden af opgaverne — hvad ændrede sig hvornår
 — der kan bære "hvor mange lukker jeg om ugen" og "hvor længe ligger noget i Venter på". Den er
@@ -71,7 +81,7 @@ livscyklus og arkiv, og pakning til en self-contained exe. Se afsnit 9.
 
 ## Sådan køres en skive
 
-Mønstret der har virket gennem syv skiver:
+Mønstret der har virket gennem otte skiver:
 
 1. Skriv en plan i `docs/plans/YYYY-MM-DD-slice-N-navn.md` med opgaver på 2–5 minutter, komplet
    kode, eksakte kommandoer og forventet output.

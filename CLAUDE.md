@@ -63,13 +63,34 @@ så kør `scripts\generate-api.ps1` — ellers fejler friskheds-testen.
 **Styling.** Kun standard Tailwind utility-klasser. **Ingen CSS- eller SCSS-regler** — eneste
 undtagelse er `@plugin`-linjen i `styles.css`, som er Tailwinds egen indlæsningsmekanisme.
 Hver `bg-*`/`text-*`/`border-*` skal have en `dark:`-modpart. Ikke `text-gray-400` på lys
-baggrund (~2,9:1).
+baggrund (2,60:1).
+
+**Tailwind 4's palette er oklch, ikke Tailwind 3's hex.** `gray-400` er **2,60:1** på hvid,
+ikke 2,85:1. Tallet 2,85 hører til `#9ca3af`, altså Tailwind **3**'s hex-palette; Tailwind 4
+definerer sine farver i oklch, og `gray-400` er dermed en anden farve. Regn kontrasttal ud fra
+`node_modules/tailwindcss/theme.css` — slå dem aldrig op i en kilde der viser `#9ca3af`.
+
+**Parret er ikke samme trin på begge sider.** `text-gray-500` holder AA i lyst tema (4,84:1 på
+hvid, 4,63:1 på `bg-gray-50`), men `dark:text-gray-500` fejler (3,67:1 på `gray-900`). Dæmpet
+tekst er derfor `text-gray-500 dark:text-gray-400`. Bytter man mekanisk 400 til 500 på begge
+sider, ødelægger man den mørke.
+
+**Pladsholderfarven ligger på `::placeholder`**, ikke på elementet, så en DOM-gennemgang der kun
+læser `style.color` er blind for den — `getComputedStyle(el, '::placeholder')` skal spørges
+særskilt. Og et felt **uden** en `placeholder-*`-klasse arver `currentColor` med omkring 54 %
+alfa og fejler i begge temaer; en optælling af de klasser der står der, kan ikke se en klasse
+der mangler.
 
 **Bredde.** Appen bruges i en spalte på ~480 px, under Tailwinds `sm`-brydepunkt. De
 uprefixede klasser **er** den smalle udgave; `sm:`/`md:` bruges kun til at udvide.
 
 **Angular.** Signal-baserede stores ejer al HTTP. Komponenter injicerer aldrig en genereret
 klient og kalder aldrig `.subscribe()`. **Ikke NgRx** — bevidst fravalg.
+
+**En store-metode der sætter et signal og derefter genindlæser, skal værne mod svar i forkert
+rækkefølge.** To genindlæsninger kan være i luften på én gang — `setShowCompleted` og
+`setShowSomeday` gjorde netop det, og ankom det ældste svar sidst, overskrev det den nyeste
+liste. `load()` har derfor en sekvenstæller: kun det nyeste load må skrive listen.
 
 **En delt `<ng-template>` med `let-`-variabler har konteksttype `any`.** `strictTemplates`
 tjekker den ikke, og `[ngTemplateOutletContext]` afstemmes ikke. Skal en række være
@@ -123,8 +144,23 @@ forkerte grund.
 - **Playwright-tests må ikke have bivirkninger uden for appen.** Kald til
   `/api/system/open-link` opsnappes med `page.RouteAsync` og afbrydes; ellers åbner hver
   testkørsel en rigtig browser.
+- **Kontrast måles i browseren** med `getComputedStyle`, fordi kun browseren har afgjort hvilken
+  baggrund et stykke tekst endte på. `ContrastTests` går alle fire skærme igennem i begge
+  farvetemaer.
+- **`getComputedStyle` giver `oklch(...)`, ikke `rgb(...)`** for farver skrevet i oklch. En regex
+  over cifrene læser `oklch(0.967 0.003 264.542)` som en blå kanal på 264 — og vagtens første
+  udgave gav derfor **usynlig tekst omkring 8:1 og bestod**. Mal farven på et 1×1-canvas og læs
+  pixlen tilbage.
+- **En rettet baggrund kan gøre en vagt strengere, ikke mildere.** En uigennemsigtig flade
+  stopper søgningen op gennem forældrene, så tekst inde i panelet havde været målt mod den
+  forkerte farve. `dark:bg-gray-800` på detaljepanelet lukkede syv fejl og afdækkede syv nye;
+  tallet blev stående på 15, mens der reelt blev gjort fremskridt. **Læs hvilke poster der
+  ændrede sig, ikke antallet.**
 
 ## Testtal
 
-Efter skive 6: **33** Todo.Core.Tests, **109** Todo.Api.Tests, **7** Todo.E2E, **133** Vitest.
+Efter skive 7: **33** Todo.Core.Tests, **109** Todo.Api.Tests, **12** Todo.E2E, **134** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Vitest gik fra 133 til 134 — ikke af tilgængelighedsarbejdet, men af regressionstesten for
+`TaskStore`-fejlen, hvor to loads i luften på én gang kunne lade det ældste svar overskrive den
+nyeste liste.

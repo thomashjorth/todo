@@ -1,7 +1,7 @@
 # Personlig todo-app — design
 
 Dato: 2026-08-13
-Status: skive 0–6 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
+Status: skive 0–7 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
 maskinens fælder og konventioner i `CLAUDE.md` i roden.
 
 ## 1. Formål
@@ -365,11 +365,16 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    `#taskRow`-skabelon gav konteksten typen `any`, og `strictTemplates` afstemmer ikke
    `[ngTemplateOutletContext]`. Børnekomponenten var rettelsen; se afsnit 10.*
 7. **Tilgængelighed, tastatur og dark mode** — audit af alt eksisterende mod
-   WCAG AA, kontrastrettelser, synligt fokus, Alt-genvejssystemet og
-   `prefers-color-scheme`. Efter 3, 4 og 5, så gennemgangen rammer alle skærme, alle
-   strenge og alle markdown-elementer én gang. Samlet i én skive, fordi hver farve
-   ellers skulle kontrasttjekkes to gange. **Bemærk: udskudt to gange** — først af
-   markdown, så af GTD-tilstandene. Sker det igen, er det værd at spørge hvorfor.
+   WCAG AA, kontrastrettelser, synligt fokus og `prefers-color-scheme`. Efter 3, 4 og 5,
+   så gennemgangen rammer alle skærme, alle strenge og alle markdown-elementer én gang.
+   Samlet i én skive, fordi hver farve ellers skulle kontrasttjekkes to gange.
+   **Udskudt to gange** — først af markdown, så af GTD-tilstandene. **Færdig.**
+   *Alt-genvejssystemet blev skilt ud undervejs og står nu under "Ønsket, men ikke
+   placeret endnu": skiven var en audit, afgrænset af en vagt der siger hvornår den er
+   færdig, mens genvejene er en ny funktion med egne designvalg. Argumentet om at
+   kontrasttjekke hver farve to gange gælder farver, ikke genveje. Bemærk også, at
+   tilgængelighed var lettere at måle end at gætte: kontrastvagten blev committet rød, og
+   dens fejlliste blev arbejdslisten. Se afsnit 10.*
 8. **`long` som id** — `Guid` erstattes af `long` på `TaskItem`, `SubTask` og
    `UserAlias`. Egen skive, fordi den rører primærnøgler, fremmednøgler, kontrakten,
    begge genererede klienter, alle builders og næsten hver test. **Kan flyttes, men
@@ -385,13 +390,21 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 
 ### Ønsket, men ikke placeret endnu
 
-Tre ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
-glemt, og de skal placeres bevidst frem for at glide ind foran tilgængelighed.
+Fire ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
+glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede skiver.
 
+- **Alt-genvejssystemet.** Hold Alt for at se genvejene på knapperne, og Alt+bogstav
+  for at aktivere dem — Windows-konventionen, som afsnit 2 lover. **Udskilt af skive 7
+  den 2026-08-17**, fordi den skive var en audit, mens genvejene er en ny funktion med
+  egne designvalg: hvilke bogstaver, hvordan mærkaten ser ud, hvad der sker ved konflikt.
+  Begrundelsen for at lægge dem sammen — at hver farve ellers skulle kontrasttjekkes to
+  gange — gælder farver, ikke genveje. Planen ligger i
+  `docs/plans/2026-08-17-alt-shortcuts.md` og har bevidst **intet skivenummer**, netop for
+  at undgå den omnummerering skive 6 udløste. **Løftet i afsnit 2 står altså uindfriet.**
 - **Revisionslog med trends.** En hændelseslog ved siden af opgaverne — hvad
   ændrede sig hvornår — som kan bære spørgsmål som "hvor mange lukker jeg om ugen"
   og "hvor længe ligger noget i Venter på". Den er også fundamentet for GTD's
-  ugentlige gennemgang, som appen slet ikke understøtter i dag. Største af de tre.
+  ugentlige gennemgang, som appen slet ikke understøtter i dag. Største af de fire.
 - **"Sådan er den tænkt"-side.** En side der beskriver brugen i GTD-termer.
   Skrives som markdown-filer pr. sprog og renderes med kæden fra skive 4 — prosa
   hører ikke hjemme i oversættelsesnøgler. **Skal også sige hvad værktøjet ikke
@@ -407,13 +420,24 @@ glemt, og de skal placeres bevidst frem for at glide ind foran tilgængelighed.
   altså mens "Test forbindelse" bygges, ikke først når ADO-importen skal bruge den.
 - **Serverversioner** for Jira DC og ADO Server afgør endpoints og API-versioner.
   Verificeres med "Test forbindelse" i skive 9.
-- **Skallen har ingen baggrundsfarve.** `<body>` sætter hverken baggrund eller
-  tekstfarve, så under mørkt systemtema ville komponenternes `dark:`-farver stå på
-  hvid. Skive 7 skal sætte den; indtil da undgås fyldte flader.
-- **Opgavelisten har ingen `dark:`-varianter.** Skallen, retro-import og indstillinger
-  har dem; `task-list.html` har ingen eneste. Skive 7 skal tage hele den fil, ikke kun
-  `<body>`. Bemærk at rækkens farver efter skive 6 ligger i `task-row.html`, så
-  gennemgangen skal tage begge filer.
+- **Skallen har nu farver i begge temaer, og det var mere end kosmetik** (løst i skive 7).
+  En `<body>` uden baggrund giver ikke blot forkerte farver — den gør hele `dark:`-systemet
+  til **usynlig tekst**: `dark:text-gray-100` på hvid er 1,10:1. `<body>` har nu
+  `bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100` og `scheme-light-dark`, og
+  `task-list.html` og `task-row.html` har fået en `dark:`-modpart til hver farve. Lektionen
+  er, at kontrasten ikke længere holdes af øjemål: `ContrastTests` går alle fire skærme og
+  et udvidet detaljepanel igennem i **begge** farvetemaer og regner forholdet ud på de
+  farver browseren faktisk maler.
+- **Sletning af en opgave taber fokus til `<body>`** (fundet i skive 7, ikke rettet).
+  Rækkens undertræ med den fokuserede knap fjernes, så Chromiums udgangspunkt for
+  sekventielt fokus dør med den, og næste Tab starter forfra øverst på siden. Slettes tre
+  opgaver, tabbes der gennem hele navigationen og listen tre gange. Nåelig, men dyr.
+- **Escape ud af noteredigeringen taber fokusringen** til `<body>` (fundet i skive 7, ikke
+  rettet). Mildere end sletningen — næste Tab fortsætter i nærheden af tekstfeltets gamle
+  plads — men ringen forsvinder.
+- **En færdig række har slet ingen knap**, kun et afkrydsningsfelt og et `<span>`, så en
+  færdig opgave kan ikke udvides med **noget** indtastningsudstyr. Det er en observation om
+  paritet mellem mus og tastatur, ikke et tastaturhul.
 - **SQLite-migrationer der fjerner en kolonne** taber dens data lydløst, fordi
   tabellen bygges om. Læs genererede migrationer; backup-kopien før migrering er
   sidste forsvar.
