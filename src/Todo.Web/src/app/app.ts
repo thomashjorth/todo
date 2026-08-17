@@ -2,11 +2,12 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { HealthClient, HealthResponse } from './api/todo-client';
+import { Shortcut } from './shortcuts/shortcut';
 import { ShortcutStore } from './shortcuts/shortcut-store';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, TranslocoPipe],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, Shortcut, TranslocoPipe],
   templateUrl: './app.html',
   host: {
     '(document:keydown)': 'onKeyDown($event)',

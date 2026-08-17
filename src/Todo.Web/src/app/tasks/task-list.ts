@@ -1,17 +1,20 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
+import { Shortcut } from '../shortcuts/shortcut';
+import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { SystemStore } from '../system/system-store';
 import { TaskRow } from './task-row';
 import { TaskStore } from './task-store';
 
 @Component({
   selector: 'app-task-list',
-  imports: [TaskRow, TranslocoPipe],
+  imports: [Shortcut, TaskRow, TranslocoPipe],
   templateUrl: './task-list.html',
 })
 export class TaskList {
   protected readonly store = inject(TaskStore);
+  protected readonly shortcuts = inject(ShortcutStore);
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly done = TodoStatus.Done;
   protected readonly expandedId = signal<string | null>(null);
