@@ -59,6 +59,17 @@ const parked = {
   waitingDays: null,
 };
 
+// No deadline at all: overdue beats deferred, so a past deadline would land it in another section.
+const deferredItems = [
+  {
+    ...items[1],
+    id: '55555555-5555-5555-5555-555555555555',
+    title: 'Bestil sommerhus',
+    deferUntil: '2026-09-01',
+    bucket: 'deferred',
+  },
+];
+
 const withSubTasks = [
   {
     ...items[0],
@@ -122,6 +133,28 @@ describe('TaskList', () => {
       h.textContent?.trim(),
     );
     expect(headings).toEqual(['Overskredet', 'Uden deadline']);
+  });
+
+  it('should put a deferred task in its own last section and prefill its start date', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [items[0], ...deferredItems] })]));
+
+    const element = await rendered(fixture);
+
+    const headings = [...element.querySelectorAll('[data-testid="task-section"] h2')].map((h) =>
+      h.textContent?.trim(),
+    );
+    expect(headings).toEqual(['Overskredet', 'Udskudt']);
+
+    const row = element.querySelectorAll('[data-testid="task-row"]')[1];
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    expect(row.querySelector<HTMLInputElement>('[data-testid="defer-until-input"]')!.value).toBe(
+      '2026-09-01',
+    );
   });
 
   it('should show the deadline written out in the active language', async () => {

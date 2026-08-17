@@ -40,9 +40,10 @@ describe('TaskStore', () => {
     store = TestBed.inject(TaskStore);
   });
 
-  it('should order sections overdue, today, this week, later, no deadline', () => {
+  it('should order sections overdue, today, this week, later, no deadline, deferred', () => {
     store.tasks.set([
       taskIn(DeadlineBucket.Later),
+      taskIn(DeadlineBucket.Deferred),
       taskIn(DeadlineBucket.NoDeadline),
       taskIn(DeadlineBucket.Today),
       taskIn(DeadlineBucket.Overdue),
@@ -55,6 +56,7 @@ describe('TaskStore', () => {
       DeadlineBucket.ThisWeek,
       DeadlineBucket.Later,
       DeadlineBucket.NoDeadline,
+      DeadlineBucket.Deferred,
     ]);
   });
 
@@ -239,6 +241,22 @@ describe('TaskStore', () => {
 
     const request = http.expectOne(`/api/tasks/${task.id}`);
     expect(JSON.parse(request.request.body).deadline).toBeUndefined();
+  });
+
+  // Every request carries every field, because the API reads an absent field as cleared. While
+  // `current` was missing deferUntil, saving anything else silently wiped a stored start date.
+  it('should keep the start date when only the requester changes', async () => {
+    const task = new TodoTask({
+      ...taskIn(DeadlineBucket.Deferred),
+      deferUntil: '2026-09-01',
+      requester: 'Anna',
+    });
+    const http = TestBed.inject(HttpTestingController);
+
+    void store.update(task, { requester: 'Bo' });
+
+    const request = http.expectOne(`/api/tasks/${task.id}`);
+    expect(JSON.parse(request.request.body).deferUntil).toBe('2026-09-01');
   });
 
   it('should send no request when the update changes nothing', async () => {

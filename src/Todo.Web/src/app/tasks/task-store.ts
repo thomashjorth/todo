@@ -18,6 +18,7 @@ const bucketOrder: readonly DeadlineBucket[] = [
   DeadlineBucket.ThisWeek,
   DeadlineBucket.Later,
   DeadlineBucket.NoDeadline,
+  DeadlineBucket.Deferred,
 ];
 
 export interface TaskSection {
@@ -33,6 +34,7 @@ export interface TaskChanges {
   title?: string;
   note?: string;
   deadline?: string;
+  deferUntil?: string;
   requester?: string;
   status?: TodoStatus;
   waitingOn?: string;
@@ -118,6 +120,7 @@ export class TaskStore {
       title: task.title,
       note: task.note,
       deadline: task.deadline,
+      deferUntil: task.deferUntil,
       requester: task.requester,
       status: task.status,
       waitingOn: task.waitingOn,

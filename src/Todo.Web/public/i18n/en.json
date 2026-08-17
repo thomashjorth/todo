@@ -17,6 +17,7 @@
     "empty": "No tasks.",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",
+    "deferUntil": "Start date",
     "requester": "Requested by",
     "requesterValue": "Requested by: {{value}}",
     "waitingOn": "Waiting for",
@@ -39,6 +40,7 @@
       "thisWeek": "This week",
       "later": "Later",
       "noDeadline": "No deadline",
+      "deferred": "Deferred",
       "waiting": "Waiting for",
       "completed": "Done",
       "someday": "Someday"

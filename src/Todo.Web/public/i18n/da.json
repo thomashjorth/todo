@@ -17,6 +17,7 @@
     "empty": "Ingen opgaver.",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",
+    "deferUntil": "Startdato",
     "requester": "Opgavestiller",
     "requesterValue": "Opgavestiller: {{value}}",
     "waitingOn": "Venter på",
@@ -39,6 +40,7 @@
       "thisWeek": "Denne uge",
       "later": "Senere",
       "noDeadline": "Uden deadline",
+      "deferred": "Udskudt",
       "waiting": "Venter på",
       "completed": "Færdige",
       "someday": "Måske"

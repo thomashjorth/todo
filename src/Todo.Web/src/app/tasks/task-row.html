@@ -63,11 +63,26 @@
       }}</span>
       <input
         #deadline
+        data-testid="deadline-input"
         type="date"
         class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
         [value]="task().deadline ?? ''"
         (blur)="save({ deadline: text(deadline.value) })"
         (keyup.enter)="save({ deadline: text(deadline.value) })"
+      />
+    </label>
+    <label class="block">
+      <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+        'tasks.deferUntil' | transloco
+      }}</span>
+      <input
+        #deferUntil
+        data-testid="defer-until-input"
+        type="date"
+        class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
+        [value]="task().deferUntil ?? ''"
+        (blur)="save({ deferUntil: text(deferUntil.value) })"
+        (keyup.enter)="save({ deferUntil: text(deferUntil.value) })"
       />
     </label>
     <label class="block">
