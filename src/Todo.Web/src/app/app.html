@@ -61,6 +61,14 @@
   @if (status(); as s) {
     <p data-testid="health" class="mt-8 text-xs text-gray-500 dark:text-gray-400">
       {{ 'app.health' | transloco: { status: s.status, version: s.version } }}
+      <button
+        type="button"
+        data-testid="api-docs"
+        class="ml-2 text-blue-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:text-blue-300 dark:focus-visible:outline-blue-400"
+        (click)="openApiDocs()"
+      >
+        {{ 'app.apiDocs' | transloco }}
+      </button>
     </p>
   } @else if (failed()) {
     <p data-testid="health" class="mt-8 text-xs text-red-600 dark:text-red-400">

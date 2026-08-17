@@ -4,6 +4,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { HealthClient, HealthResponse } from './api/todo-client';
 import { Shortcut } from './shortcuts/shortcut';
 import { ShortcutStore } from './shortcuts/shortcut-store';
+import { SystemStore } from './system/system-store';
 
 @Component({
   selector: 'app-root',
@@ -18,6 +19,8 @@ import { ShortcutStore } from './shortcuts/shortcut-store';
 export class App {
   private readonly health = inject(HealthClient);
 
+  private readonly system = inject(SystemStore);
+
   protected readonly shortcuts = inject(ShortcutStore);
 
   protected readonly status = signal<HealthResponse | undefined>(undefined);
@@ -28,6 +31,11 @@ export class App {
       next: (r) => this.status.set(r),
       error: () => this.failed.set(true),
     });
+  }
+
+  /** Porten er tilfældig, så URL'en bygges fra appens egen origin. */
+  protected openApiDocs(): void {
+    this.system.openLink(`${location.origin}/scalar/`).catch(() => {});
   }
 
   protected onKeyDown(event: KeyboardEvent): void {

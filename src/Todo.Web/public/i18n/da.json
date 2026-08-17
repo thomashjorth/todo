@@ -2,7 +2,8 @@
   "app": {
     "title": "Mandalorian ToDo",
     "health": "API: {{status}} (v{{version}})",
-    "healthUnavailable": "API: ikke tilgængelig"
+    "healthUnavailable": "API: ikke tilgængelig",
+    "apiDocs": "API-dokumentation"
   },
   "nav": {
     "tasks": "Opgaver",
