@@ -145,8 +145,11 @@ forkerte grund.
   `/api/system/open-link` opsnappes med `page.RouteAsync` og afbrydes; ellers åbner hver
   testkørsel en rigtig browser.
 - **Kontrast måles i browseren** med `getComputedStyle`, fordi kun browseren har afgjort hvilken
-  baggrund et stykke tekst endte på. `ContrastTests` går alle fire skærme igennem i begge
-  farvetemaer.
+  baggrund et stykke tekst endte på. `ContrastTests` går appens **tre** skærme igennem i begge
+  farvetemaer — `app.routes.ts` har præcis tre ruter: opgavelisten, importen og indstillingerne
+  — og måler derudover det **udvidede detaljepanel**, hvor noten, underopgaverne og
+  statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en fjerde skærm; tæl det
+  ikke som en.
 - **`getComputedStyle` giver `oklch(...)`, ikke `rgb(...)`** for farver skrevet i oklch. En regex
   over cifrene læser `oklch(0.967 0.003 264.542)` som en blå kanal på 264 — og vagtens første
   udgave gav derfor **usynlig tekst omkring 8:1 og bestod**. Mal farven på et 1×1-canvas og læs
@@ -156,11 +159,27 @@ forkerte grund.
   forkerte farve. `dark:bg-gray-800` på detaljepanelet lukkede syv fejl og afdækkede syv nye;
   tallet blev stående på 15, mens der reelt blev gjort fremskridt. **Læs hvilke poster der
   ændrede sig, ikke antallet.**
+- **Et felts værdi er ikke en tekstknude.** Kontrastgennemgangen samlede børnenes tekstknuder, og
+  derfor havde `<textarea>` og `<input>` **ingen målbar tekst overhovedet** — at nå frem til
+  noteeditoren var ikke det samme som at måle den. Bevist frem for antaget: editoren blev malet
+  `text-gray-400 dark:text-gray-600` (2,49:1 og 1,94:1), og vagten bestod stadig. Den måler nu
+  `el.value` for de felttyper der faktisk maler deres værdi, med en hvidliste — et
+  afkrydsningsfelts værdi er strengen `"on"`, og at give feltet skylden for den ville være en
+  fejl ingen kan se eller rette.
+- **En udvidet vagt kan finde ingenting og stadig være værd at udvide.** At føre gennemgangen ud
+  over noter, underopgaver, de analyserede importrækker og aliasrækkerne gav **nul** nye
+  farvefejl — forudsigelsen om at `@tailwindcss/typography` ville fejle holdt ikke. Hvad den til
+  gengæld afdækkede, var blindvinklen ovenfor. Læs ikke "ingen nye fejl" som "udvidelsen var
+  spildt".
 
 ## Testtal
 
-Efter skive 7: **33** Todo.Core.Tests, **109** Todo.Api.Tests, **12** Todo.E2E, **134** Vitest.
+Efter skive 7: **33** Todo.Core.Tests, **109** Todo.Api.Tests, **14** Todo.E2E, **134** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
 Vitest gik fra 133 til 134 — ikke af tilgængelighedsarbejdet, men af regressionstesten for
 `TaskStore`-fejlen, hvor to loads i luften på én gang kunne lade det ældste svar overskrive den
 nyeste liste.
+E2E gik fra 12 til 14, fordi kontrastvagtens dækning blev udvidet efter første gennemløb: den
+tomme liste er en skærmtilstand rejsen ikke kan nå, og den blev lagt til som en `[Theory]` over
+begge farvetemaer. Tallet flyttede sig altså to gange i samme skive — se 12 i en ældre rapport
+som forældet, ikke som en tabt test.

@@ -369,6 +369,11 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    så gennemgangen rammer alle skærme, alle strenge og alle markdown-elementer én gang.
    Samlet i én skive, fordi hver farve ellers skulle kontrasttjekkes to gange.
    **Udskudt to gange** — først af markdown, så af GTD-tilstandene. **Færdig.**
+   *Løftet om markdown-elementerne hviler på en test frem for en gennemlæsning: `ContrastTests`
+   sår en note med overskrift, brødtekst, link, kode inline, kodeblok, punktopstilling, citat og
+   tabel, og måler dem alle i **begge** farvetemaer. `@tailwindcss/typography`s egen palette holdt
+   AA på begge baggrunde, så ingen farve skulle rettes for det. Hvad vagten stadig **ikke** måler,
+   står i afsnit 10.*
    *Alt-genvejssystemet blev skilt ud undervejs og står nu under "Ønsket, men ikke
    placeret endnu": skiven var en audit, afgrænset af en vagt der siger hvornår den er
    færdig, mens genvejene er en ny funktion med egne designvalg. Argumentet om at
@@ -424,10 +429,35 @@ glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede sk
   En `<body>` uden baggrund giver ikke blot forkerte farver — den gør hele `dark:`-systemet
   til **usynlig tekst**: `dark:text-gray-100` på hvid er 1,10:1. `<body>` har nu
   `bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100` og `scheme-light-dark`, og
-  `task-list.html` og `task-row.html` har fået en `dark:`-modpart til hver farve. Lektionen
-  er, at kontrasten ikke længere holdes af øjemål: `ContrastTests` går alle fire skærme og
-  et udvidet detaljepanel igennem i **begge** farvetemaer og regner forholdet ud på de
-  farver browseren faktisk maler.
+  `task-list.html` og `task-row.html` har fået `dark:`-modparter så godt som overalt. Lektionen
+  er, at kontrasten ikke længere holdes af øjemål: `ContrastTests` går appens **tre** skærme
+  igennem i **begge** farvetemaer — `app.routes.ts` har præcis tre ruter: opgavelisten, importen
+  og indstillingerne — og måler derudover det **udvidede detaljepanel** med noten, underopgaverne
+  og statusvælgeren. Panelet er en tilstand på opgavelisten, ikke en fjerde skærm.
+- **Én farve står tilbage uden `dark:`-modpart, og det er bevidst** (opgjort i skive 7).
+  Overskredet-sektionens ramme i `task-list.html` er
+  `section.bucket === overdue ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'` — den
+  første gren har ingen modpart, mens dens søskende har. Kontrasten er i orden: `red-500` er
+  **4,65:1** på `gray-900` og 3,82:1 på hvid, altså over 3:1 for ikke-tekst i begge temaer
+  (regnet ud af `node_modules/tailwindcss/theme.css`, hvor `red-500` er
+  `oklch(63.7% 0.237 25.331)`). **Ret den ikke i blinde** — påstanden om en modpart til *hver*
+  farve var forkert, farven er ikke. Bemærk samtidig, at flere par med vilje har **samme** værdi
+  på begge sider — `border-gray-500 dark:border-gray-500` på nyt-opgave-feltet og
+  `border-amber-600 dark:border-amber-600` på Venter på-sektionen — fordi den lyse side blev
+  hævet for at nå 3:1. De ser overflødige ud og er det ikke.
+- **Tre fejllinjer er uden for vagtens rækkevidde** (opgjort i skive 7). `settings-error`,
+  `retro-error` og health-linjens `failed()`-gren kræver hver en request der fejler, og testen har
+  ingen ærlig måde at provokere det. Deres farvepar er dækket andetsteds:
+  `text-red-700 dark:text-red-300` gennem `alias-error`, og `text-red-600 dark:text-red-400`
+  gennem den overskredne deadline og `delete-subtask`. Det er farverne der er dækket, ikke
+  linjerne.
+- **Ikke-tekst-kontrast er slet ikke vagtet** (opgjort i skive 7). Vagten måler tekst, så rammer
+  og fokusringen hviler på måling uden for testen. Det er præcis dét hul, der lod tre fejlende
+  feltrammer på importskærmen leve, indtil et review fangede dem.
+- **Fokusringen er kun sikret i lyst tema** (opgjort i skive 7). `FocusTests` måler den malede
+  ring på nyt-opgave-feltet og sprogvælgeren i lyst tema;
+  `dark:focus-visible:outline-blue-400` er uvagtet, det samme er `outline-offset-2`, og
+  aliasfeltet har ingen fokustest overhovedet.
 - **Sletning af en opgave taber fokus til `<body>`** (fundet i skive 7, ikke rettet).
   Rækkens undertræ med den fokuserede knap fjernes, så Chromiums udgangspunkt for
   sekventielt fokus dør med den, og næste Tab starter forfra øverst på siden. Slettes tre

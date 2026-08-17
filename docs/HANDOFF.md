@@ -16,7 +16,7 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 4 | Noter i fuld CommonMark, renderet, klik for at redigere. Links åbner i systemets browser | `2026-08-14-slice-4-markdown-notes.md` |
 | 5 | "Venter på" og "Måske" som statusser, med hvem og hvor længe | `2026-08-14-slice-5-waiting-and-someday.md` |
 | 6 | TypeScript strict mode, og opgaverækken som en typet børnekomponent frem for en delt `ng-template` | `2026-08-17-slice-6-typescript-strict.md` |
-| 7 | WCAG AA i begge temaer med en kontrastvagt der måler i browseren, `dark:`-modparter overalt, synligt fokus og en tastaturgennemgang | `2026-08-17-slice-7-accessibility.md` |
+| 7 | WCAG AA i begge temaer med en kontrastvagt der måler i browseren, `dark:`-modparter så godt som overalt (én bevidst undtagelse, se designdokumentets afsnit 10), synligt fokus og en tastaturgennemgang | `2026-08-17-slice-7-accessibility.md` |
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, og `ApiTest`/`BrowserTest`-basisklasser.
