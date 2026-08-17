@@ -49,7 +49,7 @@
       >
         {{ sectionKey(section.bucket) | transloco }}
       </h2>
-      <ul class="mt-1 divide-y divide-gray-100">
+      <ul class="mt-1 divide-y divide-gray-100 dark:divide-gray-700">
         @for (task of section.tasks; track task.id) {
           <li
             appTaskRow
@@ -78,7 +78,7 @@
       <h2 class="text-xs font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">
         {{ 'tasks.sections.waiting' | transloco }}
       </h2>
-      <ul class="mt-1 divide-y divide-gray-100">
+      <ul class="mt-1 divide-y divide-gray-100 dark:divide-gray-700">
         @for (task of store.waitingTasks(); track task.id) {
           <li
             appTaskRow
@@ -103,7 +103,7 @@
       <h2 class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
         {{ 'tasks.sections.completed' | transloco }}
       </h2>
-      <ul class="mt-1 divide-y divide-gray-100">
+      <ul class="mt-1 divide-y divide-gray-100 dark:divide-gray-700">
         @for (task of completed(); track task.id) {
           <li data-testid="task-row" class="flex items-start gap-2 py-2">
             <input
@@ -133,7 +133,7 @@
       <h2 class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
         {{ 'tasks.sections.someday' | transloco }}
       </h2>
-      <ul class="mt-1 divide-y divide-gray-100">
+      <ul class="mt-1 divide-y divide-gray-100 dark:divide-gray-700">
         @for (task of someday(); track task.id) {
           <li
             appTaskRow
