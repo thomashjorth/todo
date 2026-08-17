@@ -77,14 +77,24 @@ public static class TodoHost
         // egen assembly og servérer den fra /scalar/scalar.js, så siden virker uden netværk.
         // Appen kan være offline; en CDN-hentet bundle ville give en tom side.
         //
-        // DisableDefaultFonts er det eneste sted Scalar ellers rækker udenfor: Inter og
-        // JetBrains Mono hentes fra fonts.scalar.com. Uden netværk ville de fejle stille og
-        // siden falde tilbage på systemfonten — men så er der ingen fremmede kald tilbage.
+        // Der er to steder Scalar ellers rækker udenfor, og de blev fundet på hver sin måde.
+        //
+        // DisableDefaultFonts: Inter og JetBrains Mono hentes fra fonts.scalar.com gennem
+        // @font-face i den serverede bundle. Uden netværk fejler de stille, og siden falder tilbage
+        // på systemfonten.
+        //
+        // DisableAgent: "Ask AI"-knappen slår op i Scalars registry, så siden henter
+        // api.scalar.com/vector/registry/curated og /vector/registry/search?query= efter render.
+        // De to kald kan man ikke se i HTML'en eller i bundlens tekst — de kommer fra JavaScript
+        // efter mount, og ApiDocsJourneyTests fandt dem ved at afvise alt der ikke var appens egen
+        // origin. Knappen ville ikke kunne virke her alligevel: den taler med Scalars tjeneste over
+        // netværket, og appen kan være offline.
         //
         // OpenApiRoutePattern peger siden på kontrakten frem for på /openapi/v1.json, som er
         // Scalars standard. Mønstret har intet {documentName}-pladsholder, så det står som det er.
         app.MapScalarApiReference(options => options
             .DisableDefaultFonts()
+            .DisableAgent()
             .WithOpenApiRoutePattern(ContractRoute));
 
         app.UseDefaultFiles();
