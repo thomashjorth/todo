@@ -10,6 +10,7 @@
   />
   @if (shortcuts.altHeld()) {
     <span
+      data-testid="shortcut-badge"
       aria-hidden="true"
       class="absolute top-1/2 right-2 -translate-y-1/2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
       >N</span
@@ -23,7 +24,7 @@
       #showCompleted
       data-testid="show-completed"
       appShortcut="v"
-      appShortcutAction="click"
+      appShortcutAction="activate"
       type="checkbox"
       [checked]="store.showCompleted()"
       (change)="setShowCompleted(showCompleted.checked)"
@@ -31,6 +32,7 @@
     {{ 'tasks.showCompleted' | transloco }}
     @if (shortcuts.altHeld()) {
       <span
+        data-testid="shortcut-badge"
         aria-hidden="true"
         class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
         >V</span
@@ -42,7 +44,7 @@
       #showSomeday
       data-testid="show-someday"
       appShortcut="m"
-      appShortcutAction="click"
+      appShortcutAction="activate"
       type="checkbox"
       [checked]="store.showSomeday()"
       (change)="setShowSomeday(showSomeday.checked)"
@@ -50,6 +52,7 @@
     {{ 'tasks.showSomeday' | transloco }}
     @if (shortcuts.altHeld()) {
       <span
+        data-testid="shortcut-badge"
         aria-hidden="true"
         class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
         >M</span

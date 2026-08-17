@@ -9,7 +9,7 @@ import { ShortcutStore } from './shortcut-store';
 })
 export class Shortcut implements OnInit, OnDestroy {
   readonly appShortcut = input.required<string>();
-  readonly appShortcutAction = input<'focus' | 'click'>('focus');
+  readonly appShortcutAction = input<'focus' | 'activate'>('focus');
 
   private readonly store = inject(ShortcutStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -17,16 +17,15 @@ export class Shortcut implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.store.register(this.appShortcut(), () => {
       const element = this.host.nativeElement;
-
-      // A checkbox has to be clicked, not focused: focusing it moves the ring and changes
-      // nothing, while the keystroke is swallowed anyway. click() also fires the change
-      // event the template is listening for.
-      if (this.appShortcutAction() === 'click') {
-        element.click();
-        return;
-      }
-
       element.focus();
+
+      // Windows-konventionen: en genvej udfører elementets aktiveringshandling, ikke bare
+      // markerer det. Et afkrydsningsfelt skifter, et link følges. Kun et tekstfelt har
+      // ingen aktivering ud over at få fokus. Fokus flytter i begge tilfælde, fordi et
+      // programmatisk click() ikke selv flytter det.
+      if (this.appShortcutAction() === 'activate') {
+        element.click();
+      }
     });
   }
 

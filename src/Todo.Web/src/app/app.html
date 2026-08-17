@@ -4,6 +4,7 @@
     <a
       data-testid="nav-tasks"
       appShortcut="o"
+      appShortcutAction="activate"
       class="text-sm text-gray-600 dark:text-gray-400"
       routerLink="/"
       routerLinkActive="font-semibold text-gray-900 underline dark:text-gray-100"
@@ -12,6 +13,7 @@
       >{{ 'nav.tasks' | transloco }}
       @if (shortcuts.altHeld()) {
         <span
+          data-testid="shortcut-badge"
           aria-hidden="true"
           class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
           >O</span
@@ -21,6 +23,7 @@
     <a
       data-testid="nav-import"
       appShortcut="i"
+      appShortcutAction="activate"
       class="text-sm text-gray-600 dark:text-gray-400"
       routerLink="/import"
       routerLinkActive="font-semibold text-gray-900 underline dark:text-gray-100"
@@ -28,6 +31,7 @@
       >{{ 'nav.import' | transloco }}
       @if (shortcuts.altHeld()) {
         <span
+          data-testid="shortcut-badge"
           aria-hidden="true"
           class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
           >I</span
@@ -37,6 +41,7 @@
     <a
       data-testid="nav-settings"
       appShortcut="s"
+      appShortcutAction="activate"
       class="text-sm text-gray-600 dark:text-gray-400"
       routerLink="/settings"
       routerLinkActive="font-semibold text-gray-900 underline dark:text-gray-100"
@@ -44,6 +49,7 @@
       >{{ 'nav.settings' | transloco }}
       @if (shortcuts.altHeld()) {
         <span
+          data-testid="shortcut-badge"
           aria-hidden="true"
           class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
           >S</span
