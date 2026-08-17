@@ -420,7 +420,23 @@ Se afvejningen under Beslutninger — det er et valg, ikke et krav:
 - `task-list.html:38` — `border-red-200` → `border-red-500` (1,45:1 → 3,82:1), og `border-gray-200` i samme udtryk bliver stående.
 - `task-list.html:64` — `border-amber-300` → `border-amber-600` (1,45:1 → 3,19:1). `dark:border-amber-600` er 5,56:1 og bliver stående.
 
-**Step 4: Byg og kør vagten**
+**Step 4: De indbyggede kontroller — `color-scheme`, ikke tekstfarver**
+
+Vagten fandt fem `<option>`-poster på 1,05:1 i mørkt tema. De kan **ikke** rettes med `dark:text-*`: statusvælgeren i `task-row.html` har slet ingen farveklasser, og en åben `<option>`-liste males af operativsystemet, ikke af siden. Det samme gælder `<input type="date">`s datovælger, afkrydsningsfelterne og rullepanelerne.
+
+Den rigtige rettelse er at fortælle browseren, at siden understøtter begge temaer. Tilføj **`scheme-light-dark`** til `<body>` i `src/index.html`:
+
+```html
+<body class="scheme-light-dark bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+```
+
+Det sætter `color-scheme: light dark`, som browseren selv afstemmer efter systemets tema — derfor **ingen `dark:`-variant**, én klasse dækker begge. Verificeret at findes i Tailwind 4.3.3.
+
+**Bemærk konsekvensen for vagten:** `backgroundOf` i `TodoApp.cs` falder tilbage til hvid med kommentaren *"this app declares no color-scheme, so that canvas is white in both themes"*. Det er ikke længere sandt. Tilbagefaldet udløses aldrig nu, fordi `<body>` er uigennemsigtig — men **ret kommentaren**, ellers står der en påstand i koden som ikke holder.
+
+Er de fem `<option>`-poster stadig røde bagefter, så rapportér det frem for at farve `<option>`-elementerne: det ville være at bekæmpe symptomet, og en OS-malet popup lader sig alligevel ikke style pålideligt.
+
+**Step 5: Byg og kør vagten**
 
 ```
 powershell -ExecutionPolicy Bypass -File scripts\build-web.ps1
@@ -431,11 +447,11 @@ Forventet: **det lyse tilfælde er nu grønt.** Det mørke har stadig Task 4's f
 
 Er det lyse stadig rødt, så læs fejlteksten: den nævner elementet og forholdet, og der er et sted mere med `gray-400` end de fire ovenfor.
 
-**Step 5: Commit**
+**Step 6: Commit**
 
 ```
-git add src/Todo.Web/src/app
-git commit -m "🎨 Hæv de fire farver der ikke holdt AA i lyst tema"
+git add src/Todo.Web/src
+git commit -m "🎨 Hæv de farver der ikke holdt AA, og lad kontrollerne følge temaet"
 ```
 
 ---
