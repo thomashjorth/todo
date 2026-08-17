@@ -104,6 +104,10 @@ namespace Todo.Contracts
         [System.Runtime.Serialization.EnumMember(Value = @"noDeadline")]
         NoDeadline = 4,
 
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"deferred")]
+        [System.Runtime.Serialization.EnumMember(Value = @"deferred")]
+        Deferred = 5,
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -144,6 +148,12 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("deadline")]
         public System.DateOnly? Deadline { get; set; }
+
+        /// <summary>
+        /// The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("deferUntil")]
+        public System.DateOnly? DeferUntil { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("requester")]
         public string Requester { get; set; }
@@ -205,6 +215,12 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("deadline")]
         public System.DateOnly? Deadline { get; set; }
 
+        /// <summary>
+        /// The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("deferUntil")]
+        public System.DateOnly? DeferUntil { get; set; }
+
         [System.Text.Json.Serialization.JsonPropertyName("requester")]
         public string Requester { get; set; }
 
@@ -224,6 +240,12 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("deadline")]
         public System.DateOnly? Deadline { get; set; }
+
+        /// <summary>
+        /// The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("deferUntil")]
+        public System.DateOnly? DeferUntil { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("requester")]
         public string Requester { get; set; }

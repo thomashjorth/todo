@@ -375,7 +375,7 @@ components:
       enum: [open, inProgress, waitingFor, someday, done]
     DeadlineBucket:
       type: string
-      enum: [overdue, today, thisWeek, later, noDeadline]
+      enum: [overdue, today, thisWeek, later, noDeadline, deferred]
     TodoSubTask:
       type: object
       additionalProperties: false
@@ -394,6 +394,14 @@ components:
         title: { type: string }
         note: { type: string, nullable: true }
         deadline: { type: string, format: date, nullable: true }
+        deferUntil:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The date the task becomes actionable. Before it the task is deferred and
+            stays out of the deadline sections; it returns to the list on its own when
+            the date arrives.
         requester: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/TodoStatus' }
         bucket: { $ref: '#/components/schemas/DeadlineBucket' }
@@ -423,6 +431,14 @@ components:
         title: { type: string, minLength: 1, maxLength: 500 }
         note: { type: string, nullable: true }
         deadline: { type: string, format: date, nullable: true }
+        deferUntil:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The date the task becomes actionable. Before it the task is deferred and
+            stays out of the deadline sections; it returns to the list on its own when
+            the date arrives.
         requester: { type: string, nullable: true }
     UpdateTodoTaskRequest:
       type: object
@@ -432,6 +448,14 @@ components:
         title: { type: string, minLength: 1, maxLength: 500 }
         note: { type: string, nullable: true }
         deadline: { type: string, format: date, nullable: true }
+        deferUntil:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The date the task becomes actionable. Before it the task is deferred and
+            stays out of the deadline sections; it returns to the list on its own when
+            the date arrives.
         requester: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/TodoStatus' }
         waitingOn: { type: string, nullable: true }

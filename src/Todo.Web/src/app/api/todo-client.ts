@@ -1085,6 +1085,7 @@ export enum DeadlineBucket {
     ThisWeek = "thisWeek",
     Later = "later",
     NoDeadline = "noDeadline",
+    Deferred = "deferred",
 }
 
 export class TodoSubTask implements ITodoSubTask {
@@ -1137,6 +1138,8 @@ export class TodoTask implements ITodoTask {
     title!: string;
     note?: string | undefined;
     deadline?: string | undefined;
+    /** The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives. */
+    deferUntil?: string | undefined;
     requester?: string | undefined;
     status!: TodoStatus;
     bucket!: DeadlineBucket;
@@ -1166,6 +1169,7 @@ export class TodoTask implements ITodoTask {
             this.title = _data["title"];
             this.note = _data["note"];
             this.deadline = _data["deadline"];
+            this.deferUntil = _data["deferUntil"];
             this.requester = _data["requester"];
             this.status = _data["status"];
             this.bucket = _data["bucket"];
@@ -1196,6 +1200,7 @@ export class TodoTask implements ITodoTask {
         data["title"] = this.title;
         data["note"] = this.note;
         data["deadline"] = this.deadline;
+        data["deferUntil"] = this.deferUntil;
         data["requester"] = this.requester;
         data["status"] = this.status;
         data["bucket"] = this.bucket;
@@ -1219,6 +1224,8 @@ export interface ITodoTask {
     title: string;
     note?: string | undefined;
     deadline?: string | undefined;
+    /** The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives. */
+    deferUntil?: string | undefined;
     requester?: string | undefined;
     status: TodoStatus;
     bucket: DeadlineBucket;
@@ -1281,6 +1288,8 @@ export class CreateTodoTaskRequest implements ICreateTodoTaskRequest {
     title!: string;
     note?: string | undefined;
     deadline?: string | undefined;
+    /** The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives. */
+    deferUntil?: string | undefined;
     requester?: string | undefined;
 
     constructor(data?: ICreateTodoTaskRequest) {
@@ -1297,6 +1306,7 @@ export class CreateTodoTaskRequest implements ICreateTodoTaskRequest {
             this.title = _data["title"];
             this.note = _data["note"];
             this.deadline = _data["deadline"];
+            this.deferUntil = _data["deferUntil"];
             this.requester = _data["requester"];
         }
     }
@@ -1313,6 +1323,7 @@ export class CreateTodoTaskRequest implements ICreateTodoTaskRequest {
         data["title"] = this.title;
         data["note"] = this.note;
         data["deadline"] = this.deadline;
+        data["deferUntil"] = this.deferUntil;
         data["requester"] = this.requester;
         return data;
     }
@@ -1322,6 +1333,8 @@ export interface ICreateTodoTaskRequest {
     title: string;
     note?: string | undefined;
     deadline?: string | undefined;
+    /** The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives. */
+    deferUntil?: string | undefined;
     requester?: string | undefined;
 }
 
@@ -1329,6 +1342,8 @@ export class UpdateTodoTaskRequest implements IUpdateTodoTaskRequest {
     title!: string;
     note?: string | undefined;
     deadline?: string | undefined;
+    /** The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives. */
+    deferUntil?: string | undefined;
     requester?: string | undefined;
     status!: TodoStatus;
     waitingOn?: string | undefined;
@@ -1347,6 +1362,7 @@ export class UpdateTodoTaskRequest implements IUpdateTodoTaskRequest {
             this.title = _data["title"];
             this.note = _data["note"];
             this.deadline = _data["deadline"];
+            this.deferUntil = _data["deferUntil"];
             this.requester = _data["requester"];
             this.status = _data["status"];
             this.waitingOn = _data["waitingOn"];
@@ -1365,6 +1381,7 @@ export class UpdateTodoTaskRequest implements IUpdateTodoTaskRequest {
         data["title"] = this.title;
         data["note"] = this.note;
         data["deadline"] = this.deadline;
+        data["deferUntil"] = this.deferUntil;
         data["requester"] = this.requester;
         data["status"] = this.status;
         data["waitingOn"] = this.waitingOn;
@@ -1376,6 +1393,8 @@ export interface IUpdateTodoTaskRequest {
     title: string;
     note?: string | undefined;
     deadline?: string | undefined;
+    /** The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives. */
+    deferUntil?: string | undefined;
     requester?: string | undefined;
     status: TodoStatus;
     waitingOn?: string | undefined;
