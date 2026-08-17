@@ -8,6 +8,13 @@
     <Content Include="..\Todo.Web\public\favicon.ico" Link="icon.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Kontrakten følger med ind i assemblyen, fordi dokumentationssiden servérer den selv.
+         Den ligger ikke i noget build-output, og RepoPaths finder den kun ved at gå op til
+         Todo.sln, som ikke findes ved siden af en udgivet exe. Et fast LogicalName, så
+         ressourcenavnet ikke afhænger af mappelayoutet. -->
+    <EmbeddedResource Include="..\..\contracts\openapi.yaml" LogicalName="Todo.Host.openapi.yaml" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
