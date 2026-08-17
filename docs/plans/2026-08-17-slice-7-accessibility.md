@@ -94,6 +94,9 @@ Fordelt: `app.html` 2, `task-list.html` 8, `task-row.html` 18. `settings.html` o
 
 - **`text-gray-400` findes fire steder med to forskellige betydninger.** På health-linjen og på et pladsholder-felt er den "sekundær". På den færdige opgaves titel og på en afkrydset underopgave er den "gennemstreget og dæmpet". Begge skal op til `gray-500`; intentionen holder, kontrasten kommer med.
 - **`placeholder-gray-400` fanges ikke af en almindelig DOM-gennemgang.** Pladsholderfarven ligger på `::placeholder`, ikke på elementet. Vagten skal spørge `getComputedStyle(el, '::placeholder')` særskilt, ellers er den blind for et felt brugeren ser hver gang appen åbnes.
+- **`getComputedStyle` returnerer `oklch(...)`, ikke `rgb(...)`.** En farve serialiseres i det rum den er skrevet i, og Tailwind 4's palette er oklch. En regex over cifrene læser derfor `oklch(0.967 0.003 264.542)` som en blå kanal på 264 — og resultatet er ikke en lille skævhed: **usynlig tekst fik ~8:1 og bestod.** Mal farven på et 1×1-canvas og læs pixlen tilbage, så laver browseren omregningen. Fundet 2026-08-17, efter at planen først foreskrev regex-udgaven.
+- **Transloco har ikke interpoleret teksten straks efter navigation.** Et element uden tekstknude er usynligt for målingen, så en test der måler for tidligt tæller for få fejl — målt til 19, 13 og 23 på tre kørsler. `ToBeVisibleAsync` fanger det ikke; vent på **teksten**.
+- **`Assert.Empty` printer kun de første fem elementer.** Når fejllisten *er* arbejdslisten, skal beskeden indeholde den hele.
 - **En kontrasttest der går gennem `body *` rammer også skjult tekst.** Filtrér på `display`, `visibility`, `opacity` og tom tekst, ellers fejler den på noget brugeren ikke kan se — og så bliver den slukket i stedet for læst.
 - **Ret ikke `dark:text-gray-400` til 500.** Se asymmetrien.
 - **Skiven flytter ingen markup og ingen struktur.** Kun farver og fokus. Ændrer et `<span>` plads, brydes `TaskListScreen.RowTitled`, som matcher rækkeknappens fulde tilgængelige navn.
@@ -162,7 +165,28 @@ Den regner i browseren, hvor de faktiske farver er. Tilføj til `TodoApp.cs`:
     public Task<string[]> ContrastFailuresAsync() => Page.EvaluateAsync<string[]>(
         """
         () => {
-          const channels = (c) => (c.match(/[\d.]+/g) ?? []).map(Number);
+          // Tailwind's palette is oklch, and getComputedStyle hands back the colour in the space
+          // it was authored in — so a regex over the digits would read oklch(0.967 0.003 264.542)
+          // as a blue channel of 264. Painting the colour and reading the pixel back makes the
+          // browser do the conversion, for every syntax it supports.
+          const surface = document.createElement('canvas');
+          surface.width = surface.height = 1;
+          const ctx = surface.getContext('2d', { willReadFrequently: true });
+          ctx.globalCompositeOperation = 'copy';
+
+          const channels = (css) => {
+            // Reset first: an unparseable colour leaves fillStyle alone, and without this it
+            // would silently inherit whatever the previous element was.
+            ctx.fillStyle = '#000';
+            ctx.fillStyle = css;
+            ctx.fillRect(0, 0, 1, 1);
+
+            const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+            return [r, g, b, a / 255];
+          };
+
+          const over = ([r, g, b, a], [br, bg, bb]) =>
+            [r * a + br * (1 - a), g * a + bg * (1 - a), b * a + bb * (1 - a)];
 
           const luminance = ([r, g, b]) => {
             const lin = [r, g, b].map((v) => {
@@ -375,6 +399,7 @@ git commit -m "🎨 Giv skallen en baggrund i begge temaer"
 
 - `app.html:32` — health-linjen: `class="mt-8 text-xs text-gray-400"` → `class="mt-8 text-xs text-gray-500 dark:text-gray-400"`
 - `task-list.html:6` — pladsholderen: `placeholder-gray-400` → `placeholder-gray-500 dark:placeholder-gray-400`
+- `task-row.html:182` — **feltet til en ny underopgave har slet ingen `placeholder-*`-klasse** og arver derfor Chromes egen pladsholderfarve, som fejler med 3,97:1 i **begge** temaer. Fundet af vagten, ikke af planen: klasseoptællingen kunne kun se de klasser der stod der. Tilføj `placeholder-gray-500 dark:placeholder-gray-400`.
 - `task-list.html:109` — den færdige opgaves titel: `text-gray-400 line-through` → `text-gray-500 line-through dark:text-gray-400`
 - `task-row.html:168` — den afkrydsede underopgave: `text-gray-400 line-through` → `text-gray-500 line-through dark:text-gray-400`
 
