@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Scalar.AspNetCore;
 using Todo.Host.Endpoints;
 using Todo.Host.Links;
 
@@ -39,6 +40,17 @@ public static class TodoHost
         }
 
         app.MapOpenApi();
+
+        // Dokumentationssiden ligger på /scalar/ — uden for /api/, så den ikke forveksles med
+        // appens eget API. Scalar 2.16 lægger sin JavaScript-bundle som embedded resource i sin
+        // egen assembly og servérer den fra /scalar/scalar.js, så siden virker uden netværk.
+        // Appen kan være offline; en CDN-hentet bundle ville give en tom side.
+        //
+        // DisableDefaultFonts er det eneste sted Scalar ellers rækker udenfor: Inter og
+        // JetBrains Mono hentes fra fonts.scalar.com. Uden netværk ville de fejle stille og
+        // siden falde tilbage på systemfonten — men så er der ingen fremmede kald tilbage.
+        app.MapScalarApiReference(options => options.DisableDefaultFonts());
+
         app.UseDefaultFiles();
         app.UseStaticFiles();
 
