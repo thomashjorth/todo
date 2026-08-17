@@ -79,7 +79,7 @@ Fordelt: `app.html` 2, `task-list.html` 8, `task-row.html` 18. `settings.html` o
 | Emne | Valg |
 | --- | --- |
 | Vagten | Playwright + `getComputedStyle`, ikke statisk klasseanalyse. Browseren har allerede parret tekst med baggrund. |
-| Vagten kører | To testtilfælde, `ColorScheme.Light` og `ColorScheme.Dark`, hver gennem alle fire skærme plus et udfoldet detaljepanel. |
+| Vagten kører | To testtilfælde, `ColorScheme.Light` og `ColorScheme.Dark`, hver gennem appens tre skærme plus et udfoldet detaljepanel. `app.routes.ts` har tre ruter; panelet er en tilstand, ikke en fjerde skærm. |
 | Mørk baggrund | `dark:bg-gray-900` på `<body>`. Alle syv `dark:`-tekstfarver i brug klarer 4,5:1 på den. |
 | Hvor baggrunden sættes | Klasser på `<body>` i `src/index.html`. **Ikke** en CSS-regel — konventionen tillader kun `@plugin`-linjen i `styles.css`. |
 | Dæmpet tekst | `text-gray-500 dark:text-gray-400`. Se asymmetrien ovenfor. |
@@ -764,7 +764,7 @@ Under **Styling** hører de tre ting, der kostede denne skive:
 > **Pladsholderfarve ligger på `::placeholder`**, ikke på elementet. En DOM-gennemgang der kun
 > læser `style.color` er blind for et felt brugeren ser hver gang appen åbnes.
 
-Og under **Testdisciplin** den nye vagt: at kontrast måles i browseren med `getComputedStyle`, fordi parringen mellem tekst og baggrund kun findes der, og at `ContrastTests` dækker begge farvetemaer over alle fire skærme.
+Og under **Testdisciplin** den nye vagt: at kontrast måles i browseren med `getComputedStyle`, fordi parringen mellem tekst og baggrund kun findes der, og at `ContrastTests` dækker begge farvetemaer over appens tre skærme og det udfoldede detaljepanel.
 
 **Step 5: Testtal**
 
@@ -781,7 +781,7 @@ git commit -m "📝 Ret kontrasttallene og luk de to dark mode-punkter"
 
 ## Færdig når
 
-- `ContrastTests` er grøn i **begge** farvetemaer over alle fire skærme og det udfoldede detaljepanel.
+- `ContrastTests` er grøn i **begge** farvetemaer over appens tre skærme og det udfoldede detaljepanel.
 - **Vagten er set fejle** på det den beskytter: Task 1 (rød på dagens kode), Task 4 Step 3 (én fjernet `dark:`-modpart), Task 5 Step 2 (`outline: none`). Alle tre med fejltekst i rapporten.
 - `<body>` sætter baggrund og tekstfarve i begge temaer.
 - Ingen `focus:outline-none` er tilbage uden en `focus-visible`-ring ved siden af.
