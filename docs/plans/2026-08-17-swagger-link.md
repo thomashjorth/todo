@@ -296,7 +296,9 @@ Begge, med fejltekst rapporteret:
 
 **Step 3: Kør alt**
 
-Forventet: 33 Core, 110 Api, **24** E2E (22 + 2), 139 Vitest. Rapportér de faktiske tal.
+Forventet: 33 Core, **111** Api, **24** E2E (22 + 2), 139 Vitest. Rapportér de faktiske tal.
+
+> **Rettelse 2026-08-17:** planen forudsagde **110** Api her og i Task 5. Det blev **111**, fordi `ContractDocumentTests` endte med to tests og ikke én — "er det kontrakten der vises" og "er afledningen genuint ikke en erstatning" er to påstande. Tallet i `CLAUDE.md` er det målte.
 
 **Step 4: Commit**
 
@@ -332,7 +334,7 @@ Under "Maskinen", hvis det ikke allerede står der: **find din egen `Todo.Host` 
 
 **Step 4: Testtal**
 
-Opdatér til de tal du **målte**. Forventet: 33 Core, 110 Api, 24 E2E, 139 Vitest. Skriv de faktiske, og behold sætningen om at et ændret tal betyder en tabt eller duplikeret test.
+Opdatér til de tal du **målte**. Forventet: 33 Core, **111** Api, 24 E2E, 139 Vitest — se rettelsen under Task 4 Step 3. Skriv de faktiske, og behold sætningen om at et ændret tal betyder en tabt eller duplikeret test.
 
 **Step 5: Commit**
 
