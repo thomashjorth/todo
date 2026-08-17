@@ -35,6 +35,10 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   7.0.16 ligger på maskinen og kan ikke læse en EF Core 10-model.
 - **Kør scripts fra repo-roden.** `dotnet tool restore` læser sit manifest fra den aktuelle
   mappe og henter ellers et andet repos værktøjer.
+- **Find din egen `Todo.Host` på porten, ikke på navnet.**
+  `Get-NetTCPConnection -LocalPort <port> -State Listen` → `Stop-Process -Id` på det ene PID.
+  Brugeren har ofte appen åben, og under Swagger-linket kørte der to processer på én gang —
+  brugerens vindue og en probe. Et `Stop-Process -Name Todo.Host` ville have lukket begge.
 - **Kør ikke prettier på hele repoet.** Arbejdskopien er CRLF og prettier skriver LF, så en
   fuld kørsel omskriver 3810 linjer genereret klientkode og begraver den rigtige diff. Kør den
   kun på filer du selv har rørt, navngivet eksplicit.
@@ -57,6 +61,24 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
 **Contract-first.** `contracts/openapi.yaml` ejer API'et. Endpoints skrives i hånden som minimal
 APIs; en drift-test håndhæver, at de matcher. Genereret kode committes. Ændrer du kontrakten,
 så kør `scripts\generate-api.ps1` — ellers fejler friskheds-testen.
+
+**Appen har to OpenAPI-dokumenter, og det er med vilje.** `/openapi/v1.json` er runtime-afledningen,
+som drift-testen måler imod; `/openapi/contract.yaml` er kontrakten selv, indlejret i `Todo.Host`,
+og det er den dokumentationssiden på `/scalar/` viser. Ryd ikke den ene op som en dublet — se
+designdokumentets afsnit 10.
+
+**En minimal API uden for `/api/` skal have `.ExcludeFromDescription()`.** ASP.NET Core beskriver
+hver rute i `/openapi/v1.json` uanset præfiks, så uden kaldet dukker den op som en operation for
+meget, og `ContractDriftTests` fejler på et mismatch der **ligner** kontraktdrift og er et
+manglende kald. Målt, ikke gættet — se designdokumentets afsnit 10.
+
+**En lokal side må ikke kalde ud, og statisk gennemsyn beviser ikke at den ikke gør.** Appen kører
+på maskinen og kan være uden netværk. Dokumentationssidens HTML henviste ikke til nogen fremmed
+vært, og bundlen var gennemsøgt for CDN-navne — begge tjek bestod alligevel, mens siden hentede
+`api.scalar.com/vector/registry/*` fra JavaScript **efter mount** (Scalars "Ask AI"-knap, lukket med
+`.DisableAgent()`), og bundlens `@font-face` pegede på `fonts.scalar.com` (lukket med
+`.DisableDefaultFonts()`). Kun en vagt på rute-niveau, der blokerer alt uden for appens egen origin
+og fastslår at intet blev **forsøgt**, ser den slags. Vagten er `ApiDocsJourneyTests`.
 
 **Commits.** Gitmoji foran, én linje, **ingen `Co-authored-by` og ingen Claude-attribution**.
 
@@ -200,8 +222,11 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 8: **33** Todo.Core.Tests, **109** Todo.Api.Tests, **22** Todo.E2E, **139** Vitest.
+Efter Swagger-linket (uden for skiverne, 2026-08-17): **33** Todo.Core.Tests, **111**
+Todo.Api.Tests, **24** Todo.E2E, **139** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Api gik fra 109 til 111 med de to `ContractDocumentTests`, og E2E fra 22 til 24 med de to
+`ApiDocsJourneyTests`. Vitest står stille: linket fik ingen ny frontend-logik.
 Skive 8 lagde **otte** E2E-tests til (14 → 22) — mærkaterne, de seks genveje og AltGr — og **fem**
 Vitest-tests (134 → 139) på `ShortcutStore`.
 Vitest gik fra 133 til 134 i skive 7 — ikke af tilgængelighedsarbejdet, men af regressionstesten

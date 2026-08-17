@@ -35,6 +35,8 @@ Og påstanden om at .NET 10 ikke har en indbygget UI **holder** — verificeret 
 | `description:` | **29** | — |
 | `summary` på operationer | ja, fx *"Reports that the API is running."* | **0 af 15** |
 
+> **Rettelse 2026-08-17: tabellens sidste række læses for gunstigt.** Et `ja` i kontraktens kolonne inviterer til at tro, at kontrakten har `summary` hele vejen igennem. Målt har **kun 4 af de 15 operationer** en — `/api/health`, retro-forhåndsvisningen, retro-importen og `/api/system/open-link`. Konklusionen nedenfor holder stadig (afledningen har **0**, og de 29 `description`-felter findes kun i kontrakten), men kontrakten er ikke færdigbeskrevet. Der er prosa at skrive.
+
 Formen er altså ikke et problem — stier, operationer og skemaer stemmer én til én, og responskoderne ser rigtige ud (`201`/`400` på oprettelse, `404` på de indlejrede ruter). **Prosaen er problemet.** Det man åbner et Swagger-UI for at læse, findes kun i kontrakten.
 
 Derfor peges UI'en på kontrakten. Det er samtidig det contract-first-rigtige: at vise en afledning som om den var kilden, inviterer til at nogen retter afledningen.
@@ -171,6 +173,8 @@ Et endpoint der læser ressourcen og svarer med den. Læg den under en sti der s
 
 Den skal **ikke** i `contracts/openapi.yaml` som en dokumenteret rute. Den er ikke en del af app-API'et; den er dokumentationen af det. Ville drift-testen fange den som en udokumenteret operation, så hold den uden for `/api/`-præfikset og bekræft at testen er ligeglad — **hvis den fejler, rapportér det frem for at ændre drift-testen.**
 
+> **Rettelse 2026-08-17: planen tog fejl her.** Den antog, at det var **nok** at holde ruten uden for `/api/`-præfikset, altså at drift-testen var blind for alt andet. Det er den ikke. ASP.NET Core beskriver hver minimal API i `/openapi/v1.json` uanset præfiks, så `/openapi/contract.yaml` dukkede op som en 16. operation, og `ContractDriftTests` fejlede på et mismatch mellem mængderne. Rettet på endpointet med `.ExcludeFromDescription()` — ikke i drift-testen, som planen med rette forbød at røre. Kaldet er også det rigtige på sagen: ruten dokumenterer API'et frem for at være en del af det. **Enhver fremtidig rute uden for `/api/` skal have det samme kald.** Scalars egne ruter slipper kun, fordi biblioteket selv ekskluderer dem.
+
 **Step 3: Peg UI'en på den**
 
 Konfigurér UI'en fra Task 1 til at læse `/openapi/contract.yaml` i stedet for `/openapi/v1.json`.
@@ -206,7 +210,9 @@ Besked: `📄 Udstil kontrakten selv, så dokumentationen viser prosaen`
 
 **Files:**
 - Modify: `src/Todo.Web/src/app/app.html`, `src/Todo.Web/src/app/app.ts`
-- Modify: `src/Todo.Web/src/app/i18n/da.json`, `en.json`
+- Modify: `src/Todo.Web/public/i18n/da.json`, `en.json`
+
+> **Rettelse 2026-08-17: planen havde den forkerte sti.** Den skrev sprogfilerne som `src/Todo.Web/src/app/i18n/da.json`. De ligger i `src/Todo.Web/public/i18n/`; `src/app/i18n/` findes også, men indeholder Transloco-kæden i TypeScript — loader, sprogvalg og datoformatering — ikke oversættelserne.
 
 **Step 1: Nøglen**
 
@@ -285,6 +291,8 @@ Begge, med fejltekst rapporteret:
 
 1. Ændr URL'en i `openApiDocs()` til noget forkert. Test A skal fejle på den URL den læste af.
 2. Bloker også appens **egen** origin i Test B. Den skal fejle, fordi UI'en ikke kan tegne noget — det bekræfter at testen faktisk læser indhold og ikke bare en statuskode.
+
+> **Rettelse 2026-08-17: bruddet i punkt 2 beviser ingenting.** Blokeres appens egen origin, dør `GotoAsync` med `net::ERR_FAILED`, før nogen assertion overhovedet kører — testen fejler på navigationen, og en test der kun så på en statuskode ville fejle på præcis samme måde. Bruddet der faktisk viser, at testen læser indhold, er at **lade dokumentet igennem og blokere bundlen**: siden svarer 200, og testen fejler på den manglende renderede titel. Det er det brud der blev brugt.
 
 **Step 3: Kør alt**
 

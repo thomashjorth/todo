@@ -20,7 +20,15 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 8 | Alt-genvejssystemet: hold Alt for at se mærkaterne, og Alt+O/I/S/N/V/M udfører elementets aktiveringshandling — links følges, de to kontakter skifter og tager fokus, feltet får fokus | `2026-08-17-alt-shortcuts.md` |
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
-testdata-builders, og `ApiTest`/`BrowserTest`-basisklasser.
+testdata-builders, `ApiTest`/`BrowserTest`-basisklasser, og **linket til API-dokumentationen på
+health-linjen** (2026-08-17, plan i `docs/plans/2026-08-17-swagger-link.md`): "API: ok" har nu en
+knap ved siden af, der beder systemets browser åbne `/scalar/`, hvor kontrakten selv vises fra
+`/openapi/contract.yaml`. **Den fik bevidst ikke et skivenummer** — én affordance, ingen datamodel
+og ingen ny skærm — og et nummer ville have tvunget Jira-importen til 10 og hver skive efter den
+med (ADO, mentions, baggrundssync, livscyklus, pakning). Hvad arbejdet efterlod af viden, står i
+designdokumentets afsnit 10: appen udstiller **to** OpenAPI-dokumenter med hver sin rolle, en ny
+rute uden for `/api/` skal have `.ExcludeFromDescription()`, og dokumentationssiden er vagtet mod
+at kalde ud.
 
 Uden for skiverne, fundet ved et tilfælde: **`TaskStore` kunne lade et forsinket ældre load
 overskrive den nyeste liste.** `setShowCompleted` og `setShowSomeday` sætter hver sit signal og
@@ -63,11 +71,6 @@ alle punkterne. Skriver hele tiden, sletter aldrig — en anden slags tabel end 
 sprog og renderes med kæden fra skive 4 — prosa hører ikke hjemme i oversættelsesnøgler.
 **Skal også sige hvad værktøjet ikke gør**, ellers lover den GTD og leverer en deadline-liste.
 Materialet er designdokumentets afsnit 11.
-
-**Swagger-link på health-linjen.** Klik på "API: ok" åbner API-dokumentationen. Kræver en
-UI-pakke (Scalar eller Swashbuckles), da .NET 10 ikke har en indbygget. Linket **skal** gennem
-`/api/system/open-link` — ellers navigerer Photino-vinduet væk fra appen uden vej tilbage.
-Endpointet findes allerede fra skive 4; tilføj `http`/`https` er nok, de er hvidlistet.
 
 ### Allerede planlagt i designdokumentet
 

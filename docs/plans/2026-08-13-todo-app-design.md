@@ -73,6 +73,12 @@ C:\privat-git\todo\
   Todo.sln
 ```
 
+`contracts\openapi.yaml` er desuden **indlejret i `Todo.Host`** som ressourcen
+`Todo.Host.openapi.yaml` (2026-08-17) og udstilles på `/openapi/contract.yaml`, fordi
+dokumentationssiden på `/scalar/` viser kontrakten selv. Filen kopieres ikke til output og
+læses aldrig fra disk: en publiceret exe har ingen `contracts\`-mappe ved siden af sig. Se
+afsnit 10 om hvorfor der er to OpenAPI-dokumenter.
+
 `Todo.Contract.Tests` med WireMock kommer først når der er en ekstern server at
 lyve om — altså i skive 9 med Jira.
 
@@ -404,8 +410,9 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 
 ### Ønsket, men ikke placeret endnu
 
-Fire ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
+Tre ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
 glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede skiver.
+Den fjerde, Swagger-linket, blev leveret uden for skiverne og står nedenfor som lukket.
 
 - **`long` som id.** `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`.
   **Udskudt 2026-08-17**, efter at planen var skrevet: beslutningen står, men den fik ikke
@@ -422,10 +429,13 @@ glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede sk
   Skrives som markdown-filer pr. sprog og renderes med kæden fra skive 4 — prosa
   hører ikke hjemme i oversættelsesnøgler. **Skal også sige hvad værktøjet ikke
   gør**, ellers lover den GTD og leverer en deadline-liste; afsnit 11 er materialet.
-- **Swagger-link på health-linjen.** Et klik på "API: ok" åbner API-dokumentationen.
-  Kræver en UI-pakke (Scalar eller Swashbuckles), da .NET 10 ikke har en indbygget,
-  og linket **skal** gennem `/api/system/open-link` — ellers navigerer Photino-vinduet
-  væk fra appen uden vej tilbage.
+- **Swagger-link på health-linjen — leveret uden for skiverne 2026-08-17.** Et klik ved siden af
+  "API: ok" beder `/api/system/open-link` åbne `/scalar/` i systemets browser; Photino-vinduet
+  navigerer aldrig selv derhen, for det har ingen vej tilbage. UI-pakken blev `Scalar.AspNetCore`,
+  som lægger sin bundle i sin egen assembly og dermed virker uden netværk — påstanden om at .NET 10
+  ikke har en indbygget UI holdt. **Den fik bevidst ikke et skivenummer**: én affordance, ingen
+  datamodel og ingen ny skærm. Planen ligger i `docs/plans/2026-08-17-swagger-link.md`, og hvad
+  arbejdet efterlod af viden står i afsnit 10.
 
 ## 10. Risici og åbne punkter
 
@@ -496,6 +506,42 @@ glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede sk
   deler registret på tværs af `TestBed`-instanser. En test der asserterer, at `activate()` giver
   `false` for et uregistreret bogstav, kan bestå eller fejle afhængigt af rækkefølgen. Skriv
   ikke en der afhænger af det.
+- **Appen udstiller to OpenAPI-dokumenter, og det er med vilje** (afgjort uden for skiverne
+  2026-08-17). `/openapi/v1.json` er runtime-afledningen fra `MapOpenApi()`, og
+  `ContractDriftTests` læser **netop den** — fjernes `MapOpenApi()`, mister repoet sin vagt mod at
+  implementeringen glider fra kontrakten. `/openapi/contract.yaml` er kontrakten selv, indlejret i
+  assemblyen, og det er den dokumentationssiden på `/scalar/` viser. **De er ikke en dublet der
+  skal ryddes op.** Formen er ens — 15 operationer og 22 skemaer i begge — men prosaen findes kun i
+  kontrakten: afledningen har **0 summaries på 15 operationer** og kalder sig selv `Todo.Host | v1`
+  (dannet af entry-assemblyens navn, så den hedder noget andet under en testkørsel), hvor
+  kontrakten hedder `Todo API` og har 29 `description`-felter. At vise en afledning som om den var
+  kilden inviterer desuden til, at nogen retter afledningen. `ContractDocumentTests` vagter at
+  siden viser kontrakten, og den blev set fejle, da endpointet blev peget på afledningen.
+  Bemærk samtidig, at kontrakten ikke er prosaløs *i modsætning til* at være fuldt beskrevet:
+  målt har **kun 4 af de 15 operationer** en `summary`. Der er stadig prosa at skrive.
+- **En ny minimal API uden for `/api/` skal have `.ExcludeFromDescription()`** (opdaget uden for
+  skiverne 2026-08-17). Antagelsen var, at drift-testen kun så på `/api/`-præfikset. **Den holdt
+  ikke.** ASP.NET Core beskriver hver minimal API i `/openapi/v1.json` uanset præfiks, så
+  `/openapi/contract.yaml` dukkede op som en 16. operation, og `ContractDriftTests` fejlede på et
+  mismatch mellem mængderne. Rettet på endpointet med `.ExcludeFromDescription()`, hvilket også er
+  det rigtige på sagen: ruten dokumenterer API'et frem for at være en del af det. Det står her,
+  fordi den næste der lægger en rute uden for `/api/`, vil se en fejl der **ligner** kontraktdrift
+  og i virkeligheden er et manglende kald. Scalars egne ruter slipper kun, fordi biblioteket selv
+  ekskluderer dem.
+- **Dokumentationssiden er vagtet mod at kalde ud, og statisk gennemsyn fangede det ikke**
+  (opgjort uden for skiverne 2026-08-17). Pakken blev valgt på bevis for at den virkede offline:
+  den serverede HTML henviste ikke til nogen fremmed vært, og bundlen blev gennemsøgt for
+  CDN-værtsnavne. **Begge tjek bestod, og begge var utilstrækkelige.** `ApiDocsJourneyTests` —
+  som afviser hver request til en fremmed vært og derefter fastslår, at mængden af afviste URL'er
+  er **tom** — fangede to kald fra JavaScript **efter mount**:
+  `api.scalar.com/vector/registry/curated` og `/vector/registry/search?query=`, fra Scalars "Ask
+  AI"-knap. Siden renderer fint uden dem; den kalder blot også ud. Lukket med `.DisableAgent()`,
+  verificeret minimalt — `DisableMcp()` og `DisableTelemetry()` var ikke nødvendige. Et tidligere
+  fund af samme form: bundlens `@font-face`-regler (Inter og JetBrains Mono) pegede på
+  `fonts.scalar.com`, hvilket **HTML'en** ikke afslørede; lukket med `.DisableDefaultFonts()`. Lektionen er generel og står
+  også i `CLAUDE.md`: for en lokal app der kan være uden netværk, er en sides statiske
+  henvisninger ikke hele historien. Kun en vagt på rute-niveau, der blokerer fremmede værter og
+  fastslår at intet blev **forsøgt**, ser et kald efter mount.
 - **SQLite-migrationer der fjerner en kolonne** taber dens data lydløst, fordi
   tabellen bygges om. Læs genererede migrationer; backup-kopien før migrering er
   sidste forsvar.
