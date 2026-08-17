@@ -95,6 +95,21 @@ public sealed class TodoApp
         => Page.EvaluateAsync<int>("document.documentElement.clientWidth");
 
     /// <summary>
+    /// The outline the browser paints on the focused element. `outline: none` with only a
+    /// border change in its place is what this exists to catch.
+    /// </summary>
+    public Task<string> FocusOutlineAsync() => Page.EvaluateAsync<string>(
+        """
+        () => {
+          const el = document.activeElement;
+          if (!el || el === document.body) return 'nothing focused';
+
+          const s = getComputedStyle(el);
+          return `${s.outlineStyle} ${s.outlineWidth}`;
+        }
+        """);
+
+    /// <summary>
     /// Every element that renders its own text, measured against the background that actually
     /// sits behind it. The browser has already resolved which background that is, which is why
     /// this runs in the page rather than over the class attributes.
