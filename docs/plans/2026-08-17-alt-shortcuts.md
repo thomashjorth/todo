@@ -1,4 +1,4 @@
-# Alt-genvejssystemet — endnu uden skivenummer
+# Skive 8 — Alt-genvejssystemet
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -12,11 +12,11 @@
 
 Udskilt fra skive 7 den 2026-08-17. Skive 7 var en **audit** — målt, afgrænset, med en kontrastvagt der siger hvornår den er færdig. Det her er en **ny funktion** med egne designvalg: hvilke bogstaver, hvordan mærkaten ser ud, hvad der sker ved konflikt. Designdokumentet lagde dem sammen med begrundelsen *"fordi hver farve ellers skulle kontrasttjekkes to gange"* — men det argument gælder farver, ikke genveje.
 
-**Den har bevidst ikke et skivenummer.** Den står i designdokumentets "Ønsket, men ikke placeret endnu" og skal placeres som en beslutning, ikke glide ind foran noget. Funktionen er lovet i afsnit 2, så den er besluttet — kun rækkefølgen er åben.
+**Placeret som skive 8 den 2026-08-17.** Den lå først uden nummer, netop for at blive placeret som en beslutning frem for at glide ind foran noget. Beslutningen blev truffet, da `long` som id blev udskudt og frigjorde nummeret — så **ingen skive er omnummereret**, i modsætning til hvad skive 6 udløste. `long`-planen ligger færdig i `docs/plans/2026-08-17-long-ids.md` og står nu under designdokumentets "Ønsket, men ikke placeret endnu".
 
 ## Forudsætning
 
-**Skive 7 skal være færdig først.** Mærkaterne er nye farver på skærmen, og `ContrastTests` fra skive 7 er det der fanger, hvis de ikke holder AA. Uden den vagt bygges genvejene uden noget net.
+**Skive 7 er færdig, og det er forudsætningen.** Mærkaterne er nye farver på skærmen, og `ContrastTests` fra skive 7 er det der fanger, hvis de ikke holder AA. Uden den vagt bygges genvejene uden noget net.
 
 ---
 
@@ -334,4 +334,4 @@ git commit -m "⌨️ E2E på Alt-genvejene og testtallene"
 
 ## Dokumentation, når den er kørt
 
-Marker den som placeret og færdig i designdokumentets afsnit 9, fjern den fra "Ønsket, men ikke placeret endnu", og tilføj den til `HANDOFF.md`s Færdigt-tabel. Bogstavvalget — og *hvorfor* `Alt+D/E/F/Home` er udeladt — hører i `CLAUDE.md` under Konventioner, ellers bliver det opdaget igen næste gang nogen vil tilføje en genvej.
+Marker skive 8 **Færdig.** i designdokumentets afsnit 9 — den er allerede placeret der, så der skal ikke flyttes noget — og tilføj den til `HANDOFF.md`s Færdigt-tabel. Flyt den ud af HANDOFF's "I gang"-afsnit. Bogstavvalget — og *hvorfor* `Alt+D/E/F/Home` er udeladt — hører i `CLAUDE.md` under Konventioner, ellers bliver det opdaget igen næste gang nogen vil tilføje en genvej.

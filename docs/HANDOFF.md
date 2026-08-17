@@ -30,34 +30,41 @@ Fundet fordi `ContrastTests` flakkede (7–9 s frem for 2 s), ikke fordi nogen l
 `load()` har nu en sekvenstæller, og regressionstesten
 `should not let a slow earlier load overwrite a newer list` blev set fejle først.
 
-## Tilbage — og hvorfor rækkefølgen betyder noget
+## I gang
 
-Ét af punkterne **bliver dyrere jo længere det venter** og leverer ingen ny funktion. Fire kan
-vente uden at koste noget. Det er hele grundlaget for anbefalingen nedenfor.
+**Skive 8 — Alt-genvejssystemet.** Hold **Alt** for at se genvejene på knapperne, og tryk
+Alt+bogstav for at aktivere dem — Windows-konventionen, som designdokumentets afsnit 2 lover.
+Planen ligger i `docs/plans/2026-08-17-alt-shortcuts.md`. Den blev udskilt af skive 7, fordi den
+skive var en audit med en vagt der siger hvornår den er færdig, mens genvejene er en **ny
+funktion** med egne designvalg: hvilke bogstaver, hvordan mærkaten ser ud, hvad der sker ved
+konflikt.
 
-### Anbefalet rækkefølge
+To ting den skal huske: **Alt+D/E/F/Home og piletasterne er stjålet af Chrome** under udvikling,
+men frie i Photino-vinduet — vælg bogstaver udenom. Og **`Ctrl+Alt` er AltGr på et dansk
+tastatur**; sluger man den, kan brugeren ikke skrive `@`, `£` eller `$`. `ContrastTests` fra
+skive 7 er det der fanger mærkaterne, hvis de ikke holder AA.
 
-**1. `long` som id.** `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`.
-Rører primærnøgler, fremmednøgler, kontrakten, begge genererede klienter, alle builders og
-næsten hver test. SQLite gør `INTEGER PRIMARY KEY` til et rowid-alias, og et opgavenummer kan
-siges højt.
+## Tilbage
+
+Ingenting er planlagt efter skive 8. Punkterne nedenfor kan tages i vilkårlig rækkefølge —
+**med én undtagelse**, som står først, fordi den er den eneste der koster noget at udskyde.
+
+**`long` som id — besluttet, planlagt, og bevidst udskudt 2026-08-17.** `Guid` v4 erstattes af
+`long` på `TaskItem`, `SubTask` og `UserAlias`. Planen ligger **færdig** i
+`docs/plans/2026-08-17-long-ids.md`, med migreringen målt igennem mod rigtig SQLite —
+inklusive beviset for at en `CAST` af Guid-strenge ødelægger data, og opskriften der ikke gør.
+Den blev skrevet som skive 8 og derefter lagt til side; Alt-genvejene overtog nummeret.
 
 **Bemærk premisset:** branchen gik ikke fra GUID til `long` — den gik fra tilfældig v4 til
 tidsordnet UUIDv7 (`Guid.CreateVersion7()`, .NET 9+). Argumentet her er SQLite-specifikt og
 ergonomisk, ikke at følge en trend. Fragmentering betyder intet ved denne størrelse.
 
-### Kan ligge stille
+**Og bemærk prisen:** den **bliver dyrere for hver skive der lægges imellem**, fordi hver ny
+skive tilføjer kode og tests der rører id'er. Aftrykket er målt til at være mindre end tidligere
+antaget — builderne rører slet ikke `Guid`, og 11 steder i tests, ikke "næsten hver test" — men
+det tal vokser. Udskydes den igen, er det værd at spørge hvorfor.
 
-**Alt-genvejssystemet.** Hold **Alt** for at se genvejene på knapperne, og tryk Alt+bogstav for
-at aktivere dem — Windows-konventionen. Udskilt af skive 7, fordi den skive var en audit med en
-vagt der siger hvornår den er færdig, mens genvejene er en **ny funktion** med egne designvalg:
-hvilke bogstaver, hvordan mærkaten ser ud, hvad der sker ved konflikt. Planen ligger klar i
-`docs/plans/2026-08-17-alt-shortcuts.md` og har bevidst **intet skivenummer** — den skal placeres
-som en beslutning frem for at glide ind foran noget. **Designdokumentets afsnit 2 lover
-genvejene**, så det løfte står uindfriet indtil planen er kørt. Alt+D/E/F/Home og piletasterne er
-stjålet af Chrome under udvikling, men frie i Photino-vinduet — vælg bogstaver udenom.
-Genvejsmærkaterne er brugervendte strenge og skal gennem oversættelsesnøgler, altså skive 3's
-kæde, og `ContrastTests` fra skive 7 er det der fanger dem, hvis de ikke holder AA.
+### Kan ligge stille
 
 **Revisionslog med trends.** En hændelseslog ved siden af opgaverne — hvad ændrede sig hvornår
 — der kan bære "hvor mange lukker jeg om ugen" og "hvor længe ligger noget i Venter på". Den er

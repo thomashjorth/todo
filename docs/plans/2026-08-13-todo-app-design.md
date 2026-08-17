@@ -26,7 +26,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen. |
 | Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
-| Id-type | `Guid` v4 i dag. Skifter til `long` i skive 8 — se afsnit 10. |
+| Id-type | `Guid` v4. Skiftet til `long` er besluttet men **udskudt og uplaceret** — se afsnit 9 og 10. |
 | Tokens | I `Setting`-tabellen i klartekst. **Bevidst valg** — se afsnit 3. |
 | Indstillinger | Én side i appen til sprog, URL'er, tokens, aliaser og sync-interval. |
 | Sprog | Dansk og engelsk med Transloco. Systemets sprog som standard, skiftes i indstillinger. |
@@ -374,16 +374,16 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    tabel, og måler dem alle i **begge** farvetemaer. `@tailwindcss/typography`s egen palette holdt
    AA på begge baggrunde, så ingen farve skulle rettes for det. Hvad vagten stadig **ikke** måler,
    står i afsnit 10.*
-   *Alt-genvejssystemet blev skilt ud undervejs og står nu under "Ønsket, men ikke
-   placeret endnu": skiven var en audit, afgrænset af en vagt der siger hvornår den er
+   *Alt-genvejssystemet blev skilt ud undervejs og er nu skive 8: skiven var en audit, afgrænset af en vagt der siger hvornår den er
    færdig, mens genvejene er en ny funktion med egne designvalg. Argumentet om at
    kontrasttjekke hver farve to gange gælder farver, ikke genveje. Bemærk også, at
    tilgængelighed var lettere at måle end at gætte: kontrastvagten blev committet rød, og
    dens fejlliste blev arbejdslisten. Se afsnit 10.*
-8. **`long` som id** — `Guid` erstattes af `long` på `TaskItem`, `SubTask` og
-   `UserAlias`. Egen skive, fordi den rører primærnøgler, fremmednøgler, kontrakten,
-   begge genererede klienter, alle builders og næsten hver test. **Kan flyttes, men
-   bliver dyrere for hver skive der lægges imellem.** Se afsnit 10.
+8. **Alt-genvejssystemet** — hold Alt for at se genvejene på knapperne, og Alt+bogstav
+   for at aktivere dem. Indfrier løftet i afsnit 2. **Placeret her 2026-08-17**, da
+   `long` som id blev udskudt og frigjorde nummeret; ingen skive blev omnummereret.
+   Planen ligger i `docs/plans/2026-08-17-alt-shortcuts.md`, og skive 7's kontrastvagt
+   er dens forudsætning, fordi mærkaterne er nye farver på skærmen.
 9. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
    Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
    en server at teste mod.
@@ -398,14 +398,13 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 Fire ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
 glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede skiver.
 
-- **Alt-genvejssystemet.** Hold Alt for at se genvejene på knapperne, og Alt+bogstav
-  for at aktivere dem — Windows-konventionen, som afsnit 2 lover. **Udskilt af skive 7
-  den 2026-08-17**, fordi den skive var en audit, mens genvejene er en ny funktion med
-  egne designvalg: hvilke bogstaver, hvordan mærkaten ser ud, hvad der sker ved konflikt.
-  Begrundelsen for at lægge dem sammen — at hver farve ellers skulle kontrasttjekkes to
-  gange — gælder farver, ikke genveje. Planen ligger i
-  `docs/plans/2026-08-17-alt-shortcuts.md` og har bevidst **intet skivenummer**, netop for
-  at undgå den omnummerering skive 6 udløste. **Løftet i afsnit 2 står altså uindfriet.**
+- **`long` som id.** `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`.
+  **Udskudt 2026-08-17**, efter at planen var skrevet: beslutningen står, men den fik ikke
+  en plads i rækkefølgen, og Alt-genvejene overtog nummer 8. Planen ligger klar i
+  `docs/plans/2026-08-17-long-ids.md` med migreringen målt igennem — se afsnit 10
+  for hvorfor den migrering ikke kan overlades til EF. **Bliver dyrere for hver skive der
+  lægges imellem**, og det var netop det argument der blev sat til side her; sker det igen,
+  er det værd at spørge hvorfor.
 - **Revisionslog med trends.** En hændelseslog ved siden af opgaverne — hvad
   ændrede sig hvornår — som kan bære spørgsmål som "hvor mange lukker jeg om ugen"
   og "hvor længe ligger noget i Venter på". Den er også fundamentet for GTD's
@@ -479,8 +478,8 @@ glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede sk
   i bindingen giver nu `TS2551`. Lektionen er, at `strictTemplates` **ikke** dækkede
   hullet: en delt `ng-template` med `let-`-variabler har konteksttype `any` og bliver
   aldrig typetjekket, uanset flag, fordi `[ngTemplateOutletContext]` ikke afstemmes.
-- **Id'erne er `Guid` v4 og skal være `long`** (besluttet 2026-08-14, planlagt til
-  skive 8). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
+- **Id'erne er `Guid` v4 og skal være `long`** (besluttet 2026-08-14, udskudt og
+  uplaceret 2026-08-17). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
   **tilfældig v4** til **tidsordnet UUIDv7**, som `Guid.CreateVersion7()` giver i
   .NET 9+. Argumentet for `long` her er et andet: i SQLite bliver `INTEGER PRIMARY
   KEY` et alias for rowid, og "opgave 42" kan siges højt. Fragmentering er uden
