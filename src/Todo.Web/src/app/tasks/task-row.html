@@ -10,23 +10,31 @@
   />
   <div class="min-w-0 flex-1">
     <button type="button" class="w-full text-left" (click)="toggled.emit()">
-      <span class="block text-sm break-words text-gray-900">{{ task().title }}</span>
+      <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
+        task().title
+      }}</span>
       @if (task().deadline) {
         <span
           class="block text-xs"
-          [class]="task().bucket === overdue ? 'text-red-600 dark:text-red-400' : 'text-gray-500'"
+          [class]="
+            task().bucket === overdue
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-gray-500 dark:text-gray-400'
+          "
           >{{ 'tasks.deadlineValue' | transloco: { value: task().deadline | deadlineDate } }}</span
         >
       }
       @if (task().requester) {
-        <span class="block text-xs text-gray-500">{{
+        <span class="block text-xs text-gray-500 dark:text-gray-400">{{
           'tasks.requesterValue' | transloco: { value: task().requester }
         }}</span>
       }
       @if (task().subTasks.length > 0) {
-        <span data-testid="subtask-progress" class="block text-xs text-gray-500">{{
-          progress(task())
-        }}</span>
+        <span
+          data-testid="subtask-progress"
+          class="block text-xs text-gray-500 dark:text-gray-400"
+          >{{ progress(task()) }}</span
+        >
       }
     </button>
     <!-- Uden for knappen med vilje: teksten ville ellers indgå i rækkens tilgængelige navn,
@@ -48,9 +56,11 @@
   </div>
 </div>
 @if (expanded()) {
-  <div data-testid="task-detail" class="mt-2 space-y-2 rounded bg-gray-50 p-2">
+  <div data-testid="task-detail" class="mt-2 space-y-2 rounded bg-gray-50 p-2 dark:bg-gray-800">
     <label class="block">
-      <span class="block text-xs text-gray-500">{{ 'tasks.deadline' | transloco }}</span>
+      <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+        'tasks.deadline' | transloco
+      }}</span>
       <input
         #deadline
         type="date"
@@ -61,7 +71,9 @@
       />
     </label>
     <label class="block">
-      <span class="block text-xs text-gray-500">{{ 'tasks.requester' | transloco }}</span>
+      <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+        'tasks.requester' | transloco
+      }}</span>
       <input
         #requester
         type="text"
@@ -73,7 +85,9 @@
     </label>
     <div class="space-y-1">
       <div class="flex items-center justify-between gap-2">
-        <span class="block text-xs text-gray-500">{{ 'tasks.note' | transloco }}</span>
+        <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+          'tasks.note' | transloco
+        }}</span>
         @if (!editingNote()) {
           <button
             type="button"
@@ -105,7 +119,7 @@
       } @else {
         <p
           data-testid="note-rendered"
-          class="text-sm text-gray-500 italic"
+          class="text-sm text-gray-500 italic dark:text-gray-400"
           (click)="clickNote($event)"
         >
           {{ 'tasks.noteEmpty' | transloco }}
@@ -122,7 +136,9 @@
       }
     </div>
     <label class="block">
-      <span class="block text-xs text-gray-500">{{ 'tasks.status' | transloco }}</span>
+      <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+        'tasks.status' | transloco
+      }}</span>
       <select
         #status
         class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
@@ -152,7 +168,9 @@
       </label>
     }
     <div class="space-y-1">
-      <span class="block text-xs text-gray-500">{{ 'tasks.subTasks' | transloco }}</span>
+      <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+        'tasks.subTasks' | transloco
+      }}</span>
       @for (subTask of task().subTasks; track subTask.id) {
         <div data-testid="subtask-row" class="flex items-start gap-2">
           <input
@@ -166,7 +184,9 @@
           <span
             class="min-w-0 flex-1 text-sm break-words"
             [class]="
-              subTask.isDone ? 'text-gray-500 line-through dark:text-gray-400' : 'text-gray-900'
+              subTask.isDone
+                ? 'text-gray-500 line-through dark:text-gray-400'
+                : 'text-gray-900 dark:text-gray-100'
             "
             >{{ subTask.title }}</span
           >
@@ -174,7 +194,7 @@
             type="button"
             data-testid="delete-subtask"
             [attr.aria-label]="'tasks.deleteSubTask' | transloco"
-            class="shrink-0 text-xs text-red-600"
+            class="shrink-0 text-xs text-red-600 dark:text-red-400"
             (click)="removeSubTask(subTask)"
           >
             ✕
@@ -193,7 +213,7 @@
     <button
       type="button"
       data-testid="delete-task"
-      class="text-xs text-red-600 underline"
+      class="text-xs text-red-600 underline dark:text-red-400"
       (click)="removed.emit()"
     >
       {{ 'tasks.deleteTask' | transloco }}
