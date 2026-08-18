@@ -2,7 +2,7 @@ namespace Todo.Core.Settings;
 
 public class UserAlias
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public long Id { get; set; }
 
     public string Value { get; set; } = string.Empty;
 }

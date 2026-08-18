@@ -2,7 +2,7 @@ namespace Todo.Core.Tasks;
 
 public class TaskItem
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public long Id { get; set; }
 
     public string SourceId { get; set; } = "manual";
 

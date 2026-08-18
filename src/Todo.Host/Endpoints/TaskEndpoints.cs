@@ -75,8 +75,8 @@ public static class TaskEndpoints
         .WithName("createTask")
         .WithTags("Tasks");
 
-        app.MapPut("/api/tasks/{id:guid}", async Task<Results<Ok<TodoTask>, BadRequest<ApiError>, NotFound>> (
-            Guid id, UpdateTodoTaskRequest request, TodoDbContext db, IClock clock) =>
+        app.MapPut("/api/tasks/{id:long}", async Task<Results<Ok<TodoTask>, BadRequest<ApiError>, NotFound>> (
+            long id, UpdateTodoTaskRequest request, TodoDbContext db, IClock clock) =>
         {
             if (ValidateTaskTitle(request.Title) is { } invalid)
             {
@@ -114,8 +114,8 @@ public static class TaskEndpoints
         .WithName("updateTask")
         .WithTags("Tasks");
 
-        app.MapDelete("/api/tasks/{id:guid}", async Task<Results<NoContent, NotFound>> (
-            Guid id, TodoDbContext db) =>
+        app.MapDelete("/api/tasks/{id:long}", async Task<Results<NoContent, NotFound>> (
+            long id, TodoDbContext db) =>
         {
             var task = await db.Tasks.FindAsync(id);
             if (task is null)
@@ -131,8 +131,8 @@ public static class TaskEndpoints
         .WithName("deleteTask")
         .WithTags("Tasks");
 
-        app.MapPost("/api/tasks/{id:guid}/subtasks", async Task<Results<Created<TodoSubTask>, BadRequest<ApiError>, NotFound>> (
-            Guid id, CreateSubTaskRequest request, TodoDbContext db) =>
+        app.MapPost("/api/tasks/{id:long}/subtasks", async Task<Results<Created<TodoSubTask>, BadRequest<ApiError>, NotFound>> (
+            long id, CreateSubTaskRequest request, TodoDbContext db) =>
         {
             if (ValidateSubTaskTitle(request.Title) is { } invalid)
             {
@@ -163,8 +163,8 @@ public static class TaskEndpoints
         .WithName("createSubTask")
         .WithTags("Tasks");
 
-        app.MapPut("/api/tasks/{id:guid}/subtasks/{subTaskId:guid}", async Task<Results<Ok<TodoSubTask>, BadRequest<ApiError>, NotFound>> (
-            Guid id, Guid subTaskId, UpdateSubTaskRequest request, TodoDbContext db) =>
+        app.MapPut("/api/tasks/{id:long}/subtasks/{subTaskId:long}", async Task<Results<Ok<TodoSubTask>, BadRequest<ApiError>, NotFound>> (
+            long id, long subTaskId, UpdateSubTaskRequest request, TodoDbContext db) =>
         {
             if (ValidateSubTaskTitle(request.Title) is { } invalid)
             {
@@ -188,8 +188,8 @@ public static class TaskEndpoints
         .WithName("updateSubTask")
         .WithTags("Tasks");
 
-        app.MapDelete("/api/tasks/{id:guid}/subtasks/{subTaskId:guid}", async Task<Results<NoContent, NotFound>> (
-            Guid id, Guid subTaskId, TodoDbContext db) =>
+        app.MapDelete("/api/tasks/{id:long}/subtasks/{subTaskId:long}", async Task<Results<NoContent, NotFound>> (
+            long id, long subTaskId, TodoDbContext db) =>
         {
             var subTask = await FindSubTaskAsync(db, id, subTaskId);
             if (subTask is null)
@@ -208,7 +208,7 @@ public static class TaskEndpoints
         return app;
     }
 
-    private static Task<SubTask?> FindSubTaskAsync(TodoDbContext db, Guid taskId, Guid subTaskId)
+    private static Task<SubTask?> FindSubTaskAsync(TodoDbContext db, long taskId, long subTaskId)
         => db.SubTasks.FirstOrDefaultAsync(s => s.Id == subTaskId && s.TaskItemId == taskId);
 
     private static BadRequest<ApiError>? ValidateTaskTitle(string? title)

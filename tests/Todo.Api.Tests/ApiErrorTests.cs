@@ -187,7 +187,7 @@ public class ApiErrorTests : ApiTest
         return created;
     }
 
-    private async Task<TodoSubTask> AddSubTaskAsync(Guid taskId)
+    private async Task<TodoSubTask> AddSubTaskAsync(long taskId)
     {
         var response = await Client.PostAsJsonAsync(
             $"/api/tasks/{taskId}/subtasks", new CreateSubTaskRequest { Title = "Delopgave" });

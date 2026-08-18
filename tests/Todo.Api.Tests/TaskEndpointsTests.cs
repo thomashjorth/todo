@@ -339,7 +339,7 @@ public class TaskEndpointsTests : TaskApiTest
     public async Task Updating_an_unknown_task_is_not_found()
     {
         var response = await Client.PutAsJsonAsync(
-            $"/api/tasks/{Guid.NewGuid()}",
+            "/api/tasks/999999",
             new UpdateTodoTaskRequest { Title = "Ghost", Status = TodoStatus.Open });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -348,7 +348,7 @@ public class TaskEndpointsTests : TaskApiTest
     [Fact]
     public async Task Deleting_an_unknown_task_is_not_found()
     {
-        var response = await Client.DeleteAsync($"/api/tasks/{Guid.NewGuid()}");
+        var response = await Client.DeleteAsync("/api/tasks/999999");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -390,7 +390,7 @@ public class TaskEndpointsTests : TaskApiTest
     /// <summary>
     /// An update with the whole body spelled out, so a test can also leave a field out of it.
     /// </summary>
-    private async Task<TodoTask> PutAsync(Guid id, object body)
+    private async Task<TodoTask> PutAsync(long id, object body)
     {
         var response = await Client.PutAsJsonAsync($"/api/tasks/{id}", body);
 

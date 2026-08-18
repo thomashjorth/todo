@@ -2,9 +2,9 @@ namespace Todo.Core.Tasks;
 
 public class SubTask
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public long Id { get; set; }
 
-    public Guid TaskItemId { get; set; }
+    public long TaskItemId { get; set; }
 
     public string Title { get; set; } = string.Empty;
 

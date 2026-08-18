@@ -19,7 +19,7 @@ public abstract class TaskApiTest : ApiTest
     }
 
     protected async Task<TodoTask> UpdateAsync(
-        Guid id, string title, TodoStatus status, string? waitingOn = null)
+        long id, string title, TodoStatus status, string? waitingOn = null)
     {
         var response = await Client.PutAsJsonAsync(
             $"/api/tasks/{id}",

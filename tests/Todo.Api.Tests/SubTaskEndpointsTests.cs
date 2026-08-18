@@ -169,7 +169,7 @@ public class SubTaskEndpointsTests : ApiTest
     public async Task Adding_a_subtask_to_an_unknown_task_is_not_found()
     {
         var response = await Client.PostAsJsonAsync(
-            $"/api/tasks/{Guid.NewGuid()}/subtasks", new CreateSubTaskRequest { Title = "Forældreløs" });
+            "/api/tasks/999999/subtasks", new CreateSubTaskRequest { Title = "Forældreløs" });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -214,7 +214,7 @@ public class SubTaskEndpointsTests : ApiTest
         var task = await CreateTaskAsync("Uden underopgaver");
 
         var response = await Client.PutAsJsonAsync(
-            $"/api/tasks/{task.Id}/subtasks/{Guid.NewGuid()}",
+            $"/api/tasks/{task.Id}/subtasks/999999",
             new UpdateSubTaskRequest { Title = "Spøgelse", IsDone = false });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -226,7 +226,7 @@ public class SubTaskEndpointsTests : ApiTest
         var task = await CreateTaskAsync("Uden underopgaver");
 
         var response = await Client.DeleteAsync(
-            $"/api/tasks/{task.Id}/subtasks/{Guid.NewGuid()}");
+            $"/api/tasks/{task.Id}/subtasks/999999");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -280,7 +280,7 @@ public class SubTaskEndpointsTests : ApiTest
         return created;
     }
 
-    private async Task<TodoSubTask> AddSubTaskAsync(Guid taskId, string title)
+    private async Task<TodoSubTask> AddSubTaskAsync(long taskId, string title)
     {
         var response = await Client.PostAsJsonAsync(
             $"/api/tasks/{taskId}/subtasks", new CreateSubTaskRequest { Title = title });
@@ -292,7 +292,7 @@ public class SubTaskEndpointsTests : ApiTest
     }
 
     private async Task<TodoSubTask> UpdateSubTaskAsync(
-        Guid taskId, Guid subTaskId, string title, bool isDone)
+        long taskId, long subTaskId, string title, bool isDone)
     {
         var response = await Client.PutAsJsonAsync(
             $"/api/tasks/{taskId}/subtasks/{subTaskId}",
@@ -304,7 +304,7 @@ public class SubTaskEndpointsTests : ApiTest
         return updated;
     }
 
-    private async Task DeleteSubTaskAsync(Guid taskId, Guid subTaskId)
+    private async Task DeleteSubTaskAsync(long taskId, long subTaskId)
     {
         var response = await Client.DeleteAsync($"/api/tasks/{taskId}/subtasks/{subTaskId}");
 
