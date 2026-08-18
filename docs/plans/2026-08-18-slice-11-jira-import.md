@@ -683,7 +683,39 @@ git commit -m "✨ Konvertér Jiras wiki-markup til CommonMark, så fed bliver f
 - Modify: `src/Todo.Core/Settings/SettingKeys.cs`
 - Modify: `src/Todo.Core/Errors/ErrorCodes.cs`
 - Modify: `src/Todo.Host/Endpoints/SettingsEndpoints.cs`
+- Modify: `src/Todo.Host/TodoHost.cs` (registrering)
 - Test: `tests/Todo.Api.Tests/JiraSettingsEndpointsTests.cs`
+
+> **Rettet efter kørslen, 2026-08-18. Leveret i `aa1bbc3` + `b88af69`; den kode er sandheden.**
+> Fem ting var forkerte, og to af dem ville have kostet noget:
+>
+> 1. **`jiraIncludeWaiting` må ikke gemmes som `"false"`.** To eksisterende tests —
+>    `Clearing_the_language_removes_the_row_rather_than_storing_null` og
+>    `Choosing_a_language_twice_overwrites_the_one_row` — påstår `Assert.Empty`/`Assert.Single` på
+>    hele `Settings`-tabellen efter et PUT hvor feltet defaulter til `false`. En literal
+>    `"false"`-række gør tabellen ikke-tom, og begge bliver røde. Gem
+>    `request.JiraIncludeWaiting ? "true" : null`, så *slået fra* fjerner rækken. Adfærden er
+>    uændret, fordi læseren allerede læser fravær som fra (`Value(...) == "true"`).
+> 2. **`partial` fletter ikke på tværs af assemblies.** Step 7's forslag om en midlertidig
+>    `partial class SettingsResponse` i `Todo.Host` eller testprojektet laver en **anden** type der
+>    skygger for den importerede: fem gange `CS0436` og derefter `CS0117` på hvert felt. Prøven
+>    skal ligge **inde i `Todo.Contracts`**, eller man redigerer `Contracts.g.cs` og regenererer.
+> 3. **Step 2 giver 405, ikke 404.** `MapFallbackToFile("index.html")` matcher kun GET, så et uroutet
+>    `PUT`/`DELETE` under et eksisterende præfiks svarer `405 Method Not Allowed`. Samme signal,
+>    andet tal — men den der jagter en 404 tror at ruten halvt fandtes.
+> 4. **Lækagevagten kunne bestå uden at bevise noget**, og det er rettet i testen nedenfor. Den
+>    gemte et token og påstod at strengen ikke kom tilbage, **uden at tjekke at gemningen lykkedes**.
+>    Begyndte ruten at svare 400, ville den lede efter en streng der ikke var i systemet. Målt, ikke
+>    ræsonneret: den gamle form blev kørt mod en rute der altid svarede 400 og var **grøn**.
+> 5. **`/openapi/v1.json` kan ikke fange en lækage i svarbyggeren** — det afledte dokument bærer
+>    skema, ikke værdier, og assertionen kastede i øvrigt på første iteration, så den anden hentning
+>    aldrig skete. Den er nu sin egen test med den rigtige begrundelse: et rigtigt token pastet ind
+>    i et `example:`. Bemærk at dens `PUT` er **dekorativ** og ikke en forudsætning — et
+>    `example:`-token ligger i dokumentet uanset om noget blev gemt. Læg ikke et
+>    `EnsureSuccessStatusCode` der og tro at det strammede noget.
+>
+> Endeligt antal: **8** i `JiraSettingsEndpointsTests`, **129** i `Todo.Api.Tests` (hvoraf
+> `ContractDriftTests` fortsat er rød til Task 6).
 
 **Step 1: Skriv de fejlende tests — lækagen først**
 
@@ -706,9 +738,35 @@ public class JiraSettingsEndpointsTests : ApiTest
     [Fact]
     public async Task The_token_never_comes_back_out_of_the_api()
     {
+        var stored = await Host.Client.PutAsJsonAsync(
+            "/api/settings/jira-token", new { token = Token });
+
+        // Without this the guard passes on a token that was never stored: a route answering 400
+        // would leave it looking for a string the system does not have. Measured — the version
+        // without these two lines was green against a route that always answered 400.
+        stored.EnsureSuccessStatusCode();
+
+        Assert.True(
+            (await stored.Content.ReadFromJsonAsync<SettingsBody>())!.HasJiraToken,
+            "The token was not stored, so the leak assertion below would prove nothing.");
+
+        var body = await Host.Client.GetStringAsync("/api/settings");
+
+        Assert.DoesNotContain(Token, body, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A separate assertion with a separate reason. The derived document carries schema, not
+    /// values, so it cannot catch a leak in the response builder — what it can catch is a real
+    /// token pasted into an `example:` on the contract. The PUT below is therefore decorative
+    /// rather than a precondition; do not "strengthen" it with EnsureSuccessStatusCode.
+    /// </summary>
+    [Fact]
+    public async Task The_openapi_document_carries_no_token()
+    {
         await Host.Client.PutAsJsonAsync("/api/settings/jira-token", new { token = Token });
 
-        foreach (var path in new[] { "/api/settings", "/openapi/v1.json" })
+        foreach (var path in new[] { "/openapi/v1.json", "/openapi/contract.yaml" })
         {
             var body = await Host.Client.GetStringAsync(path);
 
@@ -818,8 +876,8 @@ public class JiraSettingsEndpointsTests : ApiTest
 dotnet test Todo.sln --filter "FullyQualifiedName~JiraSettingsEndpointsTests"
 ```
 
-Forventet: 404 på `/api/settings/jira-token`, og `SettingsBody` kan ikke bindes, fordi felterne
-ikke findes i svaret.
+Forventet: **405 Method Not Allowed** på `/api/settings/jira-token` — ikke 404, fordi
+`MapFallbackToFile` kun matcher GET. Og de nye felter mangler i svaret.
 
 **Step 3: Nøglerne og fejlkoderne**
 
@@ -961,7 +1019,7 @@ kan dele det:
 
 `PUT /api/settings` skriver `Language`, `JiraBaseUrl`, `JiraProjectKey`,
 `JiraWaitingStatuses` (som JSON, eller fjernet når listen er tom) og `JiraIncludeWaiting`
-(`"true"`/`"false"`) — og **rører ikke `SettingKeys.JiraToken`**. Basisurl'en trimmes for
+(`request.JiraIncludeWaiting ? "true" : null` — se rettelse 1 ovenfor) — og **rører ikke `SettingKeys.JiraToken`**. Basisurl'en trimmes for
 efterstillet `/`, så `BrowseUrl` ikke laver en dobbelt skråstreg.
 
 Tokenets to ruter:
@@ -1004,9 +1062,24 @@ Tokenets to ruter:
 dotnet test Todo.sln --filter "FullyQualifiedName~JiraSettingsEndpointsTests"
 ```
 
-Forventet: PASS, 7 tests.
+Forventet: PASS, 8 tests. Kør derefter hele Api-projektet: **129 i alt, 128 grønne**, hvor den ene
+røde er `ContractDriftTests` — den lukkes i Task 6. Afviger tallet, sig det frem for at runde af.
 
-**Step 7: Se lækage-vagten fejle**
+**Step 7: Se lækage-vagten fejle — på begge sine forudsætninger**
+
+Vagten har nu **to** ting den hviler på, og en vagt med to forudsætninger skal ses fejle på begge.
+
+**Den ægte lækage.** Læg `JiraToken = jira.Token` på `SettingsResponse` og returnér den. Prøven
+skal ligge **inde i `Todo.Contracts`** — `partial` fletter ikke på tværs af assemblies, se
+rettelse 2 ovenfor — eller redigér `Contracts.g.cs` og kør `scripts\generate-api.ps1` bagefter.
+Forventet: `Assert.DoesNotContain() Failure: Sub-string found`.
+
+**Det ugemte token.** Vend betingelsen i `PUT /api/settings/jira-token` til
+`if (!string.IsNullOrWhiteSpace(request.Token))`, så ruten altid svarer 400. Forventet: fejl på
+`EnsureSuccessStatusCode`. Uden Step 1's to ekstra linjer ville vagten **bestå** her — det er målt,
+ikke ræsonneret.
+
+Rul begge tilbage og bekræft at `git status` er ren: en efterladt prøve er en lækage i sig selv.
 
 Byg lækagen med vilje: læg `JiraToken = jira.Token` på `SettingsResponse` og returnér den.
 
