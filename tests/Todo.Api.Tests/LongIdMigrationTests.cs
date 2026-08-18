@@ -1,0 +1,373 @@
+using System.Net;
+using System.Net.Http.Json;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.DependencyInjection;
+using Todo.Contracts;
+using Todo.Core.Persistence;
+using Todo.TestSupport;
+
+namespace Todo.Api.Tests;
+
+/// <summary>
+/// Alle andre tests møder LongIds-migreringen på en tom database, hvor den kun opretter tabeller.
+/// Rækkerne den skal bære er brugerens, de findes ingen andre steder, og en Guid kan ikke castes
+/// til et heltal uden at falde sammen. Det er derfor den eneste test, der stiller rigtige
+/// Guid-rækker op foran den og spørger hvad der kom ud.
+/// </summary>
+public class LongIdMigrationTests
+{
+    /// <summary>
+    /// Guid'erne er valgt for at knække en CAST: to deler et ledende talpræfiks, én starter med
+    /// et bogstav, én er nuller på nær sidste ciffer. CreatedAt er forskellig for hver, fordi
+    /// migreringen sorterer på <c>CreatedAt, Id</c> og et sammenfald ellers ville lade Guid-teksten
+    /// afgøre rækkefølgen. Rækkefølgen her er den forventede id-rækkefølge: ældst bliver nummer 1.
+    /// Bemærk at teksten går den stik modsatte vej, så en migrering der kun sorterer på Id fejler.
+    /// </summary>
+    private static readonly (string Id, string Title, string CreatedAt)[] GuidEraTasks =
+    [
+        ("deadbeef-0000-0000-0000-000000000000", "Aeldste opgave", "2026-01-01 08:00:00"),
+        ("11111111-2222-3333-4444-555555555555", "Delt talpraefiks", "2026-02-01 08:00:00"),
+        ("a1b2c3d4-e5f6-7890-abcd-ef1234567890", "Starter med bogstav", "2026-03-01 08:00:00"),
+        ("00000000-0000-0000-0000-000000000001", "Nuller og et enkelt et", "2026-04-01 08:00:00"),
+        ("11111111-1111-1111-1111-111111111111", "Nyeste opgave", "2026-05-01 08:00:00"),
+    ];
+
+    /// <summary>
+    /// Underopgaver under tre forskellige forældre, og med en SortOrder der ikke følger
+    /// indsættelsen. <c>Parent</c> er indekset i <see cref="GuidEraTasks"/>.
+    /// </summary>
+    private static readonly (int Parent, string Id, string Title, int SortOrder)[] GuidEraSubTasks =
+    [
+        (0, "deadbeef-1111-0000-0000-000000000000", "Aeldste: foerste", 0),
+        (0, "deadbeef-2222-0000-0000-000000000000", "Aeldste: anden", 1),
+        (2, "a1b2c3d4-1111-7890-abcd-ef1234567890", "Bogstav: eneste", 0),
+        (4, "11111111-aaaa-1111-1111-111111111111", "Nyeste: sidst", 5),
+        (4, "11111111-bbbb-1111-1111-111111111111", "Nyeste: foerst", 2),
+    ];
+
+    /// <summary>
+    /// Indsat i omvendt alfabetisk rækkefølge, fordi <c>Aliases</c> ikke har en CreatedAt at
+    /// sortere på og migreringen derfor nummererer efter Value.
+    /// </summary>
+    private static readonly string[] GuidEraAliases = ["thomas", "anna"];
+
+    /// <summary>
+    /// Grunden til at migreringen er skrevet i hånden, som en påstand frem for en kommentar.
+    /// Fem distinkte Guid'er bliver to distinkte heltal, hvoraf tre er 0 — altså sammenfaldende
+    /// primærnøgler. Holder det her op med at gælde, er den håndskrevne ommapning ikke længere
+    /// nødvendig, og så skal nogen få det at vide.
+    /// </summary>
+    [Fact]
+    public void Casting_a_Guid_to_an_integer_collapses_distinct_ids()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:;Pooling=False");
+        connection.Open();
+
+        var cast = new List<long>();
+        foreach (var guid in GuidEraTasks.Select(t => t.Id))
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT CAST($id AS INTEGER)";
+            command.Parameters.AddWithValue("$id", guid);
+            cast.Add(Convert.ToInt64(command.ExecuteScalar()));
+        }
+
+        Assert.Equal(5, GuidEraTasks.Select(t => t.Id).Distinct().Count());
+        Assert.Equal(2, cast.Distinct().Count());
+        Assert.Equal(3, cast.Count(value => value == 0));
+    }
+
+    [Fact]
+    public async Task Guid_era_rows_survive_the_migration_to_long_ids()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "TodoApp.Tests", $"longids-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        var databasePath = Path.Combine(directory, "todo.db");
+
+        try
+        {
+            await using (var host = await RunningHost.StartAtAsync(databasePath))
+            {
+                await RollBackLongIdsAsync(host);
+            }
+
+            // Det er her testen kunne blive grøn af den forkerte grund. SQLites typeaffinitet
+            // gemmer en Guid-streng i en INTEGER-kolonne som TEXT uden at klage, så var
+            // tilbagerulningen udeblevet, ville seedingen lykkes ind i long-verdenen og hele
+            // resten af testen måle en migrering der aldrig kørte.
+            Assert.Equal("TEXT", DeclaredTypeOfTaskId(databasePath));
+
+            SeedGuidEraRows(databasePath);
+
+            await using (var host = await RunningHost.StartAtAsync(databasePath))
+            {
+                Assert.Empty(await PendingMigrationsAsync(host));
+                Assert.Equal("INTEGER", DeclaredTypeOfTaskId(databasePath));
+
+                // 1. Ingen række er tabt. En naiv CAST lader tre af de fem Guid'er blive 0 og
+                //    kan ikke overholde primærnøglen.
+                Assert.Equal(GuidEraTasks.Length, await CountAsync(host, "Tasks"));
+                Assert.Equal(GuidEraSubTasks.Length, await CountAsync(host, "SubTasks"));
+
+                // 4. Ingen underopgave peger på en forælder der ikke findes.
+                //
+                //    Målt: den her kan næsten ikke fejle alene. Fremmednøgler er slået til under
+                //    migreringen, så en ommapning til en forælder der ikke findes bliver afvist
+                //    på stedet med 'FOREIGN KEY constraint failed' - SQLite lader aldrig den
+                //    forældreløse række komme ind i tabellen. Og bygges den nye SubTasks *uden*
+                //    fremmednøglen, har foreign_key_check intet at tjekke og melder også nul.
+                //    Derfor står nøglens eksistens ved siden af gennemgangen: den ene siger at
+                //    reglen er der, den anden at ingen række bryder den.
+                Assert.Equal(
+                    "Tasks: TaskItemId -> Id ON DELETE CASCADE",
+                    Assert.Single(await ForeignKeysOfSubTasksAsync(host)));
+
+                var orphans = await ForeignKeyViolationsAsync(host);
+                Assert.True(
+                    orphans.Count == 0,
+                    $"PRAGMA foreign_key_check fandt {orphans.Count} brud: "
+                    + string.Join("; ", orphans));
+
+                // 2. Hver underopgave hænger stadig på sin egen forælder. Parret, ikke tallet:
+                //    en ommapning der peger alle børn på én forælder har det rigtige antal.
+                var expectedPairs = GuidEraSubTasks
+                    .Select(s => $"{GuidEraTasks[s.Parent].Title} -> {s.Title}")
+                    .Order(StringComparer.Ordinal)
+                    .ToList();
+                Assert.Equal(expectedPairs, await ParentChildPairsAsync(host));
+
+                // 3. Id'erne er 1..n i CreatedAt-rækkefølge, så den ældste opgave er nummer 1.
+                var byId = await TaskTitlesByIdAsync(host);
+                Assert.Equal(
+                    Enumerable.Range(1, GuidEraTasks.Length).Select(i => (long)i),
+                    byId.Select(row => row.Id));
+                Assert.Equal(GuidEraTasks.Select(t => t.Title), byId.Select(row => row.Title));
+
+                // 6. Aliasset overlevede, og id'erne følger teksten frem for indsættelsen.
+                Assert.Equal(
+                    GuidEraAliases.Order(StringComparer.Ordinal).ToList(),
+                    await AliasValuesByIdAsync(host));
+
+                // Rækkerne findes ikke bare, de kan bruges: EF materialiserer dem gennem API'et,
+                // hvilket rå SQL ikke kan bevise - Status er en enum og CreatedAt en dato.
+                var listed = await host.Client.GetFromJsonAsync<TodoTaskListResponse>("/api/tasks");
+                Assert.NotNull(listed);
+                Assert.Equal(
+                    GuidEraTasks.Select(t => t.Title).Order(StringComparer.Ordinal),
+                    listed.Items.Select(item => item.Title).Order(StringComparer.Ordinal));
+
+                // 5. Sekvensen fortsætter på en befolket database. Ingen anden test kan se det:
+                //    de starter alle på en tom.
+                //
+                //    Målt hvad den *ikke* ser: fjerner man AUTOINCREMENT fra Tasks i migreringen,
+                //    står den her stadig grøn, fordi SQLite så falder tilbage på max(rowid) + 1 og
+                //    svarer 6 alligevel. Den holder altså ikke nøgleordet på plads. Den holder, at
+                //    det første id appen uddeler oven på migrerede rækker ikke kolliderer med en
+                //    af dem.
+                var created = await host.Client.PostAsJsonAsync(
+                    "/api/tasks", new CreateTodoTaskRequest { Title = "Efter migreringen" });
+                Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+                var task = await created.Content.ReadFromJsonAsync<TodoTask>();
+                Assert.NotNull(task);
+                Assert.Equal(GuidEraTasks.Length + 1, task.Id);
+            }
+        }
+        finally
+        {
+            RunningHost.ClearConnectionPoolFor(databasePath);
+            TryDelete(directory);
+        }
+    }
+
+    /// <summary>
+    /// Kører LongIds' Down for rigtigt og fjerner dens historik-række, så databasen står i
+    /// Guid-verdenen og næste opstart finder præcis én migrering i venteposition.
+    /// </summary>
+    private static async Task RollBackLongIdsAsync(RunningHost host)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+
+        var applied = (await db.Database.GetAppliedMigrationsAsync()).ToList();
+        Assert.EndsWith("LongIds", applied[^1], StringComparison.Ordinal);
+
+        await db.Database.GetService<IMigrator>().MigrateAsync(applied[^2]);
+
+        var pending = Assert.Single(await db.Database.GetPendingMigrationsAsync());
+        Assert.EndsWith("LongIds", pending, StringComparison.Ordinal);
+    }
+
+    private static async Task<IReadOnlyList<string>> PendingMigrationsAsync(RunningHost host)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+
+        return [.. await db.Database.GetPendingMigrationsAsync()];
+    }
+
+    /// <summary>
+    /// Stiller rækkerne op med rå SQL. Modellen er <c>long</c> og kan ikke udtrykke en
+    /// Guid-æra-række, så hverken en builder eller DbContext kan bruges her.
+    /// </summary>
+    private static void SeedGuidEraRows(string databasePath)
+    {
+        using var connection = OpenOutsideThePool(databasePath);
+
+        foreach (var (id, title, createdAt) in GuidEraTasks)
+        {
+            Execute(
+                connection,
+                """
+                INSERT INTO Tasks (Id, SourceId, Title, Status, CreatedAt)
+                VALUES ($id, 'manual', $title, 'Open', $createdAt);
+                """,
+                ("$id", id), ("$title", title), ("$createdAt", createdAt));
+        }
+
+        foreach (var (parent, id, title, sortOrder) in GuidEraSubTasks)
+        {
+            Execute(
+                connection,
+                """
+                INSERT INTO SubTasks (Id, TaskItemId, Title, IsDone, SortOrder)
+                VALUES ($id, $parent, $title, 0, $sortOrder);
+                """,
+                ("$id", id),
+                ("$parent", GuidEraTasks[parent].Id),
+                ("$title", title),
+                ("$sortOrder", sortOrder));
+        }
+
+        foreach (var value in GuidEraAliases)
+        {
+            Execute(
+                connection,
+                "INSERT INTO Aliases (Id, Value) VALUES ($id, $value);",
+                ("$id", Guid.NewGuid().ToString()), ("$value", value));
+        }
+    }
+
+    private static string DeclaredTypeOfTaskId(string databasePath)
+    {
+        using var connection = OpenOutsideThePool(databasePath);
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT type FROM pragma_table_info('Tasks') WHERE name = 'Id'";
+
+        return (string)command.ExecuteScalar()!;
+    }
+
+    /// <summary>
+    /// Pooling=False, ellers holder en pooled forbindelse filen åben og oprydningen fejler.
+    /// Mode=ReadWrite, så et forkert tidspunkt fejler højt frem for at lave en tom database
+    /// ved siden af den der er under test.
+    /// </summary>
+    private static SqliteConnection OpenOutsideThePool(string databasePath)
+    {
+        var connection = new SqliteConnection(
+            $"Data Source={databasePath};Mode=ReadWrite;Pooling=False");
+
+        connection.Open();
+
+        return connection;
+    }
+
+    private static void Execute(
+        SqliteConnection connection, string sql, params (string Name, object Value)[] parameters)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        foreach (var (name, value) in parameters)
+        {
+            command.Parameters.AddWithValue(name, value);
+        }
+
+        command.ExecuteNonQuery();
+    }
+
+    private static async Task<long> CountAsync(RunningHost host, string table) =>
+        (await QueryAsync(host, $"SELECT COUNT(*) FROM {table}", read => read.GetInt64(0)))[0];
+
+    private static Task<List<string>> ParentChildPairsAsync(RunningHost host) =>
+        QueryAsync(
+            host,
+            """
+            SELECT t.Title || ' -> ' || s.Title
+            FROM SubTasks s JOIN Tasks t ON t.Id = s.TaskItemId
+            ORDER BY 1
+            """,
+            read => read.GetString(0));
+
+    private static Task<List<(long Id, string Title)>> TaskTitlesByIdAsync(RunningHost host) =>
+        QueryAsync(
+            host,
+            "SELECT Id, Title FROM Tasks ORDER BY Id",
+            read => (read.GetInt64(0), read.GetString(1)));
+
+    private static Task<List<string>> AliasValuesByIdAsync(RunningHost host) =>
+        QueryAsync(host, "SELECT Value FROM Aliases ORDER BY Id", read => read.GetString(0));
+
+    private static Task<List<string>> ForeignKeysOfSubTasksAsync(RunningHost host) =>
+        QueryAsync(
+            host,
+            """
+            SELECT "table" || ': ' || "from" || ' -> ' || "to" || ' ON DELETE ' || on_delete
+            FROM pragma_foreign_key_list('SubTasks')
+            """,
+            read => read.GetString(0));
+
+    private static Task<List<string>> ForeignKeyViolationsAsync(RunningHost host) =>
+        QueryAsync(
+            host,
+            "PRAGMA foreign_key_check",
+            read => $"{read.GetValue(0)} rowid {read.GetValue(1)} -> {read.GetValue(2)}");
+
+    /// <summary>
+    /// Læser gennem værtens egen forbindelse, så den ser præcis den database appen ser -
+    /// inklusive det der endnu kun står i write-ahead-loggen.
+    /// </summary>
+    private static async Task<List<T>> QueryAsync<T>(
+        RunningHost host, string sql, Func<SqliteDataReader, T> read)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+
+        await db.Database.OpenConnectionAsync();
+        try
+        {
+            using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = sql;
+
+            await using var reader = (SqliteDataReader)await command.ExecuteReaderAsync();
+            var rows = new List<T>();
+            while (await reader.ReadAsync())
+            {
+                rows.Add(read(reader));
+            }
+
+            return rows;
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static void TryDelete(string directory)
+    {
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+}
