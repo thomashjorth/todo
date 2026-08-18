@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Data.Sqlite;
@@ -53,6 +54,51 @@ public class LongIdMigrationTests
     /// sortere på og migreringen derfor nummererer efter Value.
     /// </summary>
     private static readonly string[] GuidEraAliases = ["thomas", "anna"];
+
+    /// <summary>De tre tabeller migreringen bygger om. <c>Settings</c> rører den ikke.</summary>
+    private static readonly string[] MigratedTables = ["Tasks", "SubTasks", "Aliases"];
+
+    /// <summary>
+    /// Én fuldt udfyldt opgave: hver af de tolv kolonner uden om <c>Id</c> har sin egen
+    /// umiskendelige værdi. Det er distinktheden der gør det til en korrekthedstest og ikke bare
+    /// en tilstedeværelsestest — stod der <c>"x"</c> i både <c>Note</c> og <c>Requester</c>, ville
+    /// en migrering der læste den forkerte kildekolonne bestå.
+    /// </summary>
+    private static readonly (string Column, object Value)[] FullTask =
+    [
+        ("SourceId", "kilde-outlook"),
+        ("Title", "Titlen og ingen anden kolonnes tekst"),
+        ("Note", "Noten, der kun staar i Note"),
+        ("Deadline", "2026-09-30"),
+        ("Requester", "Opgavestiller Rikke"),
+        ("ExternalKey", "ekstern-noegle-4711"),
+        ("Status", "WaitingFor"),
+        ("WaitingOn", "Ventet paa Bo"),
+        ("WaitingSince", "2026-07-04 09:15:00"),
+        ("DeferUntil", "2026-09-01"),
+        ("CompletedAt", "2026-08-11 17:45:00"),
+        ("CreatedAt", "2026-06-02 07:30:00"),
+    ];
+
+    /// <summary>
+    /// Underopgavens kolonner uden om <c>Id</c> og <c>TaskItemId</c>. Fremmednøglen står for sig,
+    /// fordi den er den ene værdi migreringen med vilje *skal* ændre.
+    /// </summary>
+    private static readonly (string Column, object Value)[] FullSubTaskWithoutParent =
+    [
+        ("Title", "Underopgavens egen titel"),
+        ("IsDone", 1),
+        ("SortOrder", 7),
+    ];
+
+    private static readonly (string Column, object Value)[] FullAlias =
+    [
+        ("Value", "aliasset-og-ingen-anden-tekst"),
+    ];
+
+    private const string FullTaskId = "cafebabe-0000-4000-8000-000000000001";
+    private const string FullSubTaskId = "cafebabe-1111-4000-8000-000000000002";
+    private const string FullAliasId = "cafebabe-2222-4000-8000-000000000003";
 
     /// <summary>
     /// Grunden til at migreringen er skrevet i hånden, som en påstand frem for en kommentar.
@@ -183,6 +229,199 @@ public class LongIdMigrationTests
             TryDelete(directory);
         }
     }
+
+    /// <summary>
+    /// Migreringen navngiver hver kolonne eksplicit i sin <c>CREATE TABLE</c> og sit
+    /// <c>INSERT … SELECT</c>, og SQLite fjerner en kolonne uden at sige noget. Den her påstand er
+    /// den holdbare af de to: den fanger en kolonne der bliver lagt på modellen *i fremtiden*,
+    /// uden at nogen huskede at give den en værdi i testen nedenfor. Præcis det skete for
+    /// <c>DeferUntil</c>, som blev opdaget ved at måle planen igen, ikke af en test.
+    ///
+    /// Sammenligner *navnemængden*, ikke rækkefølgen: kolonnernes orden efter en ombygning er den
+    /// orden <c>CREATE TABLE</c> nævner dem i, og at pinne den ville gøre en harmløs omrokering
+    /// rød. <c>ORDER BY name</c> i begge ender er det der gør det til en mængde.
+    /// </summary>
+    [Fact]
+    public Task Every_column_of_every_table_survives_the_migration() =>
+        WithFullRowsThroughTheMigrationAsync(async (host, columnsBefore) =>
+        {
+            foreach (var table in MigratedTables)
+            {
+                var before = columnsBefore[table];
+
+                // Uden den her ville testen kunne bestå af den forkerte grund: et stavefejlet
+                // tabelnavn giver pragma_table_info nul rækker i *begge* ender, og to tomme
+                // mængder er ens.
+                Assert.Contains("Id", before);
+
+                Assert.Equal(before, await ColumnNamesAsync(host, table));
+            }
+        });
+
+    /// <summary>
+    /// Den strukturelle påstand ovenfor kan ikke se en værdi der landede i den forkerte kolonne —
+    /// alle kolonner findes stadig. Derfor står den her ved siden af: én fuldt udfyldt række pr.
+    /// tabel, læst tilbage og sammenlignet felt for felt.
+    /// </summary>
+    [Fact]
+    public Task Every_field_of_a_fully_populated_row_survives_the_migration() =>
+        WithFullRowsThroughTheMigrationAsync(async (host, _) =>
+        {
+            // Der er kun én opgave, så den er nummer 1. Det gør forventningen til underopgavens
+            // fremmednøgle læselig nedenfor.
+            Assert.Equal([1L], await QueryAsync(host, "SELECT Id FROM Tasks", r => r.GetInt64(0)));
+            Assert.Equal([1L], await QueryAsync(host, "SELECT Id FROM Aliases", r => r.GetInt64(0)));
+
+            Assert.Equal(Describe(FullTask), await FieldsAsync(host, "Tasks", FullTask));
+
+            (string Column, object Value)[] expectedSubTask =
+                [("TaskItemId", 1L), .. FullSubTaskWithoutParent];
+            Assert.Equal(Describe(expectedSubTask), await FieldsAsync(host, "SubTasks", expectedSubTask));
+
+            Assert.Equal(Describe(FullAlias), await FieldsAsync(host, "Aliases", FullAlias));
+        });
+
+    /// <summary>
+    /// Ruller LongIds tilbage, læser kolonnenavnene i Guid-verdenen, stiller de fuldt udfyldte
+    /// rækker op og lader migreringen køre forlæns igen.
+    /// </summary>
+    private static async Task WithFullRowsThroughTheMigrationAsync(
+        Func<RunningHost, Dictionary<string, List<string>>, Task> assert)
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(), "TodoApp.Tests", $"longids-columns-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        var databasePath = Path.Combine(directory, "todo.db");
+
+        try
+        {
+            await using (var host = await RunningHost.StartAtAsync(databasePath))
+            {
+                await RollBackLongIdsAsync(host);
+            }
+
+            // Samme vagt som i testen ovenfor, af samme grund: SQLites typeaffinitet tager gerne
+            // en Guid-streng ind i en INTEGER-kolonne, så udeblev tilbagerulningen, ville alt
+            // herunder måle en migrering der aldrig kørte.
+            Assert.Equal("TEXT", DeclaredTypeOfTaskId(databasePath));
+
+            var columnsBefore = ColumnNamesBeforeTheMigration(databasePath);
+
+            SeedFullRows(databasePath);
+
+            await using (var host = await RunningHost.StartAtAsync(databasePath))
+            {
+                Assert.Empty(await PendingMigrationsAsync(host));
+                Assert.Equal("INTEGER", DeclaredTypeOfTaskId(databasePath));
+
+                await assert(host, columnsBefore);
+            }
+        }
+        finally
+        {
+            RunningHost.ClearConnectionPoolFor(databasePath);
+            TryDelete(directory);
+        }
+    }
+
+    /// <summary>
+    /// Læser kolonnenavnene med en rå forbindelse, fordi der ikke kører nogen vært på det
+    /// tidspunkt — migreringen er rullet tilbage og den næste vært vil køre den forlæns igen.
+    /// </summary>
+    private static Dictionary<string, List<string>> ColumnNamesBeforeTheMigration(
+        string databasePath)
+    {
+        using var connection = OpenOutsideThePool(databasePath);
+
+        return MigratedTables.ToDictionary(
+            table => table,
+            table =>
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    $"SELECT name FROM pragma_table_info('{table}') ORDER BY name";
+
+                using var reader = command.ExecuteReader();
+                var names = new List<string>();
+                while (reader.Read())
+                {
+                    names.Add(reader.GetString(0));
+                }
+
+                return names;
+            });
+    }
+
+    private static Task<List<string>> ColumnNamesAsync(RunningHost host, string table) =>
+        QueryAsync(
+            host,
+            $"SELECT name FROM pragma_table_info('{table}') ORDER BY name",
+            read => read.GetString(0));
+
+    /// <summary>
+    /// Bygger INSERT'en ud af kolonnelisterne, så en kolonne der bliver lagt til listen også
+    /// bliver seedet uden at SQL'en skal rettes to steder.
+    /// </summary>
+    private static void SeedFullRows(string databasePath)
+    {
+        using var connection = OpenOutsideThePool(databasePath);
+
+        InsertRow(connection, "Tasks", FullTaskId, FullTask);
+        InsertRow(
+            connection,
+            "SubTasks",
+            FullSubTaskId,
+            [("TaskItemId", FullTaskId), .. FullSubTaskWithoutParent]);
+        InsertRow(connection, "Aliases", FullAliasId, FullAlias);
+    }
+
+    private static void InsertRow(
+        SqliteConnection connection,
+        string table,
+        string id,
+        (string Column, object Value)[] fields)
+    {
+        var columns = new[] { "Id" }.Concat(fields.Select(f => f.Column)).ToList();
+        var placeholders = columns.Select((_, i) => $"$p{i}").ToList();
+
+        var parameters = new[] { ("$p0", (object)id) }
+            .Concat(fields.Select((f, i) => ($"$p{i + 1}", f.Value)))
+            .ToArray();
+
+        Execute(
+            connection,
+            $"INSERT INTO {table} ({string.Join(", ", columns)}) "
+            + $"VALUES ({string.Join(", ", placeholders)});",
+            parameters);
+    }
+
+    /// <summary>
+    /// Læser præcis de kolonner der blev seedet, og formatterer dem som <c>Kolonne = værdi</c>, så
+    /// en fejl peger på hvilken kolonne der bar den forkerte værdi frem for på et indeks.
+    /// </summary>
+    private static async Task<List<string>> FieldsAsync(
+        RunningHost host, string table, (string Column, object Value)[] fields)
+    {
+        var columns = fields.Select(f => f.Column).ToList();
+
+        var rows = await QueryAsync(
+            host,
+            $"SELECT {string.Join(", ", columns)} FROM {table}",
+            read => columns.Select((column, i) => $"{column} = {Format(read.GetValue(i))}").ToList());
+
+        return Assert.Single(rows);
+    }
+
+    private static List<string> Describe((string Column, object Value)[] fields) =>
+        [.. fields.Select(f => $"{f.Column} = {Format(f.Value)}")];
+
+    /// <summary>
+    /// En tabt kolonneværdi kommer tilbage som <see cref="DBNull"/>, og skal kunne skelnes fra
+    /// den tomme streng i fejlteksten.
+    /// </summary>
+    private static string Format(object value) =>
+        value is DBNull ? "<null>" : Convert.ToString(value, CultureInfo.InvariantCulture)!;
 
     /// <summary>
     /// Kører LongIds' Down for rigtigt og fjerner dens historik-række, så databasen står i

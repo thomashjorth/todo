@@ -241,6 +241,25 @@ forkerte grund.
   `DeadlineBucket` kan ikke få drift-testen til at fejle, uanset hvordan den serialiseres, så den
   har sin egen påstand — `"bucket":"deferred"` — i
   `Wire_format_uses_the_names_the_contract_declares`. Læg en ny værdi der, ikke kun i kontrakten.
+- **En håndskrevet migrering skal have en vagt på *kolonnemængden*, ikke kun på rækkerne.**
+  `LongIds` navngiver hver kolonne eksplicit i sin `CREATE TABLE` og sit `INSERT … SELECT`, og
+  SQLite fjerner en kolonne uden at sige noget. Den første vagt såede fem af `Tasks`' tretten
+  kolonner, så en kolonne fjernet fra `SELECT`-listen bestod. Præcis det skete: `DeferUntil`
+  fandtes ikke da planen blev skrevet, skive 9 lagde den på, og den håndskrevne SQL kendte den
+  ikke — fanget ved at måle planen igen, ikke af en test. Derfor **to** påstande, som fanger
+  forskellige fejl: `Every_column_of_every_table_survives_the_migration` sammenligner
+  navnemængden før og efter og er den holdbare — den ser en kolonne der bliver lagt på modellen i
+  fremtiden, uden at nogen huskede at seede en værdi for den — og
+  `Every_field_of_a_fully_populated_row_survives_the_migration` sår én fuldt udfyldt række pr.
+  tabel og sammenligner felt for felt. Set fejle hver for sig: en droppet `DeferUntil` fælder
+  begge, mens en ombytning af `Note` og `Requester` i `SELECT`-listen **kun** fælder den
+  værdibaserede, fordi alle kolonner stadig findes. Værdiernes distinkthed er bærende — stod der
+  `"x"` i to kolonner, ville ombytningen bestå. Sammenlign **navnemængden**, ikke rækkefølgen:
+  kolonneordenen efter en ombygning er den `CREATE TABLE` nævner dem i, og at pinne den ville
+  gøre en harmløs omrokering rød.
+- **En mængdesammenligning kan bestå på ingenting.** Et stavefejlet tabelnavn giver
+  `pragma_table_info` nul rækker i *begge* ender, og to tomme mængder er ens. Vagten kræver
+  derfor også, at `Id` står i mængden fra før migreringen.
 - **Builders er til *arrange*.** De skriver direkte i databasen og springer API'ets validering
   over; brug dem aldrig til selve handlingen en test skal verificere.
 - **Et databasegenereret id findes først efter `SaveChanges`.** Læser en test `task.Id` før den
@@ -289,8 +308,16 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 10: **38** Todo.Core.Tests, **117** Todo.Api.Tests, **25** Todo.E2E, **143** Vitest.
+Efter kolonnevagten på migreringen: **38** Todo.Core.Tests, **119** Todo.Api.Tests, **25**
+Todo.E2E, **143** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Kolonnevagten lagde **to** Api-tests til (117 → 119), begge i `LongIdMigrationTests`:
+`Every_column_of_every_table_survives_the_migration` og
+`Every_field_of_a_fully_populated_row_survives_the_migration`. Delt i to med vilje, fordi de
+fanger forskellige fejl og skal kunne ses fejle hver for sig — en ombytning i `SELECT`-listen
+fælder kun den anden. De øvrige tre tal står stille: vagten rørte hverken kontrakten, kernen
+eller frontenden.
+Før den, efter skive 10: 38 Core, 117 Api, 25 E2E, 143 Vitest.
 Skive 10 lagde **to** Api-tests til (115 → 117), begge i `LongIdMigrationTests`:
 `Guid_era_rows_survive_the_migration_to_long_ids`, som sår rigtige Guid-rækker gennem den forrige
 migrering og kræver dem intakte bagefter, og
