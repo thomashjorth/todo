@@ -1,6 +1,6 @@
 using Todo.Core.Jira;
 
-namespace Todo.Core.Tests;
+namespace Todo.Core.Tests.Jira;
 
 public class WikiMarkupTests
 {
@@ -72,9 +72,23 @@ public class WikiMarkupTests
     }
 
     [Fact]
-    public void A_bullet_list_keeps_its_dashes()
+    public void A_bullet_list_becomes_dashes()
     {
         Assert.Equal("- en\n- to", WikiMarkup.ToCommonMark("* en\n* to"));
+    }
+
+    /// <summary>
+    /// Jira spells nesting by repeating the marker, so `##` is a second-level ordered item. A rule
+    /// that matched only a single marker left it alone, and CommonMark then read the bare `##` as a
+    /// top-level heading: the item was promoted out of the list and the list itself split in three.
+    /// Nested items are ordinary in acceptance criteria, which is where descriptions come from.
+    /// </summary>
+    [Fact]
+    public void A_nested_ordered_item_nests_rather_than_becoming_a_heading()
+    {
+        Assert.Equal(
+            "1. en\n    1. en-a\n1. to",
+            WikiMarkup.ToCommonMark("# en\n## en-a\n# to"));
     }
 
     [Fact]
@@ -84,9 +98,20 @@ public class WikiMarkupTests
     }
 
     [Fact]
-    public void A_rule_becomes_three_dashes()
+    public void A_rule_becomes_a_thematic_break()
     {
-        Assert.Equal("---", WikiMarkup.ToCommonMark("----"));
+        Assert.Equal("***", WikiMarkup.ToCommonMark("----"));
+    }
+
+    /// <summary>
+    /// Jira does not require a blank line before ----, and `---` under a line of text is a setext
+    /// H2 in CommonMark: the rule vanishes and the paragraph above is promoted. `***` cannot be
+    /// read that way. This is the case the first version of the converter got wrong.
+    /// </summary>
+    [Fact]
+    public void A_rule_under_a_line_of_text_stays_a_rule()
+    {
+        Assert.Equal("tekst\n***\nmere", WikiMarkup.ToCommonMark("tekst\n----\nmere"));
     }
 
     /// <summary>
@@ -97,7 +122,9 @@ public class WikiMarkupTests
     [Fact]
     public void An_unknown_macro_survives_as_text()
     {
-        Assert.Equal("{color:red}rød{color}", WikiMarkup.ToCommonMark("{color:red}rød{color}"));
+        // The macro has to be *transparent*, not merely untouched: with the same string on both
+        // sides, this passed for any converter that left `{color}` alone, a no-op included.
+        Assert.Equal("{color:red}**fed**{color}", WikiMarkup.ToCommonMark("{color:red}*fed*{color}"));
     }
 
     [Fact]
@@ -117,6 +144,18 @@ public class WikiMarkupTests
         Assert.Equal(
             "```\n* ikke en liste\nh1. ikke en overskrift\n```",
             WikiMarkup.ToCommonMark("{code}\n* ikke en liste\nh1. ikke en overskrift\n{code}"));
+    }
+
+    /// <summary>
+    /// {noformat} is Jira's other verbatim block, and the argument for protecting it is the one
+    /// above word for word. It was missed because the fence test named only {code}.
+    /// </summary>
+    [Fact]
+    public void The_line_rules_do_not_run_inside_a_noformat_block()
+    {
+        Assert.Equal(
+            "```\n* ikke en liste\nh1. ikke en overskrift\n```",
+            WikiMarkup.ToCommonMark("{noformat}\n* ikke en liste\nh1. ikke en overskrift\n{noformat}"));
     }
 
     /// <summary>Bold inside inline code is code, not bold. Same argument as the fence, one line up.</summary>
