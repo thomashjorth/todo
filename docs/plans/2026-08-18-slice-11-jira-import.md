@@ -1146,7 +1146,57 @@ git commit -m "✨ Gem Jira-indstillingerne, med tokenet på sit eget endpoint"
 >   kun nås ved at skrive skrald direkte i databasen, så den hører i en **Core**-test frem for en
 >   Api-test.
 >
-> Læg de tre i `tests/Todo.Core.Tests/Jira/JiraSettingsTests.cs` — de kræver ingen host.
+> Læg de host-frie i `tests/Todo.Core.Tests/Jira/JiraSettingsTests.cs`. **Kun `IsConfigured` og
+> `BrowseUrl` er host-frie** — trimningen bor i endpointet og `ReadList`s fallback kræver skrald
+> skrevet direkte i databasen, så de to hører i `JiraSettingsEndpointsTests`.
+
+> **Rettet efter kørslen, 2026-08-18. Leveret i `f61d513`; den kode er sandheden.** Ni fejl, og to af
+> dem ville have kostet data eller været usynlige:
+>
+> 1. **Begrundelsen for den danske comparer er falsk, og vagten kunne ikke fejle.** Planen påstod, at
+>    en kodepunkt-sortering ville sætte `Løst` efter `Venter`. Det sker ikke: `'L'` er `0x4C` og
+>    `'V'` er `0x56`, så sammenligningen afgøres på **første tegn** og `ø` nås aldrig. Ordinal,
+>    invariant og dansk giver alle tre den samme rækkefølge, så testen kunne ikke se den comparer den
+>    var skrevet for. Lukket med `Æ`/`Å`, hvor de to genuint skilles — dansk sætter æ, ø, å efter z,
+>    mens kodepunkterne har `Å` (0xC5) **før** `Æ` (0xC6). Det er den fjerde uopnåelige vagt i denne
+>    skive; de var alle mine.
+> 2. **`duedate` skal have et eksplicit `[JsonPropertyName]`.** Jira staver det i ét ord, og
+>    navnepolitikken leder efter `dueDate`, læser feltet som fraværende, og **hver deadline ville
+>    lydløst ankomme som null** — mens `An_issue_without_a_due_date_or_reporter_still_maps` fortsat
+>    bestod. Ingen test ville have fanget det.
+> 3. **`UriBuilder` kan ikke bygge søge-URL'en.** Målt: den af-escaper `%20` tilbage til et
+>    mellemrum, mens `%3D` bliver stående, så resultatet er `?jql=project %3D SAAS`. URL'en bygges
+>    som streng.
+> 4. **`FakeJira.SourceFor` modsagde DI-designet** — en falsk uden database kan ikke bygge en
+>    `JiraSettingsReader`. Løst med én offentlig constructor plus en statisk
+>    `JiraTaskSource.With(client, settings)`. Det **måtte** være en factory: `ActivatorUtilities`
+>    vælger en typet klients constructor ved at tælle opløselige parametre, og to
+>    to-parameter-constructorer var tvetydige.
+> 5. **Intet i planen testede DI-registreringen**, og alle tests går uden om den via `With`.
+>    `AddHttpClient` er **lazy**, så en brudt registrering ville først dukke op i Task 6 og ligne
+>    Task 6's fejl. `JiraTaskSourceRegistrationTests` lukker det, på
+>    `LinkLauncherRegistrationTests`' mønster.
+> 6. **`IsConfigured` blev strammet frem for omdøbt.** Den kræver nu at `BaseUrl` parser som en
+>    absolut `http`/`https`-URI. Målt: `Uri.TryCreate("https:/jira", UriKind.Absolute, …)` er
+>    **false**, så planens eget eksempel er præcis det stramningen fanger — før den læste det som
+>    konfigureret og ville have givet en uhåndteret `UriFormatException` på første request.
+>    Skemategninget er separat, fordi `file:///c:/temp` og `javascript:alert(1)` **er** absolutte
+>    URI'er.
+> 7. **Den dobbelte trimning: `BrowseUrl`s er den redundante.** Målt med `git log -S` — begge ankom i
+>    **samme** commit, så ingen gemt værdi har nogensinde båret en efterhængt skråstreg. Beholdt
+>    alligevel, fordi den er en offentlig metode på en offentlig record i Core, der ikke kan se om
+>    dens kalder kom gennem endpointet, og fordi den er den af de to hvis fravær **brugeren** ser
+>    (`//browse/SAAS-1`). Den rigtige fejl var, at ingen af dem var målt; nu er begge set fejle.
+> 8. **Planens `git add`-liste var ufuldstændig** — den udelod `JiraSettings.cs` og
+>    `JiraSettingsEndpointsTests.cs`, som arven nødvendigvis ændrer.
+> 9. Mindre: planens forudsagte fejlbesked for `Distinct`-mutationen ("`I gang` to gange") er
+>    retningsrigtig, men fejlen er reelt et indeks-2-mismatch, fordi dubletten sorterer ved siden af
+>    sig selv frem for at blive hængt bagpå.
+>
+> Endeligt antal: **10** i `JiraTaskSourceTests`, **144** i `Todo.Api.Tests` (143 grønne,
+> `ContractDriftTests` rød til Task 6), **83** i `Todo.Core.Tests`.
+>
+> **Ti mutationer blev kørt, og alle tio fældede deres vagt.** Det er metoden der fandt punkt 1 og 5.
 
 **Step 1: Sømmen i Core**
 

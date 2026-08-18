@@ -39,6 +39,12 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   med `Invoke-WebRequest`. Del kommandoen op, eller brug `curl` gennem Bash-værktøjet.
 - **Ingen `"` i en `git commit -m`-heredoc.** PowerShell citerer om for native kommandoer, og
   et anførselstegn afslutter argumentet midt i beskeden.
+- **`@'…'@` er PowerShells here-string, ikke Bash'.** Bruges den gennem Bash-værktøjet, sender Git
+  Bash `@`-afgrænserne videre som **almindelig tekst**, så commit-emnet bliver `@ ✨ … @`. Fejlen er
+  tavs — `git commit` lykkes — og opdages først når nogen læser historikken. Vælg syntaks efter det
+  værktøj du kalder, ikke efter hvad du skrev sidst, og verificér et emne med gitmoji **på
+  byte-niveau** (`git log --format=%s -1 | od -c`) frem for på skærmen, hvor en forkert kodning
+  ligner det rigtige.
 - **EF-værktøjet er `dotnet tool run dotnet-ef`, aldrig `dotnet ef`.** En global `dotnet-ef`
   7.0.16 ligger på maskinen og kan ikke læse en EF Core 10-model.
 - **Kør scripts fra repo-roden.** `dotnet tool restore` læser sit manifest fra den aktuelle
