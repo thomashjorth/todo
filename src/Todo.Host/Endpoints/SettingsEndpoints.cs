@@ -41,8 +41,13 @@ public static class SettingsEndpoints
             await StoreAsync(db, SettingKeys.JiraProjectKey, Blank(request.JiraProjectKey));
             await StoreAsync(db, SettingKeys.JiraWaitingStatuses, WaitingStatuses(request.JiraWaitingStatuses));
 
-            // Stored only when on, so the row set stays empty when nothing has been chosen -
-            // storing "false" would leave a row behind for a setting that was never touched.
+            // Stored only when on. Not tidiness - two tests in SettingsEndpointsTests assert about
+            // the whole Settings table and go red on a "false" row left behind by a save that never
+            // touched this setting: Clearing_the_language_removes_the_row_rather_than_storing_null
+            // (Assert.Empty) and Choosing_a_language_twice_overwrites_the_one_row (Assert.Single).
+            // They live in a file about language, so nothing there points back here.
+            // The asymmetry this creates is read in JiraSettingsReader, and turning it back off
+            // has its own test, JiraSettingsEndpointsTests.Turning_waiting_back_off_turns_it_off.
             await StoreAsync(db, SettingKeys.JiraIncludeWaiting, request.JiraIncludeWaiting ? "true" : null);
 
             await db.SaveChangesAsync();

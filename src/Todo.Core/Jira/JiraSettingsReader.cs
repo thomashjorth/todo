@@ -18,6 +18,12 @@ public sealed class JiraSettingsReader(TodoDbContext db)
             ProjectKey: Value(rows, SettingKeys.JiraProjectKey),
             Token: Value(rows, SettingKeys.JiraToken),
             WaitingStatuses: ReadList(Value(rows, SettingKeys.JiraWaitingStatuses)),
+            // Asymmetric on purpose, and the asymmetry is the writer's: SettingsEndpoints stores on
+            // as a row and off as no row at all, because two tests there assert about the whole
+            // Settings table. So an absent row must read as off, which is what == "true" says.
+            // Writing it as != "false" would read an absent row as on. Measured: that fells two
+            // tests in JiraSettingsEndpointsTests, Waiting_issues_are_excluded_until_asked_for and
+            // Turning_waiting_back_off_turns_it_off.
             IncludeWaiting: Value(rows, SettingKeys.JiraIncludeWaiting) == "true");
     }
 
