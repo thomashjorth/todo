@@ -249,11 +249,21 @@ for at løse i skive 5.
 
 Tre ting følger, og de er grunden til at kravet står her frem for i en plan.
 
-**Statusnavnet kan ikke hårdkodes.** `Afventer general` er et navn i *vores* instans, og der er
-mindst to — dashboardet har både `Afventer general` og `Afventer PO/FA`. Indstillingen må derfor
-være en **liste** af statusser, ikke ét navn. Skal listen kunne vælges frem for skrives, kræver
-det et kald til instansen, og det hænger sammen med "Test forbindelse" i samme skive: en
-statusliste forudsætter en virkende forbindelse.
+**Statusnavnet kan ikke hårdkodes, og der er seks af dem.** Målt 2026-08-18 mod
+`/rest/api/2/project/SAAS/statuses`: projektet har elleve statusser, og **seks** af dem er
+ventende — `Afventer Bug`, `Afventer general`, `Afventer KAM`, `Afventer Kunden`,
+`Afventer PO/FA` og `Venter på support`. De øvrige fem er `I gang`, `Ny SLA`, `Løst`, `Lukket`
+og `Annulleret`.
+
+**Og navngivningen er ikke konsekvent.** Fem begynder med `Afventer`, én hedder
+`Venter på support`. En præfiks-heuristik ville derfor tabe den sjette — det er det konkrete
+argument for en **eksplicit liste** frem for at være smart. Jiras statuskategorier hjælper heller
+ikke: alle seks ligger sammen med `I gang` i kategorien `indeterminate`, så kategorien kan ikke
+skelne ventende fra igangværende.
+
+Indstillingen er altså en liste af statusnavne brugeren vælger. Skal listen kunne vælges frem for
+skrives, kræver det et kald til instansen, og det hænger sammen med "Test forbindelse" i samme
+skive: en statusliste forudsætter en virkende forbindelse.
 
 **Det er en mapning, ikke en filtrering — besluttet 2026-08-18: `WaitingFor`.** Appen har sin egen
 `WaitingFor` med `WaitingOn` og `WaitingSince`, og en sag i `Afventer general` betyder semantisk
@@ -266,12 +276,19 @@ efter det, ellers inviterer den til at blive læst som et filter.
 
 To ting følger, og de er ikke afklaret:
 
-**`WaitingSince` skal komme et sted fra, og valget er synligt for brugeren.** Skive 5 udregner
-`waitingDays` på serveren ud fra `WaitingSince`, og hele pointen var *"hvor længe har du ventet"*.
-Sætter importen den til importtidspunktet, lyver dagtællingen. Det trofaste svar er **hvornår
-sagen gik ind i den ventende status**, og det står i Jiras changelog — `expand=changelog` på
-sagen — hvilket er et ekstra kald og en ekstra formklarhed at måle. Alternativet, `updated`, er
-en tilnærmelse der bliver forkert hver gang nogen kommenterer.
+**`WaitingSince` skal komme fra changeloggen — det billige alternativ findes ikke.** Skive 5
+udregner `waitingDays` på serveren ud fra `WaitingSince`, og hele pointen var *"hvor længe har du
+ventet"*. Sætter importen den til importtidspunktet, lyver dagtællingen.
+
+Målt 2026-08-18: **`statuscategorychangedate` returneres ikke** af Jira DC 10.3.24, så den genvej
+er ude. `expand=changelog` virker derimod, og giver tidsstemplede statusovergange med
+sekundpræcision og tidszone (`2026-08-17T14:10:13.593+0200`). `WaitingSince` er dermed
+**`created` på den nyeste changelog-post der indeholder et `status`-item**.
+
+To konsekvenser. Tidsstemplet har **offset**, og appen gemmer tidsstempler som UTC `DateTime` —
+aldrig `DateTimeOffset`, som SQLite ikke kan sortere — så det skal konverteres, ikke gemmes råt.
+Og changeloggen er et **ekstra kald pr. sag**, medmindre den hentes med i søgningen; `total` var
+10 for én bruger, så det er billigt her, men det er ikke gratis i almindelighed.
 
 **Om `Status` bliver et eksternt felt, er en reel spænding.** Afsnittet ovenfor siger, at
 synkronisering kun må skrive i `Ext*`-felter, og at dine egne felter aldrig røres. Men `Status`
@@ -539,11 +556,16 @@ blev leveret uden for skiverne og står nedenfor som lukket.
   `Authorization: Bearer <PAT>` svarer 200 (målt 2026-08-18). Det bekræfter samtidig, at
   `/rest/api/2/` svarer, og at brugeren kan slås op, så `assignee = currentUser()` har noget
   at opløse.
-  **Men Jira 10 fjernede en række forældede REST-endpoints**, så planen for skive 11 skal
-  verificeres mod instansen frem for mod hukommelsen. **Tre kald mangler stadig at blive målt:**
-  om `/rest/api/2/search` svarer eller er afløst af `/search/jql`, hvordan changeloggen ser ud
-  for en statusovergang (til `WaitingSince`, se afsnit 4a), og om `/rest/api/2/project/SAAS/statuses`
-  giver de statusnavne dashboardet viser.
+  **Jira 10 fjernede en række forældede REST-endpoints, men ikke dem vi skal bruge** — målt
+  2026-08-18 mod instansen frem for hukommelsen:
+  `GET /rest/api/2/search?jql=assignee=currentUser()` svarer, og med den **klassiske
+  paginering** (`startAt`, `maxResults`, `total`, `issues`, plus `warningMessages`, `names`,
+  `schema`) — **ikke** Cloud'ens nyere token-baserede `nextPageToken`/`isLast`. Så `/search` er
+  vejen, og `/search/jql` er ikke nødvendig. Projektnøglen er `SAAS` (`SaaS Support`), og PAT'en
+  ser fire projekter: `EC`, `KK`, `SAAS`, `TTMBP`.
+  **Én designfølge af det:** en import filtreret på `assignee = currentUser()` trækker fra **alle
+  fire** projekter, kundeprojektet `KK` iberegnet. Om der skal et projektfilter på, er en
+  beslutning til skive 11 — i Jira ses de allerede blandet på det samme dashboard.
 - **ADO Server-versionen er stadig ukendt** og afgør endpoints og API-versioner der.
   Verificeres med "Test forbindelse" i skive 12.
 - **Skallen har nu farver i begge temaer, og det var mere end kosmetik** (løst i skive 7).

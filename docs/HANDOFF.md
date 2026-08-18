@@ -113,7 +113,9 @@ Mønstret der har virket gennem elleve skiver:
   (`Afventer general`, `Afventer PO/FA`) kan komme med i importen bag en indstilling, default fra,
   og importeres **som `WaitingFor`** — den lander i "Venter på", ikke i deadline-sektionerne.
   Indstillingen er derfor "disse Jira-statusser betyder ventende", ikke et filter.
-  **To ting er stadig åbne, og de skal måles mod instansen:** hvor `WaitingSince` kommer fra
-  (Jiras changelog er det trofaste svar, `updated` er en tilnærmelse der bliver forkert) og at
-  `Status` fødes fra kilden ved import og derefter er lokal, som `Title` og `Requester`.
-  Designdokumentets afsnit 4a.
+  **Instansen er nu målt, og tre ting er afklaret:** `/rest/api/2/search` virker med klassisk
+  paginering, projektet har **seks** ventende statusser med inkonsekvente navne (fem `Afventer *`
+  plus `Venter på support`, så en præfiks-heuristik taber en), og `WaitingSince` skal komme fra
+  `expand=changelog`, fordi `statuscategorychangedate` ikke returneres. Tilbage står én
+  designbeslutning: at `Status` fødes fra kilden ved import og derefter er lokal, som `Title` og
+  `Requester`. Designdokumentets afsnit 4a og 10.
