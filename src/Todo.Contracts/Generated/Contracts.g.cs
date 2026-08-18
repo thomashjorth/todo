@@ -515,8 +515,12 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("requester")]
         public string Requester { get; set; }
 
-        [System.Text.Json.Serialization.JsonPropertyName("isWaiting")]
-        public bool IsWaiting { get; set; }
+        /// <summary>
+        /// The Jira status name. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Status { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
         public System.DateTimeOffset? WaitingSince { get; set; }

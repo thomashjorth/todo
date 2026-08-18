@@ -2453,7 +2453,8 @@ export class JiraImportRow implements IJiraImportRow {
     note?: string | undefined;
     deadline?: string | undefined;
     requester?: string | undefined;
-    isWaiting!: boolean;
+    /** The Jira status name. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire. */
+    status!: string;
     waitingSince?: string | undefined;
 
     constructor(data?: IJiraImportRow) {
@@ -2472,7 +2473,7 @@ export class JiraImportRow implements IJiraImportRow {
             this.note = _data["note"];
             this.deadline = _data["deadline"];
             this.requester = _data["requester"];
-            this.isWaiting = _data["isWaiting"];
+            this.status = _data["status"];
             this.waitingSince = _data["waitingSince"];
         }
     }
@@ -2491,7 +2492,7 @@ export class JiraImportRow implements IJiraImportRow {
         data["note"] = this.note;
         data["deadline"] = this.deadline;
         data["requester"] = this.requester;
-        data["isWaiting"] = this.isWaiting;
+        data["status"] = this.status;
         data["waitingSince"] = this.waitingSince;
         return data;
     }
@@ -2503,7 +2504,8 @@ export interface IJiraImportRow {
     note?: string | undefined;
     deadline?: string | undefined;
     requester?: string | undefined;
-    isWaiting: boolean;
+    /** The Jira status name. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire. */
+    status: string;
     waitingSince?: string | undefined;
 }
 
