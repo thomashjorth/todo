@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Scalar.AspNetCore;
+using Todo.Core.Jira;
 using Todo.Host.Endpoints;
 using Todo.Host.Links;
 
@@ -43,6 +44,11 @@ public static class TodoHost
         var databasePath = builder.Configuration["Data:Path"] ?? TodoDatabase.DefaultPath;
         builder.Services.AddDbContext<TodoDbContext>(o => o.UseSqlite($"Data Source={databasePath}"));
         builder.Services.AddSingleton<IClock, SystemClock>();
+
+        // Scoped, because it reads through the request's TodoDbContext. The settings routes take it
+        // as a parameter, which is how a minimal API asks DI for something.
+        builder.Services.AddScoped<JiraSettingsReader>();
+
         builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
 
         configureServices?.Invoke(builder.Services);
