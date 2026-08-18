@@ -137,13 +137,13 @@ export class TaskStore {
     await this.load();
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     await firstValueFrom(this.client.deleteTask(id));
     await this.load();
   }
 
   // The subtasks arrive inside their parent task, so every change reloads the list.
-  async addSubTask(taskId: string, title: string): Promise<void> {
+  async addSubTask(taskId: number, title: string): Promise<void> {
     const trimmed = title.trim();
     if (!trimmed) {
       return;
@@ -155,7 +155,7 @@ export class TaskStore {
     await this.load();
   }
 
-  async setSubTaskDone(taskId: string, subTask: TodoSubTask, isDone: boolean): Promise<void> {
+  async setSubTaskDone(taskId: number, subTask: TodoSubTask, isDone: boolean): Promise<void> {
     await firstValueFrom(
       this.client.updateSubTask(
         taskId,
@@ -166,7 +166,7 @@ export class TaskStore {
     await this.load();
   }
 
-  async removeSubTask(taskId: string, subTaskId: string): Promise<void> {
+  async removeSubTask(taskId: number, subTaskId: number): Promise<void> {
     await firstValueFrom(this.client.deleteSubTask(taskId, subTaskId));
     await this.load();
   }

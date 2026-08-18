@@ -17,8 +17,8 @@ export class TaskList {
   protected readonly shortcuts = inject(ShortcutStore);
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly done = TodoStatus.Done;
-  protected readonly expandedId = signal<string | null>(null);
-  protected readonly editingNote = signal<string | null>(null);
+  protected readonly expandedId = signal<number | null>(null);
+  protected readonly editingNote = signal<number | null>(null);
   protected readonly completed = computed(() =>
     this.store.showCompleted() ? this.store.completedTasks() : [],
   );

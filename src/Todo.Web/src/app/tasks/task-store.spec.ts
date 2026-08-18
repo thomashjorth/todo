@@ -10,9 +10,13 @@ import {
 } from '../api/todo-client';
 import { TaskStore, subTaskProgress } from './task-store';
 
+// Ids er tal, så bucket-navnet kan ikke være en del af dem. Tælleren giver hvert kald sit eget
+// id, fordi `track task.id` og storens filtre regner med, at to opgaver ikke deler id.
+let nextId = 1;
+
 function taskIn(bucket: DeadlineBucket): TodoTask {
   return new TodoTask({
-    id: `${bucket}-1`,
+    id: nextId++,
     sourceId: 'manual',
     title: `Task in ${bucket}`,
     status: TodoStatus.Open,
@@ -22,8 +26,13 @@ function taskIn(bucket: DeadlineBucket): TodoTask {
   });
 }
 
+// Ad hoc-id'er i de tests der ikke går gennem `taskIn`: tresserne er opgaver, halvfemserne
+// underopgaver, så det kan læses hvad et id i en URL peger på.
+const someTaskId = 61;
+const someSubTaskId = 91;
+
 function subTask(title: string): TodoSubTask {
-  return new TodoSubTask({ id: 'sub-1', title, isDone: false });
+  return new TodoSubTask({ id: someSubTaskId, title, isDone: false });
 }
 
 describe('TaskStore', () => {
@@ -270,9 +279,9 @@ describe('TaskStore', () => {
   it('should add a subtask from the trimmed title and reload the list', async () => {
     const http = TestBed.inject(HttpTestingController);
 
-    const added = store.addSubTask('abc', '  Pak køkkenet  ');
+    const added = store.addSubTask(someTaskId, '  Pak køkkenet  ');
 
-    const created = http.expectOne('/api/tasks/abc/subtasks');
+    const created = http.expectOne(`/api/tasks/${someTaskId}/subtasks`);
     expect(created.request.method).toBe('POST');
     expect(JSON.parse(created.request.body).title).toBe('Pak køkkenet');
     created.flush(new Blob([JSON.stringify(subTask('Pak køkkenet').toJSON())]), {
@@ -288,7 +297,7 @@ describe('TaskStore', () => {
   });
 
   it.each(['', '   '])('should send no request for the subtask title %j', async (title) => {
-    await store.addSubTask('abc', title);
+    await store.addSubTask(someTaskId, title);
 
     TestBed.inject(HttpTestingController).verify();
   });
@@ -296,9 +305,9 @@ describe('TaskStore', () => {
   it('should send the subtask title along when it is ticked off', async () => {
     const http = TestBed.inject(HttpTestingController);
 
-    void store.setSubTaskDone('abc', subTask('Pak køkkenet'), true);
+    void store.setSubTaskDone(someTaskId, subTask('Pak køkkenet'), true);
 
-    const request = http.expectOne(`/api/tasks/abc/subtasks/sub-1`);
+    const request = http.expectOne(`/api/tasks/${someTaskId}/subtasks/${someSubTaskId}`);
     expect(request.request.method).toBe('PUT');
     expect(JSON.parse(request.request.body)).toEqual({ title: 'Pak køkkenet', isDone: true });
   });
@@ -306,9 +315,9 @@ describe('TaskStore', () => {
   it('should delete a subtask and reload the list', async () => {
     const http = TestBed.inject(HttpTestingController);
 
-    const removed = store.removeSubTask('abc', 'sub-1');
+    const removed = store.removeSubTask(someTaskId, someSubTaskId);
 
-    const request = http.expectOne('/api/tasks/abc/subtasks/sub-1');
+    const request = http.expectOne(`/api/tasks/${someTaskId}/subtasks/${someSubTaskId}`);
     expect(request.request.method).toBe('DELETE');
     request.flush(new Blob([]), { status: 204, statusText: 'No Content' });
 
@@ -323,9 +332,9 @@ describe('TaskStore', () => {
     const task = new TodoTask({
       ...taskIn(DeadlineBucket.Today),
       subTasks: [
-        new TodoSubTask({ id: 'a', title: 'Et', isDone: true }),
-        new TodoSubTask({ id: 'b', title: 'To', isDone: false }),
-        new TodoSubTask({ id: 'c', title: 'Tre', isDone: true }),
+        new TodoSubTask({ id: 92, title: 'Et', isDone: true }),
+        new TodoSubTask({ id: 93, title: 'To', isDone: false }),
+        new TodoSubTask({ id: 94, title: 'Tre', isDone: true }),
       ],
     });
 
@@ -339,9 +348,9 @@ describe('TaskStore', () => {
   it('should delete a task and reload the list', async () => {
     const http = TestBed.inject(HttpTestingController);
 
-    const removed = store.remove('abc');
+    const removed = store.remove(someTaskId);
 
-    const request = http.expectOne('/api/tasks/abc');
+    const request = http.expectOne(`/api/tasks/${someTaskId}`);
     expect(request.request.method).toBe('DELETE');
     request.flush(new Blob([]), { status: 204, statusText: 'No Content' });
 

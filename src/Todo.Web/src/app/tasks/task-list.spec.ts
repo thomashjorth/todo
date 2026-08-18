@@ -8,7 +8,7 @@ import { TaskList } from './task-list';
 
 const items = [
   {
-    id: '11111111-1111-1111-1111-111111111111',
+    id: 1,
     sourceId: 'manual',
     title: 'Betal regningen',
     deadline: '2026-08-10',
@@ -20,7 +20,7 @@ const items = [
     subTasks: [],
   },
   {
-    id: '22222222-2222-2222-2222-222222222222',
+    id: 2,
     sourceId: 'manual',
     title: 'Ring til tandlægen',
     deadline: null,
@@ -34,7 +34,7 @@ const items = [
 ];
 
 const waiting = {
-  id: '33333333-3333-3333-3333-333333333333',
+  id: 3,
   sourceId: 'manual',
   title: 'Spørg Bo om tallene',
   deadline: null,
@@ -51,7 +51,7 @@ const waiting = {
 
 const parked = {
   ...waiting,
-  id: '44444444-4444-4444-4444-444444444444',
+  id: 4,
   title: 'Lær at spille harmonika',
   status: 'someday',
   waitingOn: null,
@@ -63,7 +63,7 @@ const parked = {
 const deferredItems = [
   {
     ...items[1],
-    id: '55555555-5555-5555-5555-555555555555',
+    id: 5,
     title: 'Bestil sommerhus',
     deferUntil: '2026-09-01',
     bucket: 'deferred',
@@ -82,8 +82,8 @@ const withSubTasks = [
   {
     ...items[0],
     subTasks: [
-      { id: 'aaaa', title: 'Find kontonummeret', isDone: true },
-      { id: 'bbbb', title: 'Overfør beløbet', isDone: false },
+      { id: 11, title: 'Find kontonummeret', isDone: true },
+      { id: 12, title: 'Overfør beløbet', isDone: false },
     ],
   },
   items[1],
@@ -324,7 +324,7 @@ describe('TaskList', () => {
     http
       .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
       .flush(
-        new Blob([JSON.stringify({ items: [...items, { ...items[0], id: 'x', status: 'done' }] })]),
+        new Blob([JSON.stringify({ items: [...items, { ...items[0], id: 9, status: 'done' }] })]),
       );
 
     const completed = await vi.waitFor(() => {
@@ -413,7 +413,7 @@ describe('TaskList', () => {
     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
     fixture.detectChanges();
 
-    const request = http.expectOne(`/api/tasks/${items[0].id}/subtasks/bbbb`);
+    const request = http.expectOne(`/api/tasks/${items[0].id}/subtasks/12`);
     expect(JSON.parse(request.request.body)).toEqual({ title: 'Overfør beløbet', isDone: true });
     expect(row.querySelector('[data-testid="task-detail"]')).not.toBeNull();
   });
@@ -430,7 +430,7 @@ describe('TaskList', () => {
 
     row.querySelector<HTMLButtonElement>('[data-testid="delete-subtask"]')!.click();
 
-    const request = http.expectOne(`/api/tasks/${items[0].id}/subtasks/aaaa`);
+    const request = http.expectOne(`/api/tasks/${items[0].id}/subtasks/11`);
     expect(request.request.method).toBe('DELETE');
   });
 
