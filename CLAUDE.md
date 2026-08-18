@@ -27,6 +27,14 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   bliver til den ukendte kommando `pm`.
 - **`Get-Content` læser ANSI.** `Prøv` vises som `PrÃ¸v`. Det er en visningsfejl, ikke en
   ødelagt fil — ret aldrig "mojibake" du kun har set gennem `Get-Content`.
+- **`curl` i PowerShell 5.1 er et alias for `Invoke-WebRequest`** og tager helt andre flag —
+  `-s` bliver læst som `-SessionVariable` og fejler med "Missing an argument". Kald `curl.exe`
+  eksplicit, og husk at escapes også skifter: `NUL` frem for `/dev/null`, backtick-n frem for
+  `\n`. Samme klasse af fælde som `npm` mod `npm.cmd`. Og PS 5.1 **kaster** på en HTTP-fejlkode,
+  så en `Invoke-WebRequest` der skal vise en 401 skal pakkes i `try`/`catch`.
+- **Læg aldrig et token direkte i en kommandolinje.** Sæt det i `$env:NAVN` først og referér det
+  — ellers følger det med i fejlbeskeder, historik og enhver kopiering af kommandoen. PowerShell
+  klippede et PAT efter to tegn i en fejlbesked her, og det var held, ikke design.
 - **Antivirussen (AMSI) blokerer visse PowerShell-scripts**, især `Start-Process` kombineret
   med `Invoke-WebRequest`. Del kommandoen op, eller brug `curl` gennem Bash-værktøjet.
 - **Ingen `"` i en `git commit -m`-heredoc.** PowerShell citerer om for native kommandoer, og
