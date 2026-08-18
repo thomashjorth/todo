@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
 using Todo.Core.Persistence;
+using Todo.Core.Settings;
+using Todo.Core.Tasks;
 using Todo.TestSupport;
 
 namespace Todo.Api.Tests;
@@ -57,6 +59,14 @@ public class LongIdMigrationTests
 
     /// <summary>De tre tabeller migreringen bygger om. <c>Settings</c> rører den ikke.</summary>
     private static readonly string[] MigratedTables = ["Tasks", "SubTasks", "Aliases"];
+
+    /// <summary>
+    /// De samme tre, men som entitetstyper frem for tabelnavne. Modellen ved selv hvad tabellen
+    /// heder, så parringen type → tabel skal ikke skrives ned nogen steder og kan ikke blive
+    /// forældet.
+    /// </summary>
+    private static readonly Type[] MigratedEntities =
+        [typeof(TaskItem), typeof(SubTask), typeof(UserAlias)];
 
     /// <summary>
     /// Én fuldt udfyldt opgave: hver af de tolv kolonner uden om <c>Id</c> har sin egen
@@ -259,7 +269,72 @@ public class LongIdMigrationTests
         });
 
     /// <summary>
-    /// Den strukturelle påstand ovenfor kan ikke se en værdi der landede i den forkerte kolonne —
+    /// Vagten ovenfor sammenligner migreringen med sig selv. Dens før-billede er lavet af
+    /// migreringens egen <c>Down</c>, og de to kroppe navngiver de samme kolonner — så en kolonne
+    /// der mangler i <em>begge</em> retninger er usynlig for den: de to mængder bliver enige om
+    /// det forkerte. Præcis den form havde den rigtige fejl. Da planen blev skrevet fandtes
+    /// <c>DeferUntil</c> ikke, skive 9 lagde den på, og den håndskrevne SQL udelod den i begge
+    /// halvdele. Den blev fanget ved at måle planen igen, ikke af en test.
+    ///
+    /// Den her spørger derfor en anden kilde end migreringen: EF's model. Databasens kolonner skal
+    /// være dem modellen forventer, tabel for tabel.
+    ///
+    /// <c>PendingModelChangesWarning</c> dækker det ikke, og <c>Assert.Empty(pending)</c> ovenfor
+    /// gør det heller ikke: den advarsel sammenligner model-<em>snapshottet</em> med
+    /// <em>modellen</em>, og snapshottet er genereret <em>ud fra</em> modellen. De er enige, også
+    /// når den håndskrevne SQL er uenig med dem begge. Databasen er den ingen sammenligner.
+    ///
+    /// Kører på en frisk database og har ikke brug for tilbagerulningen: det er LongIds' <c>Up</c>
+    /// der bygger de tre tabeller, uanset om der stod rækker i dem. Det gør påstanden uafhængig af
+    /// seedingen nedenfor — et felt der mangler i skemaet vælter ellers indsættelsen først, og
+    /// fejlen ville pege på testens SQL frem for på migreringens.
+    /// </summary>
+    [Fact]
+    public async Task Every_column_the_model_expects_exists_in_the_database()
+    {
+        await using var host = await RunningHost.StartAsync();
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+
+        var visited = new List<string>();
+
+        foreach (var entity in MigratedEntities)
+        {
+            var entityType = db.Model.FindEntityType(entity);
+            Assert.NotNull(entityType);
+
+            var table = entityType.GetTableName();
+            Assert.NotNull(table);
+
+            var expected = entityType.GetProperties()
+                .Select(property => property.GetColumnName()!)
+                .Order(StringComparer.Ordinal)
+                .ToList();
+
+            var actual = await ColumnNamesAsync(host, table);
+
+            // De to her måler ikke kolonnerne, men at der *blev* målt kolonner. Uden dem kunne
+            // testen bestå ved at sammenligne ingenting med ingenting: en model uden kortlagte
+            // egenskaber giver en tom forventning, og et tabelnavn der ikke findes giver
+            // pragma_table_info nul rækker — to tomme lister er ens.
+            Assert.Contains("Id", expected);
+            Assert.Contains("Id", actual);
+
+            Assert.Equal(expected, actual);
+
+            visited.Add(table);
+        }
+
+        // Og at løkken faktisk nåede alle tre tabeller, med de navne migreringen skriver. Ellers
+        // kunne en tom eller halv MigratedEntities gøre hele gennemgangen til en no-op.
+        Assert.Equal(
+            MigratedTables.Order(StringComparer.Ordinal),
+            visited.Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// De to strukturelle påstande ovenfor kan ikke se en værdi der landede i den forkerte kolonne —
     /// alle kolonner findes stadig. Derfor står den her ved siden af: én fuldt udfyldt række pr.
     /// tabel, læst tilbage og sammenlignet felt for felt.
     /// </summary>

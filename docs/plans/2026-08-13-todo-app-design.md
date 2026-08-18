@@ -623,22 +623,31 @@ blev leveret uden for skiverne og står nedenfor som lukket.
   svarer **404 fra routingen, før handleren** — hvilket ligner "opgaven findes ikke". Testene
   fanger det ikke, hvis *begge* halvdele glemmes: så virker ruten stadig. Kun et eksplicit
   før/efter-grep på **begge** stavemåder er et ærligt tjek.
-  **(5) Vagten dækker nu kolonnebevarelse både strukturelt og på værdi** (tilføjet 2026-08-18).
-  Migreringen navngiver hver kolonne eksplicit, og SQLite fjerner en kolonne uden at sige noget —
-  den tabte data omtales i afsnit 10's advarsel ovenfor. Den første vagt såede fem af `Tasks`'
-  tretten kolonner, så en kolonne droppet fra `SELECT`-listen ville have bestået. **Den
-  strukturelle halvdel findes præcis fordi det skete**: `DeferUntil` fandtes ikke da planen blev
-  skrevet, skive 9 lagde den på, og den håndskrevne SQL kendte den ikke — det blev fanget ved at
-  måle planen igen, ikke af en test. `Every_column_of_every_table_survives_the_migration`
-  sammenligner navnemængden for `Tasks`, `SubTasks` og `Aliases` før og efter, og
-  `Every_field_of_a_fully_populated_row_survives_the_migration` sår én fuldt udfyldt række pr.
-  tabel med distinkte værdier og sammenligner felt for felt. Begge er set fejle: en droppet
-  `DeferUntil` fælder dem begge, en ombytning af `Note` og `Requester` i `SELECT`-listen kun den
-  værdibaserede. **Én blindvinkel står tilbage**: navnemængden "før" produceres af migreringens
-  egen `Down`, fordi vagten ruller tilbage for at nå Guid-verdenen — glemmes en kolonne i *begge*
-  kroppe, er de to mængder enige om fejlen. Det ville i praksis kræve, at en ny kolonne blev lagt
-  på uden en ny migrering, og en ny migrering vælter i stedet vagtens
-  `Assert.EndsWith("LongIds", applied[^1])`.
+  **(5) Vagten sammenligner nu databasen med modellen, ikke kun migreringen med sig selv**
+  (tilføjet 2026-08-18). Migreringen navngiver hver kolonne eksplicit, og SQLite fjerner en kolonne
+  uden at sige noget — den tabte data omtales i afsnit 10's advarsel ovenfor. Den første vagt såede
+  fem af `Tasks`' tretten kolonner, så en kolonne droppet fra `SELECT`-listen ville have bestået.
+  **Kolonnepåstandene findes præcis fordi det skete**: `DeferUntil` fandtes ikke da planen blev
+  skrevet, skive 9 lagde den på, og den håndskrevne SQL kendte den ikke i **hverken `Up` eller
+  `Down`** — det blev fanget ved at måle planen igen, ikke af en test. Der står nu tre påstande, som
+  fejler forskelligt: `Every_column_of_every_table_survives_the_migration` sammenligner navnemængden
+  for `Tasks`, `SubTasks` og `Aliases` før og efter,
+  `Every_column_the_model_expects_exists_in_the_database` sammenligner databasens kolonner med dem
+  EF's model forventer, og `Every_field_of_a_fully_populated_row_survives_the_migration` sår én
+  fuldt udfyldt række pr. tabel med distinkte værdier og sammenligner felt for felt. En ombytning af
+  `Note` og `Requester` i `SELECT`-listen fælder kun den sidste.
+  **Før/efter-halvdelen kan stadig ikke se en symmetrisk udeladelse**, og det er ikke længere et
+  forbehold men en måling: dens "før" produceres af migreringens egen `Down`, fordi vagten ruller
+  tilbage for at nå Guid-verdenen, så glemmes en kolonne i *begge* kroppe er de to mængder enige om
+  fejlen — fjernes `DeferUntil` fra både `Up` og `Down`, **består** den. Første udgave af det her
+  afsnit affærdigede blindvinklen som praktisk uopnåelig, "det ville kræve, at en ny kolonne blev
+  lagt på uden en ny migrering". Det var forkert: `DeferUntil` **fik** sin egen migrering i skive 9,
+  og `LongIds` er den senere, så `Assert.EndsWith("LongIds", applied[^1])` holder uanfægtet. Det er
+  præcis den virkelige fejls form. Model-påstanden er derfor den holdbare, fordi modellen er en
+  **anden kilde** end migreringen; `PendingModelChangesWarning` gør ikke det arbejde, da den
+  sammenligner model-snapshottet med modellen og snapshottet er genereret ud fra modellen.
+  Før/efter-halvdelen beholdes ved siden af, fordi den lokaliserer en ændring til migreringen frem
+  for til modellen.
   Planens aftrykstabel skal desuden læses med to rettelser: **11** id-relaterede forekomster i
   tests, ikke 12 — den tolvte var `SettingsJourneyTests`, hvor `Guid.NewGuid()` bygger et
   midlertidigt **mappenavn** — og **fire** ikke-id-brug af `Guid` tilbage, ikke tre: `RunningHost`s

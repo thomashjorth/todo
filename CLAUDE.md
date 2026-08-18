@@ -246,20 +246,35 @@ forkerte grund.
   SQLite fjerner en kolonne uden at sige noget. Den første vagt såede fem af `Tasks`' tretten
   kolonner, så en kolonne fjernet fra `SELECT`-listen bestod. Præcis det skete: `DeferUntil`
   fandtes ikke da planen blev skrevet, skive 9 lagde den på, og den håndskrevne SQL kendte den
-  ikke — fanget ved at måle planen igen, ikke af en test. Derfor **to** påstande, som fanger
+  ikke — fanget ved at måle planen igen, ikke af en test. Derfor **tre** påstande, som fanger
   forskellige fejl: `Every_column_of_every_table_survives_the_migration` sammenligner
-  navnemængden før og efter og er den holdbare — den ser en kolonne der bliver lagt på modellen i
-  fremtiden, uden at nogen huskede at seede en værdi for den — og
-  `Every_field_of_a_fully_populated_row_survives_the_migration` sår én fuldt udfyldt række pr.
-  tabel og sammenligner felt for felt. Set fejle hver for sig: en droppet `DeferUntil` fælder
-  begge, mens en ombytning af `Note` og `Requester` i `SELECT`-listen **kun** fælder den
-  værdibaserede, fordi alle kolonner stadig findes. Værdiernes distinkthed er bærende — stod der
-  `"x"` i to kolonner, ville ombytningen bestå. Sammenlign **navnemængden**, ikke rækkefølgen:
-  kolonneordenen efter en ombygning er den `CREATE TABLE` nævner dem i, og at pinne den ville
-  gøre en harmløs omrokering rød.
+  navnemængden før og efter, `Every_column_the_model_expects_exists_in_the_database` sammenligner
+  databasen med EF's model, og `Every_field_of_a_fully_populated_row_survives_the_migration` sår
+  én fuldt udfyldt række pr. tabel og sammenligner felt for felt. Set fejle hver for sig: en
+  ombytning af `Note` og `Requester` i `SELECT`-listen fælder **kun** den værdibaserede, fordi
+  alle kolonner stadig findes. Værdiernes distinkthed er bærende — stod der `"x"` i to kolonner,
+  ville ombytningen bestå. Sammenlign **navnemængden**, ikke rækkefølgen: kolonneordenen efter en
+  ombygning er den `CREATE TABLE` nævner dem i, og at pinne den ville gøre en harmløs omrokering
+  rød.
+- **En før/efter-sammenligning over en migrering er blind for en kolonne der mangler i *begge*
+  retninger.** Før-billedet er lavet af migreringens egen `Down`, så den sammenligner migreringen
+  med sig selv, og de to mængder bliver enige om det forkerte. Målt: fjernes `DeferUntil` fra
+  både `Up` og `Down`, **består** `Every_column_of_every_table_survives_the_migration` — og det
+  var netop den symmetriske form den rigtige fejl havde. Den holdbare påstand er derfor
+  **databasen mod EF-modellen**: `pragma_table_info` op mod
+  `entityType.GetProperties().Select(p => p.GetColumnName())`, drevet af entitetstyperne, så
+  parringen type → tabel ikke skal skrives ned nogen steder. `PendingModelChangesWarning` dækker
+  det ikke, og `Assert.Empty(pending)` heller ikke: advarslen sammenligner model-*snapshottet* med
+  *modellen*, og snapshottet er genereret **ud fra** modellen, så de er enige uanset hvad den
+  håndskrevne SQL siger. Databasen er den ingen ellers sammenligner. Den skal køre på en **frisk**
+  database frem for på seedings-fixturet: mangler kolonnen i skemaet, vælter `INSERT`en først, og
+  fejlen peger så på testens SQL i stedet for på migreringens.
 - **En mængdesammenligning kan bestå på ingenting.** Et stavefejlet tabelnavn giver
   `pragma_table_info` nul rækker i *begge* ender, og to tomme mængder er ens. Vagten kræver
-  derfor også, at `Id` står i mængden fra før migreringen.
+  derfor også, at `Id` står i mængden fra før migreringen. Model-mod-database-vagten er udsat fra
+  to sider mere — et `FindEntityType` der svarer `null`, og en halv `MigratedEntities` der gør
+  hele løkken til en no-op — så den kræver `Id` i **begge** mængder og at de tabelnavne løkken
+  faktisk nåede er alle tre.
 - **Builders er til *arrange*.** De skriver direkte i databasen og springer API'ets validering
   over; brug dem aldrig til selve handlingen en test skal verificere.
 - **Et databasegenereret id findes først efter `SaveChanges`.** Læser en test `task.Id` før den
@@ -308,9 +323,14 @@ forkerte grund.
 
 ## Testtal
 
-Efter kolonnevagten på migreringen: **38** Todo.Core.Tests, **119** Todo.Api.Tests, **25**
+Efter model-mod-database-vagten: **38** Todo.Core.Tests, **120** Todo.Api.Tests, **25**
 Todo.E2E, **143** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Den lagde **én** Api-test til (119 → 120), `Every_column_the_model_expects_exists_in_the_database`
+i `LongIdMigrationTests`. Begge de to ældre kolonnepåstande blev beholdt: de fejler forskelligt, og
+før/efter-udgaven lokaliserer en ændring til migreringen frem for til modellen. De øvrige tre tal
+står stille: vagten er en påstand om skemaet og rørte hverken kontrakten, kernen eller frontenden.
+Før den, efter kolonnevagten på migreringen: 38 Core, 119 Api, 25 E2E, 143 Vitest.
 Kolonnevagten lagde **to** Api-tests til (117 → 119), begge i `LongIdMigrationTests`:
 `Every_column_of_every_table_survives_the_migration` og
 `Every_field_of_a_fully_populated_row_survives_the_migration`. Delt i to med vilje, fordi de
