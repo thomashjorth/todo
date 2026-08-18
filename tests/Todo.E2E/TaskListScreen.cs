@@ -15,6 +15,12 @@ public sealed class TaskListScreen(TodoApp app)
 
     public ILocator DeferUntilInput => Detail.GetByTestId("defer-until-input");
 
+    /// <summary>
+    /// The line that says a start date after the deadline changes nothing. It only exists in the
+    /// expanded panel, so nothing measures its colours until a test opens the row.
+    /// </summary>
+    public ILocator DeferUntilConflict => Detail.GetByTestId("defer-until-conflict");
+
     public ILocator CompleteToggle => Page.GetByTestId("complete-toggle");
 
     public ILocator ShowCompleted => Page.GetByTestId("show-completed");

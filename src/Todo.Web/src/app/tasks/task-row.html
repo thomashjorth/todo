@@ -85,6 +85,19 @@
         (keyup.enter)="save({ deferUntil: text(deferUntil.value) })"
       />
     </label>
+    <!-- En startdato efter deadline er tilladt med vilje — felterne gemmer hver for sig, så et
+         forbud ville afvise den halve redigering. Men Overskredet slår Udskudt, så startdatoen
+         gør ingenting, og uden denne linje ser feltet virksomt ud alligevel.
+         @let, ikke `as`, fordi @if ikke indsnævrer et signal-kald. Strengsammenligning:
+         yyyy-MM-dd sorterer leksikografisk, og new Date(streng) læser UTC-midnat og kan
+         vise dagen før. -->
+    @let dueDate = task().deadline;
+    @let startDate = task().deferUntil;
+    @if (dueDate && startDate && startDate > dueDate) {
+      <p data-testid="defer-until-conflict" class="text-xs text-amber-700 dark:text-amber-300">
+        {{ 'tasks.deferUntilAfterDeadline' | transloco }}
+      </p>
+    }
     <label class="block">
       <span class="block text-xs text-gray-500 dark:text-gray-400">{{
         'tasks.requester' | transloco

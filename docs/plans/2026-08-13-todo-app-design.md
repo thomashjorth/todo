@@ -578,7 +578,10 @@ Den fjerde, Swagger-linket, blev leveret uden for skiverne og står nedenfor som
   og grenene må ikke byttes om. Det er værd at vide, at det er genuint kontraintuitivt: den der
   byggede kernen, uden at have fået reglen med, gættede på det modsatte — at en startdato i
   fremtiden skulle gemme opgaven uanset deadline. En test og en `<summary>` står vagt om
-  rækkefølgen nu, men gættet kommer igen, hvis begrundelsen ikke står et sted.
+  rækkefølgen nu, men gættet kommer igen, hvis begrundelsen ikke står et sted. **Den modstridende
+  tilstand er desuden synlig i panelet** (tilføjet 2026-08-18): står der en startdato efter
+  deadline, skriver detaljepanelet at opgaven derfor vises som overskredet. Forrangen er dermed
+  ikke længere kun rigtig — den kan forklares den bruger, hvis startdato blev sat til side.
 - **Id'erne er `Guid` v4 og skal være `long`** (besluttet 2026-08-14, udskudt og
   uplaceret 2026-08-17). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
   **tilfældig v4** til **tidsordnet UUIDv7**, som `Guid.CreateVersion7()` giver i
@@ -623,6 +626,12 @@ Det, den stadig ikke gør, i rækkefølge efter hvor meget det betyder:
   handlingsklart endnu, skal ikke længere vælge mellem en falsk deadline for at blive
   synligt og Måske for at komme af vejen — det får en startdato og forsvinder af sig selv
   indtil den dag. Fristelsen til at lyve om en deadline var reel, og den er blevet mindre.
+  **Der er dog én tilstand, hvor de to datofelter modsiger hinanden**: en startdato *efter*
+  deadline. Den er tilladt med vilje — felterne gemmer hver for sig, så et forbud ville afvise
+  den halve redigering, og en bruger, der flytter begge datoer længere frem, ville få en fejl
+  afhængigt af hvilket felt hun rørte først. Men Overskredet slår Udskudt, så startdatoen gør
+  i den tilstand ingenting, og panelet siger det nu (tilføjet 2026-08-18) frem for at lade den
+  ligge lydløst uvirksom i sit felt.
   **Men det gælder kun udsættelsen.** For alt det, der er handlingsklart nu, er deadline
   fortsat den eneste akse, og "Uden deadline" er fortsat en bred bunke uden andet at
   sortere efter. En rigtig kontekstakse ville revidere afsnit 2 og er ikke sket.

@@ -18,6 +18,7 @@
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",
     "deferUntil": "Start date",
+    "deferUntilAfterDeadline": "The start date is after the deadline, so the task shows as overdue.",
     "requester": "Requested by",
     "requesterValue": "Requested by: {{value}}",
     "waitingOn": "Waiting for",

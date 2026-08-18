@@ -70,6 +70,14 @@ const deferredItems = [
   },
 ];
 
+// Tilladt med vilje, og derfor et hint frem for en fejl: opgaven bliver stående i Overskredet,
+// fordi Overskredet slår Udskudt, så startdatoen gør ingenting.
+const conflicting = [{ ...items[0], deferUntil: '2026-08-20' }, items[1]];
+
+// Grænsen: dagen opgaven begynder er også dagen den skal være færdig, og det er stramt frem for
+// modstridende. Det er præcis den sag en `>=` ville melde forkert.
+const startingOnTheDeadline = [{ ...items[0], deferUntil: items[0].deadline }, items[1]];
+
 const withSubTasks = [
   {
     ...items[0],
@@ -155,6 +163,38 @@ describe('TaskList', () => {
     expect(row.querySelector<HTMLInputElement>('[data-testid="defer-until-input"]')!.value).toBe(
       '2026-09-01',
     );
+  });
+
+  it('should say in the panel that a start date after the deadline does nothing', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: conflicting })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const hint = row.querySelector('[data-testid="defer-until-conflict"]');
+    expect(hint).not.toBeNull();
+    expect(hint!.textContent!.trim()).toBe(
+      'Startdatoen ligger efter deadline, så opgaven vises som overskredet.',
+    );
+  });
+
+  it('should not call a start date on the deadline itself a conflict', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: startingOnTheDeadline })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    // Panelet er åbent, så fraværet er hintets og ikke hele panelets.
+    expect(row.querySelector('[data-testid="task-detail"]')).not.toBeNull();
+    expect(row.querySelector('[data-testid="defer-until-conflict"]')).toBeNull();
   });
 
   it('should show the deadline written out in the active language', async () => {

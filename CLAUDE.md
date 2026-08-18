@@ -209,7 +209,10 @@ forkerte grund.
   farvetemaer — `app.routes.ts` har præcis tre ruter: opgavelisten, importen og indstillingerne
   — og måler derudover det **udvidede detaljepanel**, hvor noten, underopgaverne og
   statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en fjerde skærm; tæl det
-  ikke som en.
+  ikke som en. **En `@if`-gren er umålt, indtil fixturet har en opgave i den tilstand og rejsen
+  åbner rækken** — vagten kan ikke se en farve, der aldrig blev renderet, så en ny betinget linje
+  koster en fixture-opgave og en klik-og-vent i `ContrastTests`. Hintet om en startdato efter
+  deadline kom ind i vagten netop derfor, og blev set fejle i begge temaer.
 - **`getComputedStyle` giver `oklch(...)`, ikke `rgb(...)`** for farver skrevet i oklch. En regex
   over cifrene læser `oklch(0.967 0.003 264.542)` som en blå kanal på 264 — og vagtens første
   udgave gav derfor **usynlig tekst omkring 8:1 og bestod**. Mal farven på et 1×1-canvas og læs
@@ -238,8 +241,14 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 9: **38** Todo.Core.Tests, **115** Todo.Api.Tests, **25** Todo.E2E, **141** Vitest.
+Efter hintet om en startdato efter deadline: **38** Todo.Core.Tests, **115** Todo.Api.Tests,
+**25** Todo.E2E, **143** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Hintet lagde **to** Vitest til (141 → 143): at panelet siger det, og at grænsen — en startdato
+*på* deadlinen — ikke er en konflikt. De øvrige tre tal står stille: hintet fik ingen ny logik
+bag kontrakten, og `ContrastTests` voksede med en fixture-opgave og en klik-og-vent frem for
+med en test.
+Efter skive 9: 38 Core, 115 Api, 25 E2E, 141 Vitest.
 Skive 9 lagde **fem** Core-tests til (33 → 38) — hele grænsefladen om startdatoen i
 `DeadlineBucketsTests`, inklusive at dagen en opgave begynder ikke er udskudt, og at Overskredet
 slår Udskudt — **fire** Api-tests (111 → 115), **én** E2E (24 → 25, `DeferUntilJourneyTests`) og

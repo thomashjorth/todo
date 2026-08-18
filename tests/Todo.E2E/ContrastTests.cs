@@ -20,6 +20,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string WaitingTitle = "Svar revisoren";
     private const string CompletedTitle = "Ryd skrivebordet";
     private const string SomedayTitle = "Læs om typografi";
+    private const string ConflictTitle = "Bestil nyt pas";
     private const string Requester = "Mette Kirkegaard";
     private const string WaitingOn = "Mette";
     private const string DoneSubTask = "Find det gamle referat";
@@ -91,7 +92,12 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             new TaskItemBuilder(Clock).Titled(WaitingTitle)
                 .WaitingFor(WaitingOn, Clock.UtcNow.AddDays(-DaysWaited)).Build(),
             new TaskItemBuilder(Clock).Titled(SomedayTitle).Someday().Build(),
-            new TaskItemBuilder(Clock).Titled(CompletedTitle).Done().Build());
+            new TaskItemBuilder(Clock).Titled(CompletedTitle).Done().Build(),
+            // A start date after the deadline is allowed, and the panel says so in amber. The
+            // row itself lands in Overskredet, because Overdue beats Deferred — the hint lives
+            // in the panel regardless, and a colour no test renders is a colour unmeasured.
+            new TaskItemBuilder(Clock).Titled(ConflictTitle).Overdue()
+                .DeferredUntil(Clock.Today.AddDays(3)).Build());
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
 
@@ -168,6 +174,14 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await tasks.RowShowing(WaitingTitle).ClickAsync();
         await Assertions.Expect(tasks.WaitingOnInput).ToHaveValueAsync(WaitingOn);
         await Assertions.Expect(tasks.DetailFor(WaitingTitle)).ToContainTextAsync("Venter på");
+        await Snapshot();
+
+        // The conflicting start date renders one line and only while its row is open, so this
+        // click is what puts the amber pair on screen at all. Waiting on the text rather than the
+        // element: an interpolation that had not run yet would be measured as no text.
+        await tasks.RowShowing(ConflictTitle).ClickAsync();
+        await Assertions.Expect(tasks.DeferUntilConflict)
+            .ToHaveTextAsync("Startdatoen ligger efter deadline, så opgaven vises som overskredet.");
         await Snapshot();
 
         var import = await App.GoToImport();
