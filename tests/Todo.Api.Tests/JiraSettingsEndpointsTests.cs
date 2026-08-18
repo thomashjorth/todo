@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using Todo.Core.Settings;
 
 namespace Todo.Api.Tests;
 
@@ -16,9 +15,34 @@ public class JiraSettingsEndpointsTests : ApiTest
     [Fact]
     public async Task The_token_never_comes_back_out_of_the_api()
     {
+        var stored = await Host.Client.PutAsJsonAsync(
+            "/api/settings/jira-token", new { token = Token });
+
+        // Without this the guard passes on a token that was never stored: a route answering 400
+        // would leave it looking for a string the system does not have. Assert the precondition,
+        // then assert the absence.
+        stored.EnsureSuccessStatusCode();
+
+        Assert.True(
+            (await stored.Content.ReadFromJsonAsync<SettingsBody>())!.HasJiraToken,
+            "The token was not stored, so the leak assertion below would prove nothing.");
+
+        var body = await Host.Client.GetStringAsync("/api/settings");
+
+        Assert.DoesNotContain(Token, body, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A separate assertion with a separate reason. The derived document carries schema, not
+    /// values, so it cannot catch a leak in the response builder — what it can catch is a real
+    /// token pasted into an `example:` on the contract.
+    /// </summary>
+    [Fact]
+    public async Task The_openapi_document_carries_no_token()
+    {
         await Host.Client.PutAsJsonAsync("/api/settings/jira-token", new { token = Token });
 
-        foreach (var path in new[] { "/api/settings", "/openapi/v1.json" })
+        foreach (var path in new[] { "/openapi/v1.json", "/openapi/contract.yaml" })
         {
             var body = await Host.Client.GetStringAsync(path);
 
