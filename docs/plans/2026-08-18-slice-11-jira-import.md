@@ -714,8 +714,32 @@ git commit -m "✨ Konvertér Jiras wiki-markup til CommonMark, så fed bliver f
 >    `example:`-token ligger i dokumentet uanset om noget blev gemt. Læg ikke et
 >    `EnsureSuccessStatusCode` der og tro at det strammede noget.
 >
-> Endeligt antal: **8** i `JiraSettingsEndpointsTests`, **129** i `Todo.Api.Tests` (hvoraf
-> `ContractDriftTests` fortsat er rød til Task 6).
+> Og fire ting mere, fundet ved at **mutere koden** frem for at læse den (`16e1014`):
+>
+> 6. **`The_openapi_document_carries_no_token` kunne slet ikke fejle.** Den søgte kun efter sin egen
+>    konstant, som aldrig kan optræde i et skemaafledt dokument. Målt: et `example:` med en
+>    PAT-lignende streng på `JiraTokenRequest.token` gjorde intet — testen bestod. Omskrevet til
+>    `No_token_property_in_either_document_carries_a_value`, som fejer **begge** dokumenter for
+>    properties med `token` i navnet og påstår at ingen har `example` eller `default`, plus at hver
+>    af dem er `boolean` og ikke `string`. Bemærk at **påstanden om at `SettingsResponse` slet ikke
+>    må have en token-navngivet property er umulig** — `hasJiraToken` *er* en, og den er hele
+>    designet. Typen er det rigtige kriterium, ikke navnet. Og `Assert.NotEmpty` skal med, ellers
+>    består løkken på at finde ingenting.
+> 7. **At slå ventende fra igen var helt utestet.** Fjernes grenen der rydder rækken, består **alle
+>    fjorten** settings-tests. `Turning_waiting_back_off_turns_it_off` lukker det.
+> 8. **`Waiting_issues_are_excluded_until_asked_for` vagter læserens default, ikke afsnit 4a.** Med
+>    begge felter fjernet fra `ReadAllAsync` består den; det er `Value(...) != "false"` der fælder
+>    den. Kravets rigtige vagter er Task 6's rejsetests. Docstringen siger nu det.
+> 9. **`EnableSensitiveDataLogging()` ville skrive tokenet i klartekst i loggen**, og alle vagter var
+>    blinde. `SensitiveLoggingTests` lukker det. Uden flaget lækker loggen stadig tokenets **længde**
+>    (`Size = 32`) — skrevet i doc-kommentaren, så bagatellen ikke bliver en overraskelse.
+>
+> Endeligt antal: **9** i `JiraSettingsEndpointsTests`, **131** i `Todo.Api.Tests`, hvoraf
+> `ContractDriftTests` fortsat er den ene røde indtil Task 6.
+>
+> **Et mønster værd at tage med til de resterende tasks:** af Task 3's ni fund kom **fire** fra at
+> mutere koden og køre testene igen — ikke fra at læse dem. En vagt der ikke er set fejle på den
+> mutation den skal fange, er en formodning.
 
 **Step 1: Skriv de fejlende tests — lækagen først**
 
