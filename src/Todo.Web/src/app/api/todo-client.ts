@@ -219,7 +219,7 @@ export class TasksClient {
     /**
      * @return The updated task.
      */
-    updateTask(id: string, body: UpdateTodoTaskRequest): Observable<TodoTask> {
+    updateTask(id: number, body: UpdateTodoTaskRequest): Observable<TodoTask> {
         let url_ = this.baseUrl + "/api/tasks/{id}";
         if (id === undefined || id === null)
             throw new globalThis.Error("The parameter 'id' must be defined.");
@@ -288,7 +288,7 @@ export class TasksClient {
     /**
      * @return The task is gone.
      */
-    deleteTask(id: string): Observable<void> {
+    deleteTask(id: number): Observable<void> {
         let url_ = this.baseUrl + "/api/tasks/{id}";
         if (id === undefined || id === null)
             throw new globalThis.Error("The parameter 'id' must be defined.");
@@ -342,7 +342,7 @@ export class TasksClient {
     /**
      * @return The created subtask.
      */
-    createSubTask(id: string, body: CreateSubTaskRequest): Observable<TodoSubTask> {
+    createSubTask(id: number, body: CreateSubTaskRequest): Observable<TodoSubTask> {
         let url_ = this.baseUrl + "/api/tasks/{id}/subtasks";
         if (id === undefined || id === null)
             throw new globalThis.Error("The parameter 'id' must be defined.");
@@ -411,7 +411,7 @@ export class TasksClient {
     /**
      * @return The updated subtask.
      */
-    updateSubTask(id: string, subTaskId: string, body: UpdateSubTaskRequest): Observable<TodoSubTask> {
+    updateSubTask(id: number, subTaskId: number, body: UpdateSubTaskRequest): Observable<TodoSubTask> {
         let url_ = this.baseUrl + "/api/tasks/{id}/subtasks/{subTaskId}";
         if (id === undefined || id === null)
             throw new globalThis.Error("The parameter 'id' must be defined.");
@@ -483,7 +483,7 @@ export class TasksClient {
     /**
      * @return The subtask is gone.
      */
-    deleteSubTask(id: string, subTaskId: string): Observable<void> {
+    deleteSubTask(id: number, subTaskId: number): Observable<void> {
         let url_ = this.baseUrl + "/api/tasks/{id}/subtasks/{subTaskId}";
         if (id === undefined || id === null)
             throw new globalThis.Error("The parameter 'id' must be defined.");
@@ -1089,7 +1089,7 @@ export enum DeadlineBucket {
 }
 
 export class TodoSubTask implements ITodoSubTask {
-    id!: string;
+    id!: number;
     title!: string;
     isDone!: boolean;
 
@@ -1127,13 +1127,13 @@ export class TodoSubTask implements ITodoSubTask {
 }
 
 export interface ITodoSubTask {
-    id: string;
+    id: number;
     title: string;
     isDone: boolean;
 }
 
 export class TodoTask implements ITodoTask {
-    id!: string;
+    id!: number;
     sourceId!: string;
     title!: string;
     note?: string | undefined;
@@ -1219,7 +1219,7 @@ export class TodoTask implements ITodoTask {
 }
 
 export interface ITodoTask {
-    id: string;
+    id: number;
     sourceId: string;
     title: string;
     note?: string | undefined;

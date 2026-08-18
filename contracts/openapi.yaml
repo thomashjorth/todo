@@ -74,8 +74,8 @@ paths:
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
       requestBody:
         required: true
         content:
@@ -106,8 +106,8 @@ paths:
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
       responses:
         '204':
           description: The task is gone.
@@ -123,8 +123,8 @@ paths:
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
       requestBody:
         required: true
         content:
@@ -156,14 +156,14 @@ paths:
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
         - name: subTaskId
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
       requestBody:
         required: true
         content:
@@ -194,14 +194,14 @@ paths:
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
         - name: subTaskId
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
       responses:
         '204':
           description: The subtask is gone.
@@ -381,7 +381,7 @@ components:
       additionalProperties: false
       required: [id, title, isDone]
       properties:
-        id: { type: string, format: uuid }
+        id: { type: integer, format: int64 }
         title: { type: string }
         isDone: { type: boolean }
     TodoTask:
@@ -389,7 +389,7 @@ components:
       additionalProperties: false
       required: [id, sourceId, title, status, bucket, createdAt, subTasks]
       properties:
-        id: { type: string, format: uuid }
+        id: { type: integer, format: int64 }
         sourceId: { type: string }
         title: { type: string }
         note: { type: string, nullable: true }
