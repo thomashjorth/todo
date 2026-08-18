@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Todo.Core.Settings;
 using YamlDotNet.Serialization;
 
 namespace Todo.Api.Tests;
@@ -206,6 +207,51 @@ public class JiraSettingsEndpointsTests : ApiTest
 
         Assert.False(after!.JiraIncludeWaiting);
         Assert.Empty(after.JiraWaitingStatuses);
+    }
+
+    /// <summary>
+    /// The other of the two layers of trailing-slash trimming, and the one that decides what is
+    /// stored — nothing set jiraBaseUrl through the API before this, so neither layer was measured.
+    /// Read through GET rather than off the request's own response, so this says the slash is gone
+    /// from the database and not merely from one reply. The layer in JiraSettings.BrowseUrl has its
+    /// own test in Todo.Core.Tests; see the note there on why both are kept.
+    /// </summary>
+    [Fact]
+    public async Task A_trailing_slash_is_trimmed_off_the_base_url()
+    {
+        var response = await Host.Client.PutAsJsonAsync(
+            "/api/settings", new { jiraBaseUrl = "https://jira.example.invalid/" });
+
+        response.EnsureSuccessStatusCode();
+
+        var stored = await Host.Client.GetFromJsonAsync<SettingsBody>("/api/settings");
+
+        Assert.Equal("https://jira.example.invalid", stored!.JiraBaseUrl);
+    }
+
+    /// <summary>
+    /// JiraSettingsReader reads the waiting list out of one row of JSON and falls back to an empty
+    /// list when that row will not parse. Task 3 left the fallback untested because it cannot be
+    /// reached through the API — the writer always serialises a real array — so the only way in is
+    /// to put rubbish in the database, which is also the only way it happens in life: a half-written
+    /// row, or a hand-edited file. Unreadable settings must not stop the app from opening, and empty
+    /// is the safe reading, because it treats nothing as waiting rather than everything.
+    /// </summary>
+    [Fact]
+    public async Task A_corrupt_waiting_list_reads_as_empty_rather_than_failing_the_page()
+    {
+        await Host.AddAndSaveChangesAsync(
+            new Setting { Key = SettingKeys.JiraWaitingStatuses, Value = "{not json" });
+
+        var response = await Host.Client.GetAsync("/api/settings");
+
+        // The assertion that matters is that this is a 200 at all: the fallback's whole job is to
+        // keep a corrupt row from turning the settings page into an error.
+        response.EnsureSuccessStatusCode();
+
+        var settings = await response.Content.ReadFromJsonAsync<SettingsBody>();
+
+        Assert.Empty(settings!.JiraWaitingStatuses);
     }
 
     /// <summary>
