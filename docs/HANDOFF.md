@@ -109,8 +109,11 @@ Mønstret der har virket gennem elleve skiver:
   dog forældede REST-endpoints, så skive 11's plan skal måles mod instansen. Se designdokumentets
   afsnit 10. **ADO Server-versionen er stadig ukendt**; "Test forbindelse" er bygget til at
   afklare den.
-- **Ét krav til skive 11 er besluttet**, men én beslutning i det er ikke: en ventende Jira-status
-  (`Afventer general`, `Afventer PO/FA`) skal kunne komme med i importen bag en indstilling,
-  default fra. **Om sådan en sag skal mappes til `WaitingFor` eller blot medtages som `Open`, er
-  ikke afgjort** — og det afgør indstillingens form, så det skal besluttes før planen skrives.
+- **Kravet til skive 11 er besluttet, mapningen med.** En ventende Jira-status
+  (`Afventer general`, `Afventer PO/FA`) kan komme med i importen bag en indstilling, default fra,
+  og importeres **som `WaitingFor`** — den lander i "Venter på", ikke i deadline-sektionerne.
+  Indstillingen er derfor "disse Jira-statusser betyder ventende", ikke et filter.
+  **To ting er stadig åbne, og de skal måles mod instansen:** hvor `WaitingSince` kommer fra
+  (Jiras changelog er det trofaste svar, `updated` er en tilnærmelse der bliver forkert) og at
+  `Status` fødes fra kilden ved import og derefter er lokal, som `Title` og `Requester`.
   Designdokumentets afsnit 4a.

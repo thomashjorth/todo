@@ -255,12 +255,31 @@ være en **liste** af statusser, ikke ét navn. Skal listen kunne vælges frem f
 det et kald til instansen, og det hænger sammen med "Test forbindelse" i samme skive: en
 statusliste forudsætter en virkende forbindelse.
 
-**Det egentlige spørgsmål er en mapning, ikke en filtrering.** Appen har sin egen `WaitingFor`
-med `WaitingOn` og `WaitingSince`. En sag i `Afventer general` *betyder* semantisk det samme: den
-ligger hos en anden. Så skal den importeres som `Open` og lande i deadline-sektionerne, eller som
-`WaitingFor` og lande i "Venter på"? Det andet er mere trofast, men så er indstillingen ikke
-"medtag disse statusser" — den er **"disse Jira-statusser betyder ventende"**. **Den beslutning er
-ikke truffet**, og den skal træffes før planen skrives, fordi den afgør indstillingens form.
+**Det er en mapning, ikke en filtrering — besluttet 2026-08-18: `WaitingFor`.** Appen har sin egen
+`WaitingFor` med `WaitingOn` og `WaitingSince`, og en sag i `Afventer general` betyder semantisk
+det samme: den ligger hos en anden. Den importeres derfor **som `WaitingFor` og lander i "Venter
+på"**, ikke som `Open` i deadline-sektionerne.
+
+Indstillingen er dermed ikke "medtag disse statusser". Den er **"disse Jira-statusser betyder
+ventende"** — en liste af statusnavne fra instansen, som mapper til én lokal status. Navngiv den
+efter det, ellers inviterer den til at blive læst som et filter.
+
+To ting følger, og de er ikke afklaret:
+
+**`WaitingSince` skal komme et sted fra, og valget er synligt for brugeren.** Skive 5 udregner
+`waitingDays` på serveren ud fra `WaitingSince`, og hele pointen var *"hvor længe har du ventet"*.
+Sætter importen den til importtidspunktet, lyver dagtællingen. Det trofaste svar er **hvornår
+sagen gik ind i den ventende status**, og det står i Jiras changelog — `expand=changelog` på
+sagen — hvilket er et ekstra kald og en ekstra formklarhed at måle. Alternativet, `updated`, er
+en tilnærmelse der bliver forkert hver gang nogen kommenterer.
+
+**Om `Status` bliver et eksternt felt, er en reel spænding.** Afsnittet ovenfor siger, at
+synkronisering kun må skrive i `Ext*`-felter, og at dine egne felter aldrig røres. Men `Status`
+er dit eget felt fra skive 1. Løsningen skal følge mønstret fra `Title` og `Requester`: statussen
+**fødes fra kilden ved import** og er derefter din. Ellers kunne du ikke markere en importeret
+opgave færdig lokalt, uden at næste synkronisering trak den tilbage. Det betyder også, at en sag
+der forlader den ventende status i Jira, **ikke** automatisk forlader "Venter på" hos dig — og
+det er det rigtige, men det skal stå skrevet, ellers ser det ud som en fejl.
 
 **`WaitingOn` kan formentlig ikke udledes.** Appen importerer sager *tildelt dig*. En sag tildelt
 dig, som står i en ventende status, betyder at du venter på nogen der **ikke** står i
