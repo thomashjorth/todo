@@ -1106,6 +1106,23 @@ git commit -m "✨ Gem Jira-indstillingerne, med tokenet på sit eget endpoint"
 - Create: `src/Todo.Host/Jira/JiraTaskSource.cs`
 - Create: `tests/Todo.TestSupport/Jira/FakeJira.cs`
 - Test: `tests/Todo.Api.Tests/JiraTaskSourceTests.cs`
+- Test: `tests/Todo.Core.Tests/Jira/JiraSettingsTests.cs` (ny, se boksen)
+
+> **Arv fra Task 3, målt i dens review: tre ting den byggede har nul tests, og denne task bruger to
+> af dem.**
+>
+> - **`JiraSettings.IsConfigured`** tjekker kun, at `BaseUrl` og `Token` er ikke-blanke. Er navnet
+>   ærligt? En basisURL som `https:/jira` med én skråstreg, eller en tom sti, gør den `true`.
+>   Denne task er den første der faktisk *bruger* svaret til at kalde ud, så grænsen hører her.
+> - **`JiraSettings.BrowseUrl`** trimmer efterhængt `/`. Så gør `PUT /api/settings` også, på vej ind
+>   (`SettingsEndpoints.cs`). **Én af de to trimninger er død kode, og ingen ved hvilken**, fordi
+>   ingen test nogensinde sætter `jiraBaseUrl`. Afgør det, og fjern den døde — eller behold begge og
+>   skriv hvorfor.
+> - **`JiraSettingsReader.ReadList`**'s dokumenterede fallback ved korrupt JSON er utestet. Den kan
+>   kun nås ved at skrive skrald direkte i databasen, så den hører i en **Core**-test frem for en
+>   Api-test.
+>
+> Læg de tre i `tests/Todo.Core.Tests/Jira/JiraSettingsTests.cs` — de kræver ingen host.
 
 **Step 1: Sømmen i Core**
 
@@ -2279,7 +2296,17 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
 
 Fem nye signaler (`jiraBaseUrl`, `jiraProjectKey`, `jiraWaitingStatuses`, `jiraIncludeWaiting`,
 `hasJiraToken`), og **intet signal til tokenet**. `save(changes)` bygger `current` af alle fem —
-samme mønster som `TaskStore.update`, og af samme grund. `setToken(value)` og `clearToken()` kalder
+samme mønster som `TaskStore.update`, og af samme grund.
+
+> **Fejlen er allerede i koden, og den er latent — målt 2026-08-18 under Task 3's review.**
+> `settings-store.ts:35` sender i dag `new SettingsRequest({ language })` og **intet andet**.
+> `PUT /api/settings` er en fuld erstatning, så et sprogskift **rydder** `jiraBaseUrl`,
+> `jiraProjectKey`, `jiraWaitingStatuses` og `jiraIncludeWaiting`. Det sker ikke i dag, fordi UI'et
+> endnu ikke kan sætte dem — men i det øjeblik denne task giver brugeren felterne, bliver den
+> latente fejl en rigtig: konfigurér Jira, skift derefter sprog, og indstillingerne er væk.
+> Det er ord for ord den konvention `CLAUDE.md` navngiver, og den fejl skive 9 tabte en `DeferUntil`
+> til. **Skriv regressionstesten før felterne**, og lad den være en af de første i denne task frem
+> for en eftertanke. `setToken(value)` og `clearToken()` kalder
 de to nye endpoints og opdaterer `hasJiraToken` fra svaret.
 
 Tokenfeltets værdi lever i komponentens lokale `signal('')` og ryddes efter et gemt token. Den må
