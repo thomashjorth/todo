@@ -347,7 +347,32 @@ wiki-markup, og noterne er CommonMark.
 
 **Files:**
 - Create: `src/Todo.Core/Jira/WikiMarkup.cs`
-- Test: `tests/Todo.Core.Tests/WikiMarkupTests.cs`
+- Test: `tests/Todo.Core.Tests/Jira/WikiMarkupTests.cs`
+
+> **Rettet efter kørslen, 2026-08-18. Den leverede kode i `3a30cbf` er sandheden, ikke listingen
+> nedenfor.** Fem ting var forkerte, og fire af dem blev først fundet ved at måle konverterens
+> **output gennem appens egen `marked`** frem for at ræsonnere om regexerne. Det er lektionen:
+> konverteringen er kun halvdelen af kæden.
+>
+> 1. **`----` blev oversat til `---`, som er en setext-overskrift.** `tekst\n---\nmere` renderes som
+>    `<h2>tekst</h2>` — stregen forsvinder, og afsnittet over bliver en overskrift. Vi *skabte*
+>    fejlen frem for blot at undlade at konvertere. Rettet til `***`, som ikke kan læses sådan.
+> 2. **`^#[ \t]+` og `^\*[ \t]+` matchede kun én markør.** Jiras indlejrede punkter er `##`, `###`,
+>    `**` og `#*`, så `## en-a` passerede urørt og blev en `<h2>`. En treniveaus-liste blev en
+>    liste, to overskrifter og en liste til. Erstattet af én dybdebevidst `ListItem()` med
+>    `^(?<marks>[#*]+)[ \t]+` og **fire** mellemrums indrykning pr. niveau — målt: to mellemrum
+>    nester ikke under en `1. `-markør.
+> 3. **`{noformat}` blev ikke beskyttet.** Det er Jiras *anden* ordrette blok, så en bullet derinde
+>    blev en bullet — netop det klassens egen doc-kommentar lover ikke sker.
+> 4. **`CodeBlock`, `NoFormat` og `InlineCode` er kvadratiske når de er uafsluttede.** Ikke
+>    katastrofalt backtrackende — der er ingen nøstede kvantorer — men 100 KB bare `{{` koster
+>    **288 ms** mod under 1 ms med `RegexOptions.NonBacktracking`. Sat på de tre. At det *kan*
+>    sættes på præcis dem er ikke tilfældigt: `NonBacktracking` forbyder lookaround, og kun
+>    `Bold`/`Emphasis` bruger det.
+> 5. **Testfilen hørte i `Jira/`-mappen.** Hver anden test i projektet ligger i en feature-mappe
+>    med matchende namespace; denne var den eneste undtagelse.
+>
+> Endeligt antal: **21** i `WikiMarkupTests`, **59** i `Todo.Core.Tests`.
 
 **Step 1: Skriv den fejlende test — kollisionen først**
 
@@ -540,7 +565,7 @@ public static partial class WikiMarkup
             text, match => Protect(protectedBlocks, $"`{match.Groups["body"].Value}`"));
 
         text = Quote().Replace(text, "> ");
-        text = Rule().Replace(text, "---");
+        text = Rule().Replace(text, "***");   // ikke "---": det er en setext-overskrift
 
         // Lists before headings, and this order is load-bearing. `Heading()` turns `h1. X` into
         // the line `# X`, and NumberedItem's `^#[ \t]+` would then read that as a Jira ordered
@@ -620,15 +645,22 @@ public static partial class WikiMarkup
 dotnet test Todo.sln --filter "FullyQualifiedName~WikiMarkupTests"
 ```
 
-Forventet: PASS, 18 tests (de tre `[InlineData]` tæller hver for sig).
+Forventet: PASS, 21 tests (de tre `[InlineData]` tæller hver for sig).
 
-**Målt 2026-08-18 under kørslen: alle elleve regexer holdt ordret. Rækkefølgen gjorde ikke.**
-Planens første udgave lod `Heading()` køre før `NumberedItem()`, og det er rettet i koden ovenfor.
-Fejlen er værd at kende, fordi den ramte **kun `h1`** — `h2.` og opefter sætter et andet `#` hvor
-`^#[ \t]+` vil have et mellemrum — så **17 af 18 tests bestod**, og kun én af de tre
-`[InlineData]`-rækker fangede den. Havde planen haft ét overskriftseksempel frem for tre, var den
-sluppet igennem hele skiven. Det er argumentet for at et `[Theory]` skal dække grænserne frem for
-et pænt midtpunkt.
+**Målt 2026-08-18: regexernes mønstre holdt ordret. Rækkefølgen og kompositionen gjorde ikke.**
+Planens første udgave lod `Heading()` køre før listereglen, og det er rettet i koden ovenfor.
+
+Fejlen er værd at kende for **hvor smalt den skjulte sig i den oprindelige udgave**: med de to
+enkeltmarkør-regler ramte den **kun `h1`** — `h2.` og opefter sætter et andet `#` hvor `^#[ \t]+`
+vil have et mellemrum — så **17 af 18 tests bestod**, og kun én af de tre `[InlineData]`-rækker
+fangede den. Havde planen haft ét overskriftseksempel frem for tre, var den sluppet gennem hele
+skiven. Det er argumentet for at et `[Theory]` skal dække **grænserne** frem for et pænt midtpunkt.
+
+**Bemærk at rettelsen af B2 gjorde rækkefølgen mere bærende, ikke mindre.** Med den dybdebevidste
+`ListItem()` fælder en ombytning **alle seks** niveauer, ikke bare `h1`: `h2.` bliver
+`    1. Mindre`, og `h6.` bliver fem niveauers indrykning. Vagten dækker altså mere efter
+rettelsen end før — men det er også en påstand der ændrede sig undervejs, og den slags skal måles
+igen frem for at blive genciteret.
 
 Fejler noget alligevel: **ret ikke testen først.** Ret regexen eller rækkefølgen. Viser en
 forventning sig at være forkert om Jiras egen syntaks, så skriv **hvorfor** i en kommentar frem for
@@ -2365,10 +2397,19 @@ git commit -m "✅ E2E på Jira-importen, kontrastvagten på fjerde skærm og le
 
 ## Hvad der kan gå galt, og hvad man så skal gøre
 
-**Regexerne i Task 2 er skrevet, ikke målt.** De er testet mod planens egne eksempler, ikke mod en
-rigtig Jira-beskrivelse. Fejler en, så ret regexen — og hvis en forventning er forkert om Jiras
-syntaks, så skriv **hvorfor** i en kommentar. Den dag en rigtig beskrivelse ser forkert ud, hører
-dens form til i `WikiMarkupTests`.
+**Konverteringen i Task 2 er nu målt — og lektionen var, at regexerne ikke var problemet.**
+Alle elleve mønstre holdt ordret. Det der fejlede, var **kompositionen og hvad renderen gør med
+outputtet**: `----` blev en setext-overskrift, indlejrede `##`-punkter blev `<h2>`, og `{noformat}`
+blev formateret som prosa. Fundet ved at føre konverterens output gennem appens egen `marked` med
+appens flag, ikke ved at læse mønstrene. **Gør det samme næste gang der lægges en regel til.**
+
+**Fire konstruktioner passerer bevidst som rå tekst, og tre af dem er sikre.** Tabeller
+(`||h||h||`) bliver synlig rørsuppe, fordi GFM kræver en `|---|`-skillelinje som Jira aldrig
+udsender; `-x-` og `^2^` står uændret. Den fjerde er **ikke** sikker: `~x~` er *subscript* i Jira,
+men GFM læser en enkelt tilde som **gennemstregning**, så meningen inverteres. Det er den modsatte
+af hvad man gætter — `-x-` ser farlig ud og er harmløs, `~x~` ser harmløs ud og er ikke.
+Begrænsningerne står i klassens doc-kommentar; ser en rigtig beskrivelse forkert ud, hører dens
+form til i `WikiMarkupTests`.
 
 **`expand=changelog` på `/search` er ikke målt.** Planen henter changeloggen pr. sag, hvilket
 virker. Vil man optimere, så **mål først** — og kun for de sager der er ventende, hvilket i praksis
