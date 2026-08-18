@@ -136,13 +136,18 @@ sandhed og taber `0`.
 lader barnet skygge for basen, og `ng build` blev grønt med `"strict": false` derinde — målt.
 `FrontendStrictnessTests` er derfor vagten på både basen og de to børnekonfigurationer.
 
-**Spec-filerne typetjekkes ikke af noget i den dokumenterede arbejdsgang.** `ng build` compilerer
+**Ingen af de to Angular-bygninger typetjekker spec-filerne.** `ng build` compilerer
 `tsconfig.app.json`, som **ekskluderer `src/**/*.spec.ts`**, og `ng test` kører gennem esbuild, der
-fjerner typerne uden at tjekke dem. En `string` lagt i et `number`-felt inde i en spec-fil bliver
-altså grøn for evigt. `FrontendStrictnessTests` vagter **flagene** i de tre tsconfigs, men ingen
-kører spec-projektet gennem compileren. Kommandoen er `tsc -p tsconfig.spec.json --noEmit` — den
-lokale `node_modules\.bin\tsc.cmd`, kørt fra `src\Todo.Web` — og den er indtil videre noget man
-skal huske selv.
+fjerner typerne uden at tjekke dem. En `string` lagt i et `number`-felt inde i en spec-fil var
+derfor grøn for evigt — sådan blev et fixture-id ved med at være `` `${bucket}-1` ``, efter feltet
+blev et tal. Hullet er lukket af `FrontendStrictnessTests.Spec_project_passes_the_type_checker`,
+som kører `tsc -p tsconfig.spec.json --noEmit` gennem den lokale `node_modules\.bin\tsc.cmd` med
+`src\Todo.Web` som arbejdsmappe (relative stier i tsconfig'en opløses ellers ikke) og kræver
+exitkode 0, med compilerens diagnostik i fejlbeskeden. **En compilering af ingenting giver også
+exitkode 0**, så vagten kører med `--listFiles` og påstår desuden, at der var mindst én `*.spec.ts`
+i filsættet. Klassen vagter altså både **flagene** i de tre tsconfigs og selve **kørslen**. Prisen
+er, at `dotnet test` nu forudsætter installerede `node_modules`; mangler `tsc.cmd`, siger vagten
+det med navn og sti frem for at kaste en `Win32Exception`.
 
 **En genvej udfører elementets aktiveringshandling, ikke bare fokus.** Det er
 Windows-konventionen — og HTML's eget `accesskey` — så et tekstfelt får fokus, fordi det ikke har
@@ -323,9 +328,15 @@ forkerte grund.
 
 ## Testtal
 
-Efter model-mod-database-vagten: **38** Todo.Core.Tests, **120** Todo.Api.Tests, **25**
+Efter typetjek-vagten på spec-projektet: **38** Todo.Core.Tests, **121** Todo.Api.Tests, **25**
 Todo.E2E, **143** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Den lagde **én** Api-test til (120 → 121), `Spec_project_passes_the_type_checker` i
+`FrontendStrictnessTests`. Den koster et par sekunder af `dotnet test`, fordi den starter en rigtig
+compiler. De øvrige tre tal står stille: vagten er en påstand om værktøjskæden og rørte ingen kode
+— den blev set fejle med det ægte brud, `` id: `${bucket}-1` `` i `task-store.spec.ts`, og
+diagnostikken `TS2322` stod i fejlbeskeden.
+Før den, efter model-mod-database-vagten: 38 Core, 120 Api, 25 E2E, 143 Vitest.
 Den lagde **én** Api-test til (119 → 120), `Every_column_the_model_expects_exists_in_the_database`
 i `LongIdMigrationTests`. Begge de to ældre kolonnepåstande blev beholdt: de fejler forskelligt, og
 før/efter-udgaven lokaliserer en ændring til migreringen frem for til modellen. De øvrige tre tal
