@@ -45,7 +45,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Mentions | Indbakke der godkendes manuelt, ikke automatisk opgaveoprettelse. |
 | Livscyklus | Frakoblede items markeres færdige og bevares med lokale felter. |
 | Kørsel | Tray-ikon, baggrundssync, Windows-notifikationer. |
-| Jira | Selvhostet Data Center / Server, REST v2, PAT som Bearer. |
+| Jira | **Data Center 10.3.24**, målt 2026-08-18. REST v2 med wiki-markup, PAT som Bearer. |
 | Azure DevOps | Azure DevOps Server (on-prem), PAT. |
 | API-kontrakt | Contract-first: `contracts/openapi.yaml` er sandheden. |
 | Kodegenerering | NSwag → C#-DTO'er + Angular-klient. Genereret kode committes. |
@@ -236,6 +236,41 @@ bare køres.
 Værktøj: `dotnet-ef` pinnes som lokalt værktøj i `.config/dotnet-tools.json`, hvor
 NSwag allerede ligger. Den globalt installerede er 7.0.16 og kan ikke håndtere
 EF Core 10.
+
+## 4a. Ventende statusser fra en ekstern kilde
+
+Besluttet 2026-08-18, som krav til skive 11.
+
+En Jira-sag der står i en **ventende** status — hos os `Afventer general` og `Afventer PO/FA` —
+skal kunne komme med i importen, **hvis brugeren har slået det til i en indstilling. Default er
+fra.** Det default er ikke vilkårligt: en import der tavst hentede ventende sager ind, ville
+lægge ting i listen man ikke kan handle på, og det er præcis det problem "Venter på" blev bygget
+for at løse i skive 5.
+
+Tre ting følger, og de er grunden til at kravet står her frem for i en plan.
+
+**Statusnavnet kan ikke hårdkodes.** `Afventer general` er et navn i *vores* instans, og der er
+mindst to — dashboardet har både `Afventer general` og `Afventer PO/FA`. Indstillingen må derfor
+være en **liste** af statusser, ikke ét navn. Skal listen kunne vælges frem for skrives, kræver
+det et kald til instansen, og det hænger sammen med "Test forbindelse" i samme skive: en
+statusliste forudsætter en virkende forbindelse.
+
+**Det egentlige spørgsmål er en mapning, ikke en filtrering.** Appen har sin egen `WaitingFor`
+med `WaitingOn` og `WaitingSince`. En sag i `Afventer general` *betyder* semantisk det samme: den
+ligger hos en anden. Så skal den importeres som `Open` og lande i deadline-sektionerne, eller som
+`WaitingFor` og lande i "Venter på"? Det andet er mere trofast, men så er indstillingen ikke
+"medtag disse statusser" — den er **"disse Jira-statusser betyder ventende"**. **Den beslutning er
+ikke truffet**, og den skal træffes før planen skrives, fordi den afgør indstillingens form.
+
+**`WaitingOn` kan formentlig ikke udledes.** Appen importerer sager *tildelt dig*. En sag tildelt
+dig, som står i en ventende status, betyder at du venter på nogen der **ikke** står i
+assignee-feltet. Afsnit 4 er udtrykkeligt om, at `Requester` er hvem der bad *dig*, og `WaitingOn`
+er hvem *du* venter på — de må ikke blandes sammen. `WaitingOn` bliver derfor tom og noget
+brugeren selv udfylder.
+
+Bemærk at `DeferUntil` fra skive 9 nu er en tredje mulig placering for noget der ikke kan handles
+på endnu — men den betyder *ikke endnu*, hvor en ventende status betyder *ligger hos en anden*.
+Bland dem ikke sammen.
 
 ## 5. Kontrakt-pipeline
 
@@ -437,7 +472,9 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
     `{id:guid}` i en ruteskabelon er usynligt for både `grep` og compileren — står i afsnit 10.*
 11. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
     Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
-    en server at teste mod.
+    en server at teste mod. **Versionen er målt — Data Center 10.3.24, se afsnit 10.**
+    *Et krav er besluttet 2026-08-18: en importeret sag i en ventende status skal kunne
+    komme med, hvis brugeren har slået det til i en indstilling — default fra. Se afsnit 4a.*
 12. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 11 duer.
 13. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
 14. **Baggrundssync, tray og notifikationer.**
@@ -471,8 +508,18 @@ blev leveret uden for skiverne og står nedenfor som lukket.
 
 - **ADO-mentions** er den mest usikre antagelse. Verificér i skive 11, ikke i 12 —
   altså mens "Test forbindelse" bygges, ikke først når ADO-importen skal bruge den.
-- **Serverversioner** for Jira DC og ADO Server afgør endpoints og API-versioner.
-  Verificeres med "Test forbindelse" i skive 11.
+- **Jira-versionen er målt: Data Center 10.3.24** (2026-08-18, læst i Jiras egen om-dialog).
+  Det afgør tre ting, som ellers skulle gættes. **Jira 10.x findes kun som Data Center** —
+  Server udgik i februar 2024 — så selvhostet er ikke længere en antagelse. Selvhostet Jira
+  bruger **REST v2 med wiki-markup** i beskrivelser, ikke Cloud'ens v3 med Atlassian Document
+  Format; en importeret beskrivelse skal derfor konverteres **fra wiki-markup** til den
+  CommonMark noterne bruger, og det er den største enkeltforskel i importarbejdet. Og **PAT
+  som Bearer kræver 8.14+**, så afsnit 2's beslutning holder — under den tærskel havde den
+  været forkert.
+  **Men Jira 10 fjernede en række forældede REST-endpoints**, så planen for skive 11 skal
+  verificeres mod instansen frem for mod hukommelsen.
+- **ADO Server-versionen er stadig ukendt** og afgør endpoints og API-versioner der.
+  Verificeres med "Test forbindelse" i skive 12.
 - **Skallen har nu farver i begge temaer, og det var mere end kosmetik** (løst i skive 7).
   En `<body>` uden baggrund giver ikke blot forkerte farver — den gør hele `dark:`-systemet
   til **usynlig tekst**: `dark:text-gray-100` på hvid er 1,10:1. `<body>` har nu

@@ -104,5 +104,13 @@ Mønstret der har virket gennem elleve skiver:
 - **ADO-mentions** er den mest usikre antagelse i hele designet. Azure DevOps har intet
   "vis mine mentions"-endpoint; planen er WIQL på kommentarhistorik. **Verificér mod jeres egen
   instans, før der bygges noget ovenpå.**
-- **Serverversioner** for Jira Data Center og ADO Server afgør endpoints og API-versioner.
-  "Test forbindelse" i indstillingerne er bygget til at afklare det.
+- **Jira-versionen er afklaret: Data Center 10.3.24** (målt 2026-08-18). Det låser REST v2 med
+  wiki-markup — ikke Cloud'ens ADF — og bekræfter at PAT som Bearer er muligt. Jira 10 fjernede
+  dog forældede REST-endpoints, så skive 11's plan skal måles mod instansen. Se designdokumentets
+  afsnit 10. **ADO Server-versionen er stadig ukendt**; "Test forbindelse" er bygget til at
+  afklare den.
+- **Ét krav til skive 11 er besluttet**, men én beslutning i det er ikke: en ventende Jira-status
+  (`Afventer general`, `Afventer PO/FA`) skal kunne komme med i importen bag en indstilling,
+  default fra. **Om sådan en sag skal mappes til `WaitingFor` eller blot medtages som `Open`, er
+  ikke afgjort** — og det afgør indstillingens form, så det skal besluttes før planen skrives.
+  Designdokumentets afsnit 4a.
