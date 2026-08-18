@@ -539,15 +539,20 @@ public static partial class WikiMarkup
         text = InlineCode().Replace(
             text, match => Protect(protectedBlocks, $"`{match.Groups["body"].Value}`"));
 
+        text = Quote().Replace(text, "> ");
+        text = Rule().Replace(text, "---");
+
+        // Lists before headings, and this order is load-bearing. `Heading()` turns `h1. X` into
+        // the line `# X`, and NumberedItem's `^#[ \t]+` would then read that as a Jira ordered
+        // item and emit `1. X`. Only `h1` breaks — `h2.` and up put a second `#` where the rule
+        // wants a space — so the wrong order fails one heading in three and looks like a regex bug.
+        text = NumberedItem().Replace(text, "1. ");
+        text = BulletItem().Replace(text, "- ");
+
         text = Heading().Replace(text, match =>
             new string('#', int.Parse(match.Groups["level"].ValueSpan))
                 + " "
                 + match.Groups["text"].Value);
-
-        text = Quote().Replace(text, "> ");
-        text = Rule().Replace(text, "---");
-        text = NumberedItem().Replace(text, "1. ");
-        text = BulletItem().Replace(text, "- ");
 
         text = NamedLink().Replace(text, "[${text}](${url})");
         text = BareLink().Replace(text, "<${url}>");
@@ -617,9 +622,17 @@ dotnet test Todo.sln --filter "FullyQualifiedName~WikiMarkupTests"
 
 Forventet: PASS, 18 tests (de tre `[InlineData]` tæller hver for sig).
 
-Fejler en af dem: **ret ikke testen først.** Regexerne ovenfor er skrevet, ikke målt, og en af dem
-kan være for stram eller for løs. Ret regexen. Viser en forventning sig at være forkert om Jiras
-egen syntaks, så skriv **hvorfor** i en kommentar frem for at slette påstanden.
+**Målt 2026-08-18 under kørslen: alle elleve regexer holdt ordret. Rækkefølgen gjorde ikke.**
+Planens første udgave lod `Heading()` køre før `NumberedItem()`, og det er rettet i koden ovenfor.
+Fejlen er værd at kende, fordi den ramte **kun `h1`** — `h2.` og opefter sætter et andet `#` hvor
+`^#[ \t]+` vil have et mellemrum — så **17 af 18 tests bestod**, og kun én af de tre
+`[InlineData]`-rækker fangede den. Havde planen haft ét overskriftseksempel frem for tre, var den
+sluppet igennem hele skiven. Det er argumentet for at et `[Theory]` skal dække grænserne frem for
+et pænt midtpunkt.
+
+Fejler noget alligevel: **ret ikke testen først.** Ret regexen eller rækkefølgen. Viser en
+forventning sig at være forkert om Jiras egen syntaks, så skriv **hvorfor** i en kommentar frem for
+at slette påstanden.
 
 **Step 5: Commit**
 
