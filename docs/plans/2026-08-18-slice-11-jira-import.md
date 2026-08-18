@@ -320,8 +320,14 @@ endpoints ikke har endnu. Den er porten i Task 6, ikke her.
 
 **Step 8: Commit**
 
+`scripts\generate-api.ps1` skriver **fire** filer, ikke to — målt 2026-08-18, efter at planens
+første udgave nævnte to. `src/Todo.Contracts/Generated/.source-hash` er præcis den fil
+`GeneratedCodeFreshnessTests` læser, og `Contracts.g.cs` er de C#-DTO'er Task 3 og Task 6 skal
+bruge. Udelades de, er commit'en **grøn lokalt og rød hos alle andre**, og de to senere tasks
+starter uden deres typer.
+
 ```bash
-git add contracts/openapi.yaml src/Todo.Web/src/app/api/
+git add contracts/openapi.yaml src/Todo.Web/src/app/api/ src/Todo.Contracts/Generated/
 git commit -m "📝 Læg Jira-importen og dens indstillinger på kontrakten"
 ```
 
@@ -1815,6 +1821,10 @@ dotnet test Todo.sln --filter "FullyQualifiedName~ContractDriftTests"
 
 Forventet: PASS. Fejler den på en operation for meget, så tjek at ingen ny rute uden for `/api/`
 blev lagt til uden `.ExcludeFromDescription()` — se `CLAUDE.md`.
+
+Ret samtidig doc-kommentaren i `ContractDocumentTests.cs`, som siger "the same 15 operations and
+the same 22 schemas". Task 1 gjorde det til **21 og 30** (målt). Det er prosa, ikke en assertion, så
+intet fejler — og netop derfor bliver et forkert tal stående som et holdepunkt nogen stoler på.
 
 **Step 8: Læg de nye enum- og wire-værdier på wire-format-testen**
 
