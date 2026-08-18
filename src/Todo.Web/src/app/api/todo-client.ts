@@ -1047,7 +1047,7 @@ export class JiraClient {
     }
 
     /**
-     * Asks Jira who the stored token belongs to. A POST because it calls out on the network, and a GET may be repeated by a cache or a browser.
+     * Asks Jira who the stored token belongs to.
      * @return The name Jira reports for the token's owner.
      */
     testJiraConnection(): Observable<JiraConnectionResponse> {
@@ -1224,7 +1224,7 @@ export class JiraClient {
     }
 
     /**
-     * Creates a task for every row that is not imported already.
+     * Creates a task for every Jira row that is not imported already.
      * @return How many rows were created and how many were already there.
      */
     importJira(body: JiraImportRequest): Observable<JiraImportResponse> {
@@ -2453,7 +2453,7 @@ export class JiraImportRow implements IJiraImportRow {
     note?: string | undefined;
     deadline?: string | undefined;
     requester?: string | undefined;
-    isWaiting?: boolean;
+    isWaiting!: boolean;
     waitingSince?: string | undefined;
 
     constructor(data?: IJiraImportRow) {
@@ -2503,7 +2503,7 @@ export interface IJiraImportRow {
     note?: string | undefined;
     deadline?: string | undefined;
     requester?: string | undefined;
-    isWaiting?: boolean;
+    isWaiting: boolean;
     waitingSince?: string | undefined;
 }
 
@@ -2658,10 +2658,10 @@ export class SettingsResponse implements ISettingsResponse {
     language?: string | undefined;
     jiraBaseUrl?: string | undefined;
     jiraProjectKey?: string | undefined;
-    jiraWaitingStatuses?: string[];
-    jiraIncludeWaiting?: boolean;
+    jiraWaitingStatuses!: string[];
+    jiraIncludeWaiting!: boolean;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
-    hasJiraToken?: boolean;
+    hasJiraToken!: boolean;
 
     constructor(data?: ISettingsResponse) {
         if (data) {
@@ -2669,6 +2669,9 @@ export class SettingsResponse implements ISettingsResponse {
                 if (data.hasOwnProperty(property))
                     (this as any)[property] = (data as any)[property];
             }
+        }
+        if (!data) {
+            this.jiraWaitingStatuses = [];
         }
     }
 
@@ -2714,10 +2717,10 @@ export interface ISettingsResponse {
     language?: string | undefined;
     jiraBaseUrl?: string | undefined;
     jiraProjectKey?: string | undefined;
-    jiraWaitingStatuses?: string[];
-    jiraIncludeWaiting?: boolean;
+    jiraWaitingStatuses: string[];
+    jiraIncludeWaiting: boolean;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
-    hasJiraToken?: boolean;
+    hasJiraToken: boolean;
 }
 
 export class JiraTokenRequest implements IJiraTokenRequest {

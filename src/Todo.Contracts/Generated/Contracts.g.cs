@@ -580,7 +580,8 @@ namespace Todo.Contracts
         public string JiraProjectKey { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("jiraWaitingStatuses")]
-        public System.Collections.Generic.ICollection<string> JiraWaitingStatuses { get; set; }
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> JiraWaitingStatuses { get; set; } = new System.Collections.ObjectModel.Collection<string>();
 
         [System.Text.Json.Serialization.JsonPropertyName("jiraIncludeWaiting")]
         public bool JiraIncludeWaiting { get; set; }

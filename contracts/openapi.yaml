@@ -369,9 +369,12 @@ paths:
       operationId: testJiraConnection
       tags:
         - Jira
-      summary: >-
-        Asks Jira who the stored token belongs to. A POST because it calls out on the
-        network, and a GET may be repeated by a cache or a browser.
+      summary: Asks Jira who the stored token belongs to.
+      description: >-
+        A POST rather than a GET because this is an action the user asks for and expects to
+        re-run, not a resource to read; a GET may be served from a cache and answer without
+        having contacted Jira at all. /api/jira/statuses stays a GET because a list of status
+        names is exactly a cacheable resource.
       responses:
         '200':
           description: The name Jira reports for the token's owner.
@@ -428,7 +431,7 @@ paths:
       operationId: importJira
       tags:
         - Jira
-      summary: Creates a task for every row that is not imported already.
+      summary: Creates a task for every Jira row that is not imported already.
       requestBody:
         required: true
         content:
@@ -720,6 +723,7 @@ components:
         excluded:
           type: string
           nullable: true
+          example: jira.excludedWaiting
           description: >-
             Why import will skip this row, as an error code the frontend translates.
             Null means it will be imported.
@@ -739,7 +743,7 @@ components:
     JiraImportRow:
       type: object
       additionalProperties: false
-      required: [key, title]
+      required: [key, title, isWaiting]
       properties:
         key:
           type: string
@@ -804,6 +808,7 @@ components:
     SettingsResponse:
       type: object
       additionalProperties: false
+      required: [jiraWaitingStatuses, jiraIncludeWaiting, hasJiraToken]
       properties:
         language:
           type: string
