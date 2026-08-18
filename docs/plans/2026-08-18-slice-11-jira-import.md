@@ -172,8 +172,15 @@ Alle fire har `tags: [Jira]`. `400` peger på `ApiError` overalt.
 | `/api/jira/preview` | POST | `previewJira` | `JiraPreviewResponse` |
 | `/api/jira/import` | POST | `importJira` | `JiraImportResponse`, krop `JiraImportRequest` |
 
-`/api/jira/test` er POST frem for GET, fordi den har en bivirkning uden for processen: den kalder
-ud på netværket. En GET må gerne gentages af en cache eller en browser.
+`/api/jira/test` og `/api/jira/preview` er POST, fordi de er **handlinger** man beder om og
+forventer at kunne gentage — ikke ressourcer man læser. `/api/jira/statuses` er en GET, fordi en
+liste af statusnavne netop *er* en ressource, og den må gerne komme fra en cache.
+
+**Bemærk hvad begrundelsen ikke er.** Planens første udgave skrev "POST fordi den kalder ud på
+netværket", og den regel forbyder `/api/jira/statuses` som GET tre operationer længere ned — den
+kalder også ud. Fanget i kvalitetsreviewet af Task 1. Skellet er handling mod ressource, ikke
+netværk mod ikke-netværk. Begrundelsen hører i operationens `description`, ikke i dens `summary`,
+som er **titlen** på `/scalar/`.
 
 **Step 4: Skemaerne**
 
@@ -792,6 +799,7 @@ I `ErrorCodes`:
     public const string JiraUnreachable = "jira.unreachable";
     public const string JiraRowKeyRequired = "jira.rowKeyRequired";
     public const string JiraRowTitleRequired = "jira.rowTitleRequired";
+    public const string JiraRowStatusRequired = "jira.rowStatusRequired";
     public const string JiraExcludedWaiting = "jira.excludedWaiting";
 ```
 
@@ -1628,7 +1636,7 @@ public class JiraEndpointsTests : ApiTest
     {
         await using var jira = await ConfigureAsync();
 
-        var imported = await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind" });
+        var imported = await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" });
 
         Assert.Equal(1, imported.Imported);
 
@@ -1645,11 +1653,14 @@ public class JiraEndpointsTests : ApiTest
     {
         await using var jira = await ConfigureAsync(includeWaiting: true);
 
+        // The row carries Jira's status name, not the waiting decision. The server looks the name
+        // up in the user's list — see the note under the import bullet on why a required boolean
+        // could not be enforced on the wire.
         await Import(new
         {
             key = "SAAS-2",
             title = "Venter på svar fra kunden",
-            isWaiting = true,
+            status = "Afventer general",
             waitingSince = "2026-08-17T12:10:13.593Z",
         });
 
@@ -1667,9 +1678,9 @@ public class JiraEndpointsTests : ApiTest
     {
         await using var jira = await ConfigureAsync();
 
-        await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind" });
+        await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" });
 
-        var second = await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind" });
+        var second = await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" });
 
         Assert.Equal(0, second.Imported);
         Assert.Equal(1, second.Skipped);
@@ -1680,7 +1691,7 @@ public class JiraEndpointsTests : ApiTest
     {
         await using var jira = await ConfigureAsync();
 
-        await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind" });
+        await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" });
 
         var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
 
@@ -1709,15 +1720,70 @@ public class JiraEndpointsTests : ApiTest
         Assert.False(row.AlreadyImported);
     }
 
+    /// <summary>
+    /// The status is valid here on purpose. Without it the row would be rejected for the missing
+    /// status instead, and this test would pass while proving nothing about the title.
+    /// </summary>
     [Fact]
     public async Task A_row_without_a_title_is_rejected()
     {
         await using var jira = await ConfigureAsync();
 
         var response = await Host.Client.PostAsJsonAsync(
-            "/api/jira/import", new { rows = new[] { new { key = "SAAS-1", title = "  " } } });
+            "/api/jira/import",
+            new { rows = new[] { new { key = "SAAS-1", title = "  ", status = "I gang" } } });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ApiError>();
+
+        Assert.Equal(ErrorCodes.JiraRowTitleRequired, error!.Code);
+    }
+
+    /// <summary>
+    /// The status is what the server derives waiting-ness from, so a row without one is not
+    /// importable. A required boolean could not be enforced on the wire — an absent bool is
+    /// `false`, which is a legal value — but an absent string is null, and that can be refused.
+    /// This assertion is the whole reason the contract carries `status` rather than `isWaiting`.
+    /// </summary>
+    [Fact]
+    public async Task A_row_without_a_status_is_rejected()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/jira/import", new { rows = new[] { new { key = "SAAS-1", title = "En sag" } } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ApiError>();
+
+        Assert.Equal(ErrorCodes.JiraRowStatusRequired, error!.Code);
+    }
+
+    /// <summary>
+    /// The setting is authoritative at import time, not at preview time. A row the user previewed
+    /// while waiting was allowed must not slip in after they turned it off — the payload carries
+    /// Jira's status, so the server re-derives the decision from the list as it stands now.
+    /// </summary>
+    [Fact]
+    public async Task A_waiting_row_is_skipped_when_waiting_is_not_asked_for()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: false);
+
+        var result = await Import(new
+        {
+            key = "SAAS-2",
+            title = "Venter på svar fra kunden",
+            status = "Afventer general",
+        });
+
+        Assert.Equal(0, result.Imported);
+        Assert.Equal(1, result.Skipped);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+
+        Assert.Empty(tasks!.Items);
     }
 
     private async Task<PreviewBody> Preview()
@@ -1778,10 +1844,33 @@ Forventet: 404 på alle fire ruter.
   - `waitingSince` hentes **kun** når `isWaiting` — ét kald pr. sag.
   - `excluded = isWaiting && !settings.IncludeWaiting ? ErrorCodes.JiraExcludedWaiting : null`.
   - `alreadyImported` fra `SourceId == "jira" && ExternalKey == key`.
-- Importen: validér som `RetroEndpoints.ValidateRow` (nøgle, titel, `TitleMaxLength` 500), dedup
-  gennem et `HashSet` der udvides mens der itereres, `Status = row.IsWaiting ? WaitingFor : Open`,
-  `WaitingSince = row.IsWaiting ? row.WaitingSince : null`, `WaitingOn` sættes **ikke**,
-  `SourceId = "jira"`, `CreatedAt = clock.UtcNow`.
+- Importen: validér som `RetroEndpoints.ValidateRow` (nøgle, titel, `TitleMaxLength` 500) **plus at
+  `status` er udfyldt**, dedup gennem et `HashSet` der udvides mens der itereres,
+  `SourceId = "jira"`, `CreatedAt = clock.UtcNow`, og `WaitingOn` sættes **ikke**.
+
+- **Ventendeheden udledes serverside, den sendes ikke.** Rækken bærer Jiras statusnavn, og
+  handleren regner selv:
+
+  ```csharp
+  var isWaiting = settings.WaitingStatuses.Contains(row.Status, StringComparer.Ordinal);
+  ```
+
+  → `Status = isWaiting ? WaitingFor : Open` og `WaitingSince = isWaiting ? row.WaitingSince : null`.
+  Er `isWaiting` sand mens `settings.IncludeWaiting` er falsk, **springes rækken over** og tælles
+  som `skipped` — samme genudledning som forhåndsvisningens `excluded`, så kroppen ikke kan
+  omgå indstillingen.
+
+  **Hvorfor det ikke bare er et `isWaiting`-felt på kontrakten:** det var det først, med
+  `required: [key, title, isWaiting]` — og det er **uhåndhæveligt**. Målt 2026-08-18: NSwag udsender
+  ikke `[Required]` på en ikke-nullable værditype, så DTO'en blev `public bool IsWaiting` uden
+  attribut, og `[Required]` er i øvrigt DataAnnotations, som System.Text.Json ikke håndhæver ved
+  deserialisering. En fraværende bool bliver `false`, hvilket er en **gyldig værdi**, så handleren
+  kan ikke afvise den — og en glemt kopiering af ét felt ville importere hver ventende sag som
+  `Open`, uden fejl og med grønne tests. En fraværende `string` bliver derimod `null`, og det *kan*
+  afvises. Kendsgerningen kan sendes; beslutningen kan ikke.
+
+  Sidegevinsten er, at indstillingen gælder på **importtidspunktet**: ændrer brugeren sin liste
+  mellem forhåndsvisning og import, følger importen den nye liste.
 - **Importen kalder ikke Jira.** Den skriver de rækker klienten sender — samme kontrakt som skive
   2. Det holder importen hurtig og gør at det, der blev vist, er det, der bliver skrevet.
 
@@ -1811,7 +1900,7 @@ og `app.MapJira();` ved siden af `app.MapRetro();`.
 dotnet test Todo.sln --filter "FullyQualifiedName~JiraEndpointsTests"
 ```
 
-Forventet: PASS, 13 tests.
+Forventet: PASS, 16 tests.
 
 **Step 7: Nu skal drift-testen være grøn**
 
