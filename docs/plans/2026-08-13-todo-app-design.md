@@ -1,7 +1,7 @@
 # Personlig todo-app — design
 
 Dato: 2026-08-13
-Status: skive 0–8 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
+Status: skive 0–10 bygget. Aktuel tilstand og næste skridt står i `docs/HANDOFF.md`;
 maskinens fælder og konventioner i `CLAUDE.md` i roden.
 
 ## 1. Formål
@@ -26,7 +26,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen, hvor tasten udfører elementets aktiveringshandling og ikke blot flytter fokus. **Leveret i skive 8.** |
 | Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
 | Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
-| Id-type | `Guid` v4. Skiftet til `long` er besluttet men **udskudt og uplaceret** — se afsnit 9 og 10. |
+| Id-type | `long`, tildelt af SQLite ved indsættelse. **Leveret i skive 10.** `INTEGER PRIMARY KEY` er et alias for rowid, så "opgave 42" kan siges højt — argumentet er SQLite-specifikt og ergonomisk. **Ikke** fragmentering: branchen gik fra tilfældig `Guid` v4 til tidsordnet UUIDv7, ikke til `long`. Se afsnit 10. |
 | Tokens | I `Setting`-tabellen i klartekst. **Bevidst valg** — se afsnit 3. |
 | Indstillinger | Én side i appen til sprog, URL'er, tokens, aliaser og sync-interval. |
 | Sprog | Dansk og engelsk med Transloco. Systemets sprog som standard, skiftes i indstillinger. |
@@ -80,7 +80,7 @@ læses aldrig fra disk: en publiceret exe har ingen `contracts\`-mappe ved siden
 afsnit 10 om hvorfor der er to OpenAPI-dokumenter.
 
 `Todo.Contract.Tests` med WireMock kommer først når der er en ekstern server at
-lyve om — altså i skive 10 med Jira.
+lyve om — altså i skive 11 med Jira.
 
 Udvikling: `dotnet run` + `ng serve` med proxy mod API'et, så frontend har hot
 reload. Publish: `ng build` → `Todo.Host/wwwroot`, derefter self-contained exe.
@@ -116,6 +116,11 @@ Bygget i skive 1: `Id`, `SourceId`, `Title`, `Note`, `Deadline` (`DateOnly?`),
 `Requester`, `Status` (`TodoStatus`, gemt som tekst), `CompletedAt`, `CreatedAt`,
 `SubTasks`. Tilføjet i skive 2: `ExternalKey` (nullable, indekseret sammen med
 `SourceId`) — nøglen en importeret række genkendes på.
+
+`Id` er en `long` siden skive 10, ikke en `Guid`, og **den tildeles af SQLite ved indsættelse**:
+`INTEGER PRIMARY KEY AUTOINCREMENT` er et alias for tabellens rowid, så hverken klienten eller
+entiteten sætter et id. Det samme gælder `SubTask.Id` og `UserAlias.Id`. Konsekvensen at kende er,
+at et objekt der endnu ikke er gemt, har `Id == 0`.
 
 Resten af felterne herunder findes **endnu ikke** — de kommer sammen med de
 eksterne API-kilder, ikke før: `SortOrder`, `TitleOverridden`, `ExternalUrl`,
@@ -416,32 +421,40 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
    startdatoen: `TaskStore.update` sender en fuld request, og backenden læser et fraværende felt
    som "ryd", så en rettelse af noget helt andet slettede en gemt startdato lydløst. Fundet af en
    test, ikke af en gennemlæsning.*
-10. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
+10. **`long` som id** — `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`, og
+    id'et tildeles af SQLite ved indsættelse. I SQLite bliver `INTEGER PRIMARY KEY` et alias for
+    rowid, så **"opgave 42" kan siges højt**. **Placeret her 2026-08-18**, efter at have ligget
+    uplaceret gennem tre leverancer; Jira-importen og hver skive efter den rykkede ét nummer op.
+    Planen ligger i `docs/plans/2026-08-17-long-ids.md`. **Færdig.**
+    *Migreringen er skrevet i hånden, og EF's egen blev kasseret — det er skivens vigtigste
+    erfaring. `dotnet-ef migrations add` scaffoldede fire `AlterColumn<long>` på TEXT-primærnøgler
+    og advarede selv: "An operation was scaffolded that may result in the loss of data." Advarslen
+    var sand. En `CAST` af en Guid-streng læser et ledende talpræfiks og giver ellers `0`; målt på
+    fem realistiske Guid'er blev fem distinkte værdier to, hvoraf tre var `0` — sammenfaldende
+    primærnøgler. Begge migreringens kroppe blev derfor erstattet af SQL med mapningstabeller og
+    `ROW_NUMBER()`, mens kun modelsnapshottet blev beholdt af det EF genererede. Resten af
+    lektionerne — hvorfor forældre før børn er den eneste rækkefølge der kører, og hvorfor et
+    `{id:guid}` i en ruteskabelon er usynligt for både `grep` og compileren — står i afsnit 10.*
+11. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
     Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
     en server at teste mod.
-11. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 10 duer.
-12. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
-13. **Baggrundssync, tray og notifikationer.**
-14. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
-15. **Pakning** — self-contained exe, autostart.
+12. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 11 duer.
+13. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+14. **Baggrundssync, tray og notifikationer.**
+15. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
+16. **Pakning** — self-contained exe, autostart.
 
 ### Ønsket, men ikke placeret endnu
 
-Tre ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
+To ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
 glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede skiver.
-Den fjerde, Swagger-linket, blev leveret uden for skiverne og står nedenfor som lukket.
+`long` som id stod her fra 2026-08-17 og fik en plads 2026-08-18 som skive 10; Swagger-linket
+blev leveret uden for skiverne og står nedenfor som lukket.
 
-- **`long` som id.** `Guid` v4 erstattes af `long` på `TaskItem`, `SubTask` og `UserAlias`.
-  **Udskudt 2026-08-17**, efter at planen var skrevet: beslutningen står, men den fik ikke
-  en plads i rækkefølgen, og Alt-genvejene overtog nummer 8. Planen ligger klar i
-  `docs/plans/2026-08-17-long-ids.md` med migreringen målt igennem — se afsnit 10
-  for hvorfor den migrering ikke kan overlades til EF. **Bliver dyrere for hver skive der
-  lægges imellem**, og det var netop det argument der blev sat til side her; sker det igen,
-  er det værd at spørge hvorfor.
 - **Revisionslog med trends.** En hændelseslog ved siden af opgaverne — hvad
   ændrede sig hvornår — som kan bære spørgsmål som "hvor mange lukker jeg om ugen"
   og "hvor længe ligger noget i Venter på". Den er også fundamentet for GTD's
-  ugentlige gennemgang, som appen slet ikke understøtter i dag. Største af de fire.
+  ugentlige gennemgang, som appen slet ikke understøtter i dag. Største af de to.
 - **"Sådan er den tænkt"-side.** En side der beskriver brugen i GTD-termer.
   Skrives som markdown-filer pr. sprog og renderes med kæden fra skive 4 — prosa
   hører ikke hjemme i oversættelsesnøgler. **Skal også sige hvad værktøjet ikke
@@ -456,10 +469,10 @@ Den fjerde, Swagger-linket, blev leveret uden for skiverne og står nedenfor som
 
 ## 10. Risici og åbne punkter
 
-- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 10, ikke i 11 —
+- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 11, ikke i 12 —
   altså mens "Test forbindelse" bygges, ikke først når ADO-importen skal bruge den.
 - **Serverversioner** for Jira DC og ADO Server afgør endpoints og API-versioner.
-  Verificeres med "Test forbindelse" i skive 10.
+  Verificeres med "Test forbindelse" i skive 11.
 - **Skallen har nu farver i begge temaer, og det var mere end kosmetik** (løst i skive 7).
   En `<body>` uden baggrund giver ikke blot forkerte farver — den gør hele `dark:`-systemet
   til **usynlig tekst**: `dark:text-gray-100` på hvid er 1,10:1. `<body>` har nu
@@ -582,13 +595,40 @@ Den fjerde, Swagger-linket, blev leveret uden for skiverne og står nedenfor som
   tilstand er desuden synlig i panelet** (tilføjet 2026-08-18): står der en startdato efter
   deadline, skriver detaljepanelet at opgaven derfor vises som overskredet. Forrangen er dermed
   ikke længere kun rigtig — den kan forklares den bruger, hvis startdato blev sat til side.
-- **Id'erne er `Guid` v4 og skal være `long`** (besluttet 2026-08-14, udskudt og
-  uplaceret 2026-08-17). Bemærk at branchen ikke er gået fra GUID til `long` — den er gået fra
-  **tilfældig v4** til **tidsordnet UUIDv7**, som `Guid.CreateVersion7()` giver i
-  .NET 9+. Argumentet for `long` her er et andet: i SQLite bliver `INTEGER PRIMARY
-  KEY` et alias for rowid, og "opgave 42" kan siges højt. Fragmentering er uden
-  betydning ved denne størrelse. **Migreringen bliver dyrere for hver skive der
-  lægges imellem**, fordi hver ny skive tilføjer kode og tests der rører id'er.
+- **Id'erne er `long`, og migreringen kunne ikke overlades til EF** (løst i skive 10). Premisset
+  står stadig: branchen er ikke gået fra GUID til `long` — den er gået fra **tilfældig v4** til
+  **tidsordnet UUIDv7**, som `Guid.CreateVersion7()` giver i .NET 9+. Argumentet her var et andet
+  og holdt: i SQLite bliver `INTEGER PRIMARY KEY` et alias for rowid, og "opgave 42" kan siges
+  højt. **Fragmentering var aldrig grunden** og skal ikke bruges som en. Fire ting blev lært, og de
+  tre sidste er dem der koster, hvis de genopdages.
+  **(1) `CAST` er en ommapning, ikke en typeændring.** SQLite læser et ledende talpræfiks af en
+  Guid-streng og giver ellers `0`; målt blev fem distinkte Guid'er to distinkte heltal, tre af dem
+  `0` — altså sammenfaldende primærnøgler. Målingen står nu som en påstand,
+  `Casting_a_Guid_to_an_integer_collapses_distinct_ids`, frem for som en kommentar der kan blive
+  gammel.
+  **(2) EF's eget scaffold var netop den destruktive udgave, og sagde det selv.**
+  `dotnet-ef migrations add` gav fire `AlterColumn<long>` på TEXT-primærnøgler plus advarslen
+  "An operation was scaffolded that may result in the loss of data." Begge kroppe blev skrevet i
+  hånden med mapningstabeller og `ROW_NUMBER()`; kun modelsnapshottet blev beholdt.
+  **(3) Forældre før børn er ikke ordentlighed, det er den eneste rækkefølge der kører.**
+  Fremmednøgler er slået **til** hele vejen — `PRAGMA foreign_keys` er en no-op inde i en
+  transaktion, og EF pakker migreringen i én — så et barn ommappet til en forælder der ikke findes
+  afvises på stedet med `FOREIGN KEY constraint failed`. Det er også derfor `PRAGMA
+  foreign_key_check` næsten intet beviser alene; vagten har en påstand om at fremmednøglen
+  **findes** ved siden af, og den blev set fejle. Se `CLAUDE.md`.
+  **(4) En ruteskabelons `{id:guid}` er id-typens anden, separat usynlige halvdel.**
+  `TaskEndpoints.cs` havde seks `Guid`-linjer **og syv `:guid`-bindinger**; `grep -c Guid` er
+  versalfølsom og så ingen af bindingerne, og **compileren ser dem heller ikke**, fordi en
+  minimal-APIs rutebinding afgøres i runtime. `long id` mod `{id:guid}` bygger altså grønt og
+  svarer **404 fra routingen, før handleren** — hvilket ligner "opgaven findes ikke". Testene
+  fanger det ikke, hvis *begge* halvdele glemmes: så virker ruten stadig. Kun et eksplicit
+  før/efter-grep på **begge** stavemåder er et ærligt tjek.
+  Planens aftrykstabel skal desuden læses med to rettelser: **11** id-relaterede forekomster i
+  tests, ikke 12 — den tolvte var `SettingsJourneyTests`, hvor `Guid.NewGuid()` bygger et
+  midlertidigt **mappenavn** — og **fire** ikke-id-brug af `Guid` tilbage, ikke tre: `RunningHost`s
+  midlertidige databasenavn, `DatabaseBackupTests`' mappe og unikke titel, og
+  `SettingsJourneyTests`' mappe. Alle bevidste. Builderne var som forudsagt på **nul** og krævede
+  ingen ændring.
 
 ## 11. Forholdet til GTD
 

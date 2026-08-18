@@ -1,6 +1,6 @@
 # Hvor projektet står
 
-Sidst opdateret: 2026-08-17
+Sidst opdateret: 2026-08-18
 
 Konventioner og maskinens fælder: `CLAUDE.md` i roden — den indlæses automatisk.
 Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
@@ -19,6 +19,7 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 7 | WCAG AA i begge temaer med en kontrastvagt der måler i browseren, `dark:`-modparter så godt som overalt (én bevidst undtagelse, se designdokumentets afsnit 10), synligt fokus og en tastaturgennemgang | `2026-08-17-slice-7-accessibility.md` |
 | 8 | Alt-genvejssystemet: hold Alt for at se mærkaterne, og Alt+O/I/S/N/V/M udfører elementets aktiveringshandling — links følges, de to kontakter skifter og tager fokus, feltet får fokus | `2026-08-17-alt-shortcuts.md` |
 | 9 | Startdato (`DeferUntil`): en opgave ligger i Udskudt indtil dagen den begynder. Udskudtheden er **beregnet** af dagens dato, ikke gemt som en status, så intet skal køre ved midnat. Overskredet slår Udskudt — se designdokumentets afsnit 10 | `2026-08-17-slice-9-defer-until.md` |
+| 10 | `long` som id: `Guid` er væk fra `TaskItem`, `SubTask` og `UserAlias`, og id'et tildeles af SQLite ved indsættelse, så **"opgave 42" kan siges højt**. Migreringen er skrevet i hånden — en `CAST` af Guid-strenge ville have flettet rækker sammen — og en vagt stiller rigtige Guid-rækker op foran den og kræver dem intakte bagefter | `2026-08-17-long-ids.md` |
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, `ApiTest`/`BrowserTest`-basisklasser, og **linket til API-dokumentationen på
@@ -26,8 +27,9 @@ health-linjen** (2026-08-17, plan i `docs/plans/2026-08-17-swagger-link.md`): "A
 knap ved siden af, der beder systemets browser åbne `/scalar/`, hvor kontrakten selv vises fra
 `/openapi/contract.yaml`. **Den fik bevidst ikke et skivenummer** — én affordance, ingen datamodel
 og ingen ny skærm — og et nummer ville have tvunget Jira-importen til 10 og hver skive efter den
-med (ADO, mentions, baggrundssync, livscyklus, pakning). Skive 9 har siden gjort netop det, af en
-anden grund: den rører datamodellen og skærmen og er derfor en skive. Hvad arbejdet efterlod af
+med (ADO, mentions, baggrundssync, livscyklus, pakning). Skive 9 og siden skive 10 har gjort netop
+det, hver af en anden grund: de rører begge datamodellen og er derfor skiver. Jira-importen er
+dermed nummer 11. Hvad arbejdet efterlod af
 viden, står i
 designdokumentets afsnit 10: appen udstiller **to** OpenAPI-dokumenter med hver sin rolle, en ny
 rute uden for `/api/` skal have `.ExcludeFromDescription()`, og dokumentationssiden er vagtet mod
@@ -44,27 +46,17 @@ Fundet fordi `ContrastTests` flakkede (7–9 s frem for 2 s), ikke fordi nogen l
 
 ## Tilbage
 
-Skive 9 er færdig, og ingenting er planlagt efter den. Punkterne nedenfor kan tages i vilkårlig
-rækkefølge — **med én undtagelse**, som står først, fordi den er den eneste der koster noget at
-udskyde.
+Skive 10 er færdig, og ingenting er planlagt efter den. Punkterne nedenfor kan tages i vilkårlig
+rækkefølge, og **nu uden undtagelser**: `long` som id stod her gennem tre leverancer som det eneste
+punkt der kostede noget at udskyde, og den er leveret som skive 10. Der er ikke længere noget i den
+kategori — alt herunder koster det samme om et halvt år som i dag.
 
-**`long` som id — besluttet, planlagt, og bevidst udskudt 2026-08-17.** `Guid` v4 erstattes af
-`long` på `TaskItem`, `SubTask` og `UserAlias`. Planen ligger **færdig** i
-`docs/plans/2026-08-17-long-ids.md`, med migreringen målt igennem mod rigtig SQLite —
-inklusive beviset for at en `CAST` af Guid-strenge ødelægger data, og opskriften der ikke gør.
-Den blev skrevet som skive 8 og derefter lagt til side; Alt-genvejene overtog nummeret.
-
-**Bemærk premisset:** branchen gik ikke fra GUID til `long` — den gik fra tilfældig v4 til
-tidsordnet UUIDv7 (`Guid.CreateVersion7()`, .NET 9+). Argumentet her er SQLite-specifikt og
-ergonomisk, ikke at følge en trend. Fragmentering betyder intet ved denne størrelse.
-
-**Og bemærk prisen:** den **bliver dyrere for hver skive der lægges imellem**, fordi hver ny
-skive tilføjer kode og tests der rører id'er. Aftrykket er målt til at være mindre end tidligere
-antaget — builderne rører slet ikke `Guid`, og 11 steder i tests, ikke "næsten hver test" — men
-det tal vokser. **Den er nu sprunget over tre leverancer i træk**: Alt-genvejene, der overtog
-nummer 8, Swagger-linket uden for skiverne, og skive 9. Den er stadig det eneste punkt der bliver
-dyrere af at vente — alt andet herunder koster det samme om et halvt år. Udskydes den en fjerde
-gang, er det værd at spørge hvorfor.
+**Hvad ventetiden faktisk kostede, er værd at tage med.** Prisargumentet var sandt, men beskedent:
+aftrykket voksede med cirka ét sted per leverance, og målt endte det på 11 id-relaterede steder i
+tests — ikke "næsten hver test" — mens builderne aldrig rørte `Guid` overhovedet. Beslutningen kom
+til sidst i hus på ergonomien, at "opgave 42" kan siges højt, frem for på en stigende regning.
+Dukker der igen et punkt op der "bliver dyrere af at vente", så **mål taksten**, før det får
+forrang over resten.
 
 ### Kan ligge stille
 
@@ -95,7 +87,7 @@ livscyklus og arkiv, og pakning til en self-contained exe. Se afsnit 9.
 
 ## Sådan køres en skive
 
-Mønstret der har virket gennem ti skiver:
+Mønstret der har virket gennem elleve skiver:
 
 1. Skriv en plan i `docs/plans/YYYY-MM-DD-slice-N-navn.md` med opgaver på 2–5 minutter, komplet
    kode, eksakte kommandoer og forventet output.

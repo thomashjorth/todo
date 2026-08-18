@@ -72,6 +72,15 @@ hver rute i `/openapi/v1.json` uanset præfiks, så uden kaldet dukker den op so
 meget, og `ContractDriftTests` fejler på et mismatch der **ligner** kontraktdrift og er et
 manglende kald. Målt, ikke gættet — se designdokumentets afsnit 10.
 
+**En rutebinding er id-typens anden halvdel, og den er usynlig for både `grep` og compileren.**
+`TaskEndpoints.cs` havde seks `Guid`-linjer **og syv `:guid`-bindinger** i skabeloner som
+`"/api/tasks/{id:guid}"`. `grep -c Guid` er versalfølsom og så ingen af bindingerne — og
+**compileren ser dem heller ikke**, fordi en minimal-APIs rutebinding afgøres i runtime. `long id`
+mod `{id:guid}` bygger derfor grønt og svarer **404 fra routingen, før handleren**, hvilket ligner
+"opgaven findes ikke". Glemmes *begge* halvdele på én rute, virker den stadig, så testene siger
+heller ingenting. Skifter du id-typen, så ret begge stavemåder og grep efter **begge**, før og
+efter.
+
 **En lokal side må ikke kalde ud, og statisk gennemsyn beviser ikke at den ikke gør.** Appen kører
 på maskinen og kan være uden netværk. Dokumentationssidens HTML henviste ikke til nogen fremmed
 vært, og bundlen var gennemsøgt for CDN-navne — begge tjek bestod alligevel, mens siden hentede
@@ -127,6 +136,14 @@ sandhed og taber `0`.
 lader barnet skygge for basen, og `ng build` blev grønt med `"strict": false` derinde — målt.
 `FrontendStrictnessTests` er derfor vagten på både basen og de to børnekonfigurationer.
 
+**Spec-filerne typetjekkes ikke af noget i den dokumenterede arbejdsgang.** `ng build` compilerer
+`tsconfig.app.json`, som **ekskluderer `src/**/*.spec.ts`**, og `ng test` kører gennem esbuild, der
+fjerner typerne uden at tjekke dem. En `string` lagt i et `number`-felt inde i en spec-fil bliver
+altså grøn for evigt. `FrontendStrictnessTests` vagter **flagene** i de tre tsconfigs, men ingen
+kører spec-projektet gennem compileren. Kommandoen er `tsc -p tsconfig.spec.json --noEmit` — den
+lokale `node_modules\.bin\tsc.cmd`, kørt fra `src\Todo.Web` — og den er indtil videre noget man
+skal huske selv.
+
 **En genvej udfører elementets aktiveringshandling, ikke bare fokus.** Det er
 Windows-konventionen — og HTML's eget `accesskey` — så et tekstfelt får fokus, fordi det ikke har
 andet at gøre, et afkrydsningsfelt skifter, en knap klikkes, et link følges. Gav genvejen kun
@@ -168,6 +185,33 @@ rækkefølge i metoden er load-bearing: `Overdue` slår `Deferred`, fordi det er
 tilsagn du allerede har brudt end at vise noget tidligere end planlagt. Byt dem ikke om — og
 bemærk, at gættet uden begrundelsen falder den anden vej.
 
+**Id'er er `long` og tildeles af SQLite.** `Id` på `TaskItem`, `SubTask` og `UserAlias` er
+`INTEGER PRIMARY KEY AUTOINCREMENT`, altså et alias for rowid, så "opgave 42" kan siges højt.
+Entiteten sætter **ikke** et id, og klienten sender ikke et.
+
+**En TEXT-til-INTEGER-konvertering i SQLite er en ommapning, ikke en typeændring.** En `CAST` af en
+Guid-streng læser et ledende talpræfiks og giver ellers `0`: målt blev fem distinkte Guid'er **to**
+distinkte heltal, hvoraf **tre** var `0` — sammenfaldende primærnøgler. Skriv sådan en migrering i
+hånden med en mapningstabel pr. tabel og `ROW_NUMBER()`. **EF's eget scaffold er den destruktive
+vej og siger det selv**: `dotnet-ef migrations add` gav fire `AlterColumn<long>` på
+TEXT-primærnøgler plus advarslen "An operation was scaffolded that may result in the loss of data."
+Behold modelsnapshottet, skriv `Up` og `Down` selv.
+
+**`PRAGMA foreign_key_check` beviser næsten ingenting alene.** Fremmednøgler er slået **til** under
+en migrering — `PRAGMA foreign_keys` er en no-op inde i en transaktion, og EF pakker migreringen i
+én, så håndhævelsen kan ikke slås fra — og en ommapning til en forælder der ikke findes afvises
+derfor på stedet med `FOREIGN KEY constraint failed`. SQLite kommer først og siger det tydeligere
+end nogen gennemgang. Og bygges den nye tabel **uden** fremmednøglen, har `foreign_key_check` ingen
+regel at tjekke og melder også nul. Gennemgangen er kun noget værd ved siden af en påstand om at
+reglen **findes** — `pragma_foreign_key_list('SubTasks')` skal give
+`Tasks: TaskItemId -> Id ON DELETE CASCADE`. Konsekvensen for migreringen: **forældre før børn er
+ikke ordentlighed, det er den eneste rækkefølge der kører** — og børn ud før forældre den anden vej.
+
+**Et indeks følger sin tabel gennem `ALTER TABLE … RENAME TO` og beholder sit navn.** Omdøber du
+`Tasks` til `Tasks_old`, hedder indekset stadig `IX_Tasks_Deadline` og ligger nu på `Tasks_old`, så
+et `CREATE INDEX` med samme navn fejler. Opret derfor indeksene **til sidst**, efter at de gamle
+tabeller er droppet.
+
 **Backenden læser et fraværende felt som "ryd".** `PUT /api/tasks/{id}` er en fuld erstatning, så
 `TaskStore.update` skal bære **hvert** felt med i sit `current`-objekt. Mangler ét, sletter enhver
 redigering af noget andet det lydløst — sådan tabte en gemt `DeferUntil` sig selv, når man rettede
@@ -199,6 +243,10 @@ forkerte grund.
   `Wire_format_uses_the_names_the_contract_declares`. Læg en ny værdi der, ikke kun i kontrakten.
 - **Builders er til *arrange*.** De skriver direkte i databasen og springer API'ets validering
   over; brug dem aldrig til selve handlingen en test skal verificere.
+- **Et databasegenereret id findes først efter `SaveChanges`.** Læser en test `task.Id` før den
+  gemmer, får den `0` — og `0` er ikke et rigtigt id, for et rowid starter på 1.
+  `AddAndSaveChangesAsync` gemmer, så id'et er gyldigt bagefter, men et builder-objekt der aldrig
+  blev gemt har ingenting at give.
 - **Tests må ikke røre `%APPDATA%`.** `RunningHost` giver hver test sin egen midlertidige
   database. Arv fra `ApiTest` eller `BrowserTest` frem for at starte en host i testen.
 - **Playwright-tests må ikke have bivirkninger uden for appen.** Kald til
@@ -241,9 +289,16 @@ forkerte grund.
 
 ## Testtal
 
-Efter hintet om en startdato efter deadline: **38** Todo.Core.Tests, **115** Todo.Api.Tests,
-**25** Todo.E2E, **143** Vitest.
+Efter skive 10: **38** Todo.Core.Tests, **117** Todo.Api.Tests, **25** Todo.E2E, **143** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Skive 10 lagde **to** Api-tests til (115 → 117), begge i `LongIdMigrationTests`:
+`Guid_era_rows_survive_the_migration_to_long_ids`, som sår rigtige Guid-rækker gennem den forrige
+migrering og kræver dem intakte bagefter, og
+`Casting_a_Guid_to_an_integer_collapses_distinct_ids`, der fastholder selve `CAST`-sammenfaldet:
+holder begrundelsen for den håndskrevne migrering op med at gælde, får nogen det at vide. De øvrige
+tre tal står stille: skiven skiftede en type frem for at tilføje adfærd, og de 143 Vitest er de
+samme specs med tal frem for strenge i deres fixtures.
+Før den, efter hintet om en startdato efter deadline: 38 Core, 115 Api, 25 E2E, 143 Vitest.
 Hintet lagde **to** Vitest til (141 → 143): at panelet siger det, og at grænsen — en startdato
 *på* deadlinen — ikke er en konflikt. De øvrige tre tal står stille: hintet fik ingen ny logik
 bag kontrakten, og `ContrastTests` voksede med en fixture-opgave og en klik-og-vent frem for
