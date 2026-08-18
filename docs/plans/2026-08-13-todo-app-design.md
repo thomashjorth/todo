@@ -45,7 +45,7 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 | Mentions | Indbakke der godkendes manuelt, ikke automatisk opgaveoprettelse. |
 | Livscyklus | Frakoblede items markeres færdige og bevares med lokale felter. |
 | Kørsel | Tray-ikon, baggrundssync, Windows-notifikationer. |
-| Jira | **Data Center 10.3.24**, målt 2026-08-18. REST v2 med wiki-markup, PAT som Bearer. |
+| Jira | **Data Center 10.3.24**, målt 2026-08-18. REST v2 med wiki-markup. **PAT som Bearer verificeret** mod `/rest/api/2/myself` (200), ikke kun udledt af versionen. |
 | Azure DevOps | Azure DevOps Server (on-prem), PAT. |
 | API-kontrakt | Contract-first: `contracts/openapi.yaml` er sandheden. |
 | Kodegenerering | NSwag → C#-DTO'er + Angular-klient. Genereret kode committes. |
@@ -535,8 +535,15 @@ blev leveret uden for skiverne og står nedenfor som lukket.
   CommonMark noterne bruger, og det er den største enkeltforskel i importarbejdet. Og **PAT
   som Bearer kræver 8.14+**, så afsnit 2's beslutning holder — under den tærskel havde den
   været forkert.
+  **PAT'en er verificeret**, ikke kun udledt: `GET /rest/api/2/myself` med
+  `Authorization: Bearer <PAT>` svarer 200 (målt 2026-08-18). Det bekræfter samtidig, at
+  `/rest/api/2/` svarer, og at brugeren kan slås op, så `assignee = currentUser()` har noget
+  at opløse.
   **Men Jira 10 fjernede en række forældede REST-endpoints**, så planen for skive 11 skal
-  verificeres mod instansen frem for mod hukommelsen.
+  verificeres mod instansen frem for mod hukommelsen. **Tre kald mangler stadig at blive målt:**
+  om `/rest/api/2/search` svarer eller er afløst af `/search/jql`, hvordan changeloggen ser ud
+  for en statusovergang (til `WaitingSince`, se afsnit 4a), og om `/rest/api/2/project/SAAS/statuses`
+  giver de statusnavne dashboardet viser.
 - **ADO Server-versionen er stadig ukendt** og afgør endpoints og API-versioner der.
   Verificeres med "Test forbindelse" i skive 12.
 - **Skallen har nu farver i begge temaer, og det var mere end kosmetik** (løst i skive 7).
