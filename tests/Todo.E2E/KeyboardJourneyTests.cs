@@ -10,7 +10,7 @@ namespace Todo.E2E;
 
 /// <summary>
 /// Every action has to be reachable without a mouse. The first journey walks one task from created
-/// to expanded to deleted using only the keyboard; the rest cover the six Alt shortcuts and the
+/// to expanded to deleted using only the keyboard; the rest cover the seven Alt shortcuts and the
 /// AltGr combination the app has to keep its hands off.
 /// </summary>
 public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
@@ -175,6 +175,23 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await App.Page.Keyboard.PressAsync("Alt+i");
 
         await Assertions.Expect(new RetroImportScreen(App).Csv).ToBeVisibleAsync();
+        await Assertions.Expect(App.Tasks.NewTaskInput).ToHaveCountAsync(0);
+    }
+
+    /// <summary>
+    /// Alt+J was the fourth nav link's shortcut from the day it arrived, but only the badge count
+    /// covered it — and a badge is painted by the Alt keydown alone, whether or not the letter does
+    /// anything. The destination is asserted through a locator that cannot exist on the task list,
+    /// so a shortcut that only moved focus fails here.
+    /// </summary>
+    [Fact]
+    public async Task Alt_J_follows_the_jira_link()
+    {
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+
+        await App.Page.Keyboard.PressAsync("Alt+j");
+
+        await Assertions.Expect(new JiraImportScreen(App).NotConfigured).ToBeVisibleAsync();
         await Assertions.Expect(App.Tasks.NewTaskInput).ToHaveCountAsync(0);
     }
 

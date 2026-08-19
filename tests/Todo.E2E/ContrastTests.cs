@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
+using Todo.Core.Settings;
 using Todo.TestSupport.Builders;
 using Todo.TestSupport.Time;
 
@@ -8,7 +9,7 @@ using IClock = Todo.Core.Time.IClock;
 namespace Todo.E2E;
 
 /// <summary>
-/// WCAG AA over every screen, in both colour schemes. The measurement runs in the browser
+/// WCAG AA over all four screens, in both colour schemes. The measurement runs in the browser
 /// because only it knows which background a given piece of text ended up on.
 /// </summary>
 public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
@@ -21,6 +22,21 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string CompletedTitle = "Ryd skrivebordet";
     private const string SomedayTitle = "Læs om typografi";
     private const string ConflictTitle = "Bestil nyt pas";
+
+    /// <summary>
+    /// A task imported from Jira, which is the only kind that renders the link on a row: the task
+    /// endpoint computes <c>externalUrl</c> only when the source is Jira, so no other fixture puts
+    /// that branch on screen at all.
+    /// </summary>
+    private const string JiraTitle = "Ret rapporten";
+
+    /// <summary>
+    /// Enough for <see cref="Todo.Core.Jira.JiraSettings.BrowseUrl"/> to produce a link. Nothing in
+    /// this suite ever calls it — the app's own calls to Jira are intercepted below.
+    /// </summary>
+    private const string JiraBaseUrl = "https://jira.test";
+
+    private const string JiraProjectKey = "SAAS";
     private const string Requester = "Mette Kirkegaard";
     private const string WaitingOn = "Mette";
     private const string DoneSubTask = "Find det gamle referat";
@@ -68,6 +84,62 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         "9/10","Sofie Dalgaard","7/17/26, 1:34 PM","Mood","",""
         """;
 
+    /// <summary>
+    /// What a refused preview looks like on the wire: the code is the translation key, so this is
+    /// also what decides which red sentence the screen paints.
+    /// </summary>
+    private const string Unreachable =
+        """{ "code": "jira.unreachable", "message": "Jira could not be reached." }""";
+
+    private const string NoIssues = """{ "rows": [], "total": 0 }""";
+
+    /// <summary>
+    /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one
+    /// imported on an earlier run. Neither carries a deadline, so the row's deadline line is
+    /// measured on the importable row below rather than here — both sides of that branch.
+    /// </summary>
+    private const string BlockedIssues = """
+        {
+          "rows": [
+            {
+              "key": "SAAS-2",
+              "title": "Afventer svar",
+              "status": "Venter på kunde",
+              "isWaiting": true,
+              "waitingSince": "2026-08-05T09:12:00Z",
+              "alreadyImported": false,
+              "excluded": "jira.excludedWaiting"
+            },
+            {
+              "key": "SAAS-3",
+              "title": "Skriv testene",
+              "status": "I gang",
+              "isWaiting": false,
+              "alreadyImported": true
+            }
+          ],
+          "total": 2
+        }
+        """;
+
+    private const string OneImportableIssue = """
+        {
+          "rows": [
+            {
+              "key": "SAAS-1",
+              "title": "Ret rapporten",
+              "note": "Tallene i tabellen er fra sidste kvartal.",
+              "deadline": "2026-08-24",
+              "requester": "Mette Kirkegaard",
+              "status": "I gang",
+              "isWaiting": false,
+              "alreadyImported": false
+            }
+          ],
+          "total": 1
+        }
+        """;
+
     private static readonly FixedClock Clock = new(new DateOnly(2026, 8, 17));
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -97,7 +169,12 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             // row itself lands in Overskredet, because Overdue beats Deferred — the hint lives
             // in the panel regardless, and a colour no test renders is a colour unmeasured.
             new TaskItemBuilder(Clock).Titled(ConflictTitle).Overdue()
-                .DeferredUntil(Clock.Today.AddDays(3)).Build());
+                .DeferredUntil(Clock.Today.AddDays(3)).Build(),
+            // Imported from Jira, so the row carries the link that opens the issue. The base URL
+            // has to be stored as well: the link is computed from it, and without one the branch
+            // stays absent however the source is spelled.
+            new TaskItemBuilder(Clock).Titled(JiraTitle).FromJira("SAAS-1").DueToday().Build(),
+            new Setting { Key = SettingKeys.JiraBaseUrl, Value = JiraBaseUrl });
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
 
@@ -131,6 +208,11 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(tasks.RowFor(OverdueTitle))
             .ToContainTextAsync($"Opgavestiller: {Requester}");
         await Assertions.Expect(tasks.SubTaskProgress).ToHaveTextAsync("1/2");
+
+        // The link sits outside the row's button and only on a Jira-sourced task. Waited for by its
+        // text, because the button element exists before the localized label is interpolated into
+        // it — and an element with no text yet is invisible to the measurement.
+        await Assertions.Expect(tasks.ExternalLinkIn(JiraTitle)).ToHaveTextAsync("Åbn sagen");
         await Snapshot();
 
         // The detail panel is the largest single block of colour, and it only exists expanded.
@@ -231,6 +313,151 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await import.ImportAsync();
         await Assertions.Expect(import.Receipt).ToHaveTextAsync("1 importeret, 0 sprunget over");
         await Assertions.Expect(import.AlreadyImported).ToHaveTextAsync("importeret tidligere");
+        await Snapshot();
+
+        AssertNoFailures(failures, scheme);
+    }
+
+    /// <summary>
+    /// The fourth screen, and the Jira half of the settings — eleven branches the journey above
+    /// cannot reach, because every one of them needs an answer from Jira. Playwright cannot start a
+    /// <c>FakeJira</c> inside the host's process, so the app's own calls are intercepted, the same
+    /// grip <c>/api/system/open-link</c> is held with. Four different answers are needed, and they
+    /// are given in this order because each one leaves the screen in the state the next branch
+    /// depends on: a refusal, an empty list, a list where every row is blocked, and a list with one
+    /// row that can be imported.
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task The_Jira_screens_meet_WCAG_AA(ColorScheme scheme)
+    {
+        // A base URL and a project key but deliberately no token: an unconfigured screen is the
+        // default state, and it is the branch the user meets first.
+        await Host.AddAndSaveChangesAsync(
+            new Setting { Key = SettingKeys.JiraBaseUrl, Value = JiraBaseUrl },
+            new Setting { Key = SettingKeys.JiraProjectKey, Value = JiraProjectKey });
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1600 }, scheme);
+
+        var failures = new List<string>();
+
+        async Task Snapshot() => failures.AddRange(await App.ContrastFailuresAsync());
+
+        // Mutable on purpose: one route handler that answers with whatever the journey has reached,
+        // rather than four handlers whose precedence would decide the outcome.
+        var answer = (Status: 400, Body: Unreachable);
+
+        await App.Page.RouteAsync("**/api/jira/preview", route => route.FulfillAsync(new()
+        {
+            Status = answer.Status,
+            ContentType = "application/json",
+            Body = answer.Body,
+        }));
+
+        await App.Page.RouteAsync("**/api/jira/test", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = $$"""{ "displayName": "{{Me}}" }""",
+        }));
+
+        await App.Page.RouteAsync("**/api/jira/statuses", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = """{ "names": ["I gang", "Venter på kunde"] }""",
+        }));
+
+        await App.Page.RouteAsync("**/api/jira/import", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = """{ "imported": 1, "skipped": 0 }""",
+        }));
+
+        // Unconfigured: a sentence and a link to the page that fixes it, and no Load button at all.
+        var jira = await App.GoToJira();
+
+        await Assertions.Expect(jira.NotConfigured)
+            .ToHaveTextAsync("Jira er ikke sat op, så der er ingen sager at hente.");
+        await Assertions.Expect(jira.SettingsLink)
+            .ToHaveTextAsync("Sæt Jira op under Indstillinger");
+        await Snapshot();
+
+        // The token is stored through the page rather than seeded, because storing it is what puts
+        // the "a token is held" line and the Clear button on screen — two branches of their own.
+        var settings = await jira.GoToSettings();
+
+        await settings.StoreJiraTokenAsync("not-a-real-token");
+        await Assertions.Expect(settings.JiraTokenStored).ToContainTextAsync("aldrig");
+        await Assertions.Expect(settings.ClearJiraToken).ToHaveTextAsync("Ryd token");
+        await Snapshot();
+
+        await settings.TestJiraConnection.ClickAsync();
+        await Assertions.Expect(settings.JiraConnection).ToHaveTextAsync($"Forbundet som {Me}");
+        await Snapshot();
+
+        // The status list replaces the sentence that stands in for it, so the rows are a state the
+        // screen has no other way into.
+        await settings.LoadJiraStatuses.ClickAsync();
+        await Assertions.Expect(settings.JiraStatusRows).ToHaveCountAsync(2);
+        await Assertions.Expect(settings.JiraStatusesEmpty).ToHaveCountAsync(0);
+        await Snapshot();
+
+        // Configured now, so the fourth screen has a Load button where the sentence used to be.
+        jira = await settings.GoToJira();
+
+        await Assertions.Expect(jira.PreviewButton).ToHaveTextAsync("Hent sager");
+        await Assertions.Expect(jira.NotConfigured).ToHaveCountAsync(0);
+        await Snapshot();
+
+        // A refusal. The red line is the app's own failure path, reached through the button a user
+        // presses rather than staged from the outside.
+        await jira.PreviewAsync();
+        await Assertions.Expect(jira.Error)
+            .ToHaveTextAsync("Jira kunne ikke nås. Kontrollér basisURL og netværket.");
+        await Snapshot();
+
+        // An empty answer is an answer, and it has a sentence of its own that the refusal above
+        // must not be mistaken for.
+        answer = (200, NoIssues);
+
+        await jira.PreviewAsync();
+        await Assertions.Expect(jira.NoneAssigned).ToHaveTextAsync("Ingen sager er tildelt dig.");
+        await Assertions.Expect(jira.Error).ToHaveCountAsync(0);
+        await Snapshot();
+
+        // Every row blocked: both reasons on their own row, both sentences under the count, and the
+        // Import button in its disabled colours — which are a pair of their own.
+        answer = (200, BlockedIssues);
+
+        await jira.PreviewAsync();
+        await Assertions.Expect(jira.Rows).ToHaveCountAsync(2);
+        await Assertions.Expect(jira.Showing).ToHaveTextAsync("Viser 2 af 2 sager.");
+        await Assertions.Expect(jira.NothingToSelect)
+            .ToContainTextAsync("1 sag er udeladt af importen.");
+        await Assertions.Expect(jira.NothingToSelect)
+            .ToContainTextAsync("1 sag er importeret tidligere.");
+        await Assertions.Expect(JiraImportScreen.ExcludedIn(jira.Row("Afventer svar")))
+            .ToContainTextAsync("slået fra");
+        await Assertions.Expect(JiraImportScreen.AlreadyImportedIn(jira.Row("Skriv testene")))
+            .ToHaveTextAsync("importeret tidligere");
+        await Assertions.Expect(jira.ImportButton).ToBeDisabledAsync();
+        await Snapshot();
+
+        // One row that can be imported, which is what enables the button — a different colour from
+        // the disabled one measured above — and then the receipt.
+        answer = (200, OneImportableIssue);
+
+        await jira.PreviewAsync();
+        await Assertions.Expect(jira.ImportButton).ToHaveTextAsync("Importér 1 sag");
+        await Assertions.Expect(jira.ImportButton).ToBeEnabledAsync();
+        await Assertions.Expect(jira.NothingToSelect).ToHaveCountAsync(0);
+        await Snapshot();
+
+        await jira.ImportAsync();
+        await Assertions.Expect(jira.Receipt).ToHaveTextAsync("1 importeret, 0 sprunget over");
         await Snapshot();
 
         AssertNoFailures(failures, scheme);
