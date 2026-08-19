@@ -56,6 +56,15 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
 - **Kør ikke prettier på hele repoet.** Arbejdskopien er CRLF og prettier skriver LF, så en
   fuld kørsel omskriver 3810 linjer genereret klientkode og begraver den rigtige diff. Kør den
   kun på filer du selv har rørt, navngivet eksplicit.
+- **Brug ikke `sed -i` på en fil i dette repo — brug `Edit`.** `sed` skriver **LF** i en
+  CRLF-arbejdskopi, og `git diff` viser derefter **ingen ændring**, fordi autocrlf normaliserer på
+  vejen ind. Filen på disken *er* ændret, men Git siger nej, så en midlertidig ændring man tror er
+  rullet tilbage, ligger der stadig. Samme klasse af tavs fejl som prettier-fælden ovenfor, men
+  gennem et værktøj man bruger til enlinjers-rettelser. Målt i skive 11.
+- **Verificér commit-emner med `od` gennem Bash-værktøjet, aldrig gennem en PowerShell-pipe.** En
+  pipe fra PowerShell til `od.exe` tilføjer en **UTF-8 BOM**, så emnet ser ud til at begynde med
+  `357 273 277` foran gitmojien. Tallet er pipens, ikke commit'ens — og havde nogen troet på det,
+  ville de have "rettet" en fejl der ikke fandtes. Målt i skive 11.
 
 ## Sikkerhed omkring data
 
