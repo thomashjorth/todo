@@ -81,6 +81,14 @@ som drift-testen måler imod; `/openapi/contract.yaml` er kontrakten selv, indle
 og det er den dokumentationssiden på `/scalar/` viser. Ryd ikke den ene op som en dublet — se
 designdokumentets afsnit 10.
 
+**En umappet rute under `/api/` fejler tre forskellige måder, og ingen af dem er 404.** Målt i skive
+11, mens fire endpoints endnu ikke fandtes: en **POST** giver `405 Method Not Allowed`, fordi
+`MapFallbackToFile("index.html")` gør krav på stien for GET og dermed gør metoden — ikke stien —
+til det der mangler. En **GET** giver **`200` med `index.html` i kroppen**, så en test der venter
+JSON fejler med `'<' is an invalid start of a value`. Og et **PUT** giver 405 af samme grund som
+POST'en. Forvent derfor ikke 404 når du skriver en rute-test der skal fejle først; mål hvad der
+faktisk kommer, ellers jagter du en halvt eksisterende rute der ikke findes.
+
 **En minimal API uden for `/api/` skal have `.ExcludeFromDescription()`.** ASP.NET Core beskriver
 hver rute i `/openapi/v1.json` uanset præfiks, så uden kaldet dukker den op som en operation for
 meget, og `ContractDriftTests` fejler på et mismatch der **ligner** kontraktdrift og er et

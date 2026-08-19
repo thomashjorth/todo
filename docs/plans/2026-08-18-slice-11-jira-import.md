@@ -1729,7 +1729,49 @@ git commit -m "✨ Læs WaitingSince af changeloggen og omregn offsettet til UTC
 - Create: `src/Todo.Host/Endpoints/JiraEndpoints.cs`
 - Modify: `src/Todo.Host/TodoHost.cs` (registrér `MapJira()`, `JiraTaskSource`, `HttpClient`)
 - Modify: `src/Todo.Host/Endpoints/TaskEndpoints.cs` (`externalUrl` på svaret)
+- Modify: `src/Todo.Core/Errors/ErrorCodes.cs` (en **niende** kode, se rettelse 4)
 - Test: `tests/Todo.Api.Tests/JiraEndpointsTests.cs`
+
+> **Rettet efter kørslen, 2026-08-18. Leveret i `90bf368`; den kode er sandheden.** Syv fejl, og de
+> **to vigtigste er mutationer jeg foreskrev som verifikation, og som selv var uopnåelige.**
+>
+> 1. **`Ordinal` mod `OrdinalIgnoreCase` var uvagtet.** Mutationen fældede **ingenting** — 166 grønne.
+>    Hvert fixture staver statussen identisk på begge sider, så valget var uden konsekvens for
+>    suiten. Lukket med `A_status_that_differs_only_in_case_is_not_the_waiting_status`. Prisen ved den
+>    forkerte comparer er reel: `Afventer Kunden` og `Afventer kunden` **kan** være to statusser i
+>    Jira, og en versalufølsom sammenligning ville slå dem sammen usynligt. **Sjette uopnåelige vagt
+>    i skiven.**
+> 2. **`WaitingOn`-mutationen fældede heller ingenting**, fordi importpayloadet i den relevante test
+>    ikke bar en `requester` — så fejlen skrev `null`, og `Assert.Null` bestod. Bevist levende frem
+>    for død ved at mutere til `row.Requester ?? row.Key` og se `"SAAS-2"`, derefter lukket ved at
+>    lægge `requester` i payloadet. **Ingen ny test — fixturet var hullet.**
+> 3. **Testfilen kompilerer ikke som skrevet.** `ApiError` bor kun i `Todo.Contracts`, som
+>    using-listen udelod (`CS0246` fire gange) — og et `using Todo.Contracts;` løser det **ikke**:
+>    `CS0104`, `TodoStatus` er tvetydig mellem `Todo.Contracts` og `Todo.Core.Tasks`. Løst med
+>    `using ApiError = Todo.Contracts.ApiError;`.
+> 4. **Der findes ingen `ErrorCodes.JiraRowTitleTooLong`.** Planen beder om `ValidateRow`'s tre tjek
+>    inklusive længden, men Task 3 leverede otte koder og ikke den. Der er nu **ni** `jira.*`-koder,
+>    og **Task 8 og 9 skal oversætte ni nøgler, ikke otte.**
+> 5. **`DateTime? WaitingSince` på forhåndsvisnings-recorden læser det forkerte tidspunkt.**
+>    Kontraktens felt er en `DateTimeOffset`, så wiren siger `+00:00`, og System.Text.Json gør en
+>    offset-bærende streng til `Kind=Local` omregnet til lokal tid: `12:10Z` blev `14:10+02:00`.
+>    Det er **præcis** den forvirring Task 5 findes for at forhindre, dukket op i testen frem for i
+>    koden — og den fejler **kun uden for UTC**, så den ville have lignet en maskinspecifik flakker
+>    hos alle andre.
+> 6. **`TodoStatus` kan ikke deserialiseres fra wiren på en håndskrevet DTO.** Kerne-enummet kaster,
+>    og kontrakt-enummet er **ikke** nok: NSwag sætter `[JsonConverter]` på hver **property**, ikke på
+>    typen, og wire-stavemåderne bor i `JsonStringEnumMemberName`, som kun den converter læser.
+>    Recorden bærer attributten eksplicit.
+> 7. **Step 2's "404 på alle fire ruter" er forkert i begge retninger.** De tre POST'er giver **405**,
+>    og GET'en giver **`200` med `index.html`**, så fejlen er `'<' is an invalid start of a value`.
+>    Skrevet i `CLAUDE.md`.
+>
+> Mindre: `git add`-listen udelod `ErrorCodes.cs`. Og `ContractDocumentTests` havde et **andet**
+> forældet tal i sin brødtekst — "Four of the fifteen operations carry a summary", målt til **10 af
+> 21** — placeret direkte over den assertion det handler om.
+>
+> Endeligt antal: **17** i `JiraEndpointsTests`, **167** i Api (alle grønne, drift-testen med),
+> **83** i Core.
 
 **Step 1: Skriv de fejlende tests**
 
