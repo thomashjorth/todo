@@ -2237,6 +2237,45 @@ git commit -m "✨ Forhåndsvis og importér Jira-sager, med ventende statusser 
 **Files:**
 - Test: `tests/Todo.Api.Tests/NoRealInstanceTests.cs`
 
+> **Rettet efter kørslen, 2026-08-18. Leveret i `088844e`; den kode er sandheden.** Fire fejl, og den
+> tredje er en **syvende svag vagt** — den kunne godt fejle, men var blind for den mest sandsynlige
+> halve fejl.
+>
+> 1. **`RepoPaths.Root` findes allerede** og bruges af `GeneratedCodeFreshnessTests`. Planens
+>    `RepoRoot` ville have været et andet navn for samme ting. `RepoPaths.cs` er urørt.
+> 2. **`scanned > 100` skjuler et konkret hul, ikke blot en slap margin.** Målt: scanningen når **172**
+>    filer, men `src` alene er **110**. En rekursion der aldrig forlader `src` — eller en fejl i
+>    skip-listen der spiser `tests`, hvor en indsat instans netop ville ligge — **består** tælle-
+>    påstanden. At hæve tallet hjælper ikke: enhver tærskel der er sikker mod almindelig filtilvækst
+>    ligger under 110. Lukket med en **strukturel** påstand i stedet: `["src", "tests", "contracts"]`
+>    skal alle optræde blandt de topniveau-segmenter scanningen faktisk nåede. Samme form som
+>    `LongIdMigrationTests`' lektion — kræv at de tabelnavne løkken nåede er alle tre.
+>    Bevist: et brud der lagde `tests` i skip-listen scannede **117** filer og sejlede forbi
+>    `scanned > 100`, men faldt på områdepåstanden.
+> 3. **Udeladelsen af `.md` er en nødvendighed, ikke en præference — og af en anden grund end planen
+>    gav.** Målt: designdokumentet nævner **ikke** instansen nogen steder, hverken `edora.dk` eller
+>    `atlassian.net`. Den **eneste** markdown-fil der navngiver en forbudt vært er *denne plan*, og den
+>    gør det **tre gange, alle som citat af vagten selv** — `ForbiddenHosts`-literalen og
+>    brud 1's anvisninger. Scannedes markdown, ville skiveplanen være vagtens første offer i det
+>    øjeblik vagten fandtes, selvrefererende og uden anden udvej end at slette planens dokumentation
+>    af sig selv.
+> 4. **Den forudsagte fejlbesked havde forkert stiseparator.** `Path.GetRelativePath` giver
+>    backslashes på Windows, så beskeden er `tests\Todo.TestSupport\Jira\FakeJira.cs`. Kosmetisk — men
+>    en forudsagt streng der ikke matcher, får nogen til at tro at vagten fyrede på den forkerte fil.
+>
+> **`atlassian.net` blev beholdt, og asymmetrien afgør det:** et falsk positivt koster en omskrevet
+> kommentar, et falsk negativt koster produktionstrafik ved hver CI-kørsel. Designdokumentet
+> diskuterer Cloud mod Data Center udførligt **uden** at skrive domænet, så den prosa der ville udløse
+> den, findes ikke og har ikke skullet findes.
+>
+> **`wwwroot`, `dist` og `.angular` springes over, og det er rigtigt af en grund værd at skrive ned:**
+> de er **genereret** output, så en vært derinde må være kommet fra en scannet kildefil, som vagten
+> ser. Scannedes de, ville vagtens resultat afhænge af om nogen havde kørt `build-web.ps1` — grøn på
+> en frisk klon, rød efter en bygning. Den slags test bliver slettet.
+>
+> Endeligt antal: **168** i Api, **83** i Core. Tre brud, tre forskellige påstande, tre forskellige
+> linjer.
+
 **Step 1: Skriv vagten**
 
 Målt 2026-08-18: **nul** filer i repoet indeholder instansens værtsnavn i dag. Vagten er derfor
