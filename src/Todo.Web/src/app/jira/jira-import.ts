@@ -5,6 +5,7 @@ import { JiraPreviewRow } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
 import { pluralKey } from '../i18n/plural-key';
 import { SettingsStore } from '../settings/settings-store';
+import { SystemStore } from '../system/system-store';
 import { JiraStore } from './jira-store';
 
 @Component({
@@ -15,6 +16,7 @@ import { JiraStore } from './jira-store';
 export class JiraImport {
   protected readonly store = inject(JiraStore);
   protected readonly settings = inject(SettingsStore);
+  protected readonly system = inject(SystemStore);
 
   private readonly transloco = inject(TranslocoService);
 
@@ -83,6 +85,15 @@ export class JiraImport {
   protected preview(): void {
     this.receipt.set(null);
     void this.reload();
+  }
+
+  /**
+   * Opens the issue in the system's browser, so a row can be read before it is imported. The store
+   * owns the HTTP and already turns a failure into its own error signal; the catch is only here
+   * because the promise is not awaited.
+   */
+  protected openIssue(url: string): void {
+    this.system.openLink(url).catch(() => {});
   }
 
   protected isSelected(row: JiraPreviewRow): boolean {

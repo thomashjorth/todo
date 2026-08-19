@@ -45,6 +45,12 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
     /// Three issues: one that can be imported, one excluded because the user is waiting on it, and
     /// one imported on an earlier run. The last two are what make the two different reasons
     /// measurable — a fixture with only one blocked row could not tell them apart.
+    ///
+    /// <c>url</c> is spelled out on every row, and it has to be: the field is required on the
+    /// contract, so nothing hides the Open-the-issue button, but an answer that leaves the field out
+    /// reads as undefined in the client and the button would ask the shell for an empty address.
+    /// Intercepting the call is not enough — the body has to carry the field. The addresses match
+    /// <see cref="BaseUrl"/>, which is what a real server would compute them from.
     /// </summary>
     private const string ThreeIssues = """
         {
@@ -52,6 +58,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
             {
               "key": "SAAS-1",
               "title": "Ret rapporten",
+              "url": "https://jira.test/browse/SAAS-1",
               "note": "Tallene i tabellen er fra sidste kvartal.",
               "deadline": "2026-08-24",
               "requester": "Mette Kirkegaard",
@@ -62,6 +69,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
             {
               "key": "SAAS-2",
               "title": "Afventer svar",
+              "url": "https://jira.test/browse/SAAS-2",
               "status": "Venter på kunde",
               "isWaiting": true,
               "waitingSince": "2026-08-05T09:12:00Z",
@@ -71,6 +79,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
             {
               "key": "SAAS-3",
               "title": "Skriv testene",
+              "url": "https://jira.test/browse/SAAS-3",
               "status": "I gang",
               "isWaiting": false,
               "alreadyImported": true
@@ -93,6 +102,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
             {
               "key": "SAAS-9",
               "title": "Nedbrud på betalingerne",
+              "url": "https://jira.test/browse/SAAS-9",
               "deadline": "2026-08-17",
               "status": "Afventer general",
               "isWaiting": false,
@@ -176,6 +186,17 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
         // has a tickable row. Absent rather than untested: it would otherwise be pure decoration.
         await Assertions.Expect(jira.NothingToSelect).ToHaveCountAsync(0);
         await Assertions.Expect(jira.NoneAssigned).ToHaveCountAsync(0);
+
+        // Every row carries an Open-the-issue button now, and a control more per row is exactly the
+        // kind of thing that pushes the column sideways. Compared with clientWidth rather than with
+        // 480: a vertical scrollbar makes the layout 465 wide, and a fixed number would fail for
+        // that reason instead of this one.
+        var pageWidth = await App.ClientWidthAsync();
+        var scrolledWidth = await App.ScrollWidthAsync();
+
+        Assert.True(scrolledWidth <= pageWidth,
+            $"The preview rows push the page sideways: scrollWidth was {scrolledWidth} against a "
+            + $"clientWidth of {pageWidth}.");
     }
 
     /// <summary>
@@ -263,6 +284,68 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
         Assert.True(
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
             "The click took the window with it, and this window has no way back.");
+    }
+
+    /// <summary>
+    /// The preview's own button, which is what this slice is for: an issue can be read <em>before</em>
+    /// anyone decides to import it. The URL comes from the answer's <c>url</c> field, and the field
+    /// is asserted through the request body rather than through an attribute — a button has no href
+    /// to read, and the body is what actually reaches the shell.
+    ///
+    /// It is a &lt;button&gt; rather than an &lt;a href&gt; because the Photino window has neither
+    /// an address bar nor a back button, and the tag name is the only thing stopping that
+    /// simplification. <c>/api/system/open-link</c> is aborted rather than answered: letting it
+    /// through would open a real browser window on the machine running the tests.
+    /// </summary>
+    [Fact]
+    public async Task Opening_a_previewed_issue_asks_the_shell_for_it_without_importing_it()
+    {
+        await ConfigureJiraAsync();
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+        await AnswerPreviewWithAsync(OneDutyIssue);
+
+        var opened = new TaskCompletionSource<string?>();
+
+        // A body without the field is answered with a sentence rather than left to throw inside the
+        // handler: GetProperty on an absent "url" takes the completion source down with it, and the
+        // test then fails as a bare timeout that says nothing about which field went missing. The
+        // sentinel is a failing value, never a passing one.
+        await App.Page.RouteAsync("**/api/system/open-link", async route =>
+        {
+            var body = route.Request.PostDataJSON();
+
+            opened.TrySetResult(
+                body is { } json && json.TryGetProperty("url", out var url)
+                    ? url.GetString() ?? "<url was null>"
+                    : "<the body carried no url>");
+
+            await route.AbortAsync();
+        });
+
+        var jira = await App.GoToJira();
+        await jira.PreviewAsync();
+
+        var row = jira.Row(DutyTitle);
+        var openIssue = JiraImportScreen.OpenIssueIn(row);
+
+        await Assertions.Expect(openIssue).ToHaveTextAsync("Åbn sagen");
+        Assert.Equal("BUTTON", await openIssue.EvaluateAsync<string>("el => el.tagName"));
+
+        await App.Page.EvaluateAsync("window.stampedBeforeTheClick = true");
+
+        await openIssue.ClickAsync();
+
+        Assert.Equal(
+            $"{BaseUrl}/browse/SAAS-9",
+            await opened.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+
+        Assert.True(
+            await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
+            "The click took the window with it, and this window has no way back.");
+
+        // The button sits outside the row's <label> on purpose, so reading an issue is not the same
+        // gesture as choosing it. Inside the label, this click would have unticked the row.
+        await Assertions.Expect(JiraImportScreen.PickOf(row)).ToBeCheckedAsync();
     }
 
     /// <summary>

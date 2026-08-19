@@ -129,6 +129,25 @@
               }
             </span>
           </label>
+          <!-- Uden for <label> med vilje: en knap inde i den ville lægge sin tekst i
+               afkrydsningsfeltets tilgængelige navn. Skive 11 målte, at tekst lagt i et element
+               hvis navn en test matcher i sin helhed, fælder tre E2E-tests. -->
+          <p class="mt-1 pl-6 text-xs">
+            <!-- En <button>, ikke et <a href>: Photino-vinduet har hverken adresselinje eller
+                 tilbage-knap, så en navigation væk er enkeltrettet. Systemets browser åbner den.
+                 Ingen @if: url er required på kontrakten, så rækken har altid en adresse.
+                 Nøglen er tasks.openIssue frem for en jira.* med samme ordlyd: handlingen er den
+                 samme på den samme slags ting, og to nøgler med identisk tekst glider fra hinanden
+                 i hånden. Prisen er, at en tasks.*-nøgle bruges her. -->
+            <button
+              type="button"
+              data-testid="jira-open-issue"
+              class="text-blue-700 underline dark:text-blue-300"
+              (click)="openIssue(row.url)"
+            >
+              {{ 'tasks.openIssue' | transloco }}
+            </button>
+          </p>
         </li>
       }
     </ul>
