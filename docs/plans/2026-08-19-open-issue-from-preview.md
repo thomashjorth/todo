@@ -98,8 +98,13 @@ Kontrakten (`JiraPreviewRow`, et required felt), `JiraEndpoints`' forhåndsvisni
 `jira-import.html` og dens spec, to oversættelsesnøgler i **`src/Todo.Web/public/i18n/`** (ikke under
 `src/app/`), og en gren i `ContrastTests`.
 
-**Formentlig én opgave.** Bemærk at det er en udvidelse uden datamodel og uden migrering — den skal
-derfor ikke have et skivenummer, af samme grund som Swagger-linket i skive 11's forarbejde ikke fik et.
+**To opgaver**, delt ved kontraktgrænsen: Task 1 er feltet og endpointet, Task 2 er knappen og dens
+vagter. Delingen er ikke kosmetisk — Task 1's required felt fælder `Spec_project_passes_the_type_checker`
+på et håndskrevet spec-fixture, og den rettelse hører sammen med kontrakten frem for at gøre Task 2 rød
+af en grund der ikke er dens.
+
+Bemærk at det er en udvidelse uden datamodel og uden migrering — den skal derfor **ikke** have et
+skivenummer, af samme grund som Swagger-linket i skive 11's forarbejde ikke fik et.
 
 ## Mærkaten er afgjort: "Åbn sagen"
 
