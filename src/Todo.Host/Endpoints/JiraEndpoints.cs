@@ -86,10 +86,10 @@ public static class JiraEndpoints
 
                 foreach (var item in page.Items)
                 {
-                    // Ordinal, because both sides of this comparison come from the same instance in
-                    // the same spelling: the list was picked from GET /api/jira/statuses. A
-                    // case-insensitive match would fold two statuses Jira keeps apart into one.
-                    var isWaiting = settings.WaitingStatuses.Contains(item.StatusName, StringComparer.Ordinal);
+                    // One rule, in Todo.Core, because this decision is taken twice — here and in the
+                    // import below — and two places is two places the duty branch can be forgotten.
+                    var role = JiraStatusRoles.For(item.StatusName, settings);
+                    var isWaiting = role == JiraStatusRole.Waiting;
 
                     rows.Add(new JiraPreviewRow
                     {
@@ -100,6 +100,10 @@ public static class JiraEndpoints
                         Requester = item.Requester,
                         Status = item.StatusName,
                         IsWaiting = isWaiting,
+                        // A status in both lists while the rotation is on: the issue waits for the
+                        // pool, the user is the pool, so it waits for them. Labelled rather than
+                        // hidden, and never waiting.
+                        IsDuty = role == JiraStatusRole.Duty,
                         // Only for the rows that have a wait to date. This is one HTTP call to Jira
                         // per issue, so asking for every row would multiply the preview's cost by
                         // the size of the page for answers nothing would show.
@@ -154,9 +158,11 @@ public static class JiraEndpoints
             foreach (var row in rows)
             {
                 // Re-derived here rather than taken from the body, which is why the row carries
-                // Jira's status name and not the decision: the waiting list lives on the server, so
-                // the setting as it stands now decides, even if the preview ran under an older one.
-                var isWaiting = settings.WaitingStatuses.Contains(row.Status, StringComparer.Ordinal);
+                // Jira's status name and not the decision: both lists and the duty switch live on
+                // the server, so the settings as they stand now decide, even if the preview ran
+                // under an older one — including a rotation that has ended since.
+                var role = JiraStatusRoles.For(row.Status, settings);
+                var isWaiting = role == JiraStatusRole.Waiting;
 
                 if (isWaiting && !settings.IncludeWaiting)
                 {
@@ -178,6 +184,9 @@ public static class JiraEndpoints
                     Note = row.Note,
                     Deadline = row.Deadline,
                     Requester = row.Requester,
+                    // Only Waiting parks the task. A duty row arrives Open on purpose: imported as
+                    // WaitingFor it would land in "Venter på", away from the deadline sections —
+                    // hiding exactly the work the user holds the duty for.
                     Status = isWaiting ? CoreStatus.WaitingFor : CoreStatus.Open,
                     // WaitingOn is left unset on purpose. An issue assigned to you that sits in a
                     // waiting status is waiting on somebody who is not in the assignee field, so

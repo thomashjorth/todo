@@ -14,10 +14,16 @@ namespace Todo.Api.Tests;
 
 public class JiraEndpointsTests : ApiTest
 {
+    /// <summary>
+    /// The duty pair defaults to off and empty, so slice 11's seventeen tests measure the same thing
+    /// they did before duty existed.
+    /// </summary>
     private async Task<FakeJira> ConfigureAsync(
         bool includeWaiting = false,
         string? projectKey = "SAAS",
-        string[]? waitingStatuses = null)
+        string[]? waitingStatuses = null,
+        string[]? dutyStatuses = null,
+        bool onDuty = false)
     {
         var jira = await FakeJira.StartAsync();
 
@@ -28,6 +34,8 @@ public class JiraEndpointsTests : ApiTest
             jiraProjectKey = projectKey,
             jiraWaitingStatuses = waitingStatuses ?? ["Afventer general"],
             jiraIncludeWaiting = includeWaiting,
+            jiraDutyStatuses = dutyStatuses ?? [],
+            jiraOnDuty = onDuty,
         });
 
         return jira;
@@ -181,6 +189,97 @@ public class JiraEndpointsTests : ApiTest
         // The half that makes this two-sided: not merely that the row is not waiting, but that the
         // code never went out for a changelog it had no reason to want.
         Assert.Empty(jira.ChangelogRequests);
+    }
+
+    /// <summary>
+    /// The plan's core decision, and the assertion that makes it real. `Afventer general` means
+    /// "waiting for the shared pool"; when you *are* the pool, the issue is waiting for you, so it
+    /// has to arrive actionable. Imported as WaitingFor it would land in "Venter på" — hidden from the
+    /// deadline sections, which is exactly the work you hold the duty for.
+    /// </summary>
+    [Fact]
+    public async Task A_duty_row_arrives_open_rather_than_waiting()
+    {
+        await using var jira = await ConfigureAsync(
+            dutyStatuses: ["Afventer general"], onDuty: true);
+
+        await Import(new
+        {
+            key = "SAAS-2",
+            title = "Venter på svar fra kunden",
+            status = "Afventer general",
+        });
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+        var task = Assert.Single(tasks!.Items);
+
+        Assert.Equal(TodoStatus.Open, task.Status);
+        Assert.Null(task.WaitingOn);
+    }
+
+    /// <summary>
+    /// The two lists overlap on purpose. This pair — same fixture, opposite switch — is the proof
+    /// that the switch decides and not the status.
+    /// </summary>
+    [Fact]
+    public async Task Duty_beats_waiting_when_a_status_is_in_both_lists()
+    {
+        await using var jira = await ConfigureAsync(
+            waitingStatuses: ["Afventer general"],
+            includeWaiting: true,
+            dutyStatuses: ["Afventer general"],
+            onDuty: true);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-2");
+
+        Assert.True(row.IsDuty);
+        Assert.False(row.IsWaiting);
+        Assert.Null(row.Excluded);
+        Assert.Null(row.WaitingSince);
+    }
+
+    [Fact]
+    public async Task The_same_status_is_waiting_when_off_duty()
+    {
+        await using var jira = await ConfigureAsync(
+            waitingStatuses: ["Afventer general"],
+            includeWaiting: true,
+            dutyStatuses: ["Afventer general"],
+            onDuty: false);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-2");
+
+        Assert.False(row.IsDuty);
+        Assert.True(row.IsWaiting);
+    }
+
+    /// <summary>
+    /// Decision 3. The changelog is one HTTP call per issue, and WaitingSince is only meaningful for
+    /// something waiting on somebody else — so a duty row must not pay for one.
+    /// </summary>
+    [Fact]
+    public async Task A_duty_row_does_not_fetch_the_changelog()
+    {
+        await using var jira = await ConfigureAsync(
+            waitingStatuses: ["Afventer general"],
+            includeWaiting: true,
+            dutyStatuses: ["Afventer general"],
+            onDuty: true);
+
+        await Preview();
+
+        Assert.Empty(jira.ChangelogRequests);
+    }
+
+    [Fact]
+    public async Task A_row_that_is_not_in_the_duty_list_is_not_marked_as_duty()
+    {
+        await using var jira = await ConfigureAsync(
+            dutyStatuses: ["Afventer general"], onDuty: true);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.False(row.IsDuty);
     }
 
     [Fact]
@@ -365,7 +464,7 @@ public class JiraEndpointsTests : ApiTest
     private sealed record Statuses(string[] Names);
     private sealed record PreviewBody(PreviewRow[] Rows, int Total);
     private sealed record PreviewRow(
-        string Key, string Title, string Status, bool IsWaiting,
+        string Key, string Title, string Status, bool IsWaiting, bool IsDuty,
         DateTimeOffset? WaitingSince, bool AlreadyImported, string? Excluded);
     private sealed record ImportBody(int Imported, int Skipped);
     private sealed record TaskList(TaskBody[] Items);

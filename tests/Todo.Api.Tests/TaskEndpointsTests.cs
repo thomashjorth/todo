@@ -71,6 +71,11 @@ public class TaskEndpointsTests : TaskApiTest
             jiraProjectKey = "SAAS",
             jiraWaitingStatuses = new[] { "Afventer general" },
             jiraIncludeWaiting = false,
+            // On duty, and covering a status no waiting row uses, so both wire names below can be
+            // asserted at their interesting value from the same preview: SAAS-1 and SAAS-3 come back
+            // as duty, SAAS-2 stays waiting and excluded.
+            jiraDutyStatuses = new[] { "I gang" },
+            jiraOnDuty = true,
         });
 
         var importResponse = await Client.PostAsJsonAsync("/api/jira/import", new
@@ -88,10 +93,15 @@ public class TaskEndpointsTests : TaskApiTest
 
         preview.EnsureSuccessStatusCode();
 
+        var previewJson = await preview.Content.ReadAsStringAsync();
+
         // SAAS-2 sits in a waiting status while waiting is turned off, so the preview shows it with
         // the reason import will skip it - the same string the frontend translates an ApiError with.
-        Assert.Contains(
-            "\"excluded\":\"jira.excludedWaiting\"", await preview.Content.ReadAsStringAsync());
+        Assert.Contains("\"excluded\":\"jira.excludedWaiting\"", previewJson);
+
+        // The duty flag, at its interesting value: a name the client renamed on the way in would
+        // still deserialise into IsDuty elsewhere, so it is read out of the raw JSON here.
+        Assert.Contains("\"isDuty\":true", previewJson);
     }
 
     [Fact]
