@@ -9,7 +9,8 @@ namespace Todo.Core.Tests.Jira;
 public class JiraSettingsTests
 {
     private static JiraSettings With(string? baseUrl, string? token = "a-token") =>
-        new(baseUrl, ProjectKey: "SAAS", token, WaitingStatuses: [], IncludeWaiting: false);
+        new(baseUrl, ProjectKey: "SAAS", token, WaitingStatuses: [], IncludeWaiting: false,
+            DutyStatuses: [], OnDuty: false);
 
     [Fact]
     public void A_base_url_and_a_token_is_configured()

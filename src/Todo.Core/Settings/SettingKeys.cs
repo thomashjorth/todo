@@ -12,4 +12,6 @@ public static class SettingKeys
     public const string JiraToken = "jira.token";
     public const string JiraWaitingStatuses = "jira.waitingStatuses";
     public const string JiraIncludeWaiting = "jira.includeWaiting";
+    public const string JiraDutyStatuses = "jira.dutyStatuses";
+    public const string JiraOnDuty = "jira.onDuty";
 }

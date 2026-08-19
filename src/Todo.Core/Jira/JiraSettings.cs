@@ -10,7 +10,13 @@ public sealed record JiraSettings(
     string? ProjectKey,
     string? Token,
     IReadOnlyList<string> WaitingStatuses,
-    bool IncludeWaiting)
+    bool IncludeWaiting,
+    // Next to the waiting pair so the two read as two pairs. The duty list is its own list and the
+    // switch is its own switch on purpose: a shared switch would mean going off duty had to clear
+    // the list, and the list must survive a rotation ending. Deliberately not "an empty list means
+    // off" for the same reason.
+    IReadOnlyList<string> DutyStatuses,
+    bool OnDuty)
 {
     /// <summary>
     /// The base URL as something that can actually be called, or null. One spelling shared with

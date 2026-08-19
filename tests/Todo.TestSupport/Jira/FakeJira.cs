@@ -195,7 +195,9 @@ public sealed class FakeJira : IAsyncDisposable
             ProjectKey: projectKey,
             Token: Token,
             WaitingStatuses: [],
-            IncludeWaiting: false));
+            IncludeWaiting: false,
+            DutyStatuses: [],
+            OnDuty: false));
 
     /// <summary>
     /// Stops answering while keeping <see cref="BaseUrl"/>. Nothing is listening on the port

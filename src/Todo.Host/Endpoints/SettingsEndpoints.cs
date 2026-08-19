@@ -39,7 +39,8 @@ public static class SettingsEndpoints
             // because an absent field means clear, and a language change must not wipe it.
             await StoreAsync(db, SettingKeys.JiraBaseUrl, BaseUrl(request.JiraBaseUrl));
             await StoreAsync(db, SettingKeys.JiraProjectKey, Blank(request.JiraProjectKey));
-            await StoreAsync(db, SettingKeys.JiraWaitingStatuses, WaitingStatuses(request.JiraWaitingStatuses));
+            await StoreAsync(db, SettingKeys.JiraWaitingStatuses, StatusList(request.JiraWaitingStatuses));
+            await StoreAsync(db, SettingKeys.JiraDutyStatuses, StatusList(request.JiraDutyStatuses));
 
             // Stored only when on. Not tidiness - two tests in SettingsEndpointsTests assert about
             // the whole Settings table and go red on a "false" row left behind by a save that never
@@ -49,6 +50,12 @@ public static class SettingsEndpoints
             // The asymmetry this creates is read in JiraSettingsReader, and turning it back off
             // has its own test, JiraSettingsEndpointsTests.Turning_waiting_back_off_turns_it_off.
             await StoreAsync(db, SettingKeys.JiraIncludeWaiting, request.JiraIncludeWaiting ? "true" : null);
+
+            // Same shape as the line above, for the same reason - a literal "false" row would fell
+            // the same two language tests. The duty switch is separate from the waiting one, and the
+            // list is stored whether or not the switch is on: the list has to survive a rotation
+            // ending, or the user would clear it to go off duty and re-pick it a week later.
+            await StoreAsync(db, SettingKeys.JiraOnDuty, request.JiraOnDuty ? "true" : null);
 
             await db.SaveChangesAsync();
 
@@ -108,6 +115,8 @@ public static class SettingsEndpoints
             JiraProjectKey = jira.ProjectKey,
             JiraWaitingStatuses = [.. jira.WaitingStatuses],
             JiraIncludeWaiting = jira.IncludeWaiting,
+            JiraDutyStatuses = [.. jira.DutyStatuses],
+            JiraOnDuty = jira.OnDuty,
             // The token itself is deliberately absent. Only whether there is one.
             HasJiraToken = jira.Token is not null,
         };
@@ -121,8 +130,11 @@ public static class SettingsEndpoints
     private static string? Blank(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>The list is one row of JSON, and an empty list is no row at all.</summary>
-    private static string? WaitingStatuses(ICollection<string>? names)
+    /// <summary>
+    /// A status list is one row of JSON, and an empty list is no row at all. Shared by the waiting
+    /// list and the duty list, which are two lists with one storage shape.
+    /// </summary>
+    private static string? StatusList(ICollection<string>? names)
     {
         string[] kept = [.. (names ?? []).Where(n => !string.IsNullOrWhiteSpace(n))];
 
