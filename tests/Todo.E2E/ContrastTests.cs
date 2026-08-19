@@ -97,9 +97,9 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// The two duty branches' text, named so the waits below are on the string a user reads rather
     /// than on the element that will hold it.
     /// </summary>
-    private const string OnDutyNotice = "Du har vagten — puljens sager er med.";
+    private const string OnDutyNotice = "Du har vagten — 2nd. level-sagerne er med.";
 
-    private const string DutyLabel = "fra den generelle pulje";
+    private const string DutyLabel = "fra 2nd. level supporten";
 
     /// <summary>
     /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one

@@ -37,8 +37,8 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
     /// </summary>
     private const string DutyStatus = "Afventer general";
 
-    private const string DutyLabel = "fra den generelle pulje";
-    private const string OnDutyNotice = "Du har vagten — puljens sager er med.";
+    private const string DutyLabel = "fra 2nd. level supporten";
+    private const string OnDutyNotice = "Du har vagten — 2nd. level-sagerne er med.";
     private const string TodaySection = "I dag";
 
     /// <summary>

@@ -81,8 +81,8 @@
     "preview": "Hent sager",
     "notConfigured": "Jira er ikke sat op, så der er ingen sager at hente.",
     "settingsLink": "Sæt Jira op under Indstillinger",
-    "onDuty": "Du har vagten — puljens sager er med.",
-    "fromDutyPool": "fra den generelle pulje",
+    "onDuty": "Du har vagten — 2nd. level-sagerne er med.",
+    "fromDutyPool": "fra 2nd. level supporten",
     "noneAssigned": "Ingen sager er tildelt dig.",
     "showing": "Viser {{shown}} af {{total}} sager.",
     "statusValue": "Status: {{value}}",
@@ -132,10 +132,10 @@
       "loadStatuses": "Hent statusser",
       "statusesEmpty": "Hent statusserne for at vælge dem. Virker forbindelsen ikke, kommer listen tom tilbage.",
       "includeWaiting": "Importér også sager du venter på",
-      "dutyStatuses": "Hvilke statusser betyder, at sagen venter på den generelle pulje?",
+      "dutyStatuses": "Hvilke statusser betyder, at sagen venter på 2nd. level supporten?",
       "dutyStatusesHint": "Vagt slår ventende: står en status på begge lister, afgør kontakten nedenfor hvad den betyder.",
       "onDuty": "Jeg har vagten",
-      "onDutyHint": "Puljens sager kommer med i importen, også når de ikke er tildelt dig, og de lander som handlingsklare frem for ventende."
+      "onDutyHint": "2nd. level-sagerne kommer med i importen, også når de ikke er tildelt dig, og de lander som handlingsklare frem for ventende."
     }
   },
   "errors": {

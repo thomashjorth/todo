@@ -204,7 +204,7 @@ describe('JiraImport', () => {
 
     const labels = [...element.querySelectorAll('[data-testid="jira-duty"]')];
     expect(labels).toHaveLength(1);
-    expect(labels[0].textContent!.trim()).toBe('fra den generelle pulje');
+    expect(labels[0].textContent!.trim()).toBe('fra 2nd. level supporten');
     expect(rows(element)[0].contains(labels[0])).toBe(true);
 
     // Context, not a reason to skip: the pool's issues are exactly the ones the duty is for.
@@ -218,7 +218,7 @@ describe('JiraImport', () => {
 
     const notice = on.element.querySelector('[data-testid="jira-on-duty-notice"]');
     expect(notice).not.toBeNull();
-    expect(notice!.textContent).toContain('Du har vagten — puljens sager er med.');
+    expect(notice!.textContent).toContain('Du har vagten — 2nd. level-sagerne er med.');
 
     // The same issues move silently into "Waiting for" when the switch is off, so the marker is
     // the only way the state can be seen at all.
