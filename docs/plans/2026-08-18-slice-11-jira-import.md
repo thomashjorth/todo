@@ -1530,6 +1530,44 @@ git commit -m "✨ Hent tildelte SAAS-sager gennem ITaskSource, målt mod en fal
 - Modify: `tests/Todo.TestSupport/Jira/FakeJira.cs`
 - Test: `tests/Todo.Api.Tests/JiraChangelogTests.cs`
 
+> **Rettet efter kørslen, 2026-08-18. Leveret i `bffec6f`; den kode er sandheden.** Otte fejl, og
+> **den første ville have sendt en import der kaster på hver enkelt sag.**
+>
+> 1. **`DateTimeOffset?` på DTO'en er den forkerte kur.** Jira skriver offsettet i ISO 8601's
+>    **basale** form, `+0200`; System.Text.Json accepterer kun den **udvidede**, `+02:00`. Målt før
+>    implementeringen: `System.FormatException : The JSON value is not in a supported DateTimeOffset
+>    format`. `Created` bindes derfor som `string` og parses med `DateTimeOffset.TryParse` og
+>    `InvariantCulture`, som tager begge former. Planens diagnose var rigtig — en `DateTime` taber
+>    offsettet — men kuren fejlede hårdere end sygdommen.
+> 2. **Og fælden er dobbelt: den falske Jira skulle også have `created` som `string`.** Havde den
+>    været typet `DateTimeOffset`, ville den udsende `+02:00`, planens kode ville blive **grøn**, og
+>    kun den rigtige instans ville kaste. En falsk server der udsender .NET's format frem for
+>    fremmedsystemets, måler sig selv. Det er derfor fejl 1 var findbar overhovedet.
+> 3. **Step 4's kode kompilerer ikke mod Task 4.** Der findes ingen `GetAsync<T>(url, ct)`; Task 4's
+>    hjælper er `GetAsync(settings, path, query, ct)` med `path` relativt til `rest/api/2/`, query
+>    for sig, og en separat `Read<T>(body)`.
+> 4. **`An_issue_that_never_changed_status_has_no_waiting_since` kunne ikke fejle** — målt: den bestod
+>    en metode der returnerer `null` uden at kalde ud. `Assert.Null` alene kan ikke skelne en tom
+>    changelog fra en metode der aldrig spurgte. Lukket med en påstand om kaldet. **Femte uopnåelige
+>    vagt i skiven.**
+> 5. **Den positive påstand i newest-wins-testen er bærende, ikke valgfri.** Målt: `OrderBy` i stedet
+>    for `OrderByDescending` giver `07:00`, og den negative påstand om `06:00` fanger den **ikke**.
+>    Planen kaldte den positive "behold gerne".
+> 6. **`SAAS-4` kan ikke ligge i den falske Jiras `Issues`-array**, fordi `JiraTaskSourceTests`
+>    påstår `Total == 3`. Den findes kun som changelog-fixture — en sag med historik som søgningen
+>    ikke returnerer. **Task 6 skal vide det:** dens forhåndsvisning ser aldrig `SAAS-4`.
+> 7. Mutation 3's forudsigelse var "en test fejler" — **to** gør.
+> 8. Kravet om at changeloggen kun hentes for **ventende** sager kan ikke bo her; det er
+>    forhåndsvisningens beslutning. Flyttet til Task 6.
+>
+> Ud over planen, og godt: den falske Jira honorerer nu `expand`, og en sjette test kræver at
+> parameteren sendes. Uden den ville en glemt `expand=changelog` gøre `WaitingSince` **null for hver
+> række** og ligne "Jira har ingen historik" frem for en fejl. En uparsebar `created` svarer desuden
+> `null` frem for at kaste, så én skæv post koster sin egen ventedato og ikke hele importen — den vej
+> er **utestet**.
+>
+> Endeligt antal: **6** i `JiraChangelogTests`, **150** i Api (149 grønne), **83** i Core.
+
 **Step 1: Skriv de fejlende tests**
 
 Målt tidsstempel fra instansen 2026-08-18: `2026-08-17T14:10:13.593+0200`. Det er `12:10:13.593`

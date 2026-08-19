@@ -197,6 +197,21 @@ grund. Tidsstempler er `DateTime` i UTC — **aldrig `DateTimeOffset`**, som SQL
 sortere korrekt. En deadline må aldrig gennem `new Date(string)`; det parses som UTC-midnat og
 kan vise dagen før.
 
+**System.Text.Json binder kun offsets i *udvidet* form, og Jira sender den *basale*.** Et
+`DateTimeOffset`-felt på en DTO kaster på `+0200` og kræver `+02:00` — målt mod Jiras changelog,
+hvor beskeden er `The JSON value is not in a supported DateTimeOffset format`. Løsningen er at binde
+feltet som `string` og køre `DateTimeOffset.TryParse` med `InvariantCulture`, som tager **begge**
+former, og derefter `.UtcDateTime`. **Og fælden er dobbelt:** typer man samme felt som
+`DateTimeOffset` i sin *falske* server, udsender den den udvidede form, koden bliver grøn, og først
+den rigtige instans kaster — på hver enkelt sag. En falsk server skal udsende fremmedsystemets
+faktiske format, ikke .NET's; ellers måler den sig selv.
+
+**Et fremmedsystems feltnavn skal have et eksplicit `[JsonPropertyName]`, ikke en navnepolitik.**
+Jira staver `duedate` i ét ord, og den camelCase-politik der ellers gælder ledte efter `dueDate`,
+læste feltet som fraværende og gav **null i hver deadline** — uden at nogen test faldt, fordi der
+findes en test for en sag *uden* deadline. Målt i skive 11. Bind hvert felt fra en ekstern kilde
+eksplicit, og lad en test have en værdi i feltet frem for kun at dække fraværet.
+
 **Udskudtheden er beregnet, ikke gemt.** `DeadlineBuckets.For` svarer `Deferred`, når `DeferUntil`
 ligger *strengt efter* i dag — der er ingen `Deferred`-status på `TodoStatus`, og **intet skal
 køre ved midnat**: opgaven kommer tilbage, fordi uret siger noget andet i morgen. Grenenes
