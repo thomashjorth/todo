@@ -160,14 +160,22 @@ public sealed partial class JiraTaskSource : ITaskSource
     {
         var key = ProjectKeyOf(settings);
 
-        // Blanks go out before the emptiness check below, not after, so a list holding nothing but
-        // blanks behaves as an empty one. A stored " " would otherwise become status IN (" "), which
-        // is syntactically valid JQL matching nothing — a silent failure, where the empty IN list at
-        // least announces itself as a syntax error. Filtered here rather than trusted from
-        // PUT /api/settings: a row written before that validation existed outlives it, and this is
-        // what builds the query.
+        // Blanks out and the rest trimmed, both before the emptiness check below rather than after,
+        // so a list holding nothing but blanks behaves as an empty one. They are one fix because they
+        // are one fault: " " becomes status IN (" ") and "  Afventer general  " becomes
+        // status IN ("  Afventer general  "), and both are syntactically valid JQL matching nothing —
+        // silently, where the empty IN list at least announces itself as a syntax error. Closing only
+        // the first would be worse than closing neither, because the class would look closed.
+        //
+        // Blanks are dropped before the trim so a null could not be dereferenced, and the trim is the
+        // only one of its kind on this value: slice 11 measured JiraSettings.BrowseUrl and
+        // PUT /api/settings both trimming the base URL, arriving in the same commit, so one of them
+        // had never been able to fire and nobody could say which. Here rather than in
+        // SettingsEndpoints.StatusList for the same reason the filtering is: a row stored before a
+        // validation existed outlives it, and this is what builds the query.
         var duty = settings.DutyStatuses
             .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
             .ToList();
 
         if (!settings.OnDuty || duty.Count == 0)

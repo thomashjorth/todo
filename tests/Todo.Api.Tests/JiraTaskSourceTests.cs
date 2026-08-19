@@ -228,6 +228,11 @@ public class JiraTaskSourceTests
     /// Only a list that is nothing but blanks can show that the filtering happens before the
     /// emptiness check rather than after it. Filtered afterwards, this would emit
     /// <c>status IN ()</c> and fail against the real instance on every import.
+    ///
+    /// Not a duplicate of the test above, and that is measured rather than assumed: moving the filter
+    /// to after the emptiness check fells this one and leaves the other green, while removing the
+    /// filter altogether fells both. The two catch different faults — "blanks reach the clause" and
+    /// "filtered too late" — so merging them because they look alike would leave the second unguarded.
     /// </summary>
     [Fact]
     public async Task A_duty_list_of_only_blanks_behaves_like_an_empty_one()
@@ -238,6 +243,26 @@ public class JiraTaskSourceTests
 
         Assert.DoesNotContain("status IN", jira.LastJql);
         Assert.DoesNotContain(" OR ", jira.LastJql);
+    }
+
+    /// <summary>
+    /// The same fault as the blank name, and closed in the same place: <c>"  Afventer general  "</c>
+    /// becomes <c>status IN ("  Afventer general  ")</c>, which is valid JQL matching nothing, so it
+    /// fails silently. Closing only the blank would leave the class looking closed while half of it
+    /// was open.
+    ///
+    /// Hangs on the same mechanic as the blank test: <c>status IN ("Afventer general")</c> is not a
+    /// substring of the untrimmed clause, so this has teeth rather than passing on a prefix.
+    /// </summary>
+    [Fact]
+    public async Task A_duty_status_is_trimmed_before_it_reaches_the_clause()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        await jira.SourceFor("SAAS", duty: ["  Afventer general  "], onDuty: true)
+            .FetchAssignedAsync();
+
+        Assert.Contains("status IN (\"Afventer general\")", jira.LastJql);
     }
 
     /// <summary>
