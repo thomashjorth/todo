@@ -201,6 +201,14 @@ blive ved at være globalt unikke; se designdokumentets afsnit 10.
 der dukker op uger senere som "appen æder mine tegn". Og kald kun `preventDefault()` når tasten
 faktisk blev håndteret, så uhåndterede kombinationer stadig når browseren og styresystemet.
 
+**En kontrol inde i en omsluttende `<label>` arver labelens tekst ind i sit tilgængelige navn.** Målt på
+Jira-forhåndsvisningen, hvor hver række *er* en `<label>` om sit afkrydsningsfelt: en knap placeret
+derinde blev til et afkrydsningsfelt med navnet "Åbn sagen", og `GetByRole(Checkbox, Name = "Åbn sagen")`
+fandt den. Knappen hører derfor **uden for** labelen. Bemærk at den nære fælde er en anden end den
+nedenfor: her er det ikke en test der matcher præcist, men browserens navneberegning. Og bemærk hvad der
+**ikke** virker som vagt: "fluebenet overlevede klikket" kan ikke fejle, fordi en `<button>` er
+interaktivt indhold og browseren derfor springer labelens aktiveringsadfærd over. Påstå på **navnet**.
+
 **En mærkat inde i et link eller en label indgår i elementets tilgængelige navn**, medmindre den
 bærer `aria-hidden="true"`. Det betyder noget her, fordi E2E-suiten matcher tilgængelige navne i
 deres helhed — `TaskListScreen.RowTitled` matcher rækkeknappens navn præcist. Tastaturhintet når
@@ -476,9 +484,13 @@ forkerte grund.
 
 ## Testtal
 
-Efter vagt-statusserne fra Jira: **90** Todo.Core.Tests, **186** Todo.Api.Tests, **33** Todo.E2E,
-**184** Vitest.
+Efter "Åbn sagen" fra forhåndsvisningen: **90** Todo.Core.Tests, **187** Todo.Api.Tests, **34** Todo.E2E,
+**185** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Den leverance lagde **én** Api-test til (186 → 187, `A_preview_row_carries_the_url_of_the_issue`), **én**
+E2E (33 → 34, at klikket beder skallen om sagen uden at importere den) og **to** Vitest (184 → 185 plus
+en omskrevet). Core stod stille: URL'en beregnes af `JiraSettings.BrowseUrl`, som var testet i forvejen.
+Før den, efter vagt-statusserne fra Jira: 90 Core, 186 Api, 33 E2E, 184 Vitest.
 
 Leverancen lagde **7** Core-tests til (83 → 90), **18** Api-tests (168 → 186), **1** E2E (32 → 33) og
 **6** Vitest (178 → 184). Fordelingen siger hvor arbejdet lå, og den er skæv med vilje.
