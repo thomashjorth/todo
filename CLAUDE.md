@@ -179,9 +179,13 @@ fokus, skulle brugeren trykke Alt+O og **derefter** Enter. Og et programmatisk `
 lige så meget som den handler. Direktivet har derfor
 `appShortcutAction="focus" | "activate"`, hvor `'activate'` kalder begge.
 
-**Bogstaverne er `Alt+O/I/S/N/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
+**Bogstaverne er `Alt+O/I/J/S/N/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
 piletasterne, som Chrome stjæler under udvikling. De er frie i Photino-vinduet, men en genvej der
-virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende.
+virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende. `J` kom til med
+Jira-importen i skive 11 og kolliderer ikke: Chrome på Windows binder intet `Alt+J`, og den nære
+nabo er DevTools-konsollen, som er `Ctrl+Shift+J` — et andet modifikatorsæt. (På macOS er den
+`Cmd+Option+J`, men appen er Windows-only.) **Registret er last-writer-wins**, så bogstaverne skal
+blive ved at være globalt unikke; se designdokumentets afsnit 10.
 
 **`Ctrl+Alt` er AltGr på et dansk tastatur.** En global `Alt+bogstav`-lytter skal tjekke
 `!event.ctrlKey && !event.metaKey`, ellers kan brugeren ikke skrive `@`, `£` eller `$` — en fejl
@@ -219,6 +223,26 @@ Jira staver `duedate` i ét ord, og den camelCase-politik der ellers gælder led
 læste feltet som fraværende og gav **null i hver deadline** — uden at nogen test faldt, fordi der
 findes en test for en sag *uden* deadline. Målt i skive 11. Bind hvert felt fra en ekstern kilde
 eksplicit, og lad en test have en værdi i feltet frem for kun at dække fraværet.
+
+**Wiki-markups `*x*` er fed, markdowns er kursiv** — de to sprog bruger samme tegn til hver sin
+betydning, så en tegn-for-tegn-oversættelse vender betoningen på hovedet. Og `----` må **ikke**
+blive `---`: markdown læser en linje bindestreger *under* et afsnit som en **setext-overskrift**, så
+stregen forsvinder og afsnittet over den bliver en H2. Skriv `***` i stedet. Begge fund kom af at
+føre konverterens output gennem appens egen `marked` og læse HTML'en — ikke af at læse regexerne,
+som så rigtige ud i begge tilfælde. **Test en markup-konverter på det renderede resultat**, ikke på
+mellemformen.
+
+**En tom projektnøgle må ikke betyde alle projekter.** PAT'en ser fire projekter — `EC`, `KK`,
+`SAAS`, `TTMBP` — så en JQL uden `project = …` trækker kundeprojektet `KK` ind i den personlige
+liste. Projektnøglen er derfor et **krav** med sin egen fejlkode (`jira.projectKeyRequired`), ikke
+et valgfrit filter der falder tilbage på alt. Samme klasse af fælde som et tomt filter i en
+databaseforespørgsel: fraværet af en afgrænsning er ikke en neutral standard.
+
+**Et hemmeligt felt skal have sit eget endpoint.** `PUT /api/settings` er en fuld erstatning der
+læser et fraværende felt som "ryd", og tokenet kan aldrig sendes *tilbage* til klienten — så en
+klient der gemmer noget andet på siden, ville rydde tokenet hver gang. Tokenet har derfor
+`PUT`/`DELETE /api/jira/token` for sig, og `SettingsResponse` bærer kun `hasJiraToken`. Det er
+samme fælde som `TaskStore.update`, med den forskel at her kan `current`-tricket ikke bruges.
 
 **Udskudtheden er beregnet, ikke gemt.** `DeadlineBuckets.For` svarer `Deferred`, når `DeferUntil`
 ligger *strengt efter* i dag — der er ingen `Deferred`-status på `TodoStatus`, og **intet skal
@@ -340,14 +364,29 @@ forkerte grund.
   `/api/system/open-link` opsnappes med `page.RouteAsync` og afbrydes; ellers åbner hver
   testkørsel en rigtig browser.
 - **Kontrast måles i browseren** med `getComputedStyle`, fordi kun browseren har afgjort hvilken
-  baggrund et stykke tekst endte på. `ContrastTests` går appens **tre** skærme igennem i begge
-  farvetemaer — `app.routes.ts` har præcis tre ruter: opgavelisten, importen og indstillingerne
-  — og måler derudover det **udvidede detaljepanel**, hvor noten, underopgaverne og
-  statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en fjerde skærm; tæl det
+  baggrund et stykke tekst endte på. `ContrastTests` går appens **fire** skærme igennem i begge
+  farvetemaer — `app.routes.ts` har præcis fire ruter: opgavelisten, retro-importen, Jira-importen
+  og indstillingerne — og måler derudover det **udvidede detaljepanel**, hvor noten, underopgaverne
+  og statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en femte skærm; tæl det
   ikke som en. **En `@if`-gren er umålt, indtil fixturet har en opgave i den tilstand og rejsen
   åbner rækken** — vagten kan ikke se en farve, der aldrig blev renderet, så en ny betinget linje
   koster en fixture-opgave og en klik-og-vent i `ContrastTests`. Hintet om en startdato efter
   deadline kom ind i vagten netop derfor, og blev set fejle i begge temaer.
+- **En gren bag et fremmedsystem er umålt, indtil kaldet opsnappes.** Skive 11 efterlod **elleve**
+  `@if`-grene som ingen farve nogensinde blev renderet i, fordi hver af dem kræver et svar fra Jira.
+  Playwright kan ikke starte en `FakeJira` inde i hostens proces, så `ContrastTests` svarer selv på
+  `**/api/jira/preview`, `**/api/jira/test` og `**/api/jira/statuses` med `page.RouteAsync` — samme
+  greb som afbrydelsen af `/api/system/open-link`. Fire forskellige svar i rækkefølge er nødvendige,
+  fordi grenene udelukker hinanden: en afvisning, en tom liste, en liste hvor hver række er
+  blokeret, og en liste med én række der kan importeres. **Én rute-handler der læser en variabel**,
+  ikke fire handlere, hvis præcedens ellers ville afgøre udfaldet.
+- **En link-gren der hænger på et felt ingen builder kan sætte, er usynlig for enhver vagt.**
+  `externalUrl` beregnes kun når `SourceId == JiraTaskSource.Id`, og `TaskItemBuilder` havde
+  `FromRetro` men **ingen `FromJira`** — så `external-link` blev aldrig renderet i en eneste test,
+  og både kontrastvagten og en link-påstand ville have målt et element der ikke fandtes. Målt:
+  fjernes `FromJira` fra fixturet igen, siger Playwright `element(s) not found 'Åbn sagen'`.
+  **Og linket kræver to ting, ikke én:** kilden *og* en gemt `jira.baseUrl`, for URL'en er beregnet
+  af basisURL'en. Mangler den, er grenen stadig tom, uanset hvordan kilden er stavet.
 - **`getComputedStyle` giver `oklch(...)`, ikke `rgb(...)`** for farver skrevet i oklch. En regex
   over cifrene læser `oklch(0.967 0.003 264.542)` som en blå kanal på 264 — og vagtens første
   udgave gav derfor **usynlig tekst omkring 8:1 og bestod**. Mal farven på et 1×1-canvas og læs
@@ -376,9 +415,23 @@ forkerte grund.
 
 ## Testtal
 
-Efter typetjek-vagten på spec-projektet: **38** Todo.Core.Tests, **121** Todo.Api.Tests, **25**
-Todo.E2E, **143** Vitest.
+Efter skive 11 (Jira-import): **83** Todo.Core.Tests, **168** Todo.Api.Tests, **32** Todo.E2E,
+**178** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Skiven lagde **45** Core-tests til (38 → 83), **47** Api-tests (121 → 168), **7** E2E (25 → 32) og
+**35** Vitest (143 → 178). Fordelingen er værd at læse, for den siger hvor arbejdet lå:
+wiki-markup-konverteringen, `DeadlineBuckets` uberørt og `JiraSettings` er alle rene funktioner og
+hører i Core, mens `JiraTaskSource` måles mod en **falsk Jira på loopback** og derfor tæller som
+Api-tests sammen med de fire nye endpoints og kontraktens wire-format.
+**E2E stod stille gennem skivens første ni opgaver og flyttede sig først i den tiende**, som var
+vagterne alene: fire i `JiraImportJourneyTests` (den ukonfigurerede skærm, de to blokerede rækker med
+hver sin grund, at importen kun sender de valgte, og at linket beder `/api/system/open-link` om
+`…/browse/SAAS-1` fra en `BUTTON`), én `Alt_J_follows_the_jira_link` i `KeyboardJourneyTests`, og
+**to** af `The_Jira_screens_meet_WCAG_AA`, som er en `[Theory]` over de to farvetemaer. Den
+rækkefølge — funktionen i nio opgaver, vagterne i den tiende — er også grunden til at skiven
+efterlod elleve umålte `@if`-grene: en skærm bygget færdig uden en E2E-rejse ved siden af har ingen
+måde at vise, at dens betingede linjer aldrig blev renderet.
+Før skiven, efter typetjek-vagten på spec-projektet: 38 Core, 121 Api, 25 E2E, 143 Vitest.
 Den lagde **én** Api-test til (120 → 121), `Spec_project_passes_the_type_checker` i
 `FrontendStrictnessTests`. Den koster et par sekunder af `dotnet test`, fordi den starter en rigtig
 compiler. De øvrige tre tal står stille: vagten er en påstand om værktøjskæden og rørte ingen kode
