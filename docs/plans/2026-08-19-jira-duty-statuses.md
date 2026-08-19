@@ -541,6 +541,32 @@ git commit -m "✨ Udvid JQL'en med puljen, kun når vagten er slået til"
 > forespørgslen. Sammenligningen her sker mod navne Jira selv har sendt tilbage, så en gentagelse
 > ville være den døde-trimning-fælde igen.
 
+> **Rettet efter kørslen, 2026-08-19. Leveret i `cace8bb`.** Alle fem mutationer fældede noget, og
+> **mutation 1 fældede fire tests på tværs af to projekter** — Core-testen navngiver den forkerte
+> *rolle*, Api-testene den forkerte *udfaldsside* (flaget, HTTP-kaldet, og en række der aldrig nåede
+> databasen). Udtrækket til Core var altså ikke oprydning; det gav en anden slags måling.
+>
+> Tre fejl i planen:
+>
+> 1. **`Assert.Contains("\"isDuty\":", json)` kunne ikke fejle — planens tredje tandløse påstand.**
+>    `IsDuty` på den genererede type er en almindelig `bool`, **ikke** `required`, så den serialiseres
+>    som `"isDuty":false` uanset om endpointet sætter den. Rettet til `"isDuty":true` med et
+>    vagt-konfigureret fixture.
+> 2. **`A_duty_row_arrives_open_rather_than_waiting` er ikke det rene vagt-fixture planen antyder.**
+>    `ConfigureAsync`s default `waitingStatuses` er `["Afventer general"]`, så testen er et
+>    **overlaps**-fixture med `includeWaiting: false` — stærkere og mere virkelighedsnært, og grunden
+>    til at mutation 1 fældede tre Api-tests. **Ret den ikke** ved at sende `waitingStatuses: []`; det
+>    ville svække den.
+> 3. **Step 3's fire punkter om forhåndsvisningen var allerede sande.** `WaitingSince`, `Excluded` og
+>    importens spring-og-tæl hang i forvejen på `isWaiting`, så da `isWaiting` blev udledt af `role`,
+>    krævede de ingen redigering. Den reelle ændring er to linjer plus `IsDuty`.
+>
+> Verificeret: `WaitingStatuses.Contains` optræder nu **nul** gange i `JiraEndpoints.cs` og
+> `JiraStatusRoles.For` **to** gange — reglen bor ét sted, kaldes fra to.
+>
+> Endeligt: Core **90** (+7, fordi "kun i ventende-listen" er et `[Theory]` over kontakten), Api
+> **184** (+5), E2E 32, Vitest 178.
+
 **Step 1: Skriv de fejlende tests**
 
 ```csharp
