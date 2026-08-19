@@ -86,6 +86,24 @@
       "heading": "Who are you on the board?",
       "add": "Add a name",
       "remove": "Remove {{alias}}"
+    },
+    "jira": {
+      "heading": "Jira",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://jira.example.com",
+      "projectKey": "Project key",
+      "projectKeyPlaceholder": "SAAS",
+      "token": "Personal access token",
+      "tokenPlaceholder": "Paste the token",
+      "tokenStored": "A token is stored. It is never shown again.",
+      "saveToken": "Save token",
+      "clearToken": "Clear token",
+      "testConnection": "Test connection",
+      "connectedAs": "Connected as {{name}}",
+      "waitingStatuses": "Which statuses mean you are waiting?",
+      "loadStatuses": "Load statuses",
+      "statusesEmpty": "Load the statuses to pick them. If the connection does not work, the list comes back empty.",
+      "includeWaiting": "Import issues you are waiting for too"
     }
   },
   "errors": {
@@ -107,7 +125,19 @@
       "duplicateAlias": "The same name is listed more than once."
     },
     "settings": {
-      "unknownLanguage": "That language is not supported."
+      "unknownLanguage": "That language is not supported.",
+      "emptyToken": "The token cannot be blank."
+    },
+    "jira": {
+      "notConfigured": "Jira is not set up. Fill in the base URL, project key and token under Settings.",
+      "projectKeyRequired": "The project key is missing. Fill it in under Settings.",
+      "refused": "Jira rejected the token. Check the token under Settings.",
+      "unreachable": "Jira could not be reached. Check the base URL and the network.",
+      "rowKeyRequired": "An issue is missing its key.",
+      "rowTitleRequired": "An issue is missing its title.",
+      "rowTitleTooLong": "An issue title is too long.",
+      "rowStatusRequired": "An issue is missing its status.",
+      "excludedWaiting": "You are waiting for it, and waiting issues are turned off."
     },
     "system": {
       "unsupportedScheme": "Only http and https links can be opened."

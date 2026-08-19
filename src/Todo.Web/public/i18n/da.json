@@ -86,6 +86,24 @@
       "heading": "Hvem er du på boardet?",
       "add": "Tilføj et navn",
       "remove": "Fjern {{alias}}"
+    },
+    "jira": {
+      "heading": "Jira",
+      "baseUrl": "BasisURL",
+      "baseUrlPlaceholder": "https://jira.eksempel.dk",
+      "projectKey": "Projektnøgle",
+      "projectKeyPlaceholder": "SAAS",
+      "token": "Personligt adgangstoken",
+      "tokenPlaceholder": "Indsæt tokenet",
+      "tokenStored": "Et token er gemt. Det vises aldrig igen.",
+      "saveToken": "Gem token",
+      "clearToken": "Ryd token",
+      "testConnection": "Test forbindelse",
+      "connectedAs": "Forbundet som {{name}}",
+      "waitingStatuses": "Hvilke statusser betyder, at du venter?",
+      "loadStatuses": "Hent statusser",
+      "statusesEmpty": "Hent statusserne for at vælge dem. Virker forbindelsen ikke, kommer listen tom tilbage.",
+      "includeWaiting": "Importér også sager du venter på"
     }
   },
   "errors": {
@@ -107,7 +125,19 @@
       "duplicateAlias": "Det samme navn står på listen mere end én gang."
     },
     "settings": {
-      "unknownLanguage": "Sproget understøttes ikke."
+      "unknownLanguage": "Sproget understøttes ikke.",
+      "emptyToken": "Tokenet må ikke være tomt."
+    },
+    "jira": {
+      "notConfigured": "Jira er ikke sat op. Udfyld basisURL, projektnøgle og token under Indstillinger.",
+      "projectKeyRequired": "Projektnøglen mangler. Udfyld den under Indstillinger.",
+      "refused": "Jira afviste tokenet. Kontrollér tokenet under Indstillinger.",
+      "unreachable": "Jira kunne ikke nås. Kontrollér basisURL og netværket.",
+      "rowKeyRequired": "En sag mangler sin nøgle.",
+      "rowTitleRequired": "En sag mangler sin titel.",
+      "rowTitleTooLong": "En sags titel er for lang.",
+      "rowStatusRequired": "En sag mangler sin status.",
+      "excludedWaiting": "Du venter på den, og ventende sager er slået fra."
     },
     "system": {
       "unsupportedScheme": "Kun http- og https-links kan åbnes."

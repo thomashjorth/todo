@@ -21,6 +21,35 @@ function configure(system: string): { store: SettingsStore; http: HttpTestingCon
   return { store: TestBed.inject(SettingsStore), http: TestBed.inject(HttpTestingController) };
 }
 
+/**
+ * Every field of the settings response, because the contract makes three of them non-optional and
+ * a fixture that leaves one out would hand the store an undefined the types say cannot happen.
+ * Written as its own shape rather than as `Partial<ISettingsResponse>`: the generated interface
+ * spells an absent language `undefined`, and the wire spells it `null`.
+ */
+interface SettingsJson {
+  language?: string | null;
+  jiraBaseUrl?: string | null;
+  jiraProjectKey?: string | null;
+  jiraWaitingStatuses?: string[];
+  jiraIncludeWaiting?: boolean;
+  hasJiraToken?: boolean;
+}
+
+function settingsJson(overrides: SettingsJson = {}): Blob {
+  return new Blob([
+    JSON.stringify({
+      language: null,
+      jiraBaseUrl: null,
+      jiraProjectKey: null,
+      jiraWaitingStatuses: [],
+      jiraIncludeWaiting: false,
+      hasJiraToken: false,
+      ...overrides,
+    }),
+  ]);
+}
+
 function activeLang(): string {
   return TestBed.inject(TranslocoService).getActiveLang();
 }
@@ -30,7 +59,7 @@ describe('SettingsStore', () => {
     const { store, http } = configure('da-DK');
 
     const started = store.start();
-    http.expectOne('/api/settings').flush(new Blob([JSON.stringify({ language: 'en' })]));
+    http.expectOne('/api/settings').flush(settingsJson({ language: 'en' }));
     await started;
 
     expect(store.language()).toBe('en');
@@ -42,7 +71,7 @@ describe('SettingsStore', () => {
     const { store, http } = configure('da-DK');
 
     const started = store.start();
-    http.expectOne('/api/settings').flush(new Blob([JSON.stringify({ language: null })]));
+    http.expectOne('/api/settings').flush(settingsJson({ language: null }));
     await started;
 
     expect(store.language()).toBeNull();
@@ -71,7 +100,7 @@ describe('SettingsStore', () => {
     const request = http.expectOne('/api/settings');
     expect(request.request.method).toBe('PUT');
     expect(JSON.parse(request.request.body)).toEqual({ language: 'en' });
-    request.flush(new Blob([JSON.stringify({ language: 'en' })]));
+    request.flush(settingsJson({ language: 'en' }));
     await chosen;
 
     expect(store.language()).toBe('en');
@@ -85,7 +114,7 @@ describe('SettingsStore', () => {
     const chosen = store.choose(null);
     const request = http.expectOne('/api/settings');
     expect(JSON.parse(request.request.body)).toEqual({});
-    request.flush(new Blob([JSON.stringify({ language: null })]));
+    request.flush(settingsJson({ language: null }));
     await chosen;
 
     expect(store.language()).toBeNull();
@@ -109,5 +138,153 @@ describe('SettingsStore', () => {
 
     expect(store.error()).toBe('Sproget understøttes ikke.');
     expect(activeLang()).toBe('da');
+  });
+
+  it('should read every Jira setting the server answers with', async () => {
+    const { store, http } = configure('da-DK');
+
+    const started = store.start();
+    http.expectOne('/api/settings').flush(
+      settingsJson({
+        jiraBaseUrl: 'https://jira.test',
+        jiraProjectKey: 'SAAS',
+        jiraWaitingStatuses: ['Afventer general', 'Afventer kunde'],
+        jiraIncludeWaiting: true,
+        hasJiraToken: true,
+      }),
+    );
+    await started;
+
+    expect(store.jiraBaseUrl()).toBe('https://jira.test');
+    expect(store.jiraProjectKey()).toBe('SAAS');
+    expect(store.jiraWaitingStatuses()).toEqual(['Afventer general', 'Afventer kunde']);
+    expect(store.jiraIncludeWaiting()).toBe(true);
+    expect(store.hasJiraToken()).toBe(true);
+  });
+
+  it('should keep every setting in the request so saving one does not clear another', async () => {
+    // The backend reads an absent field as "clear". SettingsStore.save must therefore carry all
+    // five fields, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil to this.
+    const { store, http } = configure('da-DK');
+
+    store.jiraBaseUrl.set('https://jira.test');
+    store.jiraProjectKey.set('SAAS');
+    store.jiraWaitingStatuses.set(['Afventer general']);
+    store.jiraIncludeWaiting.set(true);
+
+    const saved = store.save({ language: 'en' });
+
+    const request = http.expectOne('/api/settings');
+    expect(request.request.method).toBe('PUT');
+    expect(JSON.parse(request.request.body)).toEqual({
+      language: 'en',
+      jiraBaseUrl: 'https://jira.test',
+      jiraProjectKey: 'SAAS',
+      jiraWaitingStatuses: ['Afventer general'],
+      jiraIncludeWaiting: true,
+    });
+    request.flush(
+      settingsJson({
+        language: 'en',
+        jiraBaseUrl: 'https://jira.test',
+        jiraProjectKey: 'SAAS',
+        jiraWaitingStatuses: ['Afventer general'],
+        jiraIncludeWaiting: true,
+      }),
+    );
+    await saved;
+
+    expect(store.jiraProjectKey()).toBe('SAAS');
+  });
+
+  // The same guard from the other side: a language chosen through the select must not take the
+  // Jira settings with it, so `choose` has to be the same one path as `save`.
+  it('should keep the Jira settings when only the language changes', async () => {
+    const { store, http } = configure('da-DK');
+
+    store.jiraBaseUrl.set('https://jira.test');
+    store.jiraProjectKey.set('SAAS');
+
+    const chosen = store.choose('en');
+
+    const request = http.expectOne('/api/settings');
+    expect(JSON.parse(request.request.body)).toEqual({
+      language: 'en',
+      jiraBaseUrl: 'https://jira.test',
+      jiraProjectKey: 'SAAS',
+    });
+    request.flush(
+      settingsJson({ language: 'en', jiraBaseUrl: 'https://jira.test', jiraProjectKey: 'SAAS' }),
+    );
+    await chosen;
+  });
+
+  it('should store a token and report that there is one, without echoing it', async () => {
+    const { store, http } = configure('da-DK');
+
+    const saved = store.setToken('  et-personligt-adgangstoken  ');
+
+    const request = http.expectOne('/api/settings/jira-token');
+    expect(request.request.method).toBe('PUT');
+    expect(JSON.parse(request.request.body)).toEqual({ token: '  et-personligt-adgangstoken  ' });
+    request.flush(settingsJson({ hasJiraToken: true }));
+
+    expect(await saved).toBe(true);
+    expect(store.hasJiraToken()).toBe(true);
+  });
+
+  it('should say why a blank token was refused, and report the failure to its caller', async () => {
+    const { store, http } = configure('da-DK');
+
+    const saved = store.setToken('   ');
+    http
+      .expectOne('/api/settings/jira-token')
+      .flush(
+        new Blob([JSON.stringify({ code: 'settings.emptyToken', message: 'A token cannot be' })]),
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+    expect(await saved).toBe(false);
+    expect(store.error()).toBe('Tokenet må ikke være tomt.');
+    expect(store.hasJiraToken()).toBe(false);
+  });
+
+  it('should forget a stored token', async () => {
+    const { store, http } = configure('da-DK');
+    store.hasJiraToken.set(true);
+
+    const cleared = store.clearToken();
+    const request = http.expectOne('/api/settings/jira-token');
+    expect(request.request.method).toBe('DELETE');
+    request.flush(settingsJson({ hasJiraToken: false }));
+    await cleared;
+
+    expect(store.hasJiraToken()).toBe(false);
+  });
+
+  it('should never hold the token in a signal', async () => {
+    // The token is write-only: it goes out through setJiraToken and comes back only as
+    // hasJiraToken. A signal holding it would put it in a component's template scope, and it
+    // would survive navigating away from the settings page.
+    const { store, http } = configure('da-DK');
+    const secret = 'det-her-maa-ikke-blive-liggende';
+
+    const saved = store.setToken(secret);
+    http.expectOne('/api/settings/jira-token').flush(settingsJson({ hasJiraToken: true }));
+    await saved;
+
+    // Names first, so a field called `jiraToken` is caught even before anything is written to it.
+    const own = Object.keys(store);
+    expect(own.filter((key) => /token/i.test(key))).toEqual(['hasJiraToken']);
+
+    // And then the values, because the name guard on its own is dodged by calling the field
+    // something else. Methods live on the prototype, so the only own properties that are
+    // functions here are the signals — calling them has no side effect.
+    const holding = Object.entries(store as unknown as Record<string, unknown>)
+      .filter(([, value]) => typeof value === 'function')
+      .filter(([, value]) => JSON.stringify((value as () => unknown)() ?? null).includes(secret))
+      .map(([key]) => key);
+
+    expect(holding).toEqual([]);
   });
 });
