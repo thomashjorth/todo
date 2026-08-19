@@ -22,8 +22,10 @@ function configure(system: string): { store: SettingsStore; http: HttpTestingCon
 }
 
 /**
- * Every field of the settings response, because the contract makes three of them non-optional and
+ * Every field of the settings response, because the contract makes five of them non-optional and
  * a fixture that leaves one out would hand the store an undefined the types say cannot happen.
+ * The type checker cannot catch that here — this shape is not `ISettingsResponse` — so a field
+ * added to the contract has to be added by hand.
  * Written as its own shape rather than as `Partial<ISettingsResponse>`: the generated interface
  * spells an absent language `undefined`, and the wire spells it `null`.
  */
@@ -33,6 +35,8 @@ interface SettingsJson {
   jiraProjectKey?: string | null;
   jiraWaitingStatuses?: string[];
   jiraIncludeWaiting?: boolean;
+  jiraDutyStatuses?: string[];
+  jiraOnDuty?: boolean;
   hasJiraToken?: boolean;
 }
 
@@ -44,6 +48,8 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       jiraProjectKey: null,
       jiraWaitingStatuses: [],
       jiraIncludeWaiting: false,
+      jiraDutyStatuses: [],
+      jiraOnDuty: false,
       hasJiraToken: false,
       ...overrides,
     }),

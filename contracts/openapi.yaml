@@ -691,7 +691,7 @@ components:
     JiraPreviewRow:
       type: object
       additionalProperties: false
-      required: [key, title, status, isWaiting, alreadyImported]
+      required: [key, title, status, isWaiting, isDuty, alreadyImported]
       properties:
         key:
           type: string
@@ -714,6 +714,11 @@ components:
         isWaiting:
           type: boolean
           description: Whether the status is in the user's waiting list.
+        isDuty:
+          type: boolean
+          description: >-
+            Whether this issue came from the duty pool rather than being assigned to the user. The
+            screen labels it, so a pool issue is not mistaken for one of your own.
         waitingSince:
           type: string
           format: date-time
@@ -809,10 +814,23 @@ components:
             type: string
         jiraIncludeWaiting:
           type: boolean
+        jiraDutyStatuses:
+          type: array
+          items:
+            type: string
+          description: >-
+            Statuses that mean "waiting for the shared duty pool". Issues in these are fetched
+            regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than
+            waiting.
+        jiraOnDuty:
+          type: boolean
+          description: >-
+            Whether the user currently holds the 2nd level support duty. Off by default. Separate
+            from the list so the list survives going off duty.
     SettingsResponse:
       type: object
       additionalProperties: false
-      required: [jiraWaitingStatuses, jiraIncludeWaiting, hasJiraToken]
+      required: [jiraWaitingStatuses, jiraIncludeWaiting, jiraDutyStatuses, jiraOnDuty, hasJiraToken]
       properties:
         language:
           type: string
@@ -830,6 +848,19 @@ components:
             type: string
         jiraIncludeWaiting:
           type: boolean
+        jiraDutyStatuses:
+          type: array
+          items:
+            type: string
+          description: >-
+            Statuses that mean "waiting for the shared duty pool". Issues in these are fetched
+            regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than
+            waiting.
+        jiraOnDuty:
+          type: boolean
+          description: >-
+            Whether the user currently holds the 2nd level support duty. Off by default. Separate
+            from the list so the list survives going off duty.
         hasJiraToken:
           type: boolean
           description: >-
