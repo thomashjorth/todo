@@ -30,6 +30,7 @@ public static class ErrorCodes
     public const string JiraUnreachable = "jira.unreachable";
     public const string JiraRowKeyRequired = "jira.rowKeyRequired";
     public const string JiraRowTitleRequired = "jira.rowTitleRequired";
+    public const string JiraRowTitleTooLong = "jira.rowTitleTooLong";
     public const string JiraRowStatusRequired = "jira.rowStatusRequired";
 
     /// <summary>

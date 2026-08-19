@@ -1,0 +1,357 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
+using Todo.Core.Errors;
+using Todo.Core.Tasks;
+using Todo.TestSupport.Jira;
+using ApiError = Todo.Contracts.ApiError;
+// The contract's status enum, not the core one. Todo.Core.Tasks.TodoStatus carries no
+// JsonStringEnumConverter, so reading "waitingFor" off the wire into it throws — measured, and it
+// is the right type here anyway: this asserts what the API answered, not what the entity holds.
+using TodoStatus = Todo.Contracts.TodoStatus;
+
+namespace Todo.Api.Tests;
+
+public class JiraEndpointsTests : ApiTest
+{
+    private async Task<FakeJira> ConfigureAsync(
+        bool includeWaiting = false,
+        string? projectKey = "SAAS",
+        string[]? waitingStatuses = null)
+    {
+        var jira = await FakeJira.StartAsync();
+
+        await Host.Client.PutAsJsonAsync("/api/settings/jira-token", new { token = FakeJira.Token });
+        await Host.Client.PutAsJsonAsync("/api/settings", new
+        {
+            jiraBaseUrl = jira.BaseUrl,
+            jiraProjectKey = projectKey,
+            jiraWaitingStatuses = waitingStatuses ?? ["Afventer general"],
+            jiraIncludeWaiting = includeWaiting,
+        });
+
+        return jira;
+    }
+
+    [Fact]
+    public async Task Testing_the_connection_reports_who_the_token_belongs_to()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var response = await Host.Client.PostAsync("/api/jira/test", null);
+
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadFromJsonAsync<Connection>();
+
+        Assert.Equal("Thomas", body!.DisplayName);
+    }
+
+    [Fact]
+    public async Task Testing_without_a_configured_jira_is_a_bad_request_rather_than_a_crash()
+    {
+        var response = await Host.Client.PostAsync("/api/jira/test", null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ApiError>();
+
+        Assert.Equal(ErrorCodes.JiraNotConfigured, error!.Code);
+    }
+
+    /// <summary>
+    /// The user's requirement, and the reason it is a guard rather than a default: the token sees
+    /// four projects including a customer one, so an empty project key must refuse rather than
+    /// quietly widen the query to everything.
+    /// </summary>
+    [Fact]
+    public async Task An_empty_project_key_refuses_rather_than_importing_every_project()
+    {
+        await using var jira = await ConfigureAsync(projectKey: null);
+
+        var response = await Host.Client.PostAsync("/api/jira/preview", null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ApiError>();
+
+        Assert.Equal(ErrorCodes.JiraProjectKeyRequired, error!.Code);
+        Assert.Empty(jira.SearchRequests);
+    }
+
+    [Fact]
+    public async Task The_statuses_come_from_the_configured_project()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var body = await Host.Client.GetFromJsonAsync<Statuses>("/api/jira/statuses");
+
+        Assert.Contains("Afventer general", body!.Names);
+        Assert.Contains("Venter på support", body.Names);
+    }
+
+    [Fact]
+    public async Task The_preview_reports_the_total_the_source_gave()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var body = await Preview();
+
+        Assert.Equal(3, body.Total);
+        Assert.Equal(3, body.Rows.Length);
+    }
+
+    /// <summary>
+    /// Default off. The waiting row is present and marked excluded rather than missing — hiding it
+    /// would look like Jira lost an issue, and it would make the setting invisible.
+    /// </summary>
+    [Fact]
+    public async Task A_waiting_row_is_shown_as_excluded_when_waiting_is_not_asked_for()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: false);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-2");
+
+        Assert.True(row.IsWaiting);
+        Assert.Equal(ErrorCodes.JiraExcludedWaiting, row.Excluded);
+    }
+
+    [Fact]
+    public async Task A_waiting_row_is_included_when_waiting_is_asked_for()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: true);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-2");
+
+        Assert.True(row.IsWaiting);
+        Assert.Null(row.Excluded);
+        // A DateTimeOffset, because the wire carries the offset: reading "+00:00" into a DateTime
+        // gives Kind=Local converted to local time, so on a Danish machine this same value arrives
+        // as 14:10 and the assertion would fail for a reason that has nothing to do with Jira.
+        Assert.Equal(
+            new DateTimeOffset(new DateTime(2026, 8, 17, 12, 10, 13, 593, DateTimeKind.Utc)),
+            row.WaitingSince);
+
+        // Only the waiting row's changelog was read, though the page carried three issues. The
+        // changelog is one HTTP call per issue, so reading it for every row would multiply the
+        // preview's cost by the page size for values no row would show — and slice 11's task 5 left
+        // this assertion to be made here, where the decision to ask is taken.
+        Assert.Equal(["SAAS-2"], jira.ChangelogRequests);
+    }
+
+    /// <summary>
+    /// A status not in the user's list is not waiting, whatever it is called. This is what stops
+    /// the code growing a startsWith("Afventer") shortcut — measured 2026-08-18, that heuristic
+    /// loses "Venter på support".
+    /// </summary>
+    [Fact]
+    public async Task A_status_outside_the_list_is_not_treated_as_waiting()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: true, waitingStatuses: []);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-2");
+
+        Assert.False(row.IsWaiting);
+        Assert.Null(row.Excluded);
+        Assert.Null(row.WaitingSince);
+    }
+
+    [Fact]
+    public async Task Importing_writes_the_rows_as_tasks()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var imported = await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" });
+
+        Assert.Equal(1, imported.Imported);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+        var task = Assert.Single(tasks!.Items);
+
+        Assert.Equal("Kunden kan ikke logge ind", task.Title);
+        Assert.Equal(TodoStatus.Open, task.Status);
+        Assert.Equal($"{jira.BaseUrl.TrimEnd('/')}/browse/SAAS-1", task.ExternalUrl);
+    }
+
+    [Fact]
+    public async Task A_waiting_row_arrives_as_waiting_for_rather_than_open()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: true);
+
+        // The row carries Jira's status name, not the waiting decision. The server looks the name
+        // up in the user's list — see the note under the import bullet on why a required boolean
+        // could not be enforced on the wire.
+        await Import(new
+        {
+            key = "SAAS-2",
+            title = "Venter på svar fra kunden",
+            status = "Afventer general",
+            // The reporter is filled in on purpose: it is the field an implementation would reach
+            // for to fill WaitingOn, and without a value here that mistake writes null anyway and
+            // the assertion below passes. Measured — WaitingOn = row.Requester killed no test until
+            // this line existed.
+            requester = "Bo Bertelsen",
+            waitingSince = "2026-08-17T12:10:13.593Z",
+        });
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+        var task = Assert.Single(tasks!.Items);
+
+        Assert.Equal(TodoStatus.WaitingFor, task.Status);
+        // WaitingOn is deliberately empty: an issue assigned to you that is waiting is waiting on
+        // somebody who is not in the assignee field, so the app cannot know who. Section 4a.
+        Assert.Null(task.WaitingOn);
+    }
+
+    [Fact]
+    public async Task Importing_the_same_issue_twice_skips_it()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" });
+
+        var second = await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" });
+
+        Assert.Equal(0, second.Imported);
+        Assert.Equal(1, second.Skipped);
+    }
+
+    [Fact]
+    public async Task A_previously_imported_issue_is_marked_in_the_preview()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" });
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.True(row.AlreadyImported);
+    }
+
+    /// <summary>
+    /// Dedup is scoped by source. A retro row and a Jira issue could carry the same key, and one
+    /// must not hide the other.
+    /// </summary>
+    [Fact]
+    public async Task A_retro_row_with_the_same_key_does_not_count_as_imported()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Host.AddAndSaveChangesAsync(new TaskItem
+        {
+            SourceId = "retro",
+            ExternalKey = "SAAS-1",
+            Title = "Et retro-kort",
+            CreatedAt = DateTime.UtcNow,
+        });
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.False(row.AlreadyImported);
+    }
+
+    /// <summary>
+    /// The status is valid here on purpose. Without it the row would be rejected for the missing
+    /// status instead, and this test would pass while proving nothing about the title.
+    /// </summary>
+    [Fact]
+    public async Task A_row_without_a_title_is_rejected()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/jira/import",
+            new { rows = new[] { new { key = "SAAS-1", title = "  ", status = "I gang" } } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ApiError>();
+
+        Assert.Equal(ErrorCodes.JiraRowTitleRequired, error!.Code);
+    }
+
+    /// <summary>
+    /// The status is what the server derives waiting-ness from, so a row without one is not
+    /// importable. A required boolean could not be enforced on the wire — an absent bool is
+    /// `false`, which is a legal value — but an absent string is null, and that can be refused.
+    /// This assertion is the whole reason the contract carries `status` rather than `isWaiting`.
+    /// </summary>
+    [Fact]
+    public async Task A_row_without_a_status_is_rejected()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/jira/import", new { rows = new[] { new { key = "SAAS-1", title = "En sag" } } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var error = await response.Content.ReadFromJsonAsync<ApiError>();
+
+        Assert.Equal(ErrorCodes.JiraRowStatusRequired, error!.Code);
+    }
+
+    /// <summary>
+    /// The setting is authoritative at import time, not at preview time. A row the user previewed
+    /// while waiting was allowed must not slip in after they turned it off — the payload carries
+    /// Jira's status, so the server re-derives the decision from the list as it stands now.
+    /// </summary>
+    [Fact]
+    public async Task A_waiting_row_is_skipped_when_waiting_is_not_asked_for()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: false);
+
+        var result = await Import(new
+        {
+            key = "SAAS-2",
+            title = "Venter på svar fra kunden",
+            status = "Afventer general",
+        });
+
+        Assert.Equal(0, result.Imported);
+        Assert.Equal(1, result.Skipped);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+
+        Assert.Empty(tasks!.Items);
+    }
+
+    private async Task<PreviewBody> Preview()
+    {
+        var response = await Host.Client.PostAsync("/api/jira/preview", null);
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<PreviewBody>())!;
+    }
+
+    private async Task<ImportBody> Import(object row)
+    {
+        var response = await Host.Client.PostAsJsonAsync("/api/jira/import", new { rows = new[] { row } });
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<ImportBody>())!;
+    }
+
+    private sealed record Connection(string DisplayName);
+    private sealed record Statuses(string[] Names);
+    private sealed record PreviewBody(PreviewRow[] Rows, int Total);
+    private sealed record PreviewRow(
+        string Key, string Title, string Status, bool IsWaiting,
+        DateTimeOffset? WaitingSince, bool AlreadyImported, string? Excluded);
+    private sealed record ImportBody(int Imported, int Skipped);
+    private sealed record TaskList(TaskBody[] Items);
+
+    /// <remarks>
+    /// The converter is spelled out because the generated client puts it on each property rather
+    /// than on the enum, and the wire names live in JsonStringEnumMemberName, which only the string
+    /// converter reads. Without it the default enum converter meets "waitingFor" and throws.
+    /// </remarks>
+    private sealed record TaskBody(
+        long Id,
+        string Title,
+        [property: JsonConverter(typeof(JsonStringEnumConverter<TodoStatus>))] TodoStatus Status,
+        string? WaitingOn,
+        string? ExternalUrl);
+}

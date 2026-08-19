@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Todo.Contracts;
+using Todo.TestSupport.Jira;
 
 namespace Todo.Api.Tests;
 
@@ -56,6 +57,41 @@ public class TaskEndpointsTests : TaskApiTest
         Assert.Contains($"\"deadline\":\"{yesterday:yyyy-MM-dd}\"", json);
         Assert.Contains("\"bucket\":\"deferred\"", json);
         Assert.Contains($"\"deferUntil\":\"{nextWeek:yyyy-MM-dd}\"", json);
+
+        // Slice 11's two additions to the wire, and the drift test cannot see either: it compares
+        // paths and verbs, so a schema change is invisible to it. Both are read out of the raw JSON
+        // rather than off a deserialised field, because a name the client renames on the way in is
+        // exactly what this would fail to notice.
+        await using var jira = await FakeJira.StartAsync();
+
+        await Client.PutAsJsonAsync("/api/settings/jira-token", new { token = FakeJira.Token });
+        await Client.PutAsJsonAsync("/api/settings", new
+        {
+            jiraBaseUrl = jira.BaseUrl,
+            jiraProjectKey = "SAAS",
+            jiraWaitingStatuses = new[] { "Afventer general" },
+            jiraIncludeWaiting = false,
+        });
+
+        var importResponse = await Client.PostAsJsonAsync("/api/jira/import", new
+        {
+            rows = new[] { new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" } },
+        });
+
+        importResponse.EnsureSuccessStatusCode();
+
+        // Present because the task came from Jira. Every other task on this list carries
+        // "externalUrl":null, so the colon-and-quote is what says the value was computed.
+        Assert.Contains("\"externalUrl\":\"", await Client.GetStringAsync("/api/tasks"));
+
+        var preview = await Client.PostAsync("/api/jira/preview", null);
+
+        preview.EnsureSuccessStatusCode();
+
+        // SAAS-2 sits in a waiting status while waiting is turned off, so the preview shows it with
+        // the reason import will skip it - the same string the frontend translates an ApiError with.
+        Assert.Contains(
+            "\"excluded\":\"jira.excludedWaiting\"", await preview.Content.ReadAsStringAsync());
     }
 
     [Fact]
