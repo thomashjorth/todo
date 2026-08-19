@@ -1,8 +1,17 @@
-# Åbn sagen fra forhåndsvisningen — besluttet, ikke planlagt endnu
+# Åbn sagen fra forhåndsvisningen Implementation Plan
 
-Dette er **kravet og de beslutninger der allerede er truffet**, skrevet ned mens de er friske. Den
-egentlige plan med opgaver og kode skrives, når leverancen "vagt-statusser" er færdig (dens Task 6
-skriver dokumentation og testtal netop nu).
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Hver række i Jira-forhåndsvisningen får en knap der åbner sagen i systemets browser, så man
+kan se på en sag før man beslutter at importere den.
+
+**Architecture:** Serveren beregner URL'en med den eksisterende `JiraSettings.BrowseUrl(key)` og lægger
+den på `JiraPreviewRow` som et **required** felt. Knappen går gennem `/api/system/open-link` som alle
+andre udadgående links i appen. Ingen datamodel, ingen migrering, intet skivenummer.
+
+**Tech Stack:** ASP.NET Core minimal APIs, Angular 22 signal-stores, xunit.v3, Playwright, Vitest.
+
+**Testtal før planen:** Core **90**, Api **186**, E2E **33**, Vitest **184** — alle grønne på `main`.
 
 Besluttet 2026-08-19 sammen med brugeren.
 
@@ -109,3 +118,179 @@ opgaver, uden at paritetstesten kunne se det, fordi den kun sammenligner filerne
 bruges nu på Jira-skærmen. Alternativet — at flytte nøglen til noget delt — ville røre skive 11's
 oversættelser og opgavelistens template for en ren kosmetisk gevinst. **Lad den ligge**, men navngiv
 skavanken i planen, så den næste der læser `tasks.openIssue` på en Jira-skærm ved, at det var et valg.
+
+---
+
+## Task 1: Kontrakten og endpointet
+
+**Files:**
+- Modify: `contracts/openapi.yaml`
+- Generated: `src/Todo.Web/src/app/api/todo-client.ts`, `src/Todo.Contracts/Generated/Contracts.g.cs`, `.source-hash`
+- Modify: `src/Todo.Host/Endpoints/JiraEndpoints.cs`
+- Test: `tests/Todo.Api.Tests/JiraEndpointsTests.cs`, `TaskEndpointsTests.cs`
+
+**Step 1: Feltet på kontrakten**
+
+På `JiraPreviewRow`, og **i `required`-listen**:
+
+```yaml
+        url:
+          type: string
+          description: >-
+            Where Jira shows this issue. Computed from the configured base URL and the key, never
+            stored, so it follows a changed base URL. Always present: a preview cannot happen without
+            a configured base URL, so this is required rather than nullable — a nullable field would
+            add an @if branch, and a branch is unmeasured until a fixture renders it.
+```
+
+**Step 2: Skriv de fejlende tests**
+
+```csharp
+    /// <summary>
+    /// The button on each row needs somewhere to go, and the server owns the URL shape so `/browse/`
+    /// is spelled in one place — the same decision as TodoTask.externalUrl.
+    /// </summary>
+    [Fact]
+    public async Task A_preview_row_carries_the_url_of_the_issue()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.Equal($"{jira.BaseUrl.TrimEnd('/')}/browse/SAAS-1", row.Url);
+    }
+```
+
+Udvid `PreviewRow`-recorden med `string Url`. **Bevar defaults**, så de toogtyve eksisterende tests er
+uændrede.
+
+Læg desuden en påstand på `Wire_format_uses_the_names_the_contract_declares` i `TaskEndpointsTests.cs`.
+**Påstå på en værdi, ikke på at feltet findes:** `Assert.Contains("\"url\":\"http", json)`. Et required
+felt serialiseres altid, så `Assert.Contains("\"url\":", json)` kan **ikke fejle** — det var præcis
+fejlen med `isDuty` i vagt-leverancens Task 4.
+
+**Step 3: Implementér**
+
+I forhåndsvisningen, ét udtryk:
+
+```csharp
+Url = settings.BrowseUrl(item.Key)
+    ?? throw new SourceException(
+        ErrorCodes.JiraNotConfigured,
+        "A preview row has no browse URL, which cannot happen once IsConfigured has passed."),
+```
+
+**`?? throw`, ikke `!`.** `BrowseUrl` returnerer `string?`, og antagelsen — at `IsConfigured` allerede
+er passeret — skal stå skrevet frem for at blive skjult af en assertion. Kaster den nogensinde, er det
+en fejl i vores egen rækkefølge, ikke i brugerens data.
+
+**Step 4: Mutationstest**
+
+1. **Byt `BrowseUrl` ud med `item.Key` alene.** Forventet:
+   `A_preview_row_carries_the_url_of_the_issue` fejler med den nøgne nøgle mod den fulde URL.
+2. **Svæk wire-påstanden** til `"url":` og fjern `Url` fra svaret. Bekræft at den **består** — det er
+   beviset på at den svage form er tandløs. Rul tilbage til `"url":"http`.
+
+Rapportér begge, og fejlteksten fra 1 ordret.
+
+**Step 5: Commit**
+
+```bash
+git add contracts/openapi.yaml src/Todo.Web/src/app/api/ src/Todo.Contracts/Generated/ src/Todo.Host/Endpoints/ tests/Todo.Api.Tests/
+git commit -m "✨ Læg sagens URL på forhåndsvisningsrækken"
+```
+
+---
+
+## Task 2: Knappen
+
+**Files:**
+- Modify: `src/Todo.Web/src/app/jira/jira-import.html`, `jira-import.ts`, `jira-import.spec.ts`
+- Modify: `tests/Todo.E2E/JiraImportScreen.cs`, `JiraImportJourneyTests.cs`, `ContrastTests.cs`
+
+**Step 1: Knappen**
+
+En `<button>` pr. række med mærkaten `tasks.openIssue` — **den nøgle findes allerede** ("Åbn sagen" /
+"Open the issue"), lagt ind i skive 11 til opgavelistens link. **Genbrug den; opret ikke
+`jira.openIssue`.** Handlingen er den samme på den samme slags ting, og to nøgler med identisk tekst
+glider fra hinanden. Prisen er en navnerumsskavank — en `tasks.*`-nøgle på Jira-skærmen — og den er et
+bevidst valg frem for at røre skive 11's oversættelser.
+
+**Ikke et `<a href>`.** Photino-vinduet har hverken adresselinje eller tilbage-knap, så en navigation
+væk er enkeltrettet. Kaldet går gennem `SystemStore` som markdown-links og opgavelistens
+`external-link` — læs `src/Todo.Web/src/app/system/` og følg vejen.
+
+**Der er ingen `@if`.** Feltet er required, så knappen renderes på hver række. Det er hele pointen med
+Task 1's beslutning: én gren mindre at måle.
+
+Farven skal have en `dark:`-modpart. Knappen er handlingsnær, ikke dæmpet kontekst — se hvad
+opgavelistens `external-link` bruger, og følg den frem for at vælge en ny.
+
+**Step 2: Vitest**
+
+```ts
+    const open = row.querySelector<HTMLButtonElement>('[data-testid="jira-open-issue"]')!;
+
+    // A BUTTON, not an anchor: the Photino window has no address bar and no way back.
+    expect(open.tagName).toBe('BUTTON');
+    expect(open.textContent!.trim()).toBe('Åbn sagen');
+
+    open.click();
+
+    const request = await vi.waitFor(() => http.expectOne('/api/system/open-link'));
+    expect(JSON.parse(request.request.body).url).toBe('https://jira.test/browse/SAAS-1');
+```
+
+**Step 3: E2E og kontrast**
+
+- `JiraImportScreen` får en `OpenIssueIn(row)`-locator.
+- **Rejsen** påstår, at klikket beder `/api/system/open-link` om `…/browse/SAAS-9`, og at elementet er
+  en `BUTTON` — samme påstand som `ApiDocsJourneyTests`, og det eneste der stopper en senere
+  "forenkling" til et link. **`/api/system/open-link` skal opsnappes og afbrydes**, ellers åbner hver
+  testkørsel en rigtig browser på maskinen.
+- **`ContrastTests`' og rejsens fixtures skal have `"url"` i kroppen.** Uden feltet læser klienten
+  `undefined`, knappen renderes med en tom URL, og påstanden om `/browse/…` måler ingenting. At
+  opsnappe kaldet er ikke nok — kroppen skal bære feltet. Samme hul som `isDuty` havde.
+- Knappens farve bliver målt **uden** en ny fixture-tilstand, netop fordi der ingen `@if` er. Bekræft
+  det ved at male den `text-gray-400 dark:text-gray-600` og se vagten fælde den i begge temaer.
+
+**Step 4: Kør i rækkefølge**
+
+```bash
+npm.cmd run test --prefix src\Todo.Web -- --watch=false
+powershell -ExecutionPolicy Bypass -File scripts\build-web.ps1
+dotnet test Todo.sln
+```
+
+**Byg før E2E.** `Todo.E2E.csproj` har intet build-trin, og hosten servérer bare `wwwroot`.
+
+**Step 5: Mutationstest**
+
+1. **Skift `<button>` til `<a href>`.** Forventet: `tagName`-påstanden fejler i Vitest **og** i E2E.
+2. **Send den nøgne nøgle til open-link.** Forventet: kropspåstanden fejler.
+3. **Fjern `"url"` fra `ContrastTests`' fixture.** Forventet: knappen renderes stadig (ingen `@if`),
+   men rejsens `/browse/…`-påstand fejler. Det viser hvorfor kroppen skal bære feltet.
+
+**Step 6: Commit**
+
+```bash
+git add src/Todo.Web/src/ tests/Todo.E2E/
+git commit -m "✨ Åbn Jira-sagen fra forhåndsvisningen"
+```
+
+Oversættelserne røres **ikke** — nøglen findes. Er det forkert, sig det frem for at oprette en ny.
+
+---
+
+## Hvad der kan gå galt
+
+**Grep efter hver værdi, ikke efter et tema.** Ordlydsrettelsen `🌐 Kald den 2nd. level supporten` blev
+rød i første kørsel, fordi der blev grep'et efter mærkatens frase og nøglenavnet — men markørens tekst
+sagde "puljens", ikke "generelle pulje", så tre påstande slap igennem: `ContrastTests`,
+`JiraImportJourneyTests` og Vitest-specen. Ændrer du en brugervendt streng, så grep efter **strengen**.
+
+**Fem håndskrevne kopier af serverens svarform.** `settings-store.spec.ts`, `settings.spec.ts`,
+`jira-import.spec.ts`, og rutehandlerne i `ContrastTests` og `JiraImportJourneyTests`. Ingen af dem
+afstemmes mod kontrakten af en compiler, så et nyt required felt skal skrives ind i **hver** af dem der
+sender forhåndsvisningsrækker. Det er stedet en fremtidig skive taber et felt; hullet er dokumenteret i
+`CLAUDE.md`, ikke lukket.
