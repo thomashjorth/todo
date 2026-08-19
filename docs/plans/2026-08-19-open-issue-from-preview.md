@@ -92,9 +92,20 @@ Kontrakten (`JiraPreviewRow`, et required felt), `JiraEndpoints`' forhåndsvisni
 **Formentlig én opgave.** Bemærk at det er en udvidelse uden datamodel og uden migrering — den skal
 derfor ikke have et skivenummer, af samme grund som Swagger-linket i skive 11's forarbejde ikke fik et.
 
-## Én ting der skal afgøres i planen
+## Mærkaten er afgjort: "Åbn sagen"
 
-**Skal knappen også vise nøglen?** Rækken viser i dag nøgle, titel, status og deadline. En knap der
-hedder "Åbn sagen" gentager ikke nøglen, men en der hedder "Åbn SAAS-6354" gør nøglekolonnen delvist
-overflødig. Det er et layoutvalg i en spalte på ~480 px, hvor plads er knap — afgør det med skærmen
-foran dig, ikke i en plan.
+Besluttet af brugeren 2026-08-19. Ikke "Åbn SAAS-6354" — rækken viser nøglen i forvejen, og i en spalte
+på ~480 px er plads knap.
+
+**Det er samme streng som opgavelistens `external-link` bruger**, og nøglen findes allerede:
+`tasks.openIssue`, lagt ind i skive 11's Task 9. **Genbrug den frem for at oprette `jira.openIssue`.**
+
+To grunde. Handlingen er den samme på den samme slags ting — en Jira-sag — så to nøgler med identisk
+tekst ville skulle holdes i sync i hånden, og den slags glider fra hinanden. Og skive 11 målte, hvor let
+en oversættelsesnøgle bliver tabt: `jira.statusNameInvalid` manglede i **begge** sprogfiler i to
+opgaver, uden at paritetstesten kunne se det, fordi den kun sammenligner filerne med hinanden.
+
+**Prisen er en navnerumsskavank**, og den skal stå skrevet frem for at blive opdaget: en `tasks.*`-nøgle
+bruges nu på Jira-skærmen. Alternativet — at flytte nøglen til noget delt — ville røre skive 11's
+oversættelser og opgavelistens template for en ren kosmetisk gevinst. **Lad den ligge**, men navngiv
+skavanken i planen, så den næste der læser `tasks.openIssue` på en Jira-skærm ved, at det var et valg.
