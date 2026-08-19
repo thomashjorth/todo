@@ -236,6 +236,32 @@ git commit -m "📝 Læg vagt-statusserne på kontrakten"
   `JiraSettingsReader.cs`, `src/Todo.Host/Endpoints/SettingsEndpoints.cs`
 - Test: `tests/Todo.Api.Tests/JiraSettingsEndpointsTests.cs`
 
+> **Rettet efter kørslen, 2026-08-19. Leveret i `7775afd`.** Tre fejl, og de to første er
+> korrektioner af planens egne påstande.
+>
+> 1. **Planens note om hvad `Going_off_duty_keeps_the_list` *ikke* påstår, er forkert.** Den påstår
+>    netop, at kontakten kan slås fra — `Assert.False(after!.JiraOnDuty)` — og den var den **eneste**
+>    test der fældede mutation B. Der skulle altså **ingen** ekstra test til, og tallet blev **171**,
+>    ikke 172. Forskellen fra skive 11 er, at `Turning_waiting_back_off_turns_it_off` skulle skrives
+>    fordi **ingen** ventende-test slog fra igen; her gør round-trip-partneren det indbygget.
+> 2. **`Duty_is_off_until_asked_for` er grøn af den forkerte grund og kan stort set ikke fejle** — og
+>    årsagen er Task 1's `required`, som ellers var en rigtig beslutning. Den genererede
+>    `SettingsResponse` bærer felterne med en `= new Collection<string>()`-initializer, så et svar der
+>    **aldrig tildelte dem** serialiserer `[]` og `false`, altså præcis det testen påstår. Den bestod
+>    **før** implementeringen fandtes, og består også hvis begge linjer fjernes fra `ReadAllAsync`.
+>    Beholdt, med målingen skrevet i docstringen — men **den skal ikke tælles som en vagt.** Samme
+>    blindvinkel som dens ventende-modpart allerede indrømmer.
+> 3. **To nye required medlemmer på `JiraSettings`-recorden brød begge konstruktionssteder**, som
+>    bruger navngivne argumenter og derfor ikke kan udvides tavst: `FakeJira.SourceFor` (`CS7036` —
+>    ville have brudt **hele** Api-suiten) og `JiraSettingsTests.With`. Den anden fangede først da
+>    **Core** blev kørt, fordi Api-projektet ikke refererer Core.Tests. Planens `git add`-liste nævnte
+>    ingen af dem.
+>
+> **Til Task 3:** `FakeJira.SourceFor` hardcoder i dag `DutyStatuses: []` og `OnDuty: false`. Den skal
+> føre rigtige værdier igennem, og de nye parametre skal have defaults der bevarer skive 11's ti tests.
+>
+> Endeligt: Api **171**, Core **83**, E2E 32, Vitest 178.
+
 **Step 1: Skriv de fejlende tests**
 
 ```csharp
