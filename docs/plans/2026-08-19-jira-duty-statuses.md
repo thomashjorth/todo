@@ -182,6 +182,30 @@ Læg den i `required`-listen sammen med `isWaiting`.
 **`JiraImportRow` ændres ikke** — se beslutning 4. Serveren udleder både ventende og vagt af `status`
 plus indstillingerne. **Læg ikke et `isDuty` på importrækken.**
 
+> **Rettet efter kørslen, 2026-08-19. Leveret i `6e1c19b`.** Fire fejl, og de to første betyder noget
+> for de øvrige tasks:
+>
+> 1. **"Ingen frontend" holder ikke, og "168, uændret" var 168 med én rød.** Et nyt **required** felt
+>    på et skema frontenden **konstruerer** fælder `Spec_project_passes_the_type_checker` — den vagt
+>    skive 11 lagde ind allersidst, og som denne plan er skrevet henover.
+>    `jira-store.spec.ts` har et håndskrevet `PreviewRowJson`-fixture der føres ind i
+>    `new JiraPreviewRow(...)`, altså ind i `IJiraPreviewRow`: `TS2345 … Property 'isDuty' is missing`.
+>    **Regn med at hvert nyt required felt koster en fixture-linje, og at den skal lægges i Task 1.**
+> 2. **Og den samme fælde findes uden en compiler bag.** `settings-store.spec.ts`' `SettingsJson` er
+>    **bevidst** sin egen form frem for `Partial<ISettingsResponse>`, fordi wiren staver et fraværende
+>    sprog `null` og ikke `undefined` — og netop derfor **ser typetjekkeren den ikke**. Uden de to nye
+>    felter ville fixturet have givet `SettingsStore` `jiraDutyStatuses: undefined` i **hver** settings-
+>    spec, mens typerne lover `string[]`: grønt, tavst, i alle 178 Vitest. Fixturets egen doc-kommentar
+>    påstod desuden "**three** of them non-optional"; tallet er nu fem, og kommentaren er rettet med en
+>    linje om at typetjekkeren ikke dækker her.
+> 3. **Scriptet skriver *tre* filer, ikke fire.** `todo-client.ts`, `Contracts.g.cs` og `.source-hash`
+>    — `openapi.yaml` er håndskrevet og tælles med i commit'en, ikke i genereringen. Advarslen om
+>    `.source-hash` står ved magt; kun tællingen var skæv.
+> 4. Kosmetisk: `SettingsResponse.required` er nu filens længste linje (101 tegn mod 98). Der findes
+>    ingen linter på `contracts/openapi.yaml`. Skal der flere felter i listen, må den ombrydes.
+>
+> Endeligt: Core **83**, Api **168**, E2E **32**, Vitest **178** — alle på baseline, som forudsagt.
+
 **Step 3: Generér og verificér**
 
 ```bash
