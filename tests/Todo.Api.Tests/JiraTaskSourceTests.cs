@@ -143,6 +143,78 @@ public class JiraTaskSourceTests
         Assert.Equal(3, page.Items.Count);
     }
 
+    /// <summary>
+    /// The duty clause widens the query beyond assignee, which is the whole requirement. Asserting on
+    /// the JQL the source sent is the only place that can see it — the fake would happily answer a
+    /// query with no duty clause at all.
+    /// </summary>
+    [Fact]
+    public async Task On_duty_the_query_also_asks_for_the_pool()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        await jira.SourceFor("SAAS", duty: ["Afventer general"], onDuty: true).FetchAssignedAsync();
+
+        Assert.Contains("project = SAAS", jira.LastJql);
+        Assert.Contains("assignee = currentUser()", jira.LastJql);
+        Assert.Contains("status IN (\"Afventer general\")", jira.LastJql);
+        Assert.Contains(" OR ", jira.LastJql);
+    }
+
+    /// <summary>
+    /// Off duty the query must be what slice 11 sent. An empty IN list is not merely pointless —
+    /// `status IN ()` is a JQL syntax error, so a naive implementation fails against the real instance
+    /// while the fake answers anything. That is why this asserts on the string rather than the answer.
+    /// </summary>
+    [Fact]
+    public async Task Off_duty_the_query_is_unchanged()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        await jira.SourceFor("SAAS", duty: ["Afventer general"], onDuty: false).FetchAssignedAsync();
+
+        Assert.DoesNotContain("status IN", jira.LastJql);
+        Assert.DoesNotContain(" OR ", jira.LastJql);
+    }
+
+    [Fact]
+    public async Task An_empty_duty_list_adds_no_clause_even_on_duty()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        await jira.SourceFor("SAAS", duty: [], onDuty: true).FetchAssignedAsync();
+
+        Assert.DoesNotContain("status IN", jira.LastJql);
+    }
+
+    [Fact]
+    public async Task Two_duty_statuses_are_both_in_the_clause()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        await jira.SourceFor("SAAS", duty: ["Afventer general", "Venter på support"], onDuty: true)
+            .FetchAssignedAsync();
+
+        Assert.Contains("\"Afventer general\", \"Venter på support\"", jira.LastJql);
+    }
+
+    /// <summary>
+    /// A status name comes from a setting, and a setting is user input. JQL has quotes, so a name
+    /// carrying one could change the query's meaning. The picker only ever offers instance names, so
+    /// this cannot happen by accident — which is exactly why it needs a test rather than trust.
+    /// </summary>
+    [Fact]
+    public async Task A_status_name_with_a_quote_is_refused()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var exception = await Assert.ThrowsAsync<SourceException>(
+            () => jira.SourceFor("SAAS", duty: ["Af\"venter"], onDuty: true).FetchAssignedAsync());
+
+        Assert.Equal(ErrorCodes.JiraStatusNameInvalid, exception.Code);
+        Assert.Empty(jira.SearchRequests);
+    }
+
     [Fact]
     public async Task An_unreachable_host_becomes_a_source_exception()
     {

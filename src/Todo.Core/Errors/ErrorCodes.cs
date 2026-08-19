@@ -32,6 +32,7 @@ public static class ErrorCodes
     public const string JiraRowTitleRequired = "jira.rowTitleRequired";
     public const string JiraRowTitleTooLong = "jira.rowTitleTooLong";
     public const string JiraRowStatusRequired = "jira.rowStatusRequired";
+    public const string JiraStatusNameInvalid = "jira.statusNameInvalid";
 
     /// <summary>
     /// Both an error code and the value of <c>excluded</c> on a preview row, so the frontend

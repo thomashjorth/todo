@@ -188,7 +188,15 @@ public sealed class FakeJira : IAsyncDisposable
     /// A real <see cref="JiraTaskSource"/> over a real <see cref="HttpClient"/>, pointed at this
     /// fake. Not the DI constructor, because there is no database here to read settings out of.
     /// </summary>
-    public JiraTaskSource SourceFor(string projectKey) => JiraTaskSource.With(
+    /// <param name="duty">
+    /// The statuses the duty rotation covers. Null rather than <c>[]</c> as the default because a
+    /// collection expression is not a compile-time constant and cannot be a parameter default; the
+    /// two are the same thing to a caller, and every test written before duty existed keeps sending
+    /// an empty list without saying so.
+    /// </param>
+    /// <param name="onDuty">Whether the rotation is currently on.</param>
+    public JiraTaskSource SourceFor(
+        string projectKey, string[]? duty = null, bool onDuty = false) => JiraTaskSource.With(
         _client,
         new JiraSettings(
             BaseUrl: BaseUrl,
@@ -196,8 +204,8 @@ public sealed class FakeJira : IAsyncDisposable
             Token: Token,
             WaitingStatuses: [],
             IncludeWaiting: false,
-            DutyStatuses: [],
-            OnDuty: false));
+            DutyStatuses: duty ?? [],
+            OnDuty: onDuty));
 
     /// <summary>
     /// Stops answering while keeping <see cref="BaseUrl"/>. Nothing is listening on the port
