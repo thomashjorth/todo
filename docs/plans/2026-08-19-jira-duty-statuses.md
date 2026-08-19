@@ -487,6 +487,60 @@ git commit -m "✨ Udvid JQL'en med puljen, kun når vagten er slået til"
 
 **Det er planens kerne.** Læs beslutning 2 igen før du begynder.
 
+> **Omformet 2026-08-19 efter Task 3's overlevering, som målte at reglen bor to steder.**
+> `JiraEndpoints.cs` beregner `isWaiting` **to** gange — linje 92 (forhåndsvisning) og linje 159
+> (import) — så vagt-reglen er to steder den kan glemmes, og kun det ene har i dag en test der ville
+> bemærke det. **Udtræk beslutningen til én ren funktion i `Todo.Core` først**, og lad begge
+> kaldesteder bruge den. Så er der ét sted, én test, og Core har ingen HTTP at slås med.
+>
+> To filer, **én type pr. fil** som repoet kræver — også for enums:
+>
+> ```csharp
+> namespace Todo.Core.Jira;
+>
+> /// <summary>What a Jira status means to this user right now. Three roles, not two: Duty and
+> /// Actionable both import as Open, but only Duty is labelled on screen and only Waiting pays for a
+> /// changelog call.</summary>
+> public enum JiraStatusRole { Actionable, Duty, Waiting }
+> ```
+>
+> ```csharp
+> namespace Todo.Core.Jira;
+>
+> public static class JiraStatusRoles
+> {
+>     /// <summary>
+>     /// Branch order is load-bearing, exactly as in DeadlineBuckets.For. Duty wins: the same status
+>     /// means "waiting for the pool" when you are not it, and "waiting for you" when you are — so the
+>     /// switch decides, not the status. Reversing these two hides the work you hold the duty for.
+>     /// </summary>
+>     public static JiraStatusRole For(string statusName, JiraSettings settings)
+>     {
+>         if (settings.OnDuty
+>             && settings.DutyStatuses.Contains(statusName, StringComparer.Ordinal))
+>         {
+>             return JiraStatusRole.Duty;
+>         }
+>
+>         return settings.WaitingStatuses.Contains(statusName, StringComparer.Ordinal)
+>             ? JiraStatusRole.Waiting
+>             : JiraStatusRole.Actionable;
+>     }
+> }
+> ```
+>
+> `StringComparer.Ordinal` af samme grund som i skive 11 — navnene kommer fra instansen i samme form
+> begge veje, og skive 11 målte at netop det valg var **uvagtet**, indtil
+> `A_status_that_differs_only_in_case_is_not_the_waiting_status` blev skrevet.
+>
+> **Læg Core-tests på rækkefølgen** i `tests/Todo.Core.Tests/Jira/`. De kræver ingen host, og de er
+> det sted ombytningen skal ses fejle — Api-testene nedenfor måler at *endpointsene* bruger reglen,
+> Core-testene at reglen *er* rigtig. To forskellige påstande.
+>
+> **Trim og blank-filtrering hører ikke her.** Task 3 lagde dem i `JqlFor`, hvor de beskytter
+> forespørgslen. Sammenligningen her sker mod navne Jira selv har sendt tilbage, så en gentagelse
+> ville være den døde-trimning-fælde igen.
+
 **Step 1: Skriv de fejlende tests**
 
 ```csharp
