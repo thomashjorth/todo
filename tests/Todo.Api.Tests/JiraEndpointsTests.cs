@@ -156,6 +156,33 @@ public class JiraEndpointsTests : ApiTest
         Assert.Null(row.WaitingSince);
     }
 
+    /// <summary>
+    /// The comparison is Ordinal, and that is a choice rather than an accident: the status names
+    /// come from the instance in the same spelling both ways — the user picks them from
+    /// /api/jira/statuses, and they come back on the issues — so nothing legitimate needs a
+    /// case-insensitive match. The price of one is real, though. "Afventer Kunden" and "Afventer
+    /// kunden" <em>can</em> be two different statuses in Jira, and OrdinalIgnoreCase would fold
+    /// them into one where nobody could see it happen.
+    ///
+    /// This guard exists because a mutation felled nothing: swapping Ordinal for OrdinalIgnoreCase
+    /// in the preview left all 166 Api tests green, because every other fixture spells the status
+    /// identically on both sides. So the next person weighing OrdinalIgnoreCase can see the choice
+    /// was measured rather than arbitrary.
+    /// </summary>
+    [Fact]
+    public async Task A_status_that_differs_only_in_case_is_not_the_waiting_status()
+    {
+        await using var jira = await ConfigureAsync(
+            includeWaiting: true, waitingStatuses: ["afventer general"]);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-2");
+
+        Assert.False(row.IsWaiting);
+        // The half that makes this two-sided: not merely that the row is not waiting, but that the
+        // code never went out for a changelog it had no reason to want.
+        Assert.Empty(jira.ChangelogRequests);
+    }
+
     [Fact]
     public async Task Importing_writes_the_rows_as_tasks()
     {
