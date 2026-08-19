@@ -81,6 +81,8 @@
     "preview": "Load issues",
     "notConfigured": "Jira is not set up, so there are no issues to load.",
     "settingsLink": "Set Jira up under Settings",
+    "onDuty": "You are on duty — the pool's issues are included.",
+    "fromDutyPool": "from the shared duty pool",
     "noneAssigned": "No issue is assigned to you.",
     "showing": "Showing {{shown}} of {{total}} issues.",
     "statusValue": "Status: {{value}}",
@@ -129,7 +131,11 @@
       "waitingStatuses": "Which statuses mean you are waiting?",
       "loadStatuses": "Load statuses",
       "statusesEmpty": "Load the statuses to pick them. If the connection does not work, the list comes back empty.",
-      "includeWaiting": "Import issues you are waiting for too"
+      "includeWaiting": "Import issues you are waiting for too",
+      "dutyStatuses": "Which statuses mean the issue is waiting for the shared duty pool?",
+      "dutyStatusesHint": "Duty beats waiting: if a status is on both lists, the switch below decides what it means.",
+      "onDuty": "I am on duty",
+      "onDutyHint": "The pool's issues are included in the import, even when they are not assigned to you, and they arrive actionable rather than waiting."
     }
   },
   "errors": {
@@ -163,6 +169,7 @@
       "rowTitleRequired": "An issue is missing its title.",
       "rowTitleTooLong": "An issue title is too long.",
       "rowStatusRequired": "An issue is missing its status.",
+      "statusNameInvalid": "A status name cannot contain a quotation mark or a backslash. Load the statuses again under Settings.",
       "excludedWaiting": "You are waiting for it, and waiting issues are turned off."
     },
     "system": {

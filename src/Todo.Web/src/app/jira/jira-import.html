@@ -17,6 +17,15 @@
     >
   </p>
 } @else {
+  <!-- Den eneste måde tilstanden kan ses. Slås kontakten fra, flytter de samme sager sig tavst ind
+       under Venter på: en vagt-række på wiren er kun kendetegnet ved isDuty, ellers ligner den en
+       almindelig åben række. Derfor ord her frem for en slutdato der skulle udløbe ved midnat. -->
+  @if (settings.jiraOnDuty()) {
+    <p data-testid="jira-on-duty-notice" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+      {{ 'jira.onDuty' | transloco }}
+    </p>
+  }
+
   <button
     type="button"
     data-testid="jira-preview"
@@ -92,6 +101,16 @@
                 <span class="block text-xs text-gray-500 dark:text-gray-400">{{
                   'jira.deadlineValue' | transloco: { value: row.deadline | deadlineDate }
                 }}</span>
+              }
+              <!-- Kontekst, ikke en fejl eller en advarsel: rækken er handlingsklar, den er blot
+                   ikke tildelt dig. Serveren ejer isDuty og udleder den igen ved import, så den
+                   må ikke genudledes her ud af status og indstillinger. -->
+              @if (row.isDuty) {
+                <span
+                  data-testid="jira-duty"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'jira.fromDutyPool' | transloco }}</span
+                >
               }
               <!-- Udeladt vises frem for at skjules: skjult ville sagen ligne en Jira havde tabt,
                    og indstillingen jiraIncludeWaiting ville være usynlig. -->

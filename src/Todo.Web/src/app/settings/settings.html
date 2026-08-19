@@ -184,6 +184,61 @@
     }}</span>
   </label>
 
+  <!-- Efter den ventende, ikke før: vagten *overskriver* ventende, og læses de i omvendt
+       rækkefølge ser det ud som om ventende vinder. -->
+  <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
+    {{ 'settings.jira.dutyStatuses' | transloco }}
+  </h4>
+
+  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+    {{ 'settings.jira.dutyStatusesHint' | transloco }}
+  </p>
+
+  @if (dutyStatusOptions().length === 0) {
+    <p data-testid="jira-duty-statuses-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
+      {{ 'settings.jira.statusesEmpty' | transloco }}
+    </p>
+  } @else {
+    <ul class="mt-2 space-y-1">
+      @for (status of dutyStatusOptions(); track status) {
+        <li data-testid="jira-duty-status-row">
+          <label class="flex items-center gap-2">
+            <input
+              #duty
+              type="checkbox"
+              class="shrink-0"
+              [checked]="isDutyStatus(status)"
+              (change)="toggleDutyStatus(status, duty.checked)"
+            />
+            <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+              status
+            }}</span>
+          </label>
+        </li>
+      }
+    </ul>
+  }
+
+  <label class="mt-3 flex items-center gap-2">
+    <input
+      #onDuty
+      data-testid="jira-on-duty"
+      type="checkbox"
+      class="shrink-0"
+      [checked]="settings.jiraOnDuty()"
+      (change)="setOnDuty(onDuty.checked)"
+    />
+    <span class="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">{{
+      'settings.jira.onDuty' | transloco
+    }}</span>
+  </label>
+
+  <!-- Ord frem for kun en mærkat: kontakten henter puljens sager *og* gør dem handlingsklare, og
+       en kontakt der kun hedder Jeg har vagten siger ikke det sidste. -->
+  <p data-testid="jira-on-duty-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+    {{ 'settings.jira.onDutyHint' | transloco }}
+  </p>
+
   @if (jira.error(); as message) {
     <p data-testid="jira-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
       {{ message }}

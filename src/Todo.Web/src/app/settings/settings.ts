@@ -27,18 +27,19 @@ export class Settings {
   // Following the system is the absence of a stored language, so it needs a name of its own here.
   protected readonly choice = computed(() => this.settings.language() ?? 'system');
 
-  /**
-   * The statuses that can be ticked: what Jira answered, plus any already on the waiting list.
-   * Without the second half a stored status could not be unticked until the connection worked.
-   */
-  protected readonly statusOptions = computed(() => {
-    const chosen = this.settings.jiraWaitingStatuses();
+  /** The statuses that can be ticked as "I am waiting for it". */
+  protected readonly statusOptions = computed(() =>
+    this.optionsFor(this.settings.jiraWaitingStatuses()),
+  );
 
-    return [
-      ...this.jira.statuses(),
-      ...chosen.filter((name) => !this.jira.statuses().includes(name)),
-    ];
-  });
+  /**
+   * The same fetched list, offered a second time for the duty pool. There is deliberately no second
+   * call: GET /api/jira/statuses answers with every status in the project, and both questions are
+   * asked of that one answer.
+   */
+  protected readonly dutyStatusOptions = computed(() =>
+    this.optionsFor(this.settings.jiraDutyStatuses()),
+  );
 
   constructor() {
     void this.retro.loadAliases();
@@ -93,6 +94,25 @@ export class Settings {
     void this.settings.save({ jiraIncludeWaiting: include });
   }
 
+  protected isDutyStatus(status: string): boolean {
+    return this.settings.jiraDutyStatuses().includes(status);
+  }
+
+  protected toggleDutyStatus(status: string, duty: boolean): void {
+    const current = this.settings.jiraDutyStatuses();
+    if (duty === current.includes(status)) {
+      return;
+    }
+
+    void this.settings.save({
+      jiraDutyStatuses: duty ? [...current, status] : current.filter((n) => n !== status),
+    });
+  }
+
+  protected setOnDuty(onDuty: boolean): void {
+    void this.settings.save({ jiraOnDuty: onDuty });
+  }
+
   protected addAlias(input: HTMLInputElement): void {
     const alias = input.value.trim();
     if (!alias || this.retro.aliases().includes(alias)) {
@@ -105,5 +125,15 @@ export class Settings {
 
   protected removeAlias(alias: string): void {
     void this.retro.saveAliases(this.retro.aliases().filter((a) => a !== alias));
+  }
+
+  /**
+   * What Jira answered, plus anything already chosen that Jira did not mention. Without the second
+   * half a stored status could not be unticked until the connection worked again.
+   */
+  private optionsFor(chosen: readonly string[]): string[] {
+    const fetched = this.jira.statuses();
+
+    return [...fetched, ...chosen.filter((name) => !fetched.includes(name))];
   }
 }
