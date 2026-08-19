@@ -22,8 +22,10 @@ function configure(system: string): { store: SettingsStore; http: HttpTestingCon
 }
 
 /**
- * Every field of the settings response, because the contract makes three of them non-optional and
+ * Every field of the settings response, because the contract makes five of them non-optional and
  * a fixture that leaves one out would hand the store an undefined the types say cannot happen.
+ * The type checker cannot catch that here — this shape is not `ISettingsResponse` — so a field
+ * added to the contract has to be added by hand.
  * Written as its own shape rather than as `Partial<ISettingsResponse>`: the generated interface
  * spells an absent language `undefined`, and the wire spells it `null`.
  */
@@ -33,6 +35,8 @@ interface SettingsJson {
   jiraProjectKey?: string | null;
   jiraWaitingStatuses?: string[];
   jiraIncludeWaiting?: boolean;
+  jiraDutyStatuses?: string[];
+  jiraOnDuty?: boolean;
   hasJiraToken?: boolean;
 }
 
@@ -44,6 +48,8 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       jiraProjectKey: null,
       jiraWaitingStatuses: [],
       jiraIncludeWaiting: false,
+      jiraDutyStatuses: [],
+      jiraOnDuty: false,
       hasJiraToken: false,
       ...overrides,
     }),
@@ -150,6 +156,8 @@ describe('SettingsStore', () => {
         jiraProjectKey: 'SAAS',
         jiraWaitingStatuses: ['Afventer general', 'Afventer kunde'],
         jiraIncludeWaiting: true,
+        jiraDutyStatuses: ['Afventer general'],
+        jiraOnDuty: true,
         hasJiraToken: true,
       }),
     );
@@ -159,18 +167,24 @@ describe('SettingsStore', () => {
     expect(store.jiraProjectKey()).toBe('SAAS');
     expect(store.jiraWaitingStatuses()).toEqual(['Afventer general', 'Afventer kunde']);
     expect(store.jiraIncludeWaiting()).toBe(true);
+    expect(store.jiraDutyStatuses()).toEqual(['Afventer general']);
+    expect(store.jiraOnDuty()).toBe(true);
     expect(store.hasJiraToken()).toBe(true);
   });
 
   it('should keep every setting in the request so saving one does not clear another', async () => {
     // The backend reads an absent field as "clear". SettingsStore.save must therefore carry all
-    // five fields, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil to this.
+    // seven fields, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil to this.
+    // The duty pair is in here rather than in a test of its own: two tests each asserting half of
+    // the request would both pass while the other half was dropped.
     const { store, http } = configure('da-DK');
 
     store.jiraBaseUrl.set('https://jira.test');
     store.jiraProjectKey.set('SAAS');
     store.jiraWaitingStatuses.set(['Afventer general']);
     store.jiraIncludeWaiting.set(true);
+    store.jiraDutyStatuses.set(['Afventer general', 'Afventer 2nd level']);
+    store.jiraOnDuty.set(true);
 
     const saved = store.save({ language: 'en' });
 
@@ -182,6 +196,8 @@ describe('SettingsStore', () => {
       jiraProjectKey: 'SAAS',
       jiraWaitingStatuses: ['Afventer general'],
       jiraIncludeWaiting: true,
+      jiraDutyStatuses: ['Afventer general', 'Afventer 2nd level'],
+      jiraOnDuty: true,
     });
     request.flush(
       settingsJson({
@@ -190,11 +206,15 @@ describe('SettingsStore', () => {
         jiraProjectKey: 'SAAS',
         jiraWaitingStatuses: ['Afventer general'],
         jiraIncludeWaiting: true,
+        jiraDutyStatuses: ['Afventer general', 'Afventer 2nd level'],
+        jiraOnDuty: true,
       }),
     );
     await saved;
 
     expect(store.jiraProjectKey()).toBe('SAAS');
+    expect(store.jiraDutyStatuses()).toEqual(['Afventer general', 'Afventer 2nd level']);
+    expect(store.jiraOnDuty()).toBe(true);
   });
 
   // The same guard from the other side: a language chosen through the select must not take the

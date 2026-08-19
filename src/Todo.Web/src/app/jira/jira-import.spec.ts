@@ -15,18 +15,24 @@ interface PreviewRowJson {
   requester?: string;
   status: string;
   isWaiting: boolean;
+  isDuty: boolean;
   waitingSince?: string;
   alreadyImported: boolean;
   excluded?: string;
 }
 
-/** The wire shape, not the generated class: this is what the server sends. */
+/**
+ * The wire shape, not the generated class: this is what the server sends. <c>isDuty</c> is spelled
+ * out here rather than left to the type, because this interface is its own shape — a field the
+ * screen forgot to read would be a silently missing label, not a compiler error.
+ */
 function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
   return {
     key: 'SAAS-1',
     title: 'Ret rapporten',
     status: 'I gang',
     isWaiting: false,
+    isDuty: false,
     alreadyImported: false,
     ...overrides,
   };
@@ -41,11 +47,12 @@ interface Screen {
 }
 
 /** Jira is set up, which is what puts the Load button on the screen at all. */
-function configure(): void {
+function configure(onDuty = false): void {
   const settings = TestBed.inject(SettingsStore);
   settings.jiraBaseUrl.set('https://jira.test');
   settings.jiraProjectKey.set('SAAS');
   settings.hasJiraToken.set(true);
+  settings.jiraOnDuty.set(onDuty);
 }
 
 function open(): Screen {
@@ -68,8 +75,8 @@ function settled(screen: Screen, selector: string): Promise<HTMLElement> {
   });
 }
 
-async function preview(body: unknown): Promise<Screen> {
-  configure();
+async function preview(body: unknown, onDuty = false): Promise<Screen> {
+  configure(onDuty);
   const screen = open();
 
   screen.element.querySelector<HTMLButtonElement>('[data-testid="jira-preview"]')!.click();
@@ -173,6 +180,51 @@ describe('JiraImport', () => {
     // Not the excluded reason: the two states have to be told apart on the screen.
     expect(reason.textContent).not.toContain(waitingReason);
     expect(element.querySelector('[data-testid="jira-excluded"]')).toBeNull();
+  });
+
+  it('should label the pool issue, and only it, without switching it off', async () => {
+    // On the wire a duty row is told apart from an ordinary open one by isDuty alone: isWaiting is
+    // false, excluded is absent and so is waitingSince. Both rows here are identical but for that
+    // one field, so the label cannot be right by accident.
+    const { element } = await preview(
+      {
+        total: 2,
+        rows: [
+          row({
+            key: 'SAAS-1',
+            title: 'Nulstil brugerens kodeord',
+            status: 'Afventer general',
+            isDuty: true,
+          }),
+          row({ key: 'SAAS-2', title: 'Min egen sag', status: 'Afventer general' }),
+        ],
+      },
+      true,
+    );
+
+    const labels = [...element.querySelectorAll('[data-testid="jira-duty"]')];
+    expect(labels).toHaveLength(1);
+    expect(labels[0].textContent!.trim()).toBe('fra den generelle pulje');
+    expect(rows(element)[0].contains(labels[0])).toBe(true);
+
+    // Context, not a reason to skip: the pool's issues are exactly the ones the duty is for.
+    expect(checkboxes(element).map((c) => c.disabled)).toEqual([false, false]);
+    expect(checkboxes(element).map((c) => c.checked)).toEqual([true, true]);
+    expect(element.querySelector('[data-testid="jira-excluded"]')).toBeNull();
+  });
+
+  it('should say that the duty is on, and say nothing when it is off', async () => {
+    const on = await preview({ total: 1, rows: [row({ isDuty: true })] }, true);
+
+    const notice = on.element.querySelector('[data-testid="jira-on-duty-notice"]');
+    expect(notice).not.toBeNull();
+    expect(notice!.textContent).toContain('Du har vagten — puljens sager er med.');
+
+    // The same issues move silently into "Waiting for" when the switch is off, so the marker is
+    // the only way the state can be seen at all.
+    TestBed.inject(SettingsStore).jiraOnDuty.set(false);
+    on.fixture.detectChanges();
+    expect(on.element.querySelector('[data-testid="jira-on-duty-notice"]')).toBeNull();
   });
 
   it('should say which of the two reasons emptied the selection, and how many', async () => {

@@ -21,6 +21,8 @@ export interface SettingsChanges {
   jiraProjectKey?: string | null;
   jiraWaitingStatuses?: readonly string[];
   jiraIncludeWaiting?: boolean;
+  jiraDutyStatuses?: readonly string[];
+  jiraOnDuty?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -35,6 +37,15 @@ export class SettingsStore {
   readonly jiraProjectKey = signal<string | null>(null);
   readonly jiraWaitingStatuses = signal<string[]>([]);
   readonly jiraIncludeWaiting = signal(false);
+
+  /**
+   * The statuses that mean "waiting for the shared duty pool", and whether the rotation is mine
+   * right now. Both are read here only to be shown and saved — whether a given row <em>is</em> a
+   * duty row is the server's answer, in JiraPreviewRow.isDuty, so the two lists are never compared
+   * in the browser.
+   */
+  readonly jiraDutyStatuses = signal<string[]>([]);
+  readonly jiraOnDuty = signal(false);
 
   /**
    * Whether a token is stored. There is deliberately no signal for the token itself: it is
@@ -54,7 +65,7 @@ export class SettingsStore {
     await this.apply();
   }
 
-  /** The language select's one path to the server, so it cannot forget the other four fields. */
+  /** The language select's one path to the server, so it cannot forget the other six fields. */
   async choose(language: string | null): Promise<void> {
     await this.save({ language });
   }
@@ -62,8 +73,8 @@ export class SettingsStore {
   /**
    * PUT /api/settings is a full replacement and the backend reads an absent field as "clear", so
    * every field goes with every save — the same reason TaskStore.update builds a `current` object.
-   * A field whose value <em>is</em> the cleared one (no URL, no statuses, waiting off) is sent as
-   * absent, because that is how the wire spells cleared; language especially, which the API
+   * A field whose value <em>is</em> the cleared one (no URL, no statuses, waiting off, off duty) is
+   * sent as absent, because that is how the wire spells cleared; language especially, which the API
    * rejects as an empty string but accepts as missing.
    */
   async save(changes: SettingsChanges): Promise<void> {
@@ -73,16 +84,21 @@ export class SettingsStore {
       jiraProjectKey: this.jiraProjectKey(),
       jiraWaitingStatuses: this.jiraWaitingStatuses(),
       jiraIncludeWaiting: this.jiraIncludeWaiting(),
+      jiraDutyStatuses: this.jiraDutyStatuses(),
+      jiraOnDuty: this.jiraOnDuty(),
       ...changes,
     };
 
-    const statuses = [...(next.jiraWaitingStatuses ?? [])];
+    const waiting = [...(next.jiraWaitingStatuses ?? [])];
+    const duty = [...(next.jiraDutyStatuses ?? [])];
     const request = new SettingsRequest({
       language: blank(next.language),
       jiraBaseUrl: blank(next.jiraBaseUrl),
       jiraProjectKey: blank(next.jiraProjectKey),
-      jiraWaitingStatuses: statuses.length === 0 ? undefined : statuses,
+      jiraWaitingStatuses: waiting.length === 0 ? undefined : waiting,
       jiraIncludeWaiting: next.jiraIncludeWaiting === true ? true : undefined,
+      jiraDutyStatuses: duty.length === 0 ? undefined : duty,
+      jiraOnDuty: next.jiraOnDuty === true ? true : undefined,
     });
 
     this.error.set(null);
@@ -125,6 +141,8 @@ export class SettingsStore {
     this.jiraProjectKey.set(response.jiraProjectKey ?? null);
     this.jiraWaitingStatuses.set(response.jiraWaitingStatuses);
     this.jiraIncludeWaiting.set(response.jiraIncludeWaiting);
+    this.jiraDutyStatuses.set(response.jiraDutyStatuses);
+    this.jiraOnDuty.set(response.jiraOnDuty);
     this.hasJiraToken.set(response.hasJiraToken);
   }
 

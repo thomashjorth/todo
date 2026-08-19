@@ -13,6 +13,7 @@ interface PreviewRowJson {
   requester?: string;
   status: string;
   isWaiting: boolean;
+  isDuty: boolean;
   waitingSince?: string;
   alreadyImported: boolean;
   excluded?: string;
@@ -24,6 +25,7 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
     title: 'En',
     status: 'I gang',
     isWaiting: false,
+    isDuty: false,
     alreadyImported: false,
     ...overrides,
   };

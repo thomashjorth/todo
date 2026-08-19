@@ -247,6 +247,34 @@ liste. Projektnøglen er derfor et **krav** med sin egen fejlkode (`jira.project
 et valgfrit filter der falder tilbage på alt. Samme klasse af fælde som et tomt filter i en
 databaseforespørgsel: fraværet af en afgrænsning er ikke en neutral standard.
 
+**Vagt slår ventende.** `JiraStatusRoles.For` spørger om vagten **først**: står et statusnavn i
+*begge* lister, og er kontakten slået til, er rollen `Duty` — ikke `Waiting`. Samme status betyder
+*venter på puljen* når du ikke har vagten, og *venter på dig* når du har den, så det er kontakten
+der afgør det, ikke statussen. Rækkefølgen er load-bearing på linje med `DeadlineBuckets.For`'s
+grene, og **gættet uden begrundelsen falder den anden vej**: ventende er den ældste regel, så man
+tror den vinder. Byttes de to om, importeres puljens sager som `WaitingFor` og forsvinder ud af
+deadline-sektionerne — netop det arbejde du har vagten for, skjult. Reglen bor **ét** sted, fordi
+den træffes to gange: i forhåndsvisningen og i importen.
+
+**Der er fire Jira-indstillinger, og de to par gør hver sin ting.** `jiraWaitingStatuses` +
+`jiraIncludeWaiting` er en **mapning**: navnene siger hvilke statusser der *betyder* ventende, og
+kontakten siger om de sager alligevel må komme med. `jiraDutyStatuses` + `jiraOnDuty` **udvider
+hvad der hentes**: navnene lægger et `OR status IN (…)`-led på JQL'en, så puljens sager — som ikke
+er tildelt dig — overhovedet kommer med i svaret, og kontakten siger om det led skal med. Læs ikke
+det andet par som endnu et filter over det første; det ene *oversætter* et svar, det andet *ændrer
+spørgsmålet*.
+
+**Parenteserne om disjunktionen i JQL'en er load-bearing.** `AND` binder tættere end `OR`, så
+`project = X AND resolution = Unresolved AND assignee = Y OR status IN (…)` læses som
+`(project = X AND resolution = Unresolved AND assignee = Y) OR status IN (…)` — og højresiden står
+frit: enhver sag i en vagt-status fra **alle fire projekter** PAT'en ser, kundeprojektet `KK`
+iberegnet, og løste sager med. Kun assignee'en må ind i disjunktionen; projektet og resolutionen
+skal blive konjunktioner:
+`project = X AND resolution = Unresolved AND (assignee = Y OR status IN (…))`. Bemærk at skive 11's
+`An_empty_project_key_refuses…` er **blind** for det: projektnøglen *er* sat, den er blot havnet
+inde i en parentes der forsvandt. Samme udfald som en tom projektnøgle, nået ad en vej ingen af de
+gamle vagter kigger ned.
+
 **Et hemmeligt felt skal have sit eget endpoint.** `PUT /api/settings` er en fuld erstatning der
 læser et fraværende felt som "ryd", og tokenet kan aldrig sendes *tilbage* til klienten — så en
 klient der gemmer noget andet på siden, ville rydde tokenet hver gang. Tokenet har derfor
@@ -316,6 +344,23 @@ forkerte grund.
   `DeadlineBucket` kan ikke få drift-testen til at fejle, uanset hvordan den serialiseres, så den
   har sin egen påstand — `"bucket":"deferred"` — i
   `Wire_format_uses_the_names_the_contract_declares`. Læg en ny værdi der, ikke kun i kontrakten.
+- **Tre håndskrevne wire-fixtures har ingen compiler over sig.** `settings-store.spec.ts`,
+  `settings.spec.ts` og `jira-import.spec.ts` beskriver hver især serverens svar som et objekt
+  skrevet i hånden — bevidst, fordi det er *wiren* de skal måle og ikke den genererede klasse — men
+  ingen af dem afstemmes mod kontrakten. Lægger en skive et felt på et svar og glemmer det her,
+  bliver de grønne på en form serveren ikke længere sender. Det er stedet en fremtidig skive taber
+  et felt; læg det nye felt i alle tre, og lad `ContrastTests`' og E2E-suitens rutehandlere være den
+  fjerde kopi du også skal huske.
+- **Paritetstesten kan ikke se en nøgle der mangler i *begge* sprogfiler.** `translations.spec.ts`
+  sammenligner `da.json` med `en.json` og med intet andet, så en symmetrisk mangel er de to filer
+  *enige* om — ordret samme blindvinkel som en før/efter-sammenligning over en migrering, hvor
+  før-billedet er lavet af migreringens egen `Down`. `jira.statusNameInvalid` stod uoversat i begge
+  filer gennem tre commits, og brugeren ville have fået den rå streng at se. Vagten er
+  `ErrorCodeTranslationTests` i `Todo.Api.Tests`: den enumererer hver `public const string` på
+  `ErrorCodes` med refleksion og kræver en `errors.<kode>`-nøgle i **begge** filer. Den er
+  **stærkere** end paritet og erstatter den ikke — paritet fanger den nøgle der kun findes i den ene
+  fil. Og den påstår desuden, at refleksionen fandt noget: uden det består den på ingenting, hvis
+  den en dag peger på den forkerte type. Samme grund som `--listFiles` på spec-typetjekkeren.
 - **En håndskrevet migrering skal have en vagt på *kolonnemængden*, ikke kun på rækkerne.**
   `LongIds` navngiver hver kolonne eksplicit i sin `CREATE TABLE` og sit `INSERT … SELECT`, og
   SQLite fjerner en kolonne uden at sige noget. Den første vagt såede fem af `Tasks`' tretten
@@ -389,6 +434,13 @@ forkerte grund.
   fordi grenene udelukker hinanden: en afvisning, en tom liste, en liste hvor hver række er
   blokeret, og en liste med én række der kan importeres. **Én rute-handler der læser en variabel**,
   ikke fire handlere, hvis præcedens ellers ville afgøre udfaldet.
+  **Og at opsnappe kaldet er ikke nok — kroppen skal bære feltet.** Vagt-mærkaten hænger på
+  `row.isDuty` alene, og handleren ovenfor sendte rækker **uden** feltet, så klienten læste
+  `undefined`, grenen var falsk, og ingen farve blev nogensinde malet — mens rutehandleren så ud til
+  at dække sagen. Samme klasse ét niveau dybere: et opsnappet kald er en tilstand, ikke alle
+  tilstande. Og en indstilling er den anden halvdel: `jira-on-duty-notice` står bag
+  `settings.jiraOnDuty()`, som kommer fra den **rigtige** backend og er `false`, så rejsen må klikke
+  kontakten til — den kan ikke opsnappes væk.
 - **En link-gren der hænger på et felt ingen builder kan sætte, er usynlig for enhver vagt.**
   `externalUrl` beregnes kun når `SourceId == JiraTaskSource.Id`, og `TaskItemBuilder` havde
   `FromRetro` men **ingen `FromJira`** — så `external-link` blev aldrig renderet i en eneste test,
@@ -424,9 +476,36 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 11 (Jira-import): **83** Todo.Core.Tests, **168** Todo.Api.Tests, **32** Todo.E2E,
-**178** Vitest.
+Efter vagt-statusserne fra Jira: **90** Todo.Core.Tests, **186** Todo.Api.Tests, **33** Todo.E2E,
+**184** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+
+Leverancen lagde **7** Core-tests til (83 → 90), **18** Api-tests (168 → 186), **1** E2E (32 → 33) og
+**6** Vitest (178 → 184). Fordelingen siger hvor arbejdet lå, og den er skæv med vilje.
+**Alle syv Core-tests er `JiraStatusRolesTests`** — reglen er en ren funktion af et statusnavn og to
+lister, så den hører i Core, og den er den ene ting i leverancen der kan gå galt uden at nogen kan
+se det: at vagt slår ventende, at samme status er ventende uden vagten, og at et navn der kun
+afviger i versalitet **ikke** er vagt.
+**De 18 Api-tests fordeler sig i tre bunker.** Otte i `JiraTaskSourceTests` om JQL'en, som måles mod
+den falske Jira på loopback: at leddet kommer med og kun med vagten, at en tom liste ikke giver
+`status IN ()`, at blanke navne trimmes eller falder ud, og at et anførselstegn afvises. Fem i
+`JiraEndpointsTests` om at en vagt-række ankommer `Open` frem for `WaitingFor`, og at den ikke koster
+et changelog-kald. Tre i `JiraSettingsEndpointsTests` om at listen og kontakten overlever en
+rundtur. Og **to** i `ErrorCodeTranslationTests`, som er en `[Theory]` over `da.json` og `en.json` —
+den er ikke om vagten, den er om det hul vagten faldt i: `jira.statusNameInvalid` stod uoversat i
+begge filer, og intet kunne fælde det.
+**Den ene E2E er hele rejsen**, `A_duty_issue_imports_into_the_deadline_sections_rather_than_among_the_waiting`:
+slå kontakten til, forhåndsvis, se mærkaten, importér, og find opgaven i "I dag" frem for i "Venter
+på". Det sidste led er det eneste der ville fange, at beslutningen blev omgjort — set fejle ved at
+mappe en vagt-række til `WaitingFor` i `JiraEndpoints`, hvorefter netop det led faldt og alle de
+foregående bestod. `ContrastTests` voksede **ikke** med en test: de to umålte grene kostede et
+`isDuty: true` i rutehandlerens krop og et klik på kontakten, inde i de fire teorier der allerede
+var der.
+**Vitest' seks er alle skærmlogik** — fire i `settings.spec.ts` om den anden statusvælger og
+kontakten, to i `jira-import.spec.ts` om mærkaten og markøren — fordi ingen af de to lister
+nogensinde sammenlignes i browseren: `isDuty` er serverens svar.
+
+Før den, efter skive 11 (Jira-import): 83 Core, 168 Api, 32 E2E, 178 Vitest.
 Skiven lagde **45** Core-tests til (38 → 83), **47** Api-tests (121 → 168), **7** E2E (25 → 32) og
 **35** Vitest (143 → 178). Fordelingen er værd at læse, for den siger hvor arbejdet lå:
 wiki-markup-konverteringen, `DeadlineBuckets` uberørt og `JiraSettings` er alle rene funktioner og

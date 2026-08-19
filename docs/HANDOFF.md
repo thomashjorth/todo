@@ -22,6 +22,18 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 10 | `long` som id: `Guid` er væk fra `TaskItem`, `SubTask` og `UserAlias`, og id'et tildeles af SQLite ved indsættelse, så **"opgave 42" kan siges højt**. Migreringen er skrevet i hånden — en `CAST` af Guid-strenge ville have flettet rækker sammen — og en vagt stiller rigtige Guid-rækker op foran den og kræver dem intakte bagefter | `2026-08-17-long-ids.md` |
 | 11 | **Jira-import** mod Data Center 10.3.24: `ITaskSource` + `JiraTaskSource`, wiki-markup → CommonMark, Jira-opsætning på indstillingssiden med tokenet på **sit eget** endpoint, en fjerde skærm med forhåndsvisning, grunde og dedup, `WaitingSince` læst af changeloggen, og "Åbn sagen" på en importeret række. **Ingen migrering** — `ExternalUrl` er beregnet, og `Ext*`-felterne plus afstemningen ligger bevidst i skive 14 | `2026-08-18-slice-11-jira-import.md` |
 
+**Uden for skiverne, som en udvidelse af skive 11: vagt-statusser fra Jira** (2026-08-19, plan i
+`docs/plans/2026-08-19-jira-duty-statuses.md`). To nye indstillinger — `jiraDutyStatuses` og
+`jiraOnDuty` — udvider JQL'en med et `OR status IN (…)`-led, **kun** når kontakten er slået til, så
+den generelle puljes sager kommer med selvom de ikke er tildelt dig. Reglen bor i
+`JiraStatusRoles.For` i `Todo.Core`, hvor **vagt slår ventende**: samme status er *ventende* uden
+vagten og *handlingsklar* med, så en puljesag importeres som `Open` og lander i deadline-sektionerne
+frem for i "Venter på". Forhåndsvisningen mærker rækken (`isDuty`), og import-skærmen siger med ord
+at vagten er slået til. **Den fik bevidst ikke et skivenummer** — ingen ny datamodel, ingen
+migrering, ingen ny skærm — af samme grund som Swagger-linket: et nummer ville have skubbet ADO til
+13 og hver skive efter den med. Se designdokumentets afsnit 4a og 9. **ADO-mentions er stadig ikke
+verificeret**, og målingen nedenfor bør køres, før skive 12 planlægges.
+
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, `ApiTest`/`BrowserTest`-basisklasser, og **linket til API-dokumentationen på
 health-linjen** (2026-08-17, plan i `docs/plans/2026-08-17-swagger-link.md`): "API: ok" har nu en
@@ -166,6 +178,18 @@ holder** — især hvis den ikke holder.
   forlader den ventende status i Jira forlader **ikke** automatisk "Venter på" hos dig. Serveren
   afgør det, ikke klienten — derfor bærer `JiraImportRow` intet `isWaiting`. Designdokumentets
   afsnit 4a.
+- **Vagten har tre uafgjorte ender, alle tre bevidste.** *(1)* **Ingen minder dig om at slukke** —
+  der er kun kontakten, ingen slutdato, fordi en slutdato ville kræve noget der kører ved midnat, og
+  skive 9 undgik netop det ved at gøre udskudtheden beregnet. Vi valgte **synlighed** frem for
+  automatik: import-skærmen siger med ord at vagten er slået til. *(2)* **Importerede pulje-sager
+  bliver liggende**, når en kollega tager sagen: `Status` er lokal efter import — det er det rigtige
+  design, men puljen churner mere end egne sager, så konsekvensen rammer hårdere her. En afstemning
+  kræver skive 14's sync. *(3)* **`alreadyImported` gælder på tværs af vagtuger**, fordi dedup er
+  `SourceId` + `ExternalKey` uden hensyn til hvornår. Formentlig rigtigt — opgaven ligger jo allerede
+  på listen — men **uprøvet i brug**. Designdokumentets afsnit 4a.
+- **Puljens størrelse hviler på to slags fakta.** **2** sager målt 2026-08-19, og **op til 10**
+  oplyst af brugeren som en **procesgrænse** — den holder fordi rotationen kører, ikke fordi noget
+  håndhæver den. Koden afhænger ikke af nogen af dem; pagineringen tager vilkårlig størrelse.
 - **Ingen test kalder den rigtige Jira.** `JiraTaskSource` måles mod en falsk instans på loopback, og
   den eneste vagt på den rigtige er, at intet i repoet må navngive den. Offsetformen `+0200` og
   changelog-formen er derfor afskrevet fra en måling 2026-08-18, ikke fra en løbende test — en

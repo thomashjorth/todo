@@ -81,6 +81,8 @@
     "preview": "Hent sager",
     "notConfigured": "Jira er ikke sat op, så der er ingen sager at hente.",
     "settingsLink": "Sæt Jira op under Indstillinger",
+    "onDuty": "Du har vagten — puljens sager er med.",
+    "fromDutyPool": "fra den generelle pulje",
     "noneAssigned": "Ingen sager er tildelt dig.",
     "showing": "Viser {{shown}} af {{total}} sager.",
     "statusValue": "Status: {{value}}",
@@ -129,7 +131,11 @@
       "waitingStatuses": "Hvilke statusser betyder, at du venter?",
       "loadStatuses": "Hent statusser",
       "statusesEmpty": "Hent statusserne for at vælge dem. Virker forbindelsen ikke, kommer listen tom tilbage.",
-      "includeWaiting": "Importér også sager du venter på"
+      "includeWaiting": "Importér også sager du venter på",
+      "dutyStatuses": "Hvilke statusser betyder, at sagen venter på den generelle pulje?",
+      "dutyStatusesHint": "Vagt slår ventende: står en status på begge lister, afgør kontakten nedenfor hvad den betyder.",
+      "onDuty": "Jeg har vagten",
+      "onDutyHint": "Puljens sager kommer med i importen, også når de ikke er tildelt dig, og de lander som handlingsklare frem for ventende."
     }
   },
   "errors": {
@@ -163,6 +169,7 @@
       "rowTitleRequired": "En sag mangler sin titel.",
       "rowTitleTooLong": "En sags titel er for lang.",
       "rowStatusRequired": "En sag mangler sin status.",
+      "statusNameInvalid": "Et statusnavn må ikke indeholde anførselstegn eller backslash. Hent statusserne igen under Indstillinger.",
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra."
     },
     "system": {

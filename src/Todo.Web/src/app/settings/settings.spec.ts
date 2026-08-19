@@ -29,6 +29,8 @@ interface JiraFixture {
   jiraProjectKey?: string | null;
   jiraWaitingStatuses?: string[];
   jiraIncludeWaiting?: boolean;
+  jiraDutyStatuses?: string[];
+  jiraOnDuty?: boolean;
   hasJiraToken?: boolean;
 }
 
@@ -40,6 +42,8 @@ function settingsJson(language: string | null, jira: JiraFixture = {}): Blob {
       jiraProjectKey: null,
       jiraWaitingStatuses: [],
       jiraIncludeWaiting: false,
+      jiraDutyStatuses: [],
+      jiraOnDuty: false,
       hasJiraToken: false,
       ...jira,
     }),
@@ -370,5 +374,100 @@ describe('Settings', () => {
       jiraWaitingStatuses: ['Afventer general'],
     });
     saved.flush(settingsJson(null, { jiraWaitingStatuses: ['Afventer general'] }));
+  });
+
+  it('should show the stored duty statuses and say what having the duty does', async () => {
+    const screen = await open(null, [], {
+      jiraDutyStatuses: ['Afventer general'],
+      jiraOnDuty: true,
+    });
+
+    expect(field(screen.element, 'jira-on-duty').checked).toBe(true);
+
+    const rows = screen.element.querySelectorAll('[data-testid="jira-duty-status-row"]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('Afventer general');
+    expect(rows[0].querySelector<HTMLInputElement>('input')!.checked).toBe(true);
+
+    // A switch that only says "I am on duty" does not say that it also moves issues out of
+    // "Waiting for", which is the half a user cannot see anywhere else.
+    const hint = screen.element.querySelector('[data-testid="jira-on-duty-hint"]')!;
+    expect(hint.textContent).toContain('også når de ikke er tildelt dig');
+    expect(hint.textContent).toContain('handlingsklare frem for ventende');
+  });
+
+  // Duty overrides waiting, so the page has to ask in that order: read the other way round it
+  // looks as though the waiting list wins.
+  it('should ask about the duty pool after asking about waiting', async () => {
+    const { element } = await open(null, [], {
+      jiraWaitingStatuses: ['Afventer kunde'],
+      jiraDutyStatuses: ['Afventer general'],
+    });
+
+    const order = [...element.querySelectorAll('[data-testid]')].map((e) =>
+      e.getAttribute('data-testid'),
+    );
+
+    for (const id of ['jira-status-row', 'jira-include-waiting', 'jira-duty-status-row']) {
+      expect(order).toContain(id);
+    }
+
+    expect(order.indexOf('jira-status-row')).toBeLessThan(order.indexOf('jira-duty-status-row'));
+    expect(order.indexOf('jira-include-waiting')).toBeLessThan(order.indexOf('jira-on-duty'));
+  });
+
+  it('should offer the one fetched status list for the duty pool too', async () => {
+    const screen = await open(null);
+
+    expect(
+      screen.element.querySelector('[data-testid="jira-duty-statuses-empty"]')!.textContent,
+    ).toContain('Hent statusserne for at vælge dem.');
+
+    press(screen.element, 'jira-load-statuses');
+    screen.http
+      .expectOne('/api/jira/statuses')
+      .flush(new Blob([JSON.stringify({ names: ['I gang', 'Afventer general'] })]));
+
+    // One answer, both questions: a second call would be a second round trip for a list the
+    // screen already has.
+    const rows = await settled(screen, () => {
+      const found = screen.element.querySelectorAll('[data-testid="jira-duty-status-row"]');
+      expect(found).toHaveLength(2);
+      return found;
+    });
+    screen.http.verify();
+
+    rows[1].querySelector<HTMLInputElement>('input')!.click();
+
+    const saved = screen.http.expectOne('/api/settings');
+    // The waiting list is absent because it is empty, not because ticking a duty status cleared
+    // it — the store sends every field on every save.
+    expect(JSON.parse(saved.request.body)).toEqual({ jiraDutyStatuses: ['Afventer general'] });
+    saved.flush(settingsJson(null, { jiraDutyStatuses: ['Afventer general'] }));
+  });
+
+  it('should save the duty switch without disturbing the waiting list', async () => {
+    const screen = await open(null, [], {
+      jiraWaitingStatuses: ['Afventer general'],
+      jiraDutyStatuses: ['Afventer general'],
+    });
+
+    field(screen.element, 'jira-on-duty').click();
+
+    const saved = screen.http.expectOne('/api/settings');
+    expect(JSON.parse(saved.request.body)).toEqual({
+      jiraWaitingStatuses: ['Afventer general'],
+      jiraDutyStatuses: ['Afventer general'],
+      jiraOnDuty: true,
+    });
+    saved.flush(
+      settingsJson(null, {
+        jiraWaitingStatuses: ['Afventer general'],
+        jiraDutyStatuses: ['Afventer general'],
+        jiraOnDuty: true,
+      }),
+    );
+
+    await settled(screen, () => expect(field(screen.element, 'jira-on-duty').checked).toBe(true));
   });
 });

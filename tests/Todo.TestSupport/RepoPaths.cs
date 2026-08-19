@@ -13,6 +13,13 @@ public static class RepoPaths
     public static string WebTsConfigFile(string fileName) =>
         Path.Combine(WebRoot, fileName);
 
+    /// <summary>
+    /// A translation file, by name: "da.json" or "en.json". The source files rather than a built
+    /// copy in wwwroot, because a guard on the built copy would go green on a stale build.
+    /// </summary>
+    public static string WebI18nFile(string fileName) =>
+        Path.Combine(WebRoot, "public", "i18n", fileName);
+
     private static string FindRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

@@ -34,6 +34,12 @@ public sealed class SettingsScreen(TodoApp app)
 
     public ILocator JiraStatusesEmpty => Page.GetByTestId("jira-statuses-empty");
 
+    /// <summary>
+    /// The duty switch. Ticking it is what makes the pool's issues actionable — the server re-reads
+    /// it on every preview and every import, so this checkbox is the whole decision.
+    /// </summary>
+    public ILocator OnDuty => Page.GetByTestId("jira-on-duty");
+
     public ILocator JiraError => Page.GetByTestId("jira-error");
 
     private ILocator AliasInput => Page.GetByTestId("alias-input");

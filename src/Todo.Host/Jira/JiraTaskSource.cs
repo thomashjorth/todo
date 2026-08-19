@@ -102,9 +102,10 @@ public sealed partial class JiraTaskSource : ITaskSource
     public async Task<ExternalTaskPage> FetchAssignedAsync(CancellationToken ct = default)
     {
         var settings = await _settings(ct);
-        var jql =
-            $"project = {ProjectKeyOf(settings)} AND assignee = currentUser() "
-            + "AND resolution = Unresolved ORDER BY duedate ASC";
+
+        // Built before the loop, so a status name that cannot go in a query is refused before any
+        // request goes out rather than after the first page has already been read.
+        var jql = JqlFor(settings);
 
         var items = new List<ExternalTask>();
         var startAt = 0;
@@ -139,6 +140,79 @@ public sealed partial class JiraTaskSource : ITaskSource
         }
 
         return new ExternalTaskPage(items, total);
+    }
+
+    /// <summary>
+    /// Slice 11's query, widened with the duty pool only when the rotation is on and there is
+    /// something to widen it with. The two forms are written out in full rather than assembled from
+    /// shared fragments, so the off-duty string stays readable as the one it has always been —
+    /// rewriting it would make <c>Off_duty_the_query_is_unchanged</c> a test of nothing.
+    ///
+    /// Note where the parentheses go. The project and the resolution stay conjunctions and only the
+    /// assignee joins the disjunction: <c>a AND b OR c</c> without them would let any unresolved
+    /// issue in the pool through from <em>any</em> project, because JQL binds AND tighter than OR.
+    ///
+    /// The emptiness check is not tidiness. <c>status IN ()</c> is a JQL syntax error, so a source
+    /// that emitted it would fail against the real instance on every single import while a fake
+    /// happily answered whatever it was asked.
+    /// </summary>
+    private static string JqlFor(JiraSettings settings)
+    {
+        var key = ProjectKeyOf(settings);
+
+        // Blanks out and the rest trimmed, both before the emptiness check below rather than after,
+        // so a list holding nothing but blanks behaves as an empty one. They are one fix because they
+        // are one fault: " " becomes status IN (" ") and "  Afventer general  " becomes
+        // status IN ("  Afventer general  "), and both are syntactically valid JQL matching nothing —
+        // silently, where the empty IN list at least announces itself as a syntax error. Closing only
+        // the first would be worse than closing neither, because the class would look closed.
+        //
+        // Blanks are dropped before the trim so a null could not be dereferenced, and the trim is the
+        // only one of its kind on this value: slice 11 measured JiraSettings.BrowseUrl and
+        // PUT /api/settings both trimming the base URL, arriving in the same commit, so one of them
+        // had never been able to fire and nobody could say which. Here rather than in
+        // SettingsEndpoints.StatusList for the same reason the filtering is: a row stored before a
+        // validation existed outlives it, and this is what builds the query.
+        var duty = settings.DutyStatuses
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .ToList();
+
+        if (!settings.OnDuty || duty.Count == 0)
+        {
+            return $"project = {key} AND assignee = currentUser() "
+                + "AND resolution = Unresolved ORDER BY duedate ASC";
+        }
+
+        var names = string.Join(", ", duty.Select(StatusLiteral));
+
+        return $"project = {key} AND resolution = Unresolved "
+            + $"AND (assignee = currentUser() OR status IN ({names})) "
+            + "ORDER BY duedate ASC";
+    }
+
+    /// <summary>
+    /// One status name as the quoted literal JQL wants. A blocklist rather than the project key's
+    /// character whitelist, and deliberately so: a status name may legally carry spaces, slashes and
+    /// Danish letters — <c>Afventer PO/FA</c> and <c>Venter på support</c> are real names off the
+    /// instance — so a whitelist would refuse the very values this feature exists for. The two
+    /// characters JQL quoting turns on, <c>"</c> and <c>\</c>, are a short and complete list instead.
+    ///
+    /// Refused rather than escaped, because the picker only ever offers names the instance itself
+    /// reported. A name carrying one of these is a bug somewhere else, and papering over it would
+    /// hide that. The message says nothing of the request, for the same reason as everywhere else
+    /// here: the token rides on the request.
+    /// </summary>
+    private static string StatusLiteral(string name)
+    {
+        if (name.Contains('"') || name.Contains('\\'))
+        {
+            throw new SourceException(
+                ErrorCodes.JiraStatusNameInvalid,
+                "A Jira status name cannot contain a quotation mark or a backslash.");
+        }
+
+        return $"\"{name}\"";
     }
 
     /// <summary>

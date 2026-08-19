@@ -324,6 +324,68 @@ Bemærk at `DeferUntil` fra skive 9 nu er en tredje mulig placering for noget de
 på endnu — men den betyder *ikke endnu*, hvor en ventende status betyder *ligger hos en anden*.
 Bland dem ikke sammen.
 
+### Vagten — når en ventende status er handlingsklar alligevel
+
+*Besluttet og bygget 2026-08-19, som en udvidelse af skive 11.*
+
+Afsnittet ovenfor holder kun, når sagen ligger hos **en anden**. Der findes et tilfælde hvor den
+ligger hos **dig**: den generelle pulje. Sager i `Afventer general` er ikke tildelt nogen og bliver
+taget af den der har vagten i rotationen, så **samme status betyder to forskellige ting** — *venter
+på puljen* når du ikke har vagten, og *venter på dig* når du har den. Det er ikke statussen der
+afgør det. Det er en kendsgerning uden for Jira: hvis uge det er.
+
+Derfor **en kontakt**, `jiraOnDuty`, plus sin egen liste af statusnavne, `jiraDutyStatuses`. Tre ting
+følger.
+
+**Der er nu fire Jira-indstillinger, og de to par gør hver sin ting.** `jiraWaitingStatuses` +
+`jiraIncludeWaiting` er en **mapning**: navnene siger hvilke statusser der *betyder* ventende, og
+kontakten siger om de sager alligevel må komme med. `jiraDutyStatuses` + `jiraOnDuty` **udvider hvad
+der hentes**: navnene lægger et `OR status IN (…)`-led på JQL'en, så puljens sager — som ikke er
+tildelt dig og derfor slet ikke er i svaret — overhovedet kommer med. Det ene oversætter et svar,
+det andet ændrer spørgsmålet. Læs ikke det andet par som endnu et filter over det første.
+
+Parenteserne om den disjunktion er load-bearing: `AND` binder tættere end `OR`, så leddet skal stå
+som `project = X AND resolution = Unresolved AND (assignee = currentUser() OR status IN (…))`. Uden
+dem ville højresiden stå frit og trække puljesager fra alle fire projekter PAT'en ser — kundens `KK`
+iberegnet — og løste sager med. Skive 11's vagt mod en tom projektnøgle er blind for det: nøglen
+*er* sat, den er blot havnet inde i en parentes der forsvandt.
+
+**Reglen bor i `JiraStatusRoles.For` i `Todo.Core`, og grenenes rækkefølge er load-bearing.** Vagten
+spørges først: står navnet i *begge* lister, og er kontakten slået til, er rollen `Duty` og ikke
+`Waiting`. **Vagt slår ventende.** Rollen er en tredeling frem for en boolean — `Actionable`, `Duty`,
+`Waiting` — fordi `Duty` og `Actionable` importeres ens (`Open`), men kun `Duty` mærkes på skærmen og
+kun `Waiting` koster et changelog-kald. Præcis som `DeadlineBuckets.For` falder **gættet uden
+begrundelsen den anden vej**: ventende er den ældste regel, så man tror den vinder. Byttes de om,
+importeres puljens sager som `WaitingFor` og forsvinder ud af deadline-sektionerne — netop det
+arbejde du har vagten for, skjult. Reglen er ét sted, fordi afgørelsen træffes to gange: i
+forhåndsvisningen og i importen. Begge steder læses indstillingerne **som de står nu**, så en
+forhåndsvisning kørt under en rotation der siden er slut, skriver ikke det gamle svar.
+
+**Puljens størrelse: to tal fra to slags kilder.** Målt 2026-08-19 stod der **2** sager i
+`Afventer general`. Brugeren oplyser desuden, at puljen sjældent overstiger **10** — men det er en
+**procesgrænse**, ikke en måling: den holder fordi rotationen kører og nogen rydder op, ikke fordi
+noget håndhæver den. De to tal må ikke læses som det samme, og **koden afhænger ikke af nogen af
+dem**: pagineringen i `JiraTaskSource` håndterer vilkårlig størrelse. Skulle rotationen stå stille,
+vokser puljen, og appen viser den bare længere.
+
+**Tre ting er uafgjorte med vilje. De er ikke huller nogen har overset.**
+
+*Ingen minder dig om at slukke.* Der er ingen slutdato på vagten, kun kontakten. En slutdato ville
+kræve noget der kører ved midnat, og skive 9 undgik netop det ved at gøre udskudtheden **beregnet**.
+Vi valgte **synlighed** frem for automatik: import-skærmen siger med ord at vagten er slået til, så
+tilstanden kan ses hver gang man er der. Glemmer man alligevel at slukke, kommer puljens sager med i
+en uge de ikke skulle — synligt, ikke tavst.
+
+*Importerede pulje-sager bliver liggende, når en kollega tager sagen.* `Status` er lokal efter
+import, som `Title` og `Requester` — det er det rigtige design, og det er skrevet ned ovenfor. Men
+puljen **churner** mere end dine egne sager, så konsekvensen rammer hårdere her: en sag du hentede i
+din vagtuge, og som en anden løste, ligger stadig på din liste indtil du selv lukker den. En
+afstemning ville kræve skive 14's sync.
+
+*`alreadyImported` gælder på tværs af vagtuger.* Dedup er `SourceId` + `ExternalKey`, uden hensyn
+til hvornår. Tages samme sag op igen i en senere rotation, er den stadig "importeret tidligere" og
+tilbydes ikke — formentlig rigtigt, for opgaven ligger jo allerede på listen, men **uprøvet i brug**.
+
 ## 5. Kontrakt-pipeline
 
 ```
@@ -565,6 +627,7 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
     projektnøgle må ikke betyde alle projekter: PAT'en ser fire, kundeprojektet `KK` iberegnet.
     *Skiven efterlod desuden elleve umålte `@if`-grene og et manglende `FromJira` på builderen —
     lukket i skivens sidste opgave; se afsnit 10.*
+    *Udvidet 2026-08-19 med **vagt-statusser**, uden et skivenummer; se nedenfor og afsnit 4a.*
 12. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 11 duer.
 13. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
 14. **Baggrundssync, tray og notifikationer.**
@@ -575,8 +638,8 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
 
 To ting er besluttet uden en plads i rækkefølgen. De står her frem for at blive
 glemt, og de skal placeres bevidst frem for at glide ind foran de nummererede skiver.
-`long` som id stod her fra 2026-08-17 og fik en plads 2026-08-18 som skive 10; Swagger-linket
-blev leveret uden for skiverne og står nedenfor som lukket.
+`long` som id stod her fra 2026-08-17 og fik en plads 2026-08-18 som skive 10; Swagger-linket og
+vagt-statusserne blev leveret uden for skiverne og står nedenfor som lukkede.
 
 - **Revisionslog med trends.** En hændelseslog ved siden af opgaverne — hvad
   ændrede sig hvornår — som kan bære spørgsmål som "hvor mange lukker jeg om ugen"
@@ -593,6 +656,17 @@ blev leveret uden for skiverne og står nedenfor som lukket.
   ikke har en indbygget UI holdt. **Den fik bevidst ikke et skivenummer**: én affordance, ingen
   datamodel og ingen ny skærm. Planen ligger i `docs/plans/2026-08-17-swagger-link.md`, og hvad
   arbejdet efterlod af viden står i afsnit 10.
+- **Vagt-statusser fra Jira — leveret uden for skiverne 2026-08-19.** To indstillinger,
+  `jiraDutyStatuses` og `jiraOnDuty`, udvider JQL'en med et `OR status IN (…)`-led når rotationen er
+  din, så den generelle puljes sager kommer med selvom de ikke er tildelt dig — og de importeres som
+  `Open`, fordi **vagt slår ventende**. **Den fik bevidst ikke et skivenummer**, af samme grund som
+  Swagger-linket: det er en **udvidelse af skive 11**, ingen ny datamodel, **ingen migrering** og
+  ingen ny skærm — de to indstillinger er rækker i `Setting`, og `isDuty` på forhåndsvisningsrækken
+  er beregnet af to lister der begge ligger der. Et nummer ville desuden have skubbet ADO-importen
+  fra 12 til 13 og hver skive efter den med (mentions, baggrundssync, livscyklus, pakning) — samme
+  regning som dengang `long` som id fik nummer 10 og flyttede Jira-importen til 11. Der var her intet
+  der retfærdiggjorde den. Planen ligger i `docs/plans/2026-08-19-jira-duty-statuses.md`, begrebet og
+  de tre uafgjorte ting står i afsnit 4a.
 
 ## 10. Risici og åbne punkter
 

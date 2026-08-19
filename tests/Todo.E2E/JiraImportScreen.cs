@@ -15,6 +15,12 @@ public sealed class JiraImportScreen(TodoApp app)
 
     public ILocator SettingsLink => Page.GetByTestId("jira-settings-link");
 
+    /// <summary>
+    /// Says the duty rotation is switched on, which is the only place on this screen the state can
+    /// be seen. Absent unless the setting is on, so nothing renders it by default.
+    /// </summary>
+    public ILocator OnDutyNotice => Page.GetByTestId("jira-on-duty-notice");
+
     public ILocator PreviewButton => Page.GetByTestId("jira-preview");
 
     public ILocator Rows => Page.GetByTestId("jira-row");
@@ -44,6 +50,13 @@ public sealed class JiraImportScreen(TodoApp app)
 
     public static ILocator AlreadyImportedIn(ILocator row)
         => row.GetByTestId("jira-already-imported");
+
+    /// <summary>
+    /// The label saying a row came from the shared duty pool. Scoped to the row, because it is the
+    /// row it sits on that carries the meaning — and it renders only when the server put
+    /// <c>isDuty</c> on that row, so a preview answer without the field paints no colour here at all.
+    /// </summary>
+    public static ILocator DutyIn(ILocator row) => row.GetByTestId("jira-duty");
 
     public static ILocator PickOf(ILocator row) => row.Locator("input[type=checkbox]");
 

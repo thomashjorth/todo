@@ -464,6 +464,12 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("isWaiting")]
         public bool IsWaiting { get; set; }
 
+        /// <summary>
+        /// Whether this issue came from the duty pool rather than being assigned to the user. The screen labels it, so a pool issue is not mistaken for one of your own.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("isDuty")]
+        public bool IsDuty { get; set; }
+
         [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
         public System.DateTimeOffset? WaitingSince { get; set; }
 
@@ -568,6 +574,18 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("jiraIncludeWaiting")]
         public bool JiraIncludeWaiting { get; set; }
 
+        /// <summary>
+        /// Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("jiraDutyStatuses")]
+        public System.Collections.Generic.ICollection<string> JiraDutyStatuses { get; set; }
+
+        /// <summary>
+        /// Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("jiraOnDuty")]
+        public bool JiraOnDuty { get; set; }
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -589,6 +607,19 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("jiraIncludeWaiting")]
         public bool JiraIncludeWaiting { get; set; }
+
+        /// <summary>
+        /// Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("jiraDutyStatuses")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> JiraDutyStatuses { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        /// <summary>
+        /// Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("jiraOnDuty")]
+        public bool JiraOnDuty { get; set; }
 
         /// <summary>
         /// Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE.

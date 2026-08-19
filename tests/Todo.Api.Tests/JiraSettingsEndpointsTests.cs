@@ -209,6 +209,62 @@ public class JiraSettingsEndpointsTests : ApiTest
         Assert.Empty(after.JiraWaitingStatuses);
     }
 
+    [Fact]
+    public async Task The_duty_statuses_round_trip_as_a_list()
+    {
+        string[] names = ["Afventer general"];
+
+        var response = await Host.Client.PutAsJsonAsync(
+            "/api/settings", new { jiraDutyStatuses = names, jiraOnDuty = true });
+
+        var after = await response.Content.ReadFromJsonAsync<SettingsBody>();
+
+        Assert.Equal(names, after!.JiraDutyStatuses);
+        Assert.True(after.JiraOnDuty);
+    }
+
+    /// <summary>
+    /// Default off, and the plan's decision says why: the list has to survive going off duty, or you
+    /// would re-pick it every rotation.
+    ///
+    /// Measured, and worth writing down: this one was green <em>before</em> either setting was
+    /// stored or read. The generated SettingsResponse carries the two fields because the contract
+    /// makes them required, and the collection one comes with a <c>new Collection&lt;string&gt;()</c>
+    /// initializer, so a response that never assigned them still serialised <c>[]</c> and
+    /// <c>false</c> - the two values this asserts. Dropping both lines from ReadAllAsync leaves it
+    /// green too. It says what a <em>fresh</em> database reads as, and nothing more; the assertions
+    /// that can fail are the two below. Its waiting-list counterpart has the same shape and the same
+    /// caveat.
+    /// </summary>
+    [Fact]
+    public async Task Duty_is_off_until_asked_for()
+    {
+        var settings = await Host.Client.GetFromJsonAsync<SettingsBody>("/api/settings");
+
+        Assert.False(settings!.JiraOnDuty);
+        Assert.Empty(settings.JiraDutyStatuses);
+    }
+
+    /// <summary>
+    /// The whole point of two settings rather than one. Going off duty must not lose the list.
+    /// </summary>
+    [Fact]
+    public async Task Going_off_duty_keeps_the_list()
+    {
+        await Host.Client.PutAsJsonAsync(
+            "/api/settings",
+            new { jiraDutyStatuses = new[] { "Afventer general" }, jiraOnDuty = true });
+
+        var response = await Host.Client.PutAsJsonAsync(
+            "/api/settings",
+            new { jiraDutyStatuses = new[] { "Afventer general" }, jiraOnDuty = false });
+
+        var after = await response.Content.ReadFromJsonAsync<SettingsBody>();
+
+        Assert.False(after!.JiraOnDuty);
+        Assert.Equal(["Afventer general"], after.JiraDutyStatuses);
+    }
+
     /// <summary>
     /// The other of the two layers of trailing-slash trimming, and the one that decides what is
     /// stored — nothing set jiraBaseUrl through the API before this, so neither layer was measured.
@@ -338,5 +394,7 @@ public class JiraSettingsEndpointsTests : ApiTest
         string? JiraProjectKey,
         string[] JiraWaitingStatuses,
         bool JiraIncludeWaiting,
+        string[] JiraDutyStatuses,
+        bool JiraOnDuty,
         bool HasJiraToken);
 }

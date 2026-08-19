@@ -2325,6 +2325,8 @@ export class JiraPreviewRow implements IJiraPreviewRow {
     status!: string;
     /** Whether the status is in the user's waiting list. */
     isWaiting!: boolean;
+    /** Whether this issue came from the duty pool rather than being assigned to the user. The screen labels it, so a pool issue is not mistaken for one of your own. */
+    isDuty!: boolean;
     waitingSince?: string | undefined;
     alreadyImported!: boolean;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
@@ -2348,6 +2350,7 @@ export class JiraPreviewRow implements IJiraPreviewRow {
             this.requester = _data["requester"];
             this.status = _data["status"];
             this.isWaiting = _data["isWaiting"];
+            this.isDuty = _data["isDuty"];
             this.waitingSince = _data["waitingSince"];
             this.alreadyImported = _data["alreadyImported"];
             this.excluded = _data["excluded"];
@@ -2370,6 +2373,7 @@ export class JiraPreviewRow implements IJiraPreviewRow {
         data["requester"] = this.requester;
         data["status"] = this.status;
         data["isWaiting"] = this.isWaiting;
+        data["isDuty"] = this.isDuty;
         data["waitingSince"] = this.waitingSince;
         data["alreadyImported"] = this.alreadyImported;
         data["excluded"] = this.excluded;
@@ -2388,6 +2392,8 @@ export interface IJiraPreviewRow {
     status: string;
     /** Whether the status is in the user's waiting list. */
     isWaiting: boolean;
+    /** Whether this issue came from the duty pool rather than being assigned to the user. The screen labels it, so a pool issue is not mistaken for one of your own. */
+    isDuty: boolean;
     waitingSince?: string | undefined;
     alreadyImported: boolean;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
@@ -2602,6 +2608,10 @@ export class SettingsRequest implements ISettingsRequest {
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses?: string[];
     jiraIncludeWaiting?: boolean;
+    /** Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting. */
+    jiraDutyStatuses?: string[];
+    /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
+    jiraOnDuty?: boolean;
 
     constructor(data?: ISettingsRequest) {
         if (data) {
@@ -2623,6 +2633,12 @@ export class SettingsRequest implements ISettingsRequest {
                     this.jiraWaitingStatuses!.push(item);
             }
             this.jiraIncludeWaiting = _data["jiraIncludeWaiting"];
+            if (Array.isArray(_data["jiraDutyStatuses"])) {
+                this.jiraDutyStatuses = [] as any;
+                for (let item of _data["jiraDutyStatuses"])
+                    this.jiraDutyStatuses!.push(item);
+            }
+            this.jiraOnDuty = _data["jiraOnDuty"];
         }
     }
 
@@ -2644,6 +2660,12 @@ export class SettingsRequest implements ISettingsRequest {
                 data["jiraWaitingStatuses"].push(item);
         }
         data["jiraIncludeWaiting"] = this.jiraIncludeWaiting;
+        if (Array.isArray(this.jiraDutyStatuses)) {
+            data["jiraDutyStatuses"] = [];
+            for (let item of this.jiraDutyStatuses)
+                data["jiraDutyStatuses"].push(item);
+        }
+        data["jiraOnDuty"] = this.jiraOnDuty;
         return data;
     }
 }
@@ -2654,6 +2676,10 @@ export interface ISettingsRequest {
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses?: string[];
     jiraIncludeWaiting?: boolean;
+    /** Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting. */
+    jiraDutyStatuses?: string[];
+    /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
+    jiraOnDuty?: boolean;
 }
 
 export class SettingsResponse implements ISettingsResponse {
@@ -2662,6 +2688,10 @@ export class SettingsResponse implements ISettingsResponse {
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses!: string[];
     jiraIncludeWaiting!: boolean;
+    /** Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting. */
+    jiraDutyStatuses!: string[];
+    /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
+    jiraOnDuty!: boolean;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
     hasJiraToken!: boolean;
 
@@ -2674,6 +2704,7 @@ export class SettingsResponse implements ISettingsResponse {
         }
         if (!data) {
             this.jiraWaitingStatuses = [];
+            this.jiraDutyStatuses = [];
         }
     }
 
@@ -2688,6 +2719,12 @@ export class SettingsResponse implements ISettingsResponse {
                     this.jiraWaitingStatuses!.push(item);
             }
             this.jiraIncludeWaiting = _data["jiraIncludeWaiting"];
+            if (Array.isArray(_data["jiraDutyStatuses"])) {
+                this.jiraDutyStatuses = [] as any;
+                for (let item of _data["jiraDutyStatuses"])
+                    this.jiraDutyStatuses!.push(item);
+            }
+            this.jiraOnDuty = _data["jiraOnDuty"];
             this.hasJiraToken = _data["hasJiraToken"];
         }
     }
@@ -2710,6 +2747,12 @@ export class SettingsResponse implements ISettingsResponse {
                 data["jiraWaitingStatuses"].push(item);
         }
         data["jiraIncludeWaiting"] = this.jiraIncludeWaiting;
+        if (Array.isArray(this.jiraDutyStatuses)) {
+            data["jiraDutyStatuses"] = [];
+            for (let item of this.jiraDutyStatuses)
+                data["jiraDutyStatuses"].push(item);
+        }
+        data["jiraOnDuty"] = this.jiraOnDuty;
         data["hasJiraToken"] = this.hasJiraToken;
         return data;
     }
@@ -2721,6 +2764,10 @@ export interface ISettingsResponse {
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses: string[];
     jiraIncludeWaiting: boolean;
+    /** Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting. */
+    jiraDutyStatuses: string[];
+    /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
+    jiraOnDuty: boolean;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
     hasJiraToken: boolean;
 }
