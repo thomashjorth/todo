@@ -691,12 +691,19 @@ components:
     JiraPreviewRow:
       type: object
       additionalProperties: false
-      required: [key, title, status, isWaiting, isDuty, alreadyImported]
+      required: [key, title, url, status, isWaiting, isDuty, alreadyImported]
       properties:
         key:
           type: string
         title:
           type: string
+        url:
+          type: string
+          description: >-
+            Where Jira shows this issue. Computed from the configured base URL and the key, never
+            stored, so it follows a changed base URL. Always present: a preview cannot happen without
+            a configured base URL, so this is required rather than nullable — a nullable field would
+            add an @if branch, and a branch is unmeasured until a fixture renders it.
         note:
           type: string
           nullable: true

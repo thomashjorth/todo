@@ -442,6 +442,20 @@ public class JiraEndpointsTests : ApiTest
         Assert.Empty(tasks!.Items);
     }
 
+    /// <summary>
+    /// The button on each row needs somewhere to go, and the server owns the URL shape so `/browse/`
+    /// is spelled in one place — the same decision as TodoTask.externalUrl.
+    /// </summary>
+    [Fact]
+    public async Task A_preview_row_carries_the_url_of_the_issue()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.Equal($"{jira.BaseUrl.TrimEnd('/')}/browse/SAAS-1", row.Url);
+    }
+
     private async Task<PreviewBody> Preview()
     {
         var response = await Host.Client.PostAsync("/api/jira/preview", null);
@@ -465,7 +479,7 @@ public class JiraEndpointsTests : ApiTest
     private sealed record PreviewBody(PreviewRow[] Rows, int Total);
     private sealed record PreviewRow(
         string Key, string Title, string Status, bool IsWaiting, bool IsDuty,
-        DateTimeOffset? WaitingSince, bool AlreadyImported, string? Excluded);
+        DateTimeOffset? WaitingSince, bool AlreadyImported, string? Excluded, string Url);
     private sealed record ImportBody(int Imported, int Skipped);
     private sealed record TaskList(TaskBody[] Items);
 

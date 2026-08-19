@@ -10,6 +10,7 @@ import { JiraImport } from './jira-import';
 interface PreviewRowJson {
   key: string;
   title: string;
+  url: string;
   note?: string;
   deadline?: string;
   requester?: string;
@@ -27,15 +28,20 @@ interface PreviewRowJson {
  * screen forgot to read would be a silently missing label, not a compiler error.
  */
 function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
-  return {
+  const merged: PreviewRowJson = {
     key: 'SAAS-1',
     title: 'Ret rapporten',
+    url: '',
     status: 'I gang',
     isWaiting: false,
     isDuty: false,
     alreadyImported: false,
     ...overrides,
   };
+
+  // Derived from whatever key won, so two rows in the same fixture do not share one URL — a test
+  // that opens the second row would otherwise pass against the first row's address.
+  return { ...merged, url: overrides.url ?? `https://jira.example/browse/${merged.key}` };
 }
 
 const waitingReason = 'Du venter på den, og ventende sager er slået fra.';
@@ -259,6 +265,27 @@ describe('JiraImport', () => {
     expect(element.querySelector('[data-testid="jira-showing"]')!.textContent).toContain(
       'Viser 2 af 40 sager.',
     );
+  });
+
+  it('should ask the shell to open an issue before it has been imported', async () => {
+    const screen = await preview({
+      total: 2,
+      rows: [row({ key: 'SAAS-1' }), row({ key: 'SAAS-2', title: 'Den anden' })],
+    });
+
+    // The second row, not the first: opening the first one could pass against a screen that had
+    // hard-wired one address for every row.
+    const second = rows(screen.element)[1];
+    const open = second.querySelector<HTMLButtonElement>('[data-testid="jira-open-issue"]')!;
+
+    // A BUTTON, not an anchor: the Photino window has no address bar and no way back.
+    expect(open.tagName).toBe('BUTTON');
+    expect(open.textContent!.trim()).toBe('Åbn sagen');
+
+    open.click();
+
+    const request = await vi.waitFor(() => screen.http.expectOne('/api/system/open-link'));
+    expect(JSON.parse(request.request.body).url).toBe('https://jira.example/browse/SAAS-2');
   });
 
   it('should show why Jira refused instead of a list', async () => {

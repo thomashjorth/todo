@@ -440,6 +440,13 @@ namespace Todo.Contracts
         public string Title { get; set; }
 
         /// <summary>
+        /// Where Jira shows this issue. Computed from the configured base URL and the key, never stored, so it follows a changed base URL. Always present: a preview cannot happen without a configured base URL, so this is required rather than nullable — a nullable field would add an @if branch, and a branch is unmeasured until a fixture renders it.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("url")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Url { get; set; }
+
+        /// <summary>
         /// The Jira description, converted from wiki markup to CommonMark.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("note")]

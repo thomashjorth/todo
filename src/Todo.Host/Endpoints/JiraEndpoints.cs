@@ -95,6 +95,16 @@ public static class JiraEndpoints
                     {
                         Key = item.Key,
                         Title = item.Title,
+                        // Computed here rather than in the frontend, so /browse/ is spelled in one
+                        // place — the same decision as TodoTask.externalUrl, and never stored, so it
+                        // follows a changed base URL. The throw stands in for a null-forgiving `!`
+                        // because the assumption is worth writing down: NotReady above has already
+                        // established IsConfigured, which requires a callable base URL, so a null
+                        // here would be a fault in our own ordering rather than in the user's data.
+                        Url = settings.BrowseUrl(item.Key)
+                            ?? throw new SourceException(
+                                ErrorCodes.JiraNotConfigured,
+                                "A preview row has no browse URL, which cannot happen once IsConfigured has passed."),
                         Note = item.Note,
                         Deadline = item.Deadline,
                         Requester = item.Requester,

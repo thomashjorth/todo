@@ -102,6 +102,12 @@ public class TaskEndpointsTests : TaskApiTest
         // The duty flag, at its interesting value: a name the client renamed on the way in would
         // still deserialise into IsDuty elsewhere, so it is read out of the raw JSON here.
         Assert.Contains("\"isDuty\":true", previewJson);
+
+        // Asserted on a value rather than on the name alone, because url is required and a required
+        // field is always serialised: "\"url\":" would be there even if the endpoint never set it.
+        // Measured — with the name-only form the preview row's Url could be dropped entirely and
+        // this test stayed green, which is the same hole isDuty had before it asserted on true.
+        Assert.Contains("\"url\":\"http", previewJson);
     }
 
     [Fact]

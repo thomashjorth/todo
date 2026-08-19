@@ -102,9 +102,20 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string DutyLabel = "fra 2nd. level supporten";
 
     /// <summary>
+    /// The preview row's own Open-the-issue button. Same label as the imported task's link, because
+    /// it is the same key: one action on one kind of thing.
+    /// </summary>
+    private const string OpenIssueLabel = "Åbn sagen";
+
+    /// <summary>
     /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one
     /// imported on an earlier run. Neither carries a deadline, so the row's deadline line is
     /// measured on the importable row below rather than here — both sides of that branch.
+    ///
+    /// <c>url</c> is spelled out on every row here for the same reason <c>isDuty</c> is: the field
+    /// is required on the contract, so no branch hides the Open-the-issue button, but an answer
+    /// without the field reads as undefined in the client and the button would carry an empty
+    /// address. Intercepting the call is not enough — the body has to carry the field.
     /// </summary>
     private const string BlockedIssues = """
         {
@@ -112,6 +123,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             {
               "key": "SAAS-2",
               "title": "Afventer svar",
+              "url": "https://jira.test/browse/SAAS-2",
               "status": "Venter på kunde",
               "isWaiting": true,
               "waitingSince": "2026-08-05T09:12:00Z",
@@ -121,6 +133,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             {
               "key": "SAAS-3",
               "title": "Skriv testene",
+              "url": "https://jira.test/browse/SAAS-3",
               "status": "I gang",
               "isWaiting": false,
               "alreadyImported": true
@@ -143,6 +156,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             {
               "key": "SAAS-1",
               "title": "Ret rapporten",
+              "url": "https://jira.test/browse/SAAS-1",
               "note": "Tallene i tabellen er fra sidste kvartal.",
               "deadline": "2026-08-24",
               "requester": "Mette Kirkegaard",
@@ -487,6 +501,13 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         // than assumed: an absent field renders nothing, and a measurement of nothing is a pass.
         await Assertions.Expect(JiraImportScreen.DutyIn(jira.Row("Ret rapporten")))
             .ToHaveTextAsync(DutyLabel);
+
+        // The button that opens the issue before anyone imports it. No branch guards it — the
+        // contract makes <c>url</c> required — so this colour is measured without a fixture state
+        // of its own. Waited for by its text all the same: the element is there before the
+        // localized label is interpolated into it, and no text is invisible to the measurement.
+        await Assertions.Expect(JiraImportScreen.OpenIssueIn(jira.Row("Ret rapporten")))
+            .ToHaveTextAsync(OpenIssueLabel);
         await Snapshot();
 
         await jira.ImportAsync();

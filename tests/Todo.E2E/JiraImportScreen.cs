@@ -58,6 +58,15 @@ public sealed class JiraImportScreen(TodoApp app)
     /// </summary>
     public static ILocator DutyIn(ILocator row) => row.GetByTestId("jira-duty");
 
+    /// <summary>
+    /// The button that opens a previewed issue in the system's browser, so it can be read before
+    /// anyone decides to import it. Scoped to the row, because every row has one — the contract makes
+    /// <c>url</c> required, so no branch can leave it out, and a page-wide locator would be
+    /// ambiguous. It is a &lt;button&gt; rather than an &lt;a href&gt;: the Photino window has
+    /// neither an address bar nor a back button.
+    /// </summary>
+    public static ILocator OpenIssueIn(ILocator row) => row.GetByTestId("jira-open-issue");
+
     public static ILocator PickOf(ILocator row) => row.Locator("input[type=checkbox]");
 
     public Task PreviewAsync() => PreviewButton.ClickAsync();
