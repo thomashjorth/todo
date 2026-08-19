@@ -8,6 +8,7 @@ import { JiraStore } from './jira-store';
 interface PreviewRowJson {
   key: string;
   title: string;
+  url: string;
   note?: string;
   deadline?: string;
   requester?: string;
@@ -23,6 +24,7 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
   return {
     key: 'SAAS-1',
     title: 'En',
+    url: 'https://jira.example/browse/SAAS-1',
     status: 'I gang',
     isWaiting: false,
     isDuty: false,

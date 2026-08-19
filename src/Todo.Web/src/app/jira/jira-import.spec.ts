@@ -10,6 +10,7 @@ import { JiraImport } from './jira-import';
 interface PreviewRowJson {
   key: string;
   title: string;
+  url: string;
   note?: string;
   deadline?: string;
   requester?: string;
@@ -27,15 +28,20 @@ interface PreviewRowJson {
  * screen forgot to read would be a silently missing label, not a compiler error.
  */
 function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
-  return {
+  const merged: PreviewRowJson = {
     key: 'SAAS-1',
     title: 'Ret rapporten',
+    url: '',
     status: 'I gang',
     isWaiting: false,
     isDuty: false,
     alreadyImported: false,
     ...overrides,
   };
+
+  // Derived from whatever key won, so two rows in the same fixture do not share one URL — a test
+  // that opens the second row would otherwise pass against the first row's address.
+  return { ...merged, url: overrides.url ?? `https://jira.example/browse/${merged.key}` };
 }
 
 const waitingReason = 'Du venter på den, og ventende sager er slået fra.';

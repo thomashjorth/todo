@@ -2317,6 +2317,8 @@ export interface IJiraStatusesResponse {
 export class JiraPreviewRow implements IJiraPreviewRow {
     key!: string;
     title!: string;
+    /** Where Jira shows this issue. Computed from the configured base URL and the key, never stored, so it follows a changed base URL. Always present: a preview cannot happen without a configured base URL, so this is required rather than nullable — a nullable field would add an @if branch, and a branch is unmeasured until a fixture renders it. */
+    url!: string;
     /** The Jira description, converted from wiki markup to CommonMark. */
     note?: string | undefined;
     deadline?: string | undefined;
@@ -2345,6 +2347,7 @@ export class JiraPreviewRow implements IJiraPreviewRow {
         if (_data) {
             this.key = _data["key"];
             this.title = _data["title"];
+            this.url = _data["url"];
             this.note = _data["note"];
             this.deadline = _data["deadline"];
             this.requester = _data["requester"];
@@ -2368,6 +2371,7 @@ export class JiraPreviewRow implements IJiraPreviewRow {
         data = typeof data === 'object' ? data : {};
         data["key"] = this.key;
         data["title"] = this.title;
+        data["url"] = this.url;
         data["note"] = this.note;
         data["deadline"] = this.deadline;
         data["requester"] = this.requester;
@@ -2384,6 +2388,8 @@ export class JiraPreviewRow implements IJiraPreviewRow {
 export interface IJiraPreviewRow {
     key: string;
     title: string;
+    /** Where Jira shows this issue. Computed from the configured base URL and the key, never stored, so it follows a changed base URL. Always present: a preview cannot happen without a configured base URL, so this is required rather than nullable — a nullable field would add an @if branch, and a branch is unmeasured until a fixture renders it. */
+    url: string;
     /** The Jira description, converted from wiki markup to CommonMark. */
     note?: string | undefined;
     deadline?: string | undefined;
