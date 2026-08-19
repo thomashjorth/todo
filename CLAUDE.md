@@ -323,6 +323,17 @@ forkerte grund.
   gemmer, får den `0` — og `0` er ikke et rigtigt id, for et rowid starter på 1.
   `AddAndSaveChangesAsync` gemmer, så id'et er gyldigt bagefter, men et builder-objekt der aldrig
   blev gemt har ingenting at give.
+- **E2E-suiten bygger ikke Angular, så den kan være grøn på en frontend der ikke findes længere.**
+  Målt i skive 11: `Todo.E2E.csproj` har **intet** build-trin, og hosten servérer bare `wwwroot`
+  gennem `UseStaticFiles` og `MapFallbackToFile`. Kun `scripts/run-app.ps1` bygger, og kun når appen
+  startes — den sammenligner `index.html`s `LastWriteTimeUtc` med den nyeste kilde. Ændrer du en
+  Angular-fil og kører `dotnet test`, tester Playwright altså **den forrige udgave**, uden at noget
+  ser forkert ud: suiten gør nøjagtigt hvad den skal, mod det forkerte input. **Kør
+  `scripts\build-web.ps1` før E2E**, hver gang frontenden er rørt.
+- **Sammenlign tidsstempler på epoch, aldrig på klokkeslæt.** `ls --time-style=+%H:%M:%S` sorteret
+  som tekst gør `21:15` fra i går nyere end `13:14` fra i dag, og datoen er væk. Det fik en
+  gennemgang her til at kalde `wwwroot` forældet, mens den var 36 sekunder frisk. Brug
+  `stat -c %Y` eller `find -printf %T@`.
 - **Tests må ikke røre `%APPDATA%`.** `RunningHost` giver hver test sin egen midlertidige
   database. Arv fra `ApiTest` eller `BrowserTest` frem for at starte en host i testen.
 - **Playwright-tests må ikke have bivirkninger uden for appen.** Kald til

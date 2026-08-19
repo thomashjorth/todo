@@ -2424,6 +2424,49 @@ git commit -m "✅ Vagt: intet i repoet må navngive en rigtig Jira-instans"
 - Create: `src/Todo.Web/src/app/jira/jira-store.ts`
 - Modify: `src/Todo.Web/src/assets/i18n/da.json`, `en.json`
 - Test: `src/Todo.Web/src/app/settings/settings-store.spec.ts`, `src/Todo.Web/src/app/jira/jira-store.spec.ts`
+- Modify: `src/Todo.Web/public/i18n/da.json`, `en.json` — **`public/`, ikke `src/`**, se rettelse 4
+
+> **Rettet efter kørslen, 2026-08-18. Leveret i `4c14d0e`; den kode er sandheden.** Otte fejl.
+>
+> 1. **Planens spec-skitser modsiger repoets faktiske mønster.** Der findes **ingen** fake af den
+>    genererede klient: begge eksisterende spec-filer bruger `HttpTestingController` med de **rigtige**
+>    klienter. `client.lastRequest` og `client.preview = {...}` findes ingen steder i repoet. Alle tre
+>    skitser måtte skrives om til `http.expectOne(...)` og `JSON.parse(request.request.body)`.
+>    Instruktionen om at følge det eksisterende mønster var rigtig; skitserne modsagde den.
+> 2. **`/api/jira/test` og `/api/jira/preview` er POST, inte GET** — kontrakten siger hvorfor, men
+>    planen gav intet hint, så specs'ene påstod GET. Præcis den slags der ellers "rettes" ved at
+>    slette assertionen.
+> 3. **`import(keys)` er ikke implementerbar.** `JiraImportRequest` bærer **hele rækker**; nøgler alene
+>    efterlader intet at skrive ud fra. Blev `import(rows)`, med `RetroStore.import` som forlæg og en
+>    test på at `isWaiting` **ikke** er på wiren.
+> 4. **`git add src/Todo.Web/src/` ville have udeladt oversættelserne.** De bor i
+>    `src/Todo.Web/public/i18n/`. Committer man som planen sagde, sender man komponenter der refererer
+>    26 nøgler som aldrig blev committet — **og paritetstesten er grøn lokalt**, så intet ville sige
+>    det. Det er en fejl der først dukker op hos den næste der kloner.
+> 5. **Paritetstesten er en Vitest-spec**, `src/Todo.Web/src/app/i18n/translations.spec.ts`, ikke en
+>    C#-test. Planen sendte agenten på jagt i `tests/`.
+> 6. **"Ikke-optionel, så du behøver ikke `?? false`" holder kun hvis fixturet er komplet.** De
+>    eksisterende settings-specs flushede `{ language: … }` og intet andet, så `jiraWaitingStatuses`
+>    ville have været `undefined` i runtime og `@for`-løkken kastet i **hver** gammel test. Rettet i
+>    fixturet frem for med `??`, hvilket bevarer Task 1's hensigt.
+> 7. **"Slå knappen fra" kan ikke gælde forhåndsvisningsknappen her** — den skærm er Task 9. Blev et
+>    `busy`-signal på `JiraStore` med kommentaren om hvorfor sekvenstælleren er unødvendig.
+> 8. `apply()` kører igen ved **hver** Jira-gemning, fordi `save` er den ene vej. Billigt, men bevidst
+>    frem for tilfældigt.
+>
+> **`Object.keys(store)`-vagten virker — målt.** Klassefelt-initialisatorer er egne enumerable
+> properties, så et tilføjet `jiraToken`-signal fælder den. Men **navnetjekket omgås ved at omdøbe**,
+> så vagten fik en anden halvdel: efter `setToken` kaldes hver egen funktionsværdi-property (metoder
+> bor på prototypen, så det er præcis signalerne) og dens værdi gennemsøges for hemmeligheden. Målt med
+> et felt kaldet `credential`: navnehalvdelen består, værdihalvdelen fejler.
+>
+> **Tre `@if`-grene er umålte af `ContrastTests`** — `jira-token-stored`, `jira-clear-token` og
+> `jira-connection`. At nå dem kræver et gemt token i fixturet og en falsk Jira, altså Task 9/10.
+> Klasserne er genbrugt ordret fra allerede målte elementer, så risikoen er lav — men efter repoets
+> egen regel er de umålte.
+>
+> Endeligt antal: **Vitest 143 → 168** (+25: 12 `JiraStore`, 7 `SettingsStore`, 6 `Settings`). Api 168
+> og Core 83 står stille.
 
 **Step 1: Skriv de fejlende Vitest-specs**
 
