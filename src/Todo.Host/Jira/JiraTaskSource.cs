@@ -160,13 +160,23 @@ public sealed partial class JiraTaskSource : ITaskSource
     {
         var key = ProjectKeyOf(settings);
 
-        if (!settings.OnDuty || settings.DutyStatuses.Count == 0)
+        // Blanks go out before the emptiness check below, not after, so a list holding nothing but
+        // blanks behaves as an empty one. A stored " " would otherwise become status IN (" "), which
+        // is syntactically valid JQL matching nothing — a silent failure, where the empty IN list at
+        // least announces itself as a syntax error. Filtered here rather than trusted from
+        // PUT /api/settings: a row written before that validation existed outlives it, and this is
+        // what builds the query.
+        var duty = settings.DutyStatuses
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToList();
+
+        if (!settings.OnDuty || duty.Count == 0)
         {
             return $"project = {key} AND assignee = currentUser() "
                 + "AND resolution = Unresolved ORDER BY duedate ASC";
         }
 
-        var names = string.Join(", ", settings.DutyStatuses.Select(StatusLiteral));
+        var names = string.Join(", ", duty.Select(StatusLiteral));
 
         return $"project = {key} AND resolution = Unresolved "
             + $"AND (assignee = currentUser() OR status IN ({names})) "

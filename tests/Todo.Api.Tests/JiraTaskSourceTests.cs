@@ -159,6 +159,13 @@ public class JiraTaskSourceTests
         Assert.Contains("assignee = currentUser()", jira.LastJql);
         Assert.Contains("status IN (\"Afventer general\")", jira.LastJql);
         Assert.Contains(" OR ", jira.LastJql);
+
+        // JQL binds AND tighter than OR, so without the parentheses this reads as
+        // "(project AND resolution AND assignee) OR (any issue in a duty status, anywhere)" — and the
+        // token sees four projects, the customer one included. Asserting on the two clauses separately
+        // cannot see that; only the grouped literal can.
+        Assert.Contains(
+            "(assignee = currentUser() OR status IN (\"Afventer general\"))", jira.LastJql);
     }
 
     /// <summary>
@@ -196,6 +203,41 @@ public class JiraTaskSourceTests
             .FetchAssignedAsync();
 
         Assert.Contains("\"Afventer general\", \"Venter på support\"", jira.LastJql);
+    }
+
+    /// <summary>
+    /// A stored blank would become <c>status IN (" ")</c>, which is syntactically valid JQL matching
+    /// nothing — a silent failure, unlike the syntax error an empty IN list gives. The source filters
+    /// rather than trusting PUT /api/settings: a row written before that validation existed outlives
+    /// it, and the source is what builds the query.
+    /// </summary>
+    [Fact]
+    public async Task A_blank_duty_status_is_left_out_of_the_clause()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        await jira.SourceFor("SAAS", duty: ["Afventer general", "  "], onDuty: true)
+            .FetchAssignedAsync();
+
+        // The closing bracket is what carries this: unfiltered, the clause would read
+        // status IN ("Afventer general", "  ") and this substring would not be in it.
+        Assert.Contains("status IN (\"Afventer general\")", jira.LastJql);
+    }
+
+    /// <summary>
+    /// Only a list that is nothing but blanks can show that the filtering happens before the
+    /// emptiness check rather than after it. Filtered afterwards, this would emit
+    /// <c>status IN ()</c> and fail against the real instance on every import.
+    /// </summary>
+    [Fact]
+    public async Task A_duty_list_of_only_blanks_behaves_like_an_empty_one()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        await jira.SourceFor("SAAS", duty: ["  ", ""], onDuty: true).FetchAssignedAsync();
+
+        Assert.DoesNotContain("status IN", jira.LastJql);
+        Assert.DoesNotContain(" OR ", jira.LastJql);
     }
 
     /// <summary>
