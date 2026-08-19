@@ -21,18 +21,19 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string SomedayTitle = "Læs om typografi";
 
     /// <summary>
-    /// Three in the nav, one in the new-task field and one per switch — every shortcut the app has.
+    /// Four in the nav, one in the new-task field and one per switch — every shortcut the app has.
+    /// Grew from six with the Jira import screen in slice 11, which added Alt+J to the nav.
     /// </summary>
-    private const int BadgeCount = 6;
+    private const int BadgeCount = 7;
 
     /// <summary>
-    /// The three nav links in app.html are the first focusable elements on the page, so the
-    /// field is the fourth stop — not the first. Asserted below rather than assumed: a fourth
+    /// The four nav links in app.html are the first focusable elements on the page, so the
+    /// field is the fifth stop — not the first. Asserted below rather than assumed: another
     /// link, or a skip link, has to fail here with the name of what appeared, not somewhere
     /// later where the failure would read as a broken field.
     /// </summary>
     private static readonly string[] TrailToTheField =
-        ["nav-tasks", "nav-import", "nav-settings", "new-task-input"];
+        ["nav-tasks", "nav-import", "nav-jira", "nav-settings", "new-task-input"];
 
     private static readonly FixedClock Clock = new(new DateOnly(2026, 8, 17));
 

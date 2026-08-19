@@ -82,6 +82,11 @@ export class TaskRow {
     this.noteEditStopped.emit();
   }
 
+  /** Same one-way street as a note's link: the window has no address bar to come back from. */
+  protected openIssue(url: string): void {
+    this.system.openLink(url).catch(() => {});
+  }
+
   protected clickNote(event: MouseEvent): void {
     const link = (event.target as HTMLElement).closest('a');
 

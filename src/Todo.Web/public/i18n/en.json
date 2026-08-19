@@ -8,6 +8,7 @@
   "nav": {
     "tasks": "Tasks",
     "import": "Retro import",
+    "jira": "Jira import",
     "settings": "Settings"
   },
   "tasks": {
@@ -35,6 +36,7 @@
     "newSubTask": "New subtask",
     "deleteSubTask": "Delete subtask",
     "deleteTask": "Delete task",
+    "openIssue": "Open the issue",
     "sections": {
       "overdue": "Overdue",
       "today": "Today",
@@ -73,6 +75,30 @@
     },
     "receipt": "{{imported}} imported, {{skipped}} skipped",
     "aliasesLink": "Edit your names in Settings"
+  },
+  "jira": {
+    "heading": "Jira import",
+    "preview": "Load issues",
+    "notConfigured": "Jira is not set up, so there are no issues to load.",
+    "settingsLink": "Set Jira up under Settings",
+    "noneAssigned": "No issue is assigned to you.",
+    "showing": "Showing {{shown}} of {{total}} issues.",
+    "statusValue": "Status: {{value}}",
+    "deadlineValue": "Deadline: {{value}}",
+    "alreadyImported": "imported before",
+    "allExcluded": {
+      "one": "{{count}} issue is left out of the import.",
+      "other": "{{count}} issues are left out of the import."
+    },
+    "allAlreadyImported": {
+      "one": "{{count}} issue was imported before.",
+      "other": "{{count}} issues were imported before."
+    },
+    "import": {
+      "one": "Import {{count}} issue",
+      "other": "Import {{count}} issues"
+    },
+    "receipt": "{{imported}} imported, {{skipped}} skipped"
   },
   "settings": {
     "heading": "Settings",

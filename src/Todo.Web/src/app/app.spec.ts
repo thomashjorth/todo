@@ -57,6 +57,7 @@ describe('App', () => {
 
     expect(text('nav-tasks')).toBe('Opgaver');
     expect(text('nav-import')).toBe('Retro-import');
+    expect(text('nav-jira')).toBe('Jira-import');
     expect(text('nav-settings')).toBe('Indstillinger');
 
     TestBed.inject(TranslocoService).setActiveLang('en');
@@ -64,6 +65,7 @@ describe('App', () => {
 
     expect(text('nav-tasks')).toBe('Tasks');
     expect(text('nav-import')).toBe('Retro import');
+    expect(text('nav-jira')).toBe('Jira import');
     expect(text('nav-settings')).toBe('Settings');
   });
 
@@ -72,7 +74,7 @@ describe('App', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     const link = (id: string) => compiled.querySelector(`[data-testid="${id}"]`)!;
-    const links = () => ['nav-tasks', 'nav-import', 'nav-settings'].map(link);
+    const links = () => ['nav-tasks', 'nav-import', 'nav-jira', 'nav-settings'].map(link);
 
     // RouterLinkActive applies aria-current in a microtask of its own, so the
     // attribute lands a change detection cycle after the navigation resolves.
@@ -86,12 +88,21 @@ describe('App', () => {
 
     await TestBed.inject(Router).navigate(['/']);
 
-    expect(links().map((a) => a.getAttribute('href'))).toEqual(['/', '/import', '/settings']);
+    expect(links().map((a) => a.getAttribute('href'))).toEqual([
+      '/',
+      '/import',
+      '/jira',
+      '/settings',
+    ]);
     expect(await current()).toBe('nav-tasks');
 
     await TestBed.inject(Router).navigate(['/import']);
 
     expect(await current()).toBe('nav-import');
+
+    await TestBed.inject(Router).navigate(['/jira']);
+
+    expect(await current()).toBe('nav-jira');
 
     await TestBed.inject(Router).navigate(['/settings']);
 

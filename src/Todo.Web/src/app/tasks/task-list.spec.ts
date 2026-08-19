@@ -97,6 +97,12 @@ const linkNote = 'Se [dokumentationen](https://example.com/docs) først';
 
 const withLink = [{ ...items[0], note: linkNote }, items[1]];
 
+// externalUrl is computed by the server from the source and the key, and only a Jira task has one.
+const fromJira = [
+  { ...items[0], sourceId: 'jira', externalUrl: 'https://jira.test/browse/SAAS-1' },
+  items[1],
+];
+
 // The generated client requests responseType 'blob' and decodes it with FileReader,
 // so a flushed response only reaches the template after a later microtask.
 function rendered(fixture: ComponentFixture<TaskList>): Promise<HTMLElement> {
@@ -538,6 +544,40 @@ describe('TaskList', () => {
     });
 
     expect(error.textContent!.trim()).toBe('Kun http- og https-links kan åbnes.');
+  });
+
+  it('should open the issue through the system, from a button and outside the row button', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: fromJira })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+
+    const link = row.querySelector<HTMLElement>('[data-testid="external-link"]')!;
+    // An <a href> would take the whole window with it, and this window has no way back.
+    expect(link.tagName).toBe('BUTTON');
+    expect(link.textContent!.trim()).toBe('Åbn sagen');
+
+    // Outside the row button: its label would otherwise join the row's accessible name, which
+    // TaskListScreen.RowTitled matches in full — and the failure would read as a missing row.
+    expect(row.querySelector('button')!.textContent).not.toContain('Åbn sagen');
+
+    link.click();
+
+    expect(JSON.parse(http.expectOne('/api/system/open-link').request.body)).toEqual({
+      url: 'https://jira.test/browse/SAAS-1',
+    });
+  });
+
+  it('should show no issue link on a task that has none', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+
+    expect(row.querySelector('[data-testid="external-link"]')).toBeNull();
   });
 
   it('should save and close the editor on Escape', async () => {

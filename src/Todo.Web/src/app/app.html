@@ -39,6 +39,24 @@
       }
     </a>
     <a
+      data-testid="nav-jira"
+      appShortcut="j"
+      appShortcutAction="activate"
+      class="text-sm text-gray-600 dark:text-gray-400"
+      routerLink="/jira"
+      routerLinkActive="font-semibold text-gray-900 underline dark:text-gray-100"
+      ariaCurrentWhenActive="page"
+      >{{ 'nav.jira' | transloco }}
+      @if (shortcuts.altHeld()) {
+        <span
+          data-testid="shortcut-badge"
+          aria-hidden="true"
+          class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+          >J</span
+        >
+      }
+    </a>
+    <a
       data-testid="nav-settings"
       appShortcut="s"
       appShortcutAction="activate"

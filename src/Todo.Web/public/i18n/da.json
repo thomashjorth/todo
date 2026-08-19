@@ -8,6 +8,7 @@
   "nav": {
     "tasks": "Opgaver",
     "import": "Retro-import",
+    "jira": "Jira-import",
     "settings": "Indstillinger"
   },
   "tasks": {
@@ -35,6 +36,7 @@
     "newSubTask": "Ny underopgave",
     "deleteSubTask": "Slet underopgave",
     "deleteTask": "Slet opgave",
+    "openIssue": "Åbn sagen",
     "sections": {
       "overdue": "Overskredet",
       "today": "I dag",
@@ -73,6 +75,30 @@
     },
     "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
     "aliasesLink": "Ret dine navne under Indstillinger"
+  },
+  "jira": {
+    "heading": "Jira-import",
+    "preview": "Hent sager",
+    "notConfigured": "Jira er ikke sat op, så der er ingen sager at hente.",
+    "settingsLink": "Sæt Jira op under Indstillinger",
+    "noneAssigned": "Ingen sager er tildelt dig.",
+    "showing": "Viser {{shown}} af {{total}} sager.",
+    "statusValue": "Status: {{value}}",
+    "deadlineValue": "Deadline: {{value}}",
+    "alreadyImported": "importeret tidligere",
+    "allExcluded": {
+      "one": "{{count}} sag er udeladt af importen.",
+      "other": "{{count}} sager er udeladt af importen."
+    },
+    "allAlreadyImported": {
+      "one": "{{count}} sag er importeret tidligere.",
+      "other": "{{count}} sager er importeret tidligere."
+    },
+    "import": {
+      "one": "Importér {{count}} sag",
+      "other": "Importér {{count}} sager"
+    },
+    "receipt": "{{imported}} importeret, {{skipped}} sprunget over"
   },
   "settings": {
     "heading": "Indstillinger",
