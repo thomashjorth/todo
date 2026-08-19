@@ -54,6 +54,50 @@ public sealed class FakeJira : IAsyncDisposable
             "Uden noget som helst", null, null, null, new StatusBody("I gang"))),
     ];
 
+    /// <summary>
+    /// One changelog per issue key. The created values are strings rather than DateTimeOffsets on
+    /// purpose: measured 2026-08-18, Jira DC 10.3.24 writes the offset without a colon —
+    /// 2026-08-17T14:10:13.593+0200 — while serialising a DateTimeOffset would emit +02:00, so a
+    /// typed field here would measure the source against a format the real instance never sends.
+    ///
+    /// Histories arrive oldest first, as they do from the real instance, so a source that takes the
+    /// last entry rather than the newest status entry cannot pass by accident.
+    /// </summary>
+    private static readonly Dictionary<string, HistoryBody[]> Changelogs =
+        new(StringComparer.Ordinal)
+        {
+            // Two status changes and nothing else, ending in the status the issue shows now.
+            ["SAAS-1"] =
+            [
+                new("2026-08-11T10:00:00.000+0200",
+                    [new("status", "Ny SLA", "Afventer general")]),
+                new("2026-08-12T13:45:00.000+0200",
+                    [new("status", "Afventer general", "I gang")]),
+            ],
+
+            // The newest entry is deliberately not a status change: the wait dates from 14:10 on
+            // the 17th, not from the assignee change the day after.
+            ["SAAS-2"] =
+            [
+                new("2026-08-15T09:00:00.000+0200",
+                    [new("status", "Ny SLA", "I gang")]),
+                new("2026-08-17T14:10:13.593+0200",
+                    [new("status", "I gang", "Afventer general")]),
+                new("2026-08-18T08:00:00.000+0200",
+                    [new("assignee", null, "thh")]),
+            ],
+
+            // An issue still in the status it was created in has no history at all.
+            ["SAAS-3"] = [],
+
+            // Exactly one entry, so the newest-wins ordering is measured on a list of one too.
+            ["SAAS-4"] =
+            [
+                new("2026-08-10T11:30:00.000+0200",
+                    [new("status", "Ny SLA", "Afventer general")]),
+            ],
+        };
+
     private readonly HttpClient _client;
     private readonly int _pageSize;
     private readonly bool _rejectToken;
@@ -88,6 +132,12 @@ public sealed class FakeJira : IAsyncDisposable
 
     /// <summary>The issue key of every changelog read.</summary>
     public List<string> ChangelogRequests { get; } = [];
+
+    /// <summary>
+    /// The raw query string of the most recent issue read. Jira only carries the changelog when the
+    /// caller expands it, so whether that parameter was sent is worth being able to assert on.
+    /// </summary>
+    public string? LastIssueQuery { get; private set; }
 
     /// <param name="rejectToken">Answers 401 to everything, the way a revoked PAT does.</param>
     /// <param name="pageSize">
@@ -206,14 +256,32 @@ public sealed class FakeJira : IAsyncDisposable
                 Json);
         });
 
-        // Task 5 answers this one. Recorded from now, so that task only has to fill in a body.
-        app.MapGet("/rest/api/2/issue/{key}", (string key) =>
+        // The expand parameter is load-bearing, not decoration: the real instance leaves the
+        // changelog out of the issue unless it is asked for, so a source that forgets it gets an
+        // issue with no history rather than an error, and every waiting date would be null.
+        app.MapGet("/rest/api/2/issue/{key}", (string key, HttpRequest request) =>
         {
             ChangelogRequests.Add(key);
+            LastIssueQuery = request.QueryString.Value ?? string.Empty;
 
-            return Results.Json(new ChangelogStubBody(key), Json);
+            var expanded = request.Query["expand"].ToString()
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Contains("changelog", StringComparer.OrdinalIgnoreCase);
+
+            return Results.Json(
+                new IssueDetailBody(
+                    key,
+                    expanded ? new ChangelogBody(Changelog(key)) : null),
+                Json);
         });
     }
+
+    /// <summary>
+    /// An unknown key answers an empty history rather than a 404: nothing here needs to meet an
+    /// issue that does not exist, and a 404 would be a different measurement in a different test.
+    /// </summary>
+    private static HistoryBody[] Changelog(string key) =>
+        Changelogs.TryGetValue(key, out var histories) ? histories : [];
 
     private void Record(HttpRequest request)
     {
@@ -255,7 +323,22 @@ public sealed class FakeJira : IAsyncDisposable
         PersonBody? Reporter,
         StatusBody Status);
 
-    private sealed record ChangelogStubBody(string Key);
+    private sealed record IssueDetailBody(string Key, ChangelogBody? Changelog);
+
+    private sealed record ChangelogBody(HistoryBody[] Histories);
+
+    private sealed record HistoryBody(string Created, HistoryItemBody[] Items);
+
+    /// <summary>
+    /// Jira names the old and new values <c>fromString</c> and <c>toString</c>, and a property
+    /// actually called ToString would hide object.ToString, so both carry the wire name explicitly.
+    /// Only <c>field</c> is read by the source; the other two are here because a fixture that does
+    /// not look like the real payload cannot show that the real payload binds.
+    /// </summary>
+    private sealed record HistoryItemBody(
+        string Field,
+        [property: JsonPropertyName("fromString")] string? From,
+        [property: JsonPropertyName("toString")] string? To);
 
     private sealed record ErrorBody(string[] ErrorMessages);
 }

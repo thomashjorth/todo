@@ -141,11 +141,53 @@ public sealed partial class JiraTaskSource : ITaskSource
         return new ExternalTaskPage(items, total);
     }
 
-    public Task<DateTime?> FetchStatusChangedAtAsync(string externalKey, CancellationToken ct = default) =>
-        // Task 5 fills this in from GET /rest/api/2/issue/{key}?expand=changelog. It is on the
-        // interface already so that task changes this one method and nothing around it.
-        throw new NotImplementedException(
-            "Task 5 reads the status change date out of the issue's changelog.");
+    /// <summary>
+    /// Measured 2026-08-18: 10.3.24 does not return <c>statuscategorychangedate</c>, so the cheap
+    /// field is not there to read. <c>expand=changelog</c> does work, and it answered
+    /// <c>2026-08-17T14:10:13.593+0200</c> — the created date of the newest history entry carrying a
+    /// status item, which is what the wait is counted from. The expand is not optional: without it
+    /// Jira leaves the changelog out of the issue entirely and every answer here would be null.
+    /// </summary>
+    public async Task<DateTime?> FetchStatusChangedAtAsync(
+        string externalKey, CancellationToken ct = default)
+    {
+        var settings = await _settings(ct);
+        var body = await GetAsync(
+            settings, $"issue/{Uri.EscapeDataString(externalKey)}", "expand=changelog", ct);
+
+        var newest = Read<IssueDetailBody>(body)?.Changelog?.Histories
+            ?.Where(history => history.Items?.Any(
+                item => string.Equals(item.Field, "status", StringComparison.OrdinalIgnoreCase))
+                    == true)
+            .Select(history => Moment(history.Created))
+            .Where(created => created is not null)
+            .OrderByDescending(created => created!.Value)
+            .FirstOrDefault();
+
+        // Flattened to a UTC DateTime at the boundary: SQLite cannot sort a DateTimeOffset, so one
+        // must never reach the entity. The offset is honoured before it is dropped, not ignored.
+        return newest?.UtcDateTime;
+    }
+
+    /// <summary>
+    /// Bound as a string and parsed here rather than typed as a DateTimeOffset on the DTO. Measured
+    /// against this repo's fake, which serves the offset exactly as the real instance writes it:
+    /// Jira uses the basic form <c>+0200</c>, System.Text.Json accepts only the extended ISO 8601
+    /// form <c>+02:00</c>, and a typed field throws "The JSON value is not in a supported
+    /// DateTimeOffset format" on every history entry. DateTimeOffset.Parse takes both forms.
+    ///
+    /// Invariant culture on purpose: under da-DK the current culture reads a date as dd-MM-yyyy.
+    /// An unreadable value answers null rather than throwing, so one odd history entry costs its own
+    /// waiting date instead of the whole import.
+    /// </summary>
+    private static DateTimeOffset? Moment(string? value) =>
+        DateTimeOffset.TryParse(
+            value,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var moment)
+            ? moment
+            : null;
 
     private static ExternalTask Map(IssueBody issue) => new(
         Key: issue.Key ?? string.Empty,
@@ -306,6 +348,21 @@ public sealed partial class JiraTaskSource : ITaskSource
         [property: JsonPropertyName("duedate")] string? DueDate,
         PersonBody? Reporter,
         StatusBody? Status);
+
+    private sealed record IssueDetailBody(ChangelogBody? Changelog);
+
+    private sealed record ChangelogBody(List<HistoryBody>? Histories);
+
+    /// <summary>
+    /// <c>Created</c> is a string because Jira's offset format is not one System.Text.Json can bind
+    /// to a DateTimeOffset — see <see cref="Moment"/>. Everything else binds off the web naming
+    /// policy: <c>changelog</c>, <c>histories</c>, <c>created</c>, <c>items</c> and <c>field</c> are
+    /// each one word, unlike <c>duedate</c>, so none of them needs a JsonPropertyName. Verified by
+    /// reading real values out, not assumed.
+    /// </summary>
+    private sealed record HistoryBody(string? Created, List<HistoryItemBody>? Items);
+
+    private sealed record HistoryItemBody(string? Field);
 
     private sealed record ErrorBody(List<string>? ErrorMessages);
 }
