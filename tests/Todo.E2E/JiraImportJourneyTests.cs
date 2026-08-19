@@ -343,6 +343,17 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
             "The click took the window with it, and this window has no way back.");
 
+        // And the failure is said out loud, beside the row that was pressed. The abort above is what
+        // makes this free: an aborted request is a failure to the client, so the error path is
+        // reached without any staging of its own.
+        //
+        // Worth knowing for anyone reading this later: a *successful* open cannot be measured here at
+        // all, because the call is always aborted. After a click the failing branch is the only one
+        // there is, and "no message" is the state before the click — which is what the row is
+        // asserted empty for further up in the Vitest suite.
+        await Assertions.Expect(JiraImportScreen.OpenErrorIn(row))
+            .ToHaveTextAsync("Noget gik galt. Prøv igen.");
+
         // The button sits outside the row's <label> on purpose, and this is the assertion that
         // measures it: a label's text becomes the accessible name of the control inside it, so a
         // button moved in there would leave the checkbox announced as "… Åbn sagen".

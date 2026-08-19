@@ -108,6 +108,13 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string OpenIssueLabel = "Åbn sagen";
 
     /// <summary>
+    /// What the row says when the shell could not be asked. An aborted request carries no error code,
+    /// so <c>apiErrorMessage</c> falls back to the generic sentence — waited for by its text so the
+    /// measurement never runs on an empty paragraph.
+    /// </summary>
+    private const string OpenFailed = "Noget gik galt. Prøv igen.";
+
+    /// <summary>
     /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one
     /// imported on an earlier run. Neither carries a deadline, so the row's deadline line is
     /// measured on the importable row below rather than here — both sides of that branch.
@@ -406,6 +413,11 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             Body = """{ "imported": 1, "skipped": 0 }""",
         }));
 
+        // A test run has no business asking the operating system to open a browser window. The abort
+        // is also what paints the row's own red line further down: a failed open is what that line
+        // exists for, and it cannot be reached any other way from here.
+        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
+
         // Unconfigured: a sentence and a link to the page that fixes it, and no Load button at all.
         var jira = await App.GoToJira();
 
@@ -508,6 +520,14 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         // localized label is interpolated into it, and no text is invisible to the measurement.
         await Assertions.Expect(JiraImportScreen.OpenIssueIn(jira.Row("Ret rapporten")))
             .ToHaveTextAsync(OpenIssueLabel);
+
+        // And the line that says the open failed, which is a branch of its own: the paragraph renders
+        // only while this row is the one that failed, so without the click below its colour is one no
+        // test ever paints. Pressed rather than staged — the route above aborts the call, and an
+        // aborted call is a failure to the client.
+        await JiraImportScreen.OpenIssueIn(jira.Row("Ret rapporten")).ClickAsync();
+        await Assertions.Expect(JiraImportScreen.OpenErrorIn(jira.Row("Ret rapporten")))
+            .ToHaveTextAsync(OpenFailed);
         await Snapshot();
 
         await jira.ImportAsync();
