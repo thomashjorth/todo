@@ -94,6 +94,14 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string NoIssues = """{ "rows": [], "total": 0 }""";
 
     /// <summary>
+    /// The two duty branches' text, named so the waits below are on the string a user reads rather
+    /// than on the element that will hold it.
+    /// </summary>
+    private const string OnDutyNotice = "Du har vagten — puljens sager er med.";
+
+    private const string DutyLabel = "fra den generelle pulje";
+
+    /// <summary>
     /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one
     /// imported on an earlier run. Neither carries a deadline, so the row's deadline line is
     /// measured on the importable row below rather than here — both sides of that branch.
@@ -122,6 +130,13 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         }
         """;
 
+    /// <summary>
+    /// <c>isDuty</c> is on the row on purpose, and it has to be spelled out here: the field is the
+    /// only thing the duty label hangs on, so a preview answer that leaves it out reads as
+    /// undefined in the client and paints no label at all. Intercepting the call is not enough —
+    /// the body has to carry the field. Same shape of hole as the eleven branches slice 11 left
+    /// behind, one level deeper.
+    /// </summary>
     private const string OneImportableIssue = """
         {
           "rows": [
@@ -133,6 +148,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "requester": "Mette Kirkegaard",
               "status": "I gang",
               "isWaiting": false,
+              "isDuty": true,
               "alreadyImported": false
             }
           ],
@@ -405,11 +421,23 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(settings.JiraStatusesEmpty).ToHaveCountAsync(0);
         await Snapshot();
 
+        // The duty switch, ticked through the page rather than seeded: the import screen's notice
+        // renders only while it is on, and the real backend answers off by default — so without
+        // this click that paragraph is a colour no test ever paints. Waited for as checked, because
+        // the tick travels to the server and comes back before the signal is set.
+        await settings.OnDuty.CheckAsync();
+        await Assertions.Expect(settings.OnDuty).ToBeCheckedAsync();
+        await Snapshot();
+
         // Configured now, so the fourth screen has a Load button where the sentence used to be.
         jira = await settings.GoToJira();
 
         await Assertions.Expect(jira.PreviewButton).ToHaveTextAsync("Hent sager");
         await Assertions.Expect(jira.NotConfigured).ToHaveCountAsync(0);
+
+        // The notice the click above turned on. Waited for by its text: the paragraph exists before
+        // the localized string is interpolated into it, and no text is invisible to the measurement.
+        await Assertions.Expect(jira.OnDutyNotice).ToHaveTextAsync(OnDutyNotice);
         await Snapshot();
 
         // A refusal. The red line is the app's own failure path, reached through the button a user
@@ -454,6 +482,11 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(jira.ImportButton).ToHaveTextAsync("Importér 1 sag");
         await Assertions.Expect(jira.ImportButton).ToBeEnabledAsync();
         await Assertions.Expect(jira.NothingToSelect).ToHaveCountAsync(0);
+
+        // The duty label on that row, which the answer above carries isDuty for. Waited for rather
+        // than assumed: an absent field renders nothing, and a measurement of nothing is a pass.
+        await Assertions.Expect(JiraImportScreen.DutyIn(jira.Row("Ret rapporten")))
+            .ToHaveTextAsync(DutyLabel);
         await Snapshot();
 
         await jira.ImportAsync();

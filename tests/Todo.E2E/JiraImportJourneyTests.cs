@@ -27,6 +27,20 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
     private const string WaitingReason = "Du venter på den, og ventende sager er slået fra.";
     private const string SeenBeforeReason = "importeret tidligere";
 
+    private const string DutyTitle = "Nedbrud på betalingerne";
+
+    /// <summary>
+    /// The status the duty pool parks its issues in. It goes in <em>both</em> saved lists below, and
+    /// that overlap is the rule this suite is here for: the same status means "waiting for the pool"
+    /// with the switch off and "waiting for you" with it on. A status only in the duty list would
+    /// import as Open whatever the switch said, and the last assertion could not fail.
+    /// </summary>
+    private const string DutyStatus = "Afventer general";
+
+    private const string DutyLabel = "fra den generelle pulje";
+    private const string OnDutyNotice = "Du har vagten — puljens sager er med.";
+    private const string TodaySection = "I dag";
+
     /// <summary>
     /// Three issues: one that can be imported, one excluded because the user is waiting on it, and
     /// one imported on an earlier run. The last two are what make the two different reasons
@@ -63,6 +77,30 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
             }
           ],
           "total": 3
+        }
+        """;
+
+    /// <summary>
+    /// One issue from the duty pool, with a deadline of the fixed clock's today so the task list has
+    /// a named section to look for it in. <c>isDuty</c> is spelled out because the label hangs on
+    /// that field alone — an answer without it renders nothing, and <c>isWaiting</c> is false because
+    /// a duty row never waits. The import re-derives both from the status anyway; what is on the
+    /// wire here is only what the screen was given to draw.
+    /// </summary>
+    private const string OneDutyIssue = """
+        {
+          "rows": [
+            {
+              "key": "SAAS-9",
+              "title": "Nedbrud på betalingerne",
+              "deadline": "2026-08-17",
+              "status": "Afventer general",
+              "isWaiting": false,
+              "isDuty": true,
+              "alreadyImported": false
+            }
+          ],
+          "total": 1
         }
         """;
 
@@ -225,6 +263,83 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
         Assert.True(
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
             "The click took the window with it, and this window has no way back.");
+    }
+
+    /// <summary>
+    /// The whole duty rotation in one journey: switch it on, preview, see the pool's issue labelled,
+    /// import it, and find it among the deadline sections instead of under "Venter på".
+    ///
+    /// The last leg is the one that matters, and it is the only assertion here that would catch the
+    /// decision being reversed. The requirement is not that a label appears — it is that the issue
+    /// stays out of "Venter på", because it waits for the pool and the user <em>is</em> the pool. A
+    /// journey that stopped at the label would measure the decoration and leave the rule untested.
+    ///
+    /// <c>/api/jira/import</c> is deliberately <em>not</em> intercepted: the server re-derives the
+    /// role from the settings as they stand, and that derivation is the subject. Only the preview is
+    /// answered from here, because a real Jira cannot be reached from the browser.
+    /// </summary>
+    [Fact]
+    public async Task A_duty_issue_imports_into_the_deadline_sections_rather_than_among_the_waiting()
+    {
+        await ConfigureJiraAsync();
+        await Host.AddAndSaveChangesAsync(
+            new Setting
+            {
+                Key = SettingKeys.JiraWaitingStatuses,
+                Value = $"[\"{DutyStatus}\"]",
+            },
+            new Setting
+            {
+                Key = SettingKeys.JiraDutyStatuses,
+                Value = $"[\"{DutyStatus}\"]",
+            });
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        await AnswerPreviewWithAsync(OneDutyIssue);
+
+        // Nothing here clicks the issue's link, but a stray click must not reach the machine.
+        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
+
+        // Ticked through the page rather than seeded: the switch is the user's whole say in this,
+        // and the server reads it back from the settings on both the preview and the import.
+        var settings = await App.GoToSettings();
+
+        await settings.OnDuty.CheckAsync();
+        await Assertions.Expect(settings.OnDuty).ToBeCheckedAsync();
+
+        var jira = await settings.GoToJira();
+
+        // The only place the state is visible. Words rather than an end date, because an end date
+        // would need something to run at midnight.
+        await Assertions.Expect(jira.OnDutyNotice).ToHaveTextAsync(OnDutyNotice);
+
+        await jira.PreviewAsync();
+
+        var row = jira.Row(DutyTitle);
+
+        await Assertions.Expect(JiraImportScreen.DutyIn(row)).ToHaveTextAsync(DutyLabel);
+
+        // Context, not a block: the pool's issue is offered like any other actionable row. Asserted
+        // because a labelled row that could not be ticked would satisfy the label claim above and
+        // still make the import below impossible.
+        await Assertions.Expect(JiraImportScreen.PickOf(row)).ToBeEnabledAsync();
+        await Assertions.Expect(JiraImportScreen.PickOf(row)).ToBeCheckedAsync();
+        await Assertions.Expect(JiraImportScreen.ExcludedIn(row)).ToHaveCountAsync(0);
+
+        await jira.ImportAsync();
+        await Assertions.Expect(jira.Receipt).ToHaveTextAsync("1 importeret, 0 sprunget over");
+
+        var tasks = await jira.GoToTasks();
+
+        // The leg the whole journey is for. With the switch on, the status is actionable: the issue
+        // belongs to the day's work under its deadline. Turn the switch off, or let the import park
+        // a duty row as WaitingFor, and this is what fails.
+        await Assertions.Expect(tasks.RowsIn(TodaySection)).ToContainTextAsync(DutyTitle);
+
+        // Said from the other side as well, because "it is in I dag" would also hold on a screen
+        // that showed it twice — and "Venter på" is the section the rule is about staying out of.
+        await Assertions.Expect(tasks.WaitingRows).ToHaveCountAsync(0);
+        await Assertions.Expect(tasks.WaitingSection).ToHaveCountAsync(0);
     }
 
     /// <summary>
