@@ -733,6 +733,30 @@ git commit -m "✨ Lad vagten slå ventende, så puljens sager er handlingsklare
 - Modify: `src/Todo.Web/public/i18n/da.json`, `en.json` — **`public/`, ikke `src/`**
 - Test: de tilhørende `.spec.ts`
 
+> **Rettet efter kørslen, 2026-08-19. Leveret i `7c1aa68`.** Fem fejl, og de tre første handler alle om
+> det samme: **håndskrevne wire-fixtures er uden compiler over for kontrakten.**
+>
+> 1. **`isDuty` **er** `required`** — kontraktens `JiraPreviewRow` har
+>    `required: [key, title, status, isWaiting, isDuty, alreadyImported]`, og klienten har
+>    `isDuty!: boolean`. Task 4's rapport sagde det modsatte, og jeg gentog det. **Rådet holder
+>    alligevel, men af en anden grund:** `jira-import.spec.ts` bruger sit **eget** wire-interface
+>    `PreviewRowJson`, som typetjekkeren ikke afstemmer mod kontrakten.
+> 2. **Der er *tre* uafhængige wire-fixtures, ikke to** — `settings-store.spec.ts`, `settings.spec.ts`
+>    og `jira-import.spec.ts`, hver med sin håndskrevne form. Planen påstod at Task 1 havde lagt de nye
+>    felter i fixturet; det gjaldt kun det **første**. `settings.spec.ts` manglede begge, og storen ville
+>    have sat `undefined` i et `string[]`-signal. **Det er stedet en fremtidig skive taber et felt.**
+> 3. **`jira.statusNameInvalid` var uoversat i *begge* filer** siden Task 3 — se boksen i Task 6.
+> 4. **`prettier --write` gjorde de ni filer LF.** Diffen blev ikke begravet, fordi filerne var navngivet
+>    eksplicit, men arbejdskopien var derefter LF. Konverteret tilbage og verificeret med **nul
+>    LF-only-linjer** plus `od` på en dansk linje. `--check` flagger i øvrigt også urørte filer; det er
+>    CRLF-støj.
+> 5. Agenten omskrev desuden en af sine egne tests, fordi mutationen gav `TypeError: Cannot read
+>    properties of null` fra en `!`-assertion frem for en besked der sagde **hvad** der manglede — og
+>    kørte mutationen igen for at bekræfte den nye fejltekst.
+>
+> Endeligt: **Vitest 178 → 184** (+6), Core 90 og Api 184 uændrede, E2E 32 grøn efter `build-web.ps1`.
+> **8** nye oversættelsesnøgler pr. fil.
+
 **Step 1: `SettingsStore`**
 
 To nye signaler, `jiraDutyStatuses` og `jiraOnDuty`. **`save` skal bære dem med i `current`** — nu
@@ -794,6 +818,31 @@ git commit -m "✨ Vælg vagt-statusserne, og vis når puljen er med"
 - Modify: `tests/Todo.E2E/JiraImportJourneyTests.cs`, `JiraImportScreen.cs`, `SettingsScreen.cs`,
   `ContrastTests.cs`
 - Modify: `CLAUDE.md`, `docs/HANDOFF.md`, `docs/plans/2026-08-13-todo-app-design.md`
+
+> **Udvidet 2026-08-19 efter Task 5, som fandt et hul ingen vagt kunne se.**
+>
+> **`jira.statusNameInvalid` var uoversat i *begge* sprogfiler** fra Task 3 til Task 5. Paritetstesten
+> kunne aldrig fælde den, fordi den kun sammenligner de to filer **med hinanden** — og en nøgle der
+> mangler **symmetrisk**, er de to filer enige om. Det er ordret samme klasse som `CLAUDE.md`'s punkt
+> om, at en før/efter-sammenligning over en migrering er blind for en kolonne der mangler i **begge**
+> retninger.
+>
+> **Der findes ingen vagt der binder `ErrorCodes` til `errors.*`-nøglerne** — verificeret. En kode uden
+> oversættelse viser brugeren en rå kodestreng som `jira.statusNameInvalid`. Med ti `jira.*`-koder plus
+> retro-, settings- og system-koderne er det ikke længere noget man kan holde i hovedet.
+>
+> **Læg vagten i `Todo.Api.Tests`** — kun C# kan enumerere `ErrorCodes`' konstanter med refleksion:
+>
+> - Læs hver `public const string` på `Todo.Core.Errors.ErrorCodes`.
+> - Påstå at **begge** sprogfiler har en `errors.<kode>`-nøgle for hver.
+> - **Påstå desuden at der blev fundet konstanter** (`Assert.NotEmpty`), ellers består vagten på
+>   ingenting hvis refleksionen en dag ser den forkerte type — samme grund som `NoRealInstanceTests`'
+>   `scanned > 100`.
+> - Se den fejle: fjern `errors.jira.refused` fra `da.json` og bekræft, at fejlbeskeden **navngiver
+>   koden og filen**. Rul tilbage.
+>
+> Bemærk at den er **stærkere** end paritetstesten og ikke erstatter den: paritet fanger et felt der
+> kun findes i den ene fil; denne fanger et felt der mangler i begge.
 
 **Step 1: E2E**
 
