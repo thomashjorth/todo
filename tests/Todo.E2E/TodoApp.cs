@@ -60,6 +60,16 @@ public sealed class TodoApp
         return screen;
     }
 
+    public async Task<JiraImportScreen> GoToJira()
+    {
+        await Page.GetByTestId("nav-jira").ClickAsync();
+
+        var screen = new JiraImportScreen(this);
+        await screen.WaitUntilShownAsync();
+
+        return screen;
+    }
+
     public async Task<SettingsScreen> GoToSettings()
     {
         await Page.GetByTestId("nav-settings").ClickAsync();

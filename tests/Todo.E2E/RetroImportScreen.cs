@@ -36,6 +36,8 @@ public sealed class RetroImportScreen(TodoApp app)
 
     public Task<TaskListScreen> GoToTasks() => app.GoToTasks();
 
+    public Task<JiraImportScreen> GoToJira() => app.GoToJira();
+
     public Task<SettingsScreen> GoToSettings() => app.GoToSettings();
 
     internal Task WaitUntilShownAsync() => Assertions.Expect(Csv).ToBeVisibleAsync();

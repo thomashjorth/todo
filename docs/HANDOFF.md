@@ -1,6 +1,6 @@
 # Hvor projektet står
 
-Sidst opdateret: 2026-08-18
+Sidst opdateret: 2026-08-19
 
 Konventioner og maskinens fælder: `CLAUDE.md` i roden — den indlæses automatisk.
 Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
@@ -17,9 +17,10 @@ Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
 | 5 | "Venter på" og "Måske" som statusser, med hvem og hvor længe | `2026-08-14-slice-5-waiting-and-someday.md` |
 | 6 | TypeScript strict mode, og opgaverækken som en typet børnekomponent frem for en delt `ng-template` | `2026-08-17-slice-6-typescript-strict.md` |
 | 7 | WCAG AA i begge temaer med en kontrastvagt der måler i browseren, `dark:`-modparter så godt som overalt (én bevidst undtagelse, se designdokumentets afsnit 10), synligt fokus og en tastaturgennemgang | `2026-08-17-slice-7-accessibility.md` |
-| 8 | Alt-genvejssystemet: hold Alt for at se mærkaterne, og Alt+O/I/S/N/V/M udfører elementets aktiveringshandling — links følges, de to kontakter skifter og tager fokus, feltet får fokus | `2026-08-17-alt-shortcuts.md` |
+| 8 | Alt-genvejssystemet: hold Alt for at se mærkaterne, og Alt+O/I/S/N/V/M udfører elementets aktiveringshandling — links følges, de to kontakter skifter og tager fokus, feltet får fokus. (`Alt+J` kom til med skive 11, så bogstavlisten er nu `O/I/J/S/N/V/M`) | `2026-08-17-alt-shortcuts.md` |
 | 9 | Startdato (`DeferUntil`): en opgave ligger i Udskudt indtil dagen den begynder. Udskudtheden er **beregnet** af dagens dato, ikke gemt som en status, så intet skal køre ved midnat. Overskredet slår Udskudt — se designdokumentets afsnit 10 | `2026-08-17-slice-9-defer-until.md` |
 | 10 | `long` som id: `Guid` er væk fra `TaskItem`, `SubTask` og `UserAlias`, og id'et tildeles af SQLite ved indsættelse, så **"opgave 42" kan siges højt**. Migreringen er skrevet i hånden — en `CAST` af Guid-strenge ville have flettet rækker sammen — og en vagt stiller rigtige Guid-rækker op foran den og kræver dem intakte bagefter | `2026-08-17-long-ids.md` |
+| 11 | **Jira-import** mod Data Center 10.3.24: `ITaskSource` + `JiraTaskSource`, wiki-markup → CommonMark, Jira-opsætning på indstillingssiden med tokenet på **sit eget** endpoint, en fjerde skærm med forhåndsvisning, grunde og dedup, `WaitingSince` læst af changeloggen, og "Åbn sagen" på en importeret række. **Ingen migrering** — `ExternalUrl` er beregnet, og `Ext*`-felterne plus afstemningen ligger bevidst i skive 14 | `2026-08-18-slice-11-jira-import.md` |
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, `ApiTest`/`BrowserTest`-basisklasser, og **linket til API-dokumentationen på
@@ -46,10 +47,23 @@ Fundet fordi `ContrastTests` flakkede (7–9 s frem for 2 s), ikke fordi nogen l
 
 ## Tilbage
 
-Skive 10 er færdig, og ingenting er planlagt efter den. Punkterne nedenfor kan tages i vilkårlig
-rækkefølge, og **nu uden undtagelser**: `long` som id stod her gennem tre leverancer som det eneste
-punkt der kostede noget at udskyde, og den er leveret som skive 10. Der er ikke længere noget i den
-kategori — alt herunder koster det samme om et halvt år som i dag.
+Skive 11 er færdig, og **næste nummererede skive er 12 (ADO-import)** — men den har en forudsætning
+der ikke er indfriet, se "Åbne spørgsmål" nedenfor: ADO-mentions skulle verificeres i skive 11 og
+blev det ikke, fordi målingen kræver brugerens egen instans. Kør den, før skive 12 planlægges.
+
+Punkterne nedenfor kan i øvrigt tages i vilkårlig rækkefølge, og **uden undtagelser**: `long` som id
+stod her gennem tre leverancer som det eneste punkt der kostede noget at udskyde, og den er leveret
+som skive 10. Der er ikke længere noget i den kategori — alt herunder koster det samme om et halvt
+år som i dag.
+
+**Hvad skive 11 efterlod af arbejde, og hvad den bevidst ikke gjorde.** Afstemningen mod en senere
+sync, `Ext*`-felterne, `TitleOverridden` og `LastSyncedAt` er **ikke** glemt: de ligger i skive 14
+sammen med baggrundssyncen, fordi de beskytter mod noget der ikke findes endnu — felterne ville
+blive skrevet og aldrig læst, og en vagt på dem kunne ikke bringes til at fejle. Skiven har derfor
+ingen migrering. Af rigtige huller står tre: **en mislykket "Åbn sagen" er tavs på en sammenfoldet
+række** (bevidst ikke rettet — se designdokumentets afsnit 10 for begrundelsen), `jira-error` på
+indstillingssiden er ikke kontrastmålt (farveparret er dækket andetsteds), og **intet i suiten
+kalder den rigtige instans** — den eneste vagt der er, er at intet i repoet må navngive den.
 
 **Hvad ventetiden faktisk kostede, er værd at tage med.** Prisargumentet var sandt, men beskedent:
 aftrykket voksede med cirka ét sted per leverance, og målt endte det på 11 id-relaterede steder i
@@ -82,12 +96,13 @@ gennemgangen, så de to hænger sammen.
 
 ### Allerede planlagt i designdokumentet
 
-Jira-import, ADO-import, mentions-indbakke, baggrundssync med tray og notifikationer,
-livscyklus og arkiv, og pakning til en self-contained exe. Se afsnit 9.
+ADO-import, mentions-indbakke, baggrundssync med tray og notifikationer, livscyklus og arkiv, og
+pakning til en self-contained exe. Se afsnit 9. **Jira-importen er ude af listen** — den er leveret
+som skive 11 og står i Færdigt-tabellen.
 
 ## Sådan køres en skive
 
-Mønstret der har virket gennem elleve skiver:
+Mønstret der har virket gennem tolv skiver (0–11):
 
 1. Skriv en plan i `docs/plans/YYYY-MM-DD-slice-N-navn.md` med opgaver på 2–5 minutter, komplet
    kode, eksakte kommandoer og forventet output.
@@ -99,23 +114,59 @@ Mønstret der har virket gennem elleve skiver:
 5. Verificér tallene selv bagefter. Rapporter har taget fejl om grennavne og filnavne uden at
    tage fejl om indholdet.
 
+## Næste måling — den kan kun du foretage
+
+**ADO-mentions skulle verificeres i skive 11 og blev det ikke.** Designdokumentets afsnit 10 sagde
+"verificér i skive 11, ikke i 12" — altså mens "Test forbindelse" bygges. Skiven kunne ikke:
+målingen kræver et kald mod **din egen** ADO-instans med **dit eget** token, og det kan ingen agent
+gøre herfra. Det er derfor en opgave til dig, og den bør køres før skive 12 planlægges — hele
+mentions-indbakken (skive 13) hviler på svaret.
+
+Azure DevOps har intet "vis mine mentions"-endpoint. Planen fra afsnit 6 er WIQL på
+kommentarhistorikken:
+
+```
+SELECT [System.Id] FROM WorkItems
+WHERE [System.History] Contains Words 'Thomas Hjorth Hansen'
+  AND [System.ChangedDate] >= '2026-08-01'
+ORDER BY [System.ChangedDate] DESC
+```
+
+Kør den mod `POST https://<server>/<collection>/<projekt>/_apis/wit/wiql?api-version=…` og se efter
+tre ting: **at `Contains Words` overhovedet er tilladt på `System.History`** (den er indekseret
+særskilt, og nogle serverudgaver afviser den), **hvilken `api-version` din serverudgave tager** — den
+er stadig ukendt og afgør endpoints hele vejen — og **om et hit kan føres tilbage til den konkrete
+kommentar**, for WIQL svarer med work item-id'er, ikke med kommentarer, så
+`GET /_apis/wit/workItems/{id}/comments` skal derefter kunne matches på mention-markup.
+
+**Læg aldrig tokenet direkte i kommandolinjen.** Sæt det i en miljøvariabel først og referér den —
+ellers følger det med i fejlbeskeder, historik og enhver kopiering af kommandoen:
+
+```powershell
+$env:ADO_PAT = '<indsæt her, ikke i historikken>'
+$auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$env:ADO_PAT"))
+curl.exe -s -H "Authorization: Basic $auth" -H "Content-Type: application/json" ...
+```
+
+`curl` er et alias for `Invoke-WebRequest` i PowerShell 5.1 og tager helt andre flag, så kald
+`curl.exe` eksplicit. Skriv svaret ind i designdokumentets afsnit 6 og 10, **også hvis planen ikke
+holder** — især hvis den ikke holder.
+
 ## Åbne spørgsmål
 
-- **ADO-mentions** er den mest usikre antagelse i hele designet. Azure DevOps har intet
-  "vis mine mentions"-endpoint; planen er WIQL på kommentarhistorik. **Verificér mod jeres egen
-  instans, før der bygges noget ovenpå.**
-- **Jira-versionen er afklaret: Data Center 10.3.24** (målt 2026-08-18). Det låser REST v2 med
-  wiki-markup — ikke Cloud'ens ADF — og bekræfter at PAT som Bearer er muligt. Jira 10 fjernede
-  dog forældede REST-endpoints, så skive 11's plan skal måles mod instansen. Se designdokumentets
-  afsnit 10. **ADO Server-versionen er stadig ukendt**; "Test forbindelse" er bygget til at
-  afklare den.
-- **Kravet til skive 11 er besluttet, mapningen med.** En ventende Jira-status
-  (`Afventer general`, `Afventer PO/FA`) kan komme med i importen bag en indstilling, default fra,
-  og importeres **som `WaitingFor`** — den lander i "Venter på", ikke i deadline-sektionerne.
-  Indstillingen er derfor "disse Jira-statusser betyder ventende", ikke et filter.
-  **Instansen er nu målt, og tre ting er afklaret:** `/rest/api/2/search` virker med klassisk
-  paginering, projektet har **seks** ventende statusser med inkonsekvente navne (fem `Afventer *`
-  plus `Venter på support`, så en præfiks-heuristik taber en), og `WaitingSince` skal komme fra
-  `expand=changelog`, fordi `statuscategorychangedate` ikke returneres. Tilbage står én
-  designbeslutning: at `Status` fødes fra kilden ved import og derefter er lokal, som `Title` og
-  `Requester`. Designdokumentets afsnit 4a og 10.
+- **Jira-versionen er afklaret: Data Center 10.3.24** (målt 2026-08-18), og skive 11 er bygget mod
+  den. Det låste REST v2 med wiki-markup — ikke Cloud'ens ADF — og bekræftede at PAT som Bearer er
+  muligt. **ADO Server-versionen er stadig ukendt**; "Test forbindelse" er bygget til at afklare den,
+  og målingen ovenfor er første lejlighed.
+- **Kravet til skive 11 var besluttet, mapningen med, og begge er nu bygget.** En ventende
+  Jira-status kan komme med i importen bag en indstilling, default fra, og importeres **som
+  `WaitingFor`** — den lander i "Venter på", ikke i deadline-sektionerne. Indstillingen er "disse
+  Jira-statusser betyder ventende", ikke et filter. **Den sidste åbne designbeslutning er afgjort:**
+  `Status` fødes fra kilden ved import og er derefter lokal, som `Title` og `Requester`, så en sag der
+  forlader den ventende status i Jira forlader **ikke** automatisk "Venter på" hos dig. Serveren
+  afgør det, ikke klienten — derfor bærer `JiraImportRow` intet `isWaiting`. Designdokumentets
+  afsnit 4a.
+- **Ingen test kalder den rigtige Jira.** `JiraTaskSource` måles mod en falsk instans på loopback, og
+  den eneste vagt på den rigtige er, at intet i repoet må navngive den. Offsetformen `+0200` og
+  changelog-formen er derfor afskrevet fra en måling 2026-08-18, ikke fra en løbende test — en
+  Jira-opgradering ville vise sig i brug, ikke i `dotnet test`.

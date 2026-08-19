@@ -10,7 +10,7 @@ namespace Todo.E2E;
 
 /// <summary>
 /// Every action has to be reachable without a mouse. The first journey walks one task from created
-/// to expanded to deleted using only the keyboard; the rest cover the six Alt shortcuts and the
+/// to expanded to deleted using only the keyboard; the rest cover the seven Alt shortcuts and the
 /// AltGr combination the app has to keep its hands off.
 /// </summary>
 public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
@@ -21,18 +21,19 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string SomedayTitle = "Læs om typografi";
 
     /// <summary>
-    /// Three in the nav, one in the new-task field and one per switch — every shortcut the app has.
+    /// Four in the nav, one in the new-task field and one per switch — every shortcut the app has.
+    /// Grew from six with the Jira import screen in slice 11, which added Alt+J to the nav.
     /// </summary>
-    private const int BadgeCount = 6;
+    private const int BadgeCount = 7;
 
     /// <summary>
-    /// The three nav links in app.html are the first focusable elements on the page, so the
-    /// field is the fourth stop — not the first. Asserted below rather than assumed: a fourth
+    /// The four nav links in app.html are the first focusable elements on the page, so the
+    /// field is the fifth stop — not the first. Asserted below rather than assumed: another
     /// link, or a skip link, has to fail here with the name of what appeared, not somewhere
     /// later where the failure would read as a broken field.
     /// </summary>
     private static readonly string[] TrailToTheField =
-        ["nav-tasks", "nav-import", "nav-settings", "new-task-input"];
+        ["nav-tasks", "nav-import", "nav-jira", "nav-settings", "new-task-input"];
 
     private static readonly FixedClock Clock = new(new DateOnly(2026, 8, 17));
 
@@ -174,6 +175,23 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await App.Page.Keyboard.PressAsync("Alt+i");
 
         await Assertions.Expect(new RetroImportScreen(App).Csv).ToBeVisibleAsync();
+        await Assertions.Expect(App.Tasks.NewTaskInput).ToHaveCountAsync(0);
+    }
+
+    /// <summary>
+    /// Alt+J was the fourth nav link's shortcut from the day it arrived, but only the badge count
+    /// covered it — and a badge is painted by the Alt keydown alone, whether or not the letter does
+    /// anything. The destination is asserted through a locator that cannot exist on the task list,
+    /// so a shortcut that only moved focus fails here.
+    /// </summary>
+    [Fact]
+    public async Task Alt_J_follows_the_jira_link()
+    {
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+
+        await App.Page.Keyboard.PressAsync("Alt+j");
+
+        await Assertions.Expect(new JiraImportScreen(App).NotConfigured).ToBeVisibleAsync();
         await Assertions.Expect(App.Tasks.NewTaskInput).ToHaveCountAsync(0);
     }
 

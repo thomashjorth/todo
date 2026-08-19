@@ -13,7 +13,7 @@ namespace Todo.Api.Tests;
 /// documentation page reads, because the derivation carries none of the prose a person opens a
 /// documentation page to read.
 ///
-/// The two are easy to mix up - they have the same 15 operations and the same 22 schemas - so
+/// The two are easy to mix up - they have the same 21 operations and the same 30 schemas - so
 /// these tests hold the distinction in place.
 /// </summary>
 public class ContractDocumentTests : ApiTest
@@ -67,7 +67,7 @@ public class ContractDocumentTests : ApiTest
         Assert.Equal(contractTitle, servedTitle);
         Assert.NotEqual(contractTitle, runtimeTitle);
 
-        // Prose is the whole point. Four of the fifteen operations carry a summary in the
+        // Prose is the whole point. Ten of the twenty-one operations carry a summary in the
         // contract; the derivation carries none. Asserting the served count against the file
         // keeps this honest if more summaries are written, while the zero is what makes the
         // comparison mean anything - if the derivation ever grows summaries of its own, the

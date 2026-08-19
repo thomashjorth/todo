@@ -53,6 +53,24 @@
         }
       </p>
     }
+    <!-- Også uden for rækkeknappen, og af samme grund: mærkaten ville ellers indgå i rækkens
+         tilgængelige navn, som TaskListScreen.RowTitled matcher i sin helhed.
+         @let, ikke `as`: et signal-kald indsnævres ikke af @if, og `as` binder på sandhed. -->
+    @let issueUrl = task().externalUrl;
+    @if (issueUrl) {
+      <p class="text-xs">
+        <!-- En <button>, ikke et <a href>: Photino-vinduet har hverken adresselinje eller
+             tilbage-knap, så en navigation væk er enkeltrettet. Systemets browser åbner den. -->
+        <button
+          type="button"
+          data-testid="external-link"
+          class="text-blue-700 underline dark:text-blue-300"
+          (click)="openIssue(issueUrl)"
+        >
+          {{ 'tasks.openIssue' | transloco }}
+        </button>
+      </p>
+    }
   </div>
 </div>
 @if (expanded()) {

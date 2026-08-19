@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Scalar.AspNetCore;
+using Todo.Core.Jira;
 using Todo.Host.Endpoints;
+using Todo.Host.Jira;
 using Todo.Host.Links;
 
 namespace Todo.Host;
@@ -43,6 +45,20 @@ public static class TodoHost
         var databasePath = builder.Configuration["Data:Path"] ?? TodoDatabase.DefaultPath;
         builder.Services.AddDbContext<TodoDbContext>(o => o.UseSqlite($"Data Source={databasePath}"));
         builder.Services.AddSingleton<IClock, SystemClock>();
+
+        // Scoped, because it reads through the request's TodoDbContext. The settings routes take it
+        // as a parameter, which is how a minimal API asks DI for something.
+        builder.Services.AddScoped<JiraSettingsReader>();
+
+        // A typed client, so the source gets a pooled HttpClient rather than one per call. The
+        // timeout is the point of configuring it at all: the app is a single window, and a Jira that
+        // has stopped answering must not hold the UI open indefinitely — JiraTaskSource turns the
+        // resulting cancellation into a JiraUnreachable the user can read.
+        //
+        // No BaseAddress. The Jira it talks to is a runtime setting the user can change, which is
+        // also why the scoped JiraSettingsReader is a constructor dependency of the source.
+        builder.Services.AddHttpClient<JiraTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
+
         builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
 
         configureServices?.Invoke(builder.Services);
@@ -111,6 +127,7 @@ public static class TodoHost
 
         app.MapTasks();
         app.MapRetro();
+        app.MapJira();
         app.MapSettings();
         app.MapSystem();
 

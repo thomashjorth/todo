@@ -95,7 +95,16 @@ public sealed class TaskListScreen(TodoApp app)
     /// </summary>
     public ILocator DetailFor(string title) => RowFor(title).GetByTestId("task-detail");
 
+    /// <summary>
+    /// The button that asks the shell to open the issue in Jira. Only a task whose source is Jira
+    /// has one, and it sits outside the row's button so its label stays out of the accessible name
+    /// <see cref="RowTitled"/> matches in full.
+    /// </summary>
+    public ILocator ExternalLinkIn(string title) => RowFor(title).GetByTestId("external-link");
+
     public Task<RetroImportScreen> GoToImport() => app.GoToImport();
+
+    public Task<JiraImportScreen> GoToJira() => app.GoToJira();
 
     public Task<SettingsScreen> GoToSettings() => app.GoToSettings();
 

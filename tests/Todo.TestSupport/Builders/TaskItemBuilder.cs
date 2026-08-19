@@ -1,5 +1,6 @@
 using Todo.Core.Tasks;
 using Todo.Core.Time;
+using Todo.Host.Jira;
 
 // Builders write straight to the database, so they never meet the API's validation: arrange
 // state with them, but perform the action a test verifies through the endpoint.
@@ -133,6 +134,20 @@ public sealed class TaskItemBuilder
     public TaskItemBuilder FromRetro(string externalKey)
     {
         _sourceId = "retro";
+        _externalKey = externalKey;
+        return this;
+    }
+
+    /// <summary>
+    /// Makes the task look imported from Jira, which is the only way a task gets an
+    /// <c>ExternalUrl</c>: the endpoint computes one only when the source is Jira, so the link on a
+    /// row cannot be rendered by any other fixture. <see cref="JiraTaskSource.Id"/> rather than the
+    /// string, so the guard and the endpoint cannot disagree about the spelling — a mismatch there
+    /// would leave the link absent and read as a broken template.
+    /// </summary>
+    public TaskItemBuilder FromJira(string externalKey)
+    {
+        _sourceId = JiraTaskSource.Id;
         _externalKey = externalKey;
         return this;
     }

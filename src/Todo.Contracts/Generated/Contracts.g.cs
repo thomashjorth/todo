@@ -156,6 +156,12 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("requester")]
         public string Requester { get; set; }
 
+        /// <summary>
+        /// Where the source system shows this item. Computed from the source and the external key, never stored, so it follows a changed base URL.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("externalUrl")]
+        public string ExternalUrl { get; set; }
+
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<TodoStatus>))]
@@ -402,11 +408,165 @@ namespace Todo.Contracts
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraConnectionResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("displayName")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string DisplayName { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraStatusesResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("names")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> Names { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraPreviewRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        /// <summary>
+        /// The Jira description, converted from wiki markup to CommonMark.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("deadline")]
+        public System.DateOnly? Deadline { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
+        public string Requester { get; set; }
+
+        /// <summary>
+        /// The Jira status name, shown so the user can see why a row is waiting.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Status { get; set; }
+
+        /// <summary>
+        /// Whether the status is in the user's waiting list.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("isWaiting")]
+        public bool IsWaiting { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
+        public System.DateTimeOffset? WaitingSince { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("alreadyImported")]
+        public bool AlreadyImported { get; set; }
+
+        /// <summary>
+        /// Why import will skip this row, as an error code the frontend translates. Null means it will be imported.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("excluded")]
+        public string Excluded { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraPreviewResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<JiraPreviewRow> Rows { get; set; } = new System.Collections.ObjectModel.Collection<JiraPreviewRow>();
+
+        /// <summary>
+        /// What Jira reported as the total, so a truncated page is visible.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total")]
+        public int Total { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraImportRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("deadline")]
+        public System.DateOnly? Deadline { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
+        public string Requester { get; set; }
+
+        /// <summary>
+        /// The Jira status name. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Status { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
+        public System.DateTimeOffset? WaitingSince { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraImportRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<JiraImportRow> Rows { get; set; } = new System.Collections.ObjectModel.Collection<JiraImportRow>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraImportResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("imported")]
+        public int Imported { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("skipped")]
+        public int Skipped { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SettingsRequest
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("language")]
         public string Language { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("jiraBaseUrl")]
+        public string JiraBaseUrl { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("jiraProjectKey")]
+        public string JiraProjectKey { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("jiraWaitingStatuses")]
+        public System.Collections.Generic.ICollection<string> JiraWaitingStatuses { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("jiraIncludeWaiting")]
+        public bool JiraIncludeWaiting { get; set; }
 
     }
 
@@ -416,6 +576,35 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("language")]
         public string Language { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("jiraBaseUrl")]
+        public string JiraBaseUrl { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("jiraProjectKey")]
+        public string JiraProjectKey { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("jiraWaitingStatuses")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> JiraWaitingStatuses { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("jiraIncludeWaiting")]
+        public bool JiraIncludeWaiting { get; set; }
+
+        /// <summary>
+        /// Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("hasJiraToken")]
+        public bool HasJiraToken { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraTokenRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("token")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Token { get; set; }
 
     }
 

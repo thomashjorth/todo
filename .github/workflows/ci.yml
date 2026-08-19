@@ -1,0 +1,63 @@
+name: CI
+
+# Personligt repo uden fast PR-flow: kør på hvert push, så en gren der aldrig bliver
+# til en PR også bliver målt. workflow_dispatch er til at gentage en kørsel i hånden.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# En ny commit på samme gren afløser den forrige kørsel frem for at stå i kø bag den.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # Windows er ikke et valg: FrontendStrictnessTests kalder node_modules\.bin\tsc.cmd,
+    # og appen selv er Photino + %APPDATA%.
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # global.json pinner 10.0.300 med rollForward latestFeature.
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # ^22.22.3 kræves af @angular/core 22.1; 22.x er også det udviklingsmaskinen kører.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/Todo.Web/package-lock.json
+
+      - name: Installér npm-afhængigheder
+        working-directory: src/Todo.Web
+        run: npm ci
+
+      # BrowserFixture henter selv Chromium ved opstart. Cachen sparer downloaden;
+      # nøglen er csproj'en, fordi det er den der pinner Microsoft.Playwright-versionen.
+      - name: Genbrug Playwrights browsere
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('tests/Todo.E2E/Todo.E2E.csproj') }}
+
+      # Skal ligge før dotnet test: TodoApp.OpenAsync fejler hvis wwwroot\index.html
+      # mangler, så uden det her falder hele E2E-suiten af den forkerte grund.
+      - name: Byg Angular ind i wwwroot
+        working-directory: src/Todo.Web
+        run: npm run build
+
+      # Samme kommando som CLAUDE.md dokumenterer lokalt — samme konfiguration, så en
+      # grøn maskine og en grøn kørsel betyder det samme. Kører alle fire testprojekter,
+      # inklusive drift-, friskheds-, kontrast- og migreringsvagterne.
+      - name: dotnet test
+        run: dotnet test Todo.sln
+
+      - name: Vitest
+        working-directory: src/Todo.Web
+        run: npm run test -- --watch=false

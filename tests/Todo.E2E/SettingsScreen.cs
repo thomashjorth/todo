@@ -12,6 +12,30 @@ public sealed class SettingsScreen(TodoApp app)
 
     public ILocator Error => Page.GetByTestId("alias-error");
 
+    public ILocator JiraBaseUrl => Page.GetByTestId("jira-base-url");
+
+    public ILocator JiraToken => Page.GetByTestId("jira-token");
+
+    public ILocator SaveJiraToken => Page.GetByTestId("jira-save-token");
+
+    /// <summary>Says a token is held. Only a stored token puts it or the Clear button on screen.</summary>
+    public ILocator JiraTokenStored => Page.GetByTestId("jira-token-stored");
+
+    public ILocator ClearJiraToken => Page.GetByTestId("jira-clear-token");
+
+    public ILocator TestJiraConnection => Page.GetByTestId("jira-test");
+
+    /// <summary>The name Jira reports for the token's owner, which only a reply puts here.</summary>
+    public ILocator JiraConnection => Page.GetByTestId("jira-connection");
+
+    public ILocator LoadJiraStatuses => Page.GetByTestId("jira-load-statuses");
+
+    public ILocator JiraStatusRows => Page.GetByTestId("jira-status-row");
+
+    public ILocator JiraStatusesEmpty => Page.GetByTestId("jira-statuses-empty");
+
+    public ILocator JiraError => Page.GetByTestId("jira-error");
+
     private ILocator AliasInput => Page.GetByTestId("alias-input");
 
     private IPage Page => app.Page;
@@ -36,7 +60,21 @@ public sealed class SettingsScreen(TodoApp app)
         await AliasInput.PressAsync("Enter");
     }
 
+    /// <summary>
+    /// Types a token and saves it, then waits for the line that says one is held: the field is
+    /// write-only, so the confirmation is the only evidence the round trip happened.
+    /// </summary>
+    public async Task StoreJiraTokenAsync(string token)
+    {
+        await JiraToken.FillAsync(token);
+        await SaveJiraToken.ClickAsync();
+
+        await Assertions.Expect(JiraTokenStored).ToBeVisibleAsync();
+    }
+
     public Task<RetroImportScreen> GoToImport() => app.GoToImport();
+
+    public Task<JiraImportScreen> GoToJira() => app.GoToJira();
 
     public Task<TaskListScreen> GoToTasks() => app.GoToTasks();
 

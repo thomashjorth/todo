@@ -916,6 +916,375 @@ export class SettingsClient {
         }
         return _observableOf(null as any);
     }
+
+    /**
+     * Stores the Jira personal access token the import authenticates with.
+     * @return The token was stored.
+     */
+    setJiraToken(body: JiraTokenRequest): Observable<SettingsResponse> {
+        let url_ = this.baseUrl + "/api/settings/jira-token";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processSetJiraToken(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processSetJiraToken(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<SettingsResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<SettingsResponse>;
+        }));
+    }
+
+    protected processSetJiraToken(response: HttpResponseBase): Observable<SettingsResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = SettingsResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The token was empty.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Forgets the stored Jira token.
+     * @return The token was removed.
+     */
+    clearJiraToken(): Observable<SettingsResponse> {
+        let url_ = this.baseUrl + "/api/settings/jira-token";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processClearJiraToken(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processClearJiraToken(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<SettingsResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<SettingsResponse>;
+        }));
+    }
+
+    protected processClearJiraToken(response: HttpResponseBase): Observable<SettingsResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = SettingsResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
+@Injectable({
+    providedIn: 'root'
+})
+export class JiraClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * Asks Jira who the stored token belongs to.
+     * @return The name Jira reports for the token's owner.
+     */
+    testJiraConnection(): Observable<JiraConnectionResponse> {
+        let url_ = this.baseUrl + "/api/jira/test";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processTestJiraConnection(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processTestJiraConnection(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<JiraConnectionResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<JiraConnectionResponse>;
+        }));
+    }
+
+    protected processTestJiraConnection(response: HttpResponseBase): Observable<JiraConnectionResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = JiraConnectionResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("Jira could not be reached, or the token was rejected.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Lists the status names the configured project uses.
+     * @return The status names, so the waiting list can be picked rather than typed.
+     */
+    listJiraStatuses(): Observable<JiraStatusesResponse> {
+        let url_ = this.baseUrl + "/api/jira/statuses";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processListJiraStatuses(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processListJiraStatuses(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<JiraStatusesResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<JiraStatusesResponse>;
+        }));
+    }
+
+    protected processListJiraStatuses(response: HttpResponseBase): Observable<JiraStatusesResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = JiraStatusesResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("Jira could not be reached, or the token was rejected.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Reads the user's assigned issues without storing anything.
+     * @return The rows the import would create.
+     */
+    previewJira(): Observable<JiraPreviewResponse> {
+        let url_ = this.baseUrl + "/api/jira/preview";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processPreviewJira(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processPreviewJira(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<JiraPreviewResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<JiraPreviewResponse>;
+        }));
+    }
+
+    protected processPreviewJira(response: HttpResponseBase): Observable<JiraPreviewResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = JiraPreviewResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("Jira could not be reached, or the token was rejected.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Creates a task for every Jira row that is not imported already.
+     * @return How many rows were created and how many were already there.
+     */
+    importJira(body: JiraImportRequest): Observable<JiraImportResponse> {
+        let url_ = this.baseUrl + "/api/jira/import";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processImportJira(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processImportJira(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<JiraImportResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<JiraImportResponse>;
+        }));
+    }
+
+    protected processImportJira(response: HttpResponseBase): Observable<JiraImportResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = JiraImportResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The request is not valid.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
 }
 
 @Injectable({
@@ -1141,6 +1510,8 @@ export class TodoTask implements ITodoTask {
     /** The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives. */
     deferUntil?: string | undefined;
     requester?: string | undefined;
+    /** Where the source system shows this item. Computed from the source and the external key, never stored, so it follows a changed base URL. */
+    externalUrl?: string | undefined;
     status!: TodoStatus;
     bucket!: DeadlineBucket;
     waitingOn?: string | undefined;
@@ -1171,6 +1542,7 @@ export class TodoTask implements ITodoTask {
             this.deadline = _data["deadline"];
             this.deferUntil = _data["deferUntil"];
             this.requester = _data["requester"];
+            this.externalUrl = _data["externalUrl"];
             this.status = _data["status"];
             this.bucket = _data["bucket"];
             this.waitingOn = _data["waitingOn"];
@@ -1202,6 +1574,7 @@ export class TodoTask implements ITodoTask {
         data["deadline"] = this.deadline;
         data["deferUntil"] = this.deferUntil;
         data["requester"] = this.requester;
+        data["externalUrl"] = this.externalUrl;
         data["status"] = this.status;
         data["bucket"] = this.bucket;
         data["waitingOn"] = this.waitingOn;
@@ -1227,6 +1600,8 @@ export interface ITodoTask {
     /** The date the task becomes actionable. Before it the task is deferred and stays out of the deadline sections; it returns to the list on its own when the date arrives. */
     deferUntil?: string | undefined;
     requester?: string | undefined;
+    /** Where the source system shows this item. Computed from the source and the external key, never stored, so it follows a changed base URL. */
+    externalUrl?: string | undefined;
     status: TodoStatus;
     bucket: DeadlineBucket;
     waitingOn?: string | undefined;
@@ -1856,8 +2231,377 @@ export interface IRetroAliasesResponse {
     aliases: string[];
 }
 
+export class JiraConnectionResponse implements IJiraConnectionResponse {
+    displayName!: string;
+
+    constructor(data?: IJiraConnectionResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.displayName = _data["displayName"];
+        }
+    }
+
+    static fromJS(data: any): JiraConnectionResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraConnectionResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["displayName"] = this.displayName;
+        return data;
+    }
+}
+
+export interface IJiraConnectionResponse {
+    displayName: string;
+}
+
+export class JiraStatusesResponse implements IJiraStatusesResponse {
+    names!: string[];
+
+    constructor(data?: IJiraStatusesResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.names = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["names"])) {
+                this.names = [] as any;
+                for (let item of _data["names"])
+                    this.names!.push(item);
+            }
+        }
+    }
+
+    static fromJS(data: any): JiraStatusesResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraStatusesResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.names)) {
+            data["names"] = [];
+            for (let item of this.names)
+                data["names"].push(item);
+        }
+        return data;
+    }
+}
+
+export interface IJiraStatusesResponse {
+    names: string[];
+}
+
+export class JiraPreviewRow implements IJiraPreviewRow {
+    key!: string;
+    title!: string;
+    /** The Jira description, converted from wiki markup to CommonMark. */
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    /** The Jira status name, shown so the user can see why a row is waiting. */
+    status!: string;
+    /** Whether the status is in the user's waiting list. */
+    isWaiting!: boolean;
+    waitingSince?: string | undefined;
+    alreadyImported!: boolean;
+    /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
+    excluded?: string | undefined;
+
+    constructor(data?: IJiraPreviewRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.title = _data["title"];
+            this.note = _data["note"];
+            this.deadline = _data["deadline"];
+            this.requester = _data["requester"];
+            this.status = _data["status"];
+            this.isWaiting = _data["isWaiting"];
+            this.waitingSince = _data["waitingSince"];
+            this.alreadyImported = _data["alreadyImported"];
+            this.excluded = _data["excluded"];
+        }
+    }
+
+    static fromJS(data: any): JiraPreviewRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraPreviewRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["title"] = this.title;
+        data["note"] = this.note;
+        data["deadline"] = this.deadline;
+        data["requester"] = this.requester;
+        data["status"] = this.status;
+        data["isWaiting"] = this.isWaiting;
+        data["waitingSince"] = this.waitingSince;
+        data["alreadyImported"] = this.alreadyImported;
+        data["excluded"] = this.excluded;
+        return data;
+    }
+}
+
+export interface IJiraPreviewRow {
+    key: string;
+    title: string;
+    /** The Jira description, converted from wiki markup to CommonMark. */
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    /** The Jira status name, shown so the user can see why a row is waiting. */
+    status: string;
+    /** Whether the status is in the user's waiting list. */
+    isWaiting: boolean;
+    waitingSince?: string | undefined;
+    alreadyImported: boolean;
+    /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
+    excluded?: string | undefined;
+}
+
+export class JiraPreviewResponse implements IJiraPreviewResponse {
+    rows!: JiraPreviewRow[];
+    /** What Jira reported as the total, so a truncated page is visible. */
+    total!: number;
+
+    constructor(data?: IJiraPreviewResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(JiraPreviewRow.fromJS(item));
+            }
+            this.total = _data["total"];
+        }
+    }
+
+    static fromJS(data: any): JiraPreviewResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraPreviewResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        data["total"] = this.total;
+        return data;
+    }
+}
+
+export interface IJiraPreviewResponse {
+    rows: JiraPreviewRow[];
+    /** What Jira reported as the total, so a truncated page is visible. */
+    total: number;
+}
+
+export class JiraImportRow implements IJiraImportRow {
+    key!: string;
+    title!: string;
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    /** The Jira status name. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire. */
+    status!: string;
+    waitingSince?: string | undefined;
+
+    constructor(data?: IJiraImportRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.title = _data["title"];
+            this.note = _data["note"];
+            this.deadline = _data["deadline"];
+            this.requester = _data["requester"];
+            this.status = _data["status"];
+            this.waitingSince = _data["waitingSince"];
+        }
+    }
+
+    static fromJS(data: any): JiraImportRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraImportRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["title"] = this.title;
+        data["note"] = this.note;
+        data["deadline"] = this.deadline;
+        data["requester"] = this.requester;
+        data["status"] = this.status;
+        data["waitingSince"] = this.waitingSince;
+        return data;
+    }
+}
+
+export interface IJiraImportRow {
+    key: string;
+    title: string;
+    note?: string | undefined;
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    /** The Jira status name. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire. */
+    status: string;
+    waitingSince?: string | undefined;
+}
+
+export class JiraImportRequest implements IJiraImportRequest {
+    rows!: JiraImportRow[];
+
+    constructor(data?: IJiraImportRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(JiraImportRow.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): JiraImportRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraImportRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IJiraImportRequest {
+    rows: JiraImportRow[];
+}
+
+export class JiraImportResponse implements IJiraImportResponse {
+    imported!: number;
+    skipped!: number;
+
+    constructor(data?: IJiraImportResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.imported = _data["imported"];
+            this.skipped = _data["skipped"];
+        }
+    }
+
+    static fromJS(data: any): JiraImportResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraImportResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["imported"] = this.imported;
+        data["skipped"] = this.skipped;
+        return data;
+    }
+}
+
+export interface IJiraImportResponse {
+    imported: number;
+    skipped: number;
+}
+
 export class SettingsRequest implements ISettingsRequest {
     language?: string | undefined;
+    jiraBaseUrl?: string | undefined;
+    jiraProjectKey?: string | undefined;
+    jiraWaitingStatuses?: string[];
+    jiraIncludeWaiting?: boolean;
 
     constructor(data?: ISettingsRequest) {
         if (data) {
@@ -1871,6 +2615,14 @@ export class SettingsRequest implements ISettingsRequest {
     init(_data?: any) {
         if (_data) {
             this.language = _data["language"];
+            this.jiraBaseUrl = _data["jiraBaseUrl"];
+            this.jiraProjectKey = _data["jiraProjectKey"];
+            if (Array.isArray(_data["jiraWaitingStatuses"])) {
+                this.jiraWaitingStatuses = [] as any;
+                for (let item of _data["jiraWaitingStatuses"])
+                    this.jiraWaitingStatuses!.push(item);
+            }
+            this.jiraIncludeWaiting = _data["jiraIncludeWaiting"];
         }
     }
 
@@ -1884,16 +2636,34 @@ export class SettingsRequest implements ISettingsRequest {
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
         data["language"] = this.language;
+        data["jiraBaseUrl"] = this.jiraBaseUrl;
+        data["jiraProjectKey"] = this.jiraProjectKey;
+        if (Array.isArray(this.jiraWaitingStatuses)) {
+            data["jiraWaitingStatuses"] = [];
+            for (let item of this.jiraWaitingStatuses)
+                data["jiraWaitingStatuses"].push(item);
+        }
+        data["jiraIncludeWaiting"] = this.jiraIncludeWaiting;
         return data;
     }
 }
 
 export interface ISettingsRequest {
     language?: string | undefined;
+    jiraBaseUrl?: string | undefined;
+    jiraProjectKey?: string | undefined;
+    jiraWaitingStatuses?: string[];
+    jiraIncludeWaiting?: boolean;
 }
 
 export class SettingsResponse implements ISettingsResponse {
     language?: string | undefined;
+    jiraBaseUrl?: string | undefined;
+    jiraProjectKey?: string | undefined;
+    jiraWaitingStatuses!: string[];
+    jiraIncludeWaiting!: boolean;
+    /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
+    hasJiraToken!: boolean;
 
     constructor(data?: ISettingsResponse) {
         if (data) {
@@ -1902,11 +2672,23 @@ export class SettingsResponse implements ISettingsResponse {
                     (this as any)[property] = (data as any)[property];
             }
         }
+        if (!data) {
+            this.jiraWaitingStatuses = [];
+        }
     }
 
     init(_data?: any) {
         if (_data) {
             this.language = _data["language"];
+            this.jiraBaseUrl = _data["jiraBaseUrl"];
+            this.jiraProjectKey = _data["jiraProjectKey"];
+            if (Array.isArray(_data["jiraWaitingStatuses"])) {
+                this.jiraWaitingStatuses = [] as any;
+                for (let item of _data["jiraWaitingStatuses"])
+                    this.jiraWaitingStatuses!.push(item);
+            }
+            this.jiraIncludeWaiting = _data["jiraIncludeWaiting"];
+            this.hasJiraToken = _data["hasJiraToken"];
         }
     }
 
@@ -1920,12 +2702,63 @@ export class SettingsResponse implements ISettingsResponse {
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
         data["language"] = this.language;
+        data["jiraBaseUrl"] = this.jiraBaseUrl;
+        data["jiraProjectKey"] = this.jiraProjectKey;
+        if (Array.isArray(this.jiraWaitingStatuses)) {
+            data["jiraWaitingStatuses"] = [];
+            for (let item of this.jiraWaitingStatuses)
+                data["jiraWaitingStatuses"].push(item);
+        }
+        data["jiraIncludeWaiting"] = this.jiraIncludeWaiting;
+        data["hasJiraToken"] = this.hasJiraToken;
         return data;
     }
 }
 
 export interface ISettingsResponse {
     language?: string | undefined;
+    jiraBaseUrl?: string | undefined;
+    jiraProjectKey?: string | undefined;
+    jiraWaitingStatuses: string[];
+    jiraIncludeWaiting: boolean;
+    /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
+    hasJiraToken: boolean;
+}
+
+export class JiraTokenRequest implements IJiraTokenRequest {
+    token!: string;
+
+    constructor(data?: IJiraTokenRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.token = _data["token"];
+        }
+    }
+
+    static fromJS(data: any): JiraTokenRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraTokenRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["token"] = this.token;
+        return data;
+    }
+}
+
+export interface IJiraTokenRequest {
+    token: string;
 }
 
 export class OpenLinkRequest implements IOpenLinkRequest {

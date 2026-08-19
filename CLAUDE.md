@@ -39,6 +39,12 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   med `Invoke-WebRequest`. Del kommandoen op, eller brug `curl` gennem Bash-værktøjet.
 - **Ingen `"` i en `git commit -m`-heredoc.** PowerShell citerer om for native kommandoer, og
   et anførselstegn afslutter argumentet midt i beskeden.
+- **`@'…'@` er PowerShells here-string, ikke Bash'.** Bruges den gennem Bash-værktøjet, sender Git
+  Bash `@`-afgrænserne videre som **almindelig tekst**, så commit-emnet bliver `@ ✨ … @`. Fejlen er
+  tavs — `git commit` lykkes — og opdages først når nogen læser historikken. Vælg syntaks efter det
+  værktøj du kalder, ikke efter hvad du skrev sidst, og verificér et emne med gitmoji **på
+  byte-niveau** (`git log --format=%s -1 | od -c`) frem for på skærmen, hvor en forkert kodning
+  ligner det rigtige.
 - **EF-værktøjet er `dotnet tool run dotnet-ef`, aldrig `dotnet ef`.** En global `dotnet-ef`
   7.0.16 ligger på maskinen og kan ikke læse en EF Core 10-model.
 - **Kør scripts fra repo-roden.** `dotnet tool restore` læser sit manifest fra den aktuelle
@@ -50,6 +56,15 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
 - **Kør ikke prettier på hele repoet.** Arbejdskopien er CRLF og prettier skriver LF, så en
   fuld kørsel omskriver 3810 linjer genereret klientkode og begraver den rigtige diff. Kør den
   kun på filer du selv har rørt, navngivet eksplicit.
+- **Brug ikke `sed -i` på en fil i dette repo — brug `Edit`.** `sed` skriver **LF** i en
+  CRLF-arbejdskopi, og `git diff` viser derefter **ingen ændring**, fordi autocrlf normaliserer på
+  vejen ind. Filen på disken *er* ændret, men Git siger nej, så en midlertidig ændring man tror er
+  rullet tilbage, ligger der stadig. Samme klasse af tavs fejl som prettier-fælden ovenfor, men
+  gennem et værktøj man bruger til enlinjers-rettelser. Målt i skive 11.
+- **Verificér commit-emner med `od` gennem Bash-værktøjet, aldrig gennem en PowerShell-pipe.** En
+  pipe fra PowerShell til `od.exe` tilføjer en **UTF-8 BOM**, så emnet ser ud til at begynde med
+  `357 273 277` foran gitmojien. Tallet er pipens, ikke commit'ens — og havde nogen troet på det,
+  ville de have "rettet" en fejl der ikke fandtes. Målt i skive 11.
 
 ## Sikkerhed omkring data
 
@@ -74,6 +89,14 @@ så kør `scripts\generate-api.ps1` — ellers fejler friskheds-testen.
 som drift-testen måler imod; `/openapi/contract.yaml` er kontrakten selv, indlejret i `Todo.Host`,
 og det er den dokumentationssiden på `/scalar/` viser. Ryd ikke den ene op som en dublet — se
 designdokumentets afsnit 10.
+
+**En umappet rute under `/api/` fejler tre forskellige måder, og ingen af dem er 404.** Målt i skive
+11, mens fire endpoints endnu ikke fandtes: en **POST** giver `405 Method Not Allowed`, fordi
+`MapFallbackToFile("index.html")` gør krav på stien for GET og dermed gør metoden — ikke stien —
+til det der mangler. En **GET** giver **`200` med `index.html` i kroppen**, så en test der venter
+JSON fejler med `'<' is an invalid start of a value`. Og et **PUT** giver 405 af samme grund som
+POST'en. Forvent derfor ikke 404 når du skriver en rute-test der skal fejle først; mål hvad der
+faktisk kommer, ellers jagter du en halvt eksisterende rute der ikke findes.
 
 **En minimal API uden for `/api/` skal have `.ExcludeFromDescription()`.** ASP.NET Core beskriver
 hver rute i `/openapi/v1.json` uanset præfiks, så uden kaldet dukker den op som en operation for
@@ -165,9 +188,13 @@ fokus, skulle brugeren trykke Alt+O og **derefter** Enter. Og et programmatisk `
 lige så meget som den handler. Direktivet har derfor
 `appShortcutAction="focus" | "activate"`, hvor `'activate'` kalder begge.
 
-**Bogstaverne er `Alt+O/I/S/N/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
+**Bogstaverne er `Alt+O/I/J/S/N/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
 piletasterne, som Chrome stjæler under udvikling. De er frie i Photino-vinduet, men en genvej der
-virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende.
+virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende. `J` kom til med
+Jira-importen i skive 11 og kolliderer ikke: Chrome på Windows binder intet `Alt+J`, og den nære
+nabo er DevTools-konsollen, som er `Ctrl+Shift+J` — et andet modifikatorsæt. (På macOS er den
+`Cmd+Option+J`, men appen er Windows-only.) **Registret er last-writer-wins**, så bogstaverne skal
+blive ved at være globalt unikke; se designdokumentets afsnit 10.
 
 **`Ctrl+Alt` er AltGr på et dansk tastatur.** En global `Alt+bogstav`-lytter skal tjekke
 `!event.ctrlKey && !event.metaKey`, ellers kan brugeren ikke skrive `@`, `£` eller `$` — en fejl
@@ -190,6 +217,41 @@ også `aria-label` og `title`. En nøgle skal i **begge** filer, ellers fejler p
 grund. Tidsstempler er `DateTime` i UTC — **aldrig `DateTimeOffset`**, som SQLite ikke kan
 sortere korrekt. En deadline må aldrig gennem `new Date(string)`; det parses som UTC-midnat og
 kan vise dagen før.
+
+**System.Text.Json binder kun offsets i *udvidet* form, og Jira sender den *basale*.** Et
+`DateTimeOffset`-felt på en DTO kaster på `+0200` og kræver `+02:00` — målt mod Jiras changelog,
+hvor beskeden er `The JSON value is not in a supported DateTimeOffset format`. Løsningen er at binde
+feltet som `string` og køre `DateTimeOffset.TryParse` med `InvariantCulture`, som tager **begge**
+former, og derefter `.UtcDateTime`. **Og fælden er dobbelt:** typer man samme felt som
+`DateTimeOffset` i sin *falske* server, udsender den den udvidede form, koden bliver grøn, og først
+den rigtige instans kaster — på hver enkelt sag. En falsk server skal udsende fremmedsystemets
+faktiske format, ikke .NET's; ellers måler den sig selv.
+
+**Et fremmedsystems feltnavn skal have et eksplicit `[JsonPropertyName]`, ikke en navnepolitik.**
+Jira staver `duedate` i ét ord, og den camelCase-politik der ellers gælder ledte efter `dueDate`,
+læste feltet som fraværende og gav **null i hver deadline** — uden at nogen test faldt, fordi der
+findes en test for en sag *uden* deadline. Målt i skive 11. Bind hvert felt fra en ekstern kilde
+eksplicit, og lad en test have en værdi i feltet frem for kun at dække fraværet.
+
+**Wiki-markups `*x*` er fed, markdowns er kursiv** — de to sprog bruger samme tegn til hver sin
+betydning, så en tegn-for-tegn-oversættelse vender betoningen på hovedet. Og `----` må **ikke**
+blive `---`: markdown læser en linje bindestreger *under* et afsnit som en **setext-overskrift**, så
+stregen forsvinder og afsnittet over den bliver en H2. Skriv `***` i stedet. Begge fund kom af at
+føre konverterens output gennem appens egen `marked` og læse HTML'en — ikke af at læse regexerne,
+som så rigtige ud i begge tilfælde. **Test en markup-konverter på det renderede resultat**, ikke på
+mellemformen.
+
+**En tom projektnøgle må ikke betyde alle projekter.** PAT'en ser fire projekter — `EC`, `KK`,
+`SAAS`, `TTMBP` — så en JQL uden `project = …` trækker kundeprojektet `KK` ind i den personlige
+liste. Projektnøglen er derfor et **krav** med sin egen fejlkode (`jira.projectKeyRequired`), ikke
+et valgfrit filter der falder tilbage på alt. Samme klasse af fælde som et tomt filter i en
+databaseforespørgsel: fraværet af en afgrænsning er ikke en neutral standard.
+
+**Et hemmeligt felt skal have sit eget endpoint.** `PUT /api/settings` er en fuld erstatning der
+læser et fraværende felt som "ryd", og tokenet kan aldrig sendes *tilbage* til klienten — så en
+klient der gemmer noget andet på siden, ville rydde tokenet hver gang. Tokenet har derfor
+`PUT`/`DELETE /api/jira/token` for sig, og `SettingsResponse` bærer kun `hasJiraToken`. Det er
+samme fælde som `TaskStore.update`, med den forskel at her kan `current`-tricket ikke bruges.
 
 **Udskudtheden er beregnet, ikke gemt.** `DeadlineBuckets.For` svarer `Deferred`, når `DeferUntil`
 ligger *strengt efter* i dag — der er ingen `Deferred`-status på `TodoStatus`, og **intet skal
@@ -294,20 +356,46 @@ forkerte grund.
   gemmer, får den `0` — og `0` er ikke et rigtigt id, for et rowid starter på 1.
   `AddAndSaveChangesAsync` gemmer, så id'et er gyldigt bagefter, men et builder-objekt der aldrig
   blev gemt har ingenting at give.
+- **E2E-suiten bygger ikke Angular, så den kan være grøn på en frontend der ikke findes længere.**
+  Målt i skive 11: `Todo.E2E.csproj` har **intet** build-trin, og hosten servérer bare `wwwroot`
+  gennem `UseStaticFiles` og `MapFallbackToFile`. Kun `scripts/run-app.ps1` bygger, og kun når appen
+  startes — den sammenligner `index.html`s `LastWriteTimeUtc` med den nyeste kilde. Ændrer du en
+  Angular-fil og kører `dotnet test`, tester Playwright altså **den forrige udgave**, uden at noget
+  ser forkert ud: suiten gør nøjagtigt hvad den skal, mod det forkerte input. **Kør
+  `scripts\build-web.ps1` før E2E**, hver gang frontenden er rørt.
+- **Sammenlign tidsstempler på epoch, aldrig på klokkeslæt.** `ls --time-style=+%H:%M:%S` sorteret
+  som tekst gør `21:15` fra i går nyere end `13:14` fra i dag, og datoen er væk. Det fik en
+  gennemgang her til at kalde `wwwroot` forældet, mens den var 36 sekunder frisk. Brug
+  `stat -c %Y` eller `find -printf %T@`.
 - **Tests må ikke røre `%APPDATA%`.** `RunningHost` giver hver test sin egen midlertidige
   database. Arv fra `ApiTest` eller `BrowserTest` frem for at starte en host i testen.
 - **Playwright-tests må ikke have bivirkninger uden for appen.** Kald til
   `/api/system/open-link` opsnappes med `page.RouteAsync` og afbrydes; ellers åbner hver
   testkørsel en rigtig browser.
 - **Kontrast måles i browseren** med `getComputedStyle`, fordi kun browseren har afgjort hvilken
-  baggrund et stykke tekst endte på. `ContrastTests` går appens **tre** skærme igennem i begge
-  farvetemaer — `app.routes.ts` har præcis tre ruter: opgavelisten, importen og indstillingerne
-  — og måler derudover det **udvidede detaljepanel**, hvor noten, underopgaverne og
-  statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en fjerde skærm; tæl det
+  baggrund et stykke tekst endte på. `ContrastTests` går appens **fire** skærme igennem i begge
+  farvetemaer — `app.routes.ts` har præcis fire ruter: opgavelisten, retro-importen, Jira-importen
+  og indstillingerne — og måler derudover det **udvidede detaljepanel**, hvor noten, underopgaverne
+  og statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en femte skærm; tæl det
   ikke som en. **En `@if`-gren er umålt, indtil fixturet har en opgave i den tilstand og rejsen
   åbner rækken** — vagten kan ikke se en farve, der aldrig blev renderet, så en ny betinget linje
   koster en fixture-opgave og en klik-og-vent i `ContrastTests`. Hintet om en startdato efter
   deadline kom ind i vagten netop derfor, og blev set fejle i begge temaer.
+- **En gren bag et fremmedsystem er umålt, indtil kaldet opsnappes.** Skive 11 efterlod **elleve**
+  `@if`-grene som ingen farve nogensinde blev renderet i, fordi hver af dem kræver et svar fra Jira.
+  Playwright kan ikke starte en `FakeJira` inde i hostens proces, så `ContrastTests` svarer selv på
+  `**/api/jira/preview`, `**/api/jira/test` og `**/api/jira/statuses` med `page.RouteAsync` — samme
+  greb som afbrydelsen af `/api/system/open-link`. Fire forskellige svar i rækkefølge er nødvendige,
+  fordi grenene udelukker hinanden: en afvisning, en tom liste, en liste hvor hver række er
+  blokeret, og en liste med én række der kan importeres. **Én rute-handler der læser en variabel**,
+  ikke fire handlere, hvis præcedens ellers ville afgøre udfaldet.
+- **En link-gren der hænger på et felt ingen builder kan sætte, er usynlig for enhver vagt.**
+  `externalUrl` beregnes kun når `SourceId == JiraTaskSource.Id`, og `TaskItemBuilder` havde
+  `FromRetro` men **ingen `FromJira`** — så `external-link` blev aldrig renderet i en eneste test,
+  og både kontrastvagten og en link-påstand ville have målt et element der ikke fandtes. Målt:
+  fjernes `FromJira` fra fixturet igen, siger Playwright `element(s) not found 'Åbn sagen'`.
+  **Og linket kræver to ting, ikke én:** kilden *og* en gemt `jira.baseUrl`, for URL'en er beregnet
+  af basisURL'en. Mangler den, er grenen stadig tom, uanset hvordan kilden er stavet.
 - **`getComputedStyle` giver `oklch(...)`, ikke `rgb(...)`** for farver skrevet i oklch. En regex
   over cifrene læser `oklch(0.967 0.003 264.542)` som en blå kanal på 264 — og vagtens første
   udgave gav derfor **usynlig tekst omkring 8:1 og bestod**. Mal farven på et 1×1-canvas og læs
@@ -336,9 +424,23 @@ forkerte grund.
 
 ## Testtal
 
-Efter typetjek-vagten på spec-projektet: **38** Todo.Core.Tests, **121** Todo.Api.Tests, **25**
-Todo.E2E, **143** Vitest.
+Efter skive 11 (Jira-import): **83** Todo.Core.Tests, **168** Todo.Api.Tests, **32** Todo.E2E,
+**178** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Skiven lagde **45** Core-tests til (38 → 83), **47** Api-tests (121 → 168), **7** E2E (25 → 32) og
+**35** Vitest (143 → 178). Fordelingen er værd at læse, for den siger hvor arbejdet lå:
+wiki-markup-konverteringen, `DeadlineBuckets` uberørt og `JiraSettings` er alle rene funktioner og
+hører i Core, mens `JiraTaskSource` måles mod en **falsk Jira på loopback** og derfor tæller som
+Api-tests sammen med de fire nye endpoints og kontraktens wire-format.
+**E2E stod stille gennem skivens første ni opgaver og flyttede sig først i den tiende**, som var
+vagterne alene: fire i `JiraImportJourneyTests` (den ukonfigurerede skærm, de to blokerede rækker med
+hver sin grund, at importen kun sender de valgte, og at linket beder `/api/system/open-link` om
+`…/browse/SAAS-1` fra en `BUTTON`), én `Alt_J_follows_the_jira_link` i `KeyboardJourneyTests`, og
+**to** af `The_Jira_screens_meet_WCAG_AA`, som er en `[Theory]` over de to farvetemaer. Den
+rækkefølge — funktionen i nio opgaver, vagterne i den tiende — er også grunden til at skiven
+efterlod elleve umålte `@if`-grene: en skærm bygget færdig uden en E2E-rejse ved siden af har ingen
+måde at vise, at dens betingede linjer aldrig blev renderet.
+Før skiven, efter typetjek-vagten på spec-projektet: 38 Core, 121 Api, 25 E2E, 143 Vitest.
 Den lagde **én** Api-test til (120 → 121), `Spec_project_passes_the_type_checker` i
 `FrontendStrictnessTests`. Den koster et par sekunder af `dotnet test`, fordi den starter en rigtig
 compiler. De øvrige tre tal står stille: vagten er en påstand om værktøjskæden og rørte ingen kode

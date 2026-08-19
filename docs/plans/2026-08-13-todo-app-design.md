@@ -290,13 +290,29 @@ aldrig `DateTimeOffset`, som SQLite ikke kan sortere — så det skal konvertere
 Og changeloggen er et **ekstra kald pr. sag**, medmindre den hentes med i søgningen; `total` var
 10 for én bruger, så det er billigt her, men det er ikke gratis i almindelighed.
 
-**Om `Status` bliver et eksternt felt, er en reel spænding.** Afsnittet ovenfor siger, at
+**Om `Status` bliver et eksternt felt, var en reel spænding — den er afgjort og implementeret i
+skive 11.** Afsnittet ovenfor siger, at
 synkronisering kun må skrive i `Ext*`-felter, og at dine egne felter aldrig røres. Men `Status`
 er dit eget felt fra skive 1. Løsningen skal følge mønstret fra `Title` og `Requester`: statussen
 **fødes fra kilden ved import** og er derefter din. Ellers kunne du ikke markere en importeret
 opgave færdig lokalt, uden at næste synkronisering trak den tilbage. Det betyder også, at en sag
 der forlader den ventende status i Jira, **ikke** automatisk forlader "Venter på" hos dig — og
 det er det rigtige, men det skal stå skrevet, ellers ser det ud som en fejl.
+
+*Afgjort og bygget 2026-08-19.* `POST /api/jira/import` skriver `Status` **én gang** ud fra det
+statusnavn klienten sender, slået op i indstillingens ventelistes navne, og rører den aldrig igen.
+Det er derfor `JiraImportRow` **ikke** bærer et `isWaiting`-flag: afgørelsen er serverens, fordi
+indstillingen bor på serveren, og en påkrævet boolean kan ikke håndhæves på wiren. Bemærk også den
+anden halvdel af "derefter er den din": importen er ikke idempotent på indhold — en sag der allerede
+er importeret markeres `alreadyImported` i forhåndsvisningen og **springes over** frem for at blive
+skrevet igen. Afstemningen mod en *senere* sync ligger i skive 14 med `Ext*`-felterne; skive 11 har
+ingen.
+
+*To ting fravalgt bevidst, så de ikke ser ud som huller.* `Ext*`-felterne, `TitleOverridden`,
+`LastSyncedAt` og selve afstemningen ligger i **skive 14**, fordi de beskytter mod en senere sync der
+ikke findes endnu: felterne ville blive skrevet og aldrig læst, og en vagt på dem kunne ikke bringes
+til at fejle. Og `ExternalUrl` er **beregnet** af basisURL og `ExternalKey`, ikke en kolonne — så en
+bruger der retter sin basisURL, retter samtidig hvert link. Skive 11 har derfor **ingen migrering**.
 
 **`WaitingOn` kan formentlig ikke udledes.** Appen importerer sager *tildelt dig*. En sag tildelt
 dig, som står i en ventende status, betyder at du venter på nogen der **ikke** står i
@@ -337,9 +353,24 @@ Sync-motoren tager `IEnumerable<ITaskSource>` og kender ingen konkrete kilder.
 Selve afstemningen "eksterne items ↔ `TaskItem`-rækker" er en ren funktion uden
 database eller HTTP.
 
-Autentifikation ligger i en `DelegatingHandler` pr. kilde. Tokens bag
-`ICredentialStore`. Tid bag `IClock` — "overskredet" og "i dag" er forretningslogik
-og må ikke afhænge af `DateTime.Now`.
+Tid bag `IClock` — "overskredet" og "i dag" er forretningslogik og må ikke afhænge af
+`DateTime.Now`.
+
+**Rettet 2026-08-19, efter skive 11: der er hverken en `DelegatingHandler` eller en
+`ICredentialStore`, og begge blev valgt fra med vilje.** Afsnittet lovede dem, og koden har dem
+ikke — så her står hvad der faktisk blev bygget, frem for at lade dokumentet love noget andet.
+
+`ICredentialStore` er fravalgt, fordi tokenet ligger i klartekst i `Setting`-tabellen (afsnit 3), og
+et interface med **én** implementation og ingen alternativ lagring er en abstraktion uden et andet
+tilfælde. Skal det senere flyttes til DPAPI eller Windows Credential Manager, er det stedet
+`JiraSettingsReader` læser fra, der skal skifte — ét sted. Interfacet kan indføres den dag der er to.
+
+`DelegatingHandler` er fravalgt af en konkret grund frem for af smag: **basisURL'en er en
+kørselstidsindstilling**, så `HttpClient.BaseAddress` sættes aldrig, og hver request bygges med en
+absolut URI ud fra den indstilling der gælder *nu*. En handler ville skulle læse den samme
+indstilling som kaldet selv gør, og `Authorization: Bearer` er så én linje på requesten
+(`JiraTaskSource`, linje 239). En handler er stadig det rigtige den dag der er to kilder der skal
+autentificere ens — det er skive 12's spørgsmål, ikke 11's.
 
 ### Jira Data Center
 
@@ -508,9 +539,32 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
     `{id:guid}` i en ruteskabelon er usynligt for både `grep` og compileren — står i afsnit 10.*
 11. **Jira-import** — `ITaskSource`, afstemning, lokale felter der overlever sync.
     Her bygges også "Test forbindelse" ind i indstillingssiden, nu hvor der er
-    en server at teste mod. **Versionen er målt — Data Center 10.3.24, se afsnit 10.**
-    *Et krav er besluttet 2026-08-18: en importeret sag i en ventende status skal kunne
-    komme med, hvis brugeren har slået det til i en indstilling — default fra. Se afsnit 4a.*
+    en server at teste mod. **Versionen er målt — Data Center 10.3.24, se afsnit 10.** **Færdig.**
+    *Et krav blev besluttet 2026-08-18: en importeret sag i en ventende status skal kunne
+    komme med, hvis brugeren har slået det til i en indstilling — default fra. Se afsnit 4a, hvor
+    den sidste åbne beslutning nu også er afgjort og bygget.*
+    *Leveret uden **afstemning** og uden `Ext*`-felter: de ligger i skive 14, fordi de beskytter
+    mod en senere sync der ikke findes endnu, og en vagt på dem kunne ikke bringes til at fejle.
+    Skiven har derfor **ingen migrering** — `ExternalUrl` er beregnet af basisURL og `ExternalKey`,
+    ikke en kolonne. Det er ikke et hul, det er en afgrænsning; se afsnit 4a.*
+    *Fire erfaringer er værd at bære, og de tre første kostede tid.* **(1) Wiki-markup er ikke
+    markdown med andre tegn.** `*x*` er fed i wiki og kursiv i markdown, så en tegn-for-tegn-mapning
+    vender betoningen om; og `----` oversat til `---` bliver en **setext-overskrift**, hvorved
+    stregen forsvinder og afsnittet over den bliver en H2. Begge fund kom af at føre konverterens
+    output gennem appens egen `marked` — ikke af at læse regexerne, som så rigtige ud.
+    **(2) En falsk server der udsender .NET's format måler sig selv.** `System.Text.Json` binder kun
+    offsets i *udvidet* form, og Jira sender den *basale*: `+0200` kaster, `+02:00` virker. Typer man
+    samme felt som `DateTimeOffset` i sin `FakeJira`, udsender den den udvidede form, koden bliver
+    grøn, og først den rigtige instans kaster — på hver enkelt sag.
+    **(3) Et fremmedsystems feltnavn skal bindes eksplicit.** Jira staver `duedate` i ét ord, og
+    camelCase-politikken ledte efter `dueDate`, læste feltet som fraværende og gav **null i hver
+    deadline** — uden at nogen test faldt, fordi der fandtes en test for en sag *uden* deadline.
+    **(4) Hemmeligheder og fulde erstatninger går ikke sammen.** `PUT /api/settings` læser et
+    fraværende felt som "ryd", og tokenet kan aldrig sendes tilbage til klienten, så det fik sit eget
+    `PUT`/`DELETE /api/jira/token`; `SettingsResponse` bærer kun `hasJiraToken`. Og en **tom**
+    projektnøgle må ikke betyde alle projekter: PAT'en ser fire, kundeprojektet `KK` iberegnet.
+    *Skiven efterlod desuden elleve umålte `@if`-grene og et manglende `FromJira` på builderen —
+    lukket i skivens sidste opgave; se afsnit 10.*
 12. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 11 duer.
 13. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
 14. **Baggrundssync, tray og notifikationer.**
@@ -542,8 +596,12 @@ blev leveret uden for skiverne og står nedenfor som lukket.
 
 ## 10. Risici og åbne punkter
 
-- **ADO-mentions** er den mest usikre antagelse. Verificér i skive 11, ikke i 12 —
-  altså mens "Test forbindelse" bygges, ikke først når ADO-importen skal bruge den.
+- **ADO-mentions** er den mest usikre antagelse. Punktet sagde "verificér i skive 11, ikke i 12" —
+  altså mens "Test forbindelse" bygges, ikke først når ADO-importen skal bruge den. **Skive 11
+  gjorde det ikke, og kunne ikke:** målingen kræver et kald mod brugerens egen ADO-instans med
+  brugerens eget token, og det kan ingen agent gøre herfra. Den står nu som næste måling i
+  `docs/HANDOFF.md`, med WIQL'en fra afsnit 6 og med noten om **aldrig** at lægge et token direkte i
+  en kommandolinje — sæt det i `$env:NAVN` først. Skive 12 må ikke starte, før den er kørt.
 - **Jira-versionen er målt: Data Center 10.3.24** (2026-08-18, læst i Jiras egen om-dialog).
   Det afgør tre ting, som ellers skulle gættes. **Jira 10.x findes kun som Data Center** —
   Server udgik i februar 2024 — så selvhostet er ikke længere en antagelse. Selvhostet Jira
@@ -573,10 +631,12 @@ blev leveret uden for skiverne og står nedenfor som lukket.
   til **usynlig tekst**: `dark:text-gray-100` på hvid er 1,10:1. `<body>` har nu
   `bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100` og `scheme-light-dark`, og
   `task-list.html` og `task-row.html` har fået `dark:`-modparter så godt som overalt. Lektionen
-  er, at kontrasten ikke længere holdes af øjemål: `ContrastTests` går appens **tre** skærme
-  igennem i **begge** farvetemaer — `app.routes.ts` har præcis tre ruter: opgavelisten, importen
-  og indstillingerne — og måler derudover det **udvidede detaljepanel** med noten, underopgaverne
-  og statusvælgeren. Panelet er en tilstand på opgavelisten, ikke en fjerde skærm.
+  er, at kontrasten ikke længere holdes af øjemål: `ContrastTests` går appens **fire** skærme
+  igennem i **begge** farvetemaer — `app.routes.ts` har præcis fire ruter: opgavelisten,
+  retro-importen, Jira-importen og indstillingerne — og måler derudover det **udvidede
+  detaljepanel** med noten, underopgaverne og statusvælgeren. Panelet er en tilstand på
+  opgavelisten, ikke en femte skærm. *Tallet var tre indtil 2026-08-19; Jira-importen gjorde det
+  fire, og vagten fulgte med i skive 11's sidste opgave.*
 - **Én farve står tilbage uden `dark:`-modpart, og det er bevidst** (opgjort i skive 7).
   Overskredet-sektionens ramme i `task-list.html` er
   `section.bucket === overdue ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'` — den
@@ -749,6 +809,45 @@ blev leveret uden for skiverne og står nedenfor som lukket.
   midlertidige databasenavn, `DatabaseBackupTests`' mappe og unikke titel, og
   `SettingsJourneyTests`' mappe. Alle bevidste. Builderne var som forudsagt på **nul** og krævede
   ingen ændring.
+- **Skive 11 byggede ni opgaver funktion og efterlod vagterne til den tiende, og det er skivens
+  vigtigste procesfund** (opgjort 2026-08-19). Da funktionen var færdig, var **elleve** `@if`-grene
+  aldrig blevet renderet i nogen test, og de fordelte sig som tre på indstillingssiden
+  (`jira-token-stored`, `jira-clear-token`, `jira-connection`) og otte på den nye skærm plus
+  opgavelisten. Årsagen er ikke skødesløshed, men at hver af dem kræver et **svar fra Jira**:
+  Playwright kan ikke starte en `FakeJira` inde i hostens proces, så uden opsnappede kald findes
+  tilstanden simpelthen ikke. Rettelsen er `page.RouteAsync` på `**/api/jira/preview`,
+  `**/api/jira/test` og `**/api/jira/statuses` — samme greb som afbrydelsen af
+  `/api/system/open-link` — med **fire svar i rækkefølge**, fordi grenene udelukker hinanden: en
+  afvisning, en tom liste, en liste hvor hver række er blokeret, og en liste med én række der kan
+  importeres. Lektionen er generel: **en skærm bygget færdig uden en E2E-rejse ved siden af har ingen
+  måde at vise, at dens betingede linjer aldrig blev renderet.**
+- **`external-link` var uopnåelig, fordi builderen manglede en metode** (fundet og lukket 2026-08-19).
+  `externalUrl` beregnes kun når `SourceId == JiraTaskSource.Id`, og `TaskItemBuilder` havde
+  `FromRetro` men **ingen `FromJira`** — så ingen fixture i hele suiten kunne sætte grenen på skærmen,
+  og både kontrastvagten og en link-påstand ville have målt et element der ikke fandtes. Målt frem for
+  udledt: fjernes `FromJira` fra fixturet igen, siger Playwright
+  `element(s) not found 'Åbn sagen'`. **Grenen kræver desuden to ting, ikke én** — kilden *og* en
+  gemt `jira.baseUrl`, for URL'en beregnes af basisURL'en. Det er samme klasse af fund som de tidligere
+  uopnåelige vagter i dette repo: dedup-vagten der ikke kunne nås fra UI'et, "ingen reload" bevist
+  ved engelsk tekst, og "navnet er ryddet" tjekket på et felt der ikke rendereres i den tilstand.
+- **En mislykket åbning af en Jira-sag er tavs på en sammenfoldet række** (fundet i skive 11,
+  **bevidst ikke rettet**). `openIssue`s fejl går i `SystemStore.error()`, og `task-row.html`
+  rendererer den linje **kun inde i det udvidede detaljepanel** — hvor den hører til notens links.
+  Klikker brugeren "Åbn sagen" på en sammenfoldet række og styresystemets link-åbning fejler, sker
+  der derfor ingenting synligt. Begrundelsen for at lade den ligge: fejlen kræver at
+  shell-åbningen fejler, hvilket er sjældent, og rettelsen ville flytte afsnittet ud af panelet og
+  dermed bryde `TaskListScreen.NoteLinkError`, som er scoped til `Detail` og dækker noget der virker
+  i dag. **Skrevet ned frem for at være uopdaget** — det er forskellen på et kendt hul og en fejl.
+- **Hvad skive 11 stadig ikke vagter** (opgjort 2026-08-19). `jira-error` på indstillingssiden — den
+  røde linje når "Test forbindelse" eller "Hent statusser" fejler — er ikke kontrastmålt; dens farvepar
+  `text-red-700 dark:text-red-300` er dækket gennem `alias-error` og `jira-import-error`, så det er
+  farverne der er dækket, ikke linjen. Samme forbehold som skive 7's tre fejllinjer. De to
+  `disabled`-tilstande der kun findes **mens** et kald er i luften (`jira-preview` og `jira-import`
+  under `store.busy()`) er transiente og umålte; `jira-import`s disabled-farver er til gengæld målt i
+  den tilstand hvor hver række er blokeret. Og **intet i suiten kalder den rigtige instans**: den
+  eneste vagt på det er, at intet i repoet må navngive den. `WaitingSince` fra changeloggen er derfor
+  målt mod `FakeJira`, som udsender Jiras *basale* offsetform netop for ikke at måle sig selv — men
+  formen er afskrevet fra en måling 2026-08-18, ikke fra en løbende test.
 
 ## 11. Forholdet til GTD
 

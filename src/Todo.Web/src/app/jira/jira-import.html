@@ -1,0 +1,138 @@
+<h2 class="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+  {{ 'jira.heading' | transloco }}
+</h2>
+
+<!-- Ord frem for en tom liste: uden opsætning er der ingenting at hente, og en knap der altid
+     fejler siger mindre end vejen til siden der retter det. -->
+@if (!configured()) {
+  <p data-testid="jira-not-configured" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+    {{ 'jira.notConfigured' | transloco }}
+  </p>
+  <p class="mt-2 text-sm">
+    <a
+      data-testid="jira-settings-link"
+      routerLink="/settings"
+      class="text-blue-700 underline dark:text-blue-300"
+      >{{ 'jira.settingsLink' | transloco }}</a
+    >
+  </p>
+} @else {
+  <button
+    type="button"
+    data-testid="jira-preview"
+    class="mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+    [disabled]="store.busy()"
+    (click)="preview()"
+  >
+    {{ 'jira.preview' | transloco }}
+  </button>
+}
+
+@if (store.error(); as message) {
+  <p
+    data-testid="jira-import-error"
+    role="alert"
+    class="mt-3 text-sm text-red-700 dark:text-red-300"
+  >
+    {{ message }}
+  </p>
+}
+
+@if (previewed()) {
+  @if (noneAssigned()) {
+    <p data-testid="jira-none-assigned" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+      {{ 'jira.noneAssigned' | transloco }}
+    </p>
+  } @else {
+    <p data-testid="jira-showing" class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'jira.showing' | transloco: { shown: store.rows().length, total: store.total() } }}
+    </p>
+
+    <!-- Hvilken af de to, og hvor mange: at listen står der uden et eneste tændt afkrydsningsfelt
+         ligner ellers en fejl i skærmen. -->
+    @if (nothingToSelect()) {
+      <p data-testid="jira-nothing-to-select" class="mt-2 text-sm text-gray-700 dark:text-gray-300">
+        @if (excludedCount() > 0) {
+          <span class="block">{{
+            pluralKey(excludedCount(), 'jira.allExcluded') | transloco: { count: excludedCount() }
+          }}</span>
+        }
+        @if (alreadyImportedCount() > 0) {
+          <span class="block">{{
+            pluralKey(alreadyImportedCount(), 'jira.allAlreadyImported')
+              | transloco: { count: alreadyImportedCount() }
+          }}</span>
+        }
+      </p>
+    }
+
+    <ul class="mt-3 space-y-2">
+      @for (row of store.rows(); track row.key) {
+        <li data-testid="jira-row" class="rounded border border-gray-200 p-2 dark:border-gray-700">
+          <label class="flex items-start gap-2">
+            <input
+              #pick
+              type="checkbox"
+              class="mt-1 shrink-0"
+              [checked]="isSelected(row)"
+              [disabled]="isBlocked(row)"
+              (change)="select(row, pick.checked)"
+            />
+            <span class="min-w-0 flex-1">
+              <span class="block font-mono text-xs text-gray-700 dark:text-gray-300">{{
+                row.key
+              }}</span>
+              <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
+                row.title
+              }}</span>
+              <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+                'jira.statusValue' | transloco: { value: row.status }
+              }}</span>
+              @if (row.deadline) {
+                <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+                  'jira.deadlineValue' | transloco: { value: row.deadline | deadlineDate }
+                }}</span>
+              }
+              <!-- Udeladt vises frem for at skjules: skjult ville sagen ligne en Jira havde tabt,
+                   og indstillingen jiraIncludeWaiting ville være usynlig. -->
+              @if (row.excluded) {
+                <span
+                  data-testid="jira-excluded"
+                  class="block text-xs font-medium text-gray-700 dark:text-gray-300"
+                  >{{ excludedReason(row) }}</span
+                >
+              } @else if (row.alreadyImported) {
+                <span
+                  data-testid="jira-already-imported"
+                  class="block text-xs font-medium text-gray-700 dark:text-gray-300"
+                  >{{ 'jira.alreadyImported' | transloco }}</span
+                >
+              }
+            </span>
+          </label>
+        </li>
+      }
+    </ul>
+
+    <button
+      type="button"
+      data-testid="jira-import"
+      class="mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+      [disabled]="selectedRows().length === 0 || store.busy()"
+      (click)="importSelected()"
+    >
+      {{
+        pluralKey(selectedRows().length, 'jira.import')
+          | transloco: { count: selectedRows().length }
+      }}
+    </button>
+  }
+}
+
+<p
+  data-testid="jira-receipt"
+  aria-live="polite"
+  class="mt-2 text-sm text-gray-900 dark:text-gray-100"
+>
+  {{ receipt() }}
+</p>

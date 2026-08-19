@@ -22,6 +22,22 @@ public static class ErrorCodes
     public const string RetroDuplicateAlias = "retro.duplicateAlias";
 
     public const string SettingsUnknownLanguage = "settings.unknownLanguage";
+    public const string SettingsEmptyToken = "settings.emptyToken";
+
+    public const string JiraNotConfigured = "jira.notConfigured";
+    public const string JiraProjectKeyRequired = "jira.projectKeyRequired";
+    public const string JiraRefused = "jira.refused";
+    public const string JiraUnreachable = "jira.unreachable";
+    public const string JiraRowKeyRequired = "jira.rowKeyRequired";
+    public const string JiraRowTitleRequired = "jira.rowTitleRequired";
+    public const string JiraRowTitleTooLong = "jira.rowTitleTooLong";
+    public const string JiraRowStatusRequired = "jira.rowStatusRequired";
+
+    /// <summary>
+    /// Both an error code and the value of <c>excluded</c> on a preview row, so the frontend
+    /// translates it with the same function it uses for <c>ApiError.code</c>.
+    /// </summary>
+    public const string JiraExcludedWaiting = "jira.excludedWaiting";
 
     public const string SystemUnsupportedScheme = "system.unsupportedScheme";
 }
