@@ -424,7 +424,18 @@ forkerte grund.
   database. Arv fra `ApiTest` eller `BrowserTest` frem for at starte en host i testen.
 - **Playwright-tests må ikke have bivirkninger uden for appen.** Kald til
   `/api/system/open-link` opsnappes med `page.RouteAsync` og afbrydes; ellers åbner hver
-  testkørsel en rigtig browser.
+  testkørsel en rigtig browser. **Og afbrydelsen gælder kun den test der opsætter den** — den er
+  ikke en egenskab ved suiten. `ContrastTests` havde den på opgavelisten, og en ny knap på
+  Jira-skærmen ville derfor have bedt Windows om at åbne en rigtig browser fra en *anden* test i
+  samme fil. Målt. Skriver du et klik på et udadgående link, så tjek at **netop den test** har
+  ruten, frem for at antage at filen har.
+- **En afbrudt request er ikke en 400, og de to tager forskellige veje gennem `apiErrorMessage`.**
+  En `route.AbortAsync()` giver status 0, som den genererede klient kaster som `ApiException` —
+  ikke `ApiError` — så beskeden falder tilbage på `errors.generic` ("Noget gik galt. Prøv igen.").
+  Et rigtigt 400-svar giver derimod kodens egen tekst. Samme gren i UI'et viser altså **to
+  forskellige sætninger** afhængigt af om den blev nået fra Vitest med et fejlsvar eller fra
+  Playwright med en afbrydelse — så en E2E-påstand skrevet på kodens tekst fejler, uden at der er
+  noget i vejen med koden.
 - **Kontrast måles i browseren** med `getComputedStyle`, fordi kun browseren har afgjort hvilken
   baggrund et stykke tekst endte på. `ContrastTests` går appens **fire** skærme igennem i begge
   farvetemaer — `app.routes.ts` har præcis fire ruter: opgavelisten, retro-importen, Jira-importen

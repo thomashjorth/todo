@@ -143,11 +143,25 @@
               type="button"
               data-testid="jira-open-issue"
               class="text-blue-700 underline dark:text-blue-300"
-              (click)="openIssue(row.url)"
+              (click)="openIssue(row)"
             >
               {{ 'tasks.openIssue' | transloco }}
             </button>
           </p>
+          <!-- Ved rækken man trykkede på, ikke øverst ved siden af jira-import-error: spalten er
+               ~480 px og listen kan være tyve rækker lang, så en besked i toppen ville være ude af
+               syne — altså stadig tavs for øjet. @let frem for as: @if indsnævrer ikke et
+               signal-kald, og as binder på sandhed. -->
+          @let failedOpen = openError();
+          @if (failedOpen && failedOpen.key === row.key) {
+            <p
+              data-testid="jira-open-error"
+              role="alert"
+              class="mt-1 pl-6 text-xs text-red-700 dark:text-red-300"
+            >
+              {{ failedOpen.message }}
+            </p>
+          }
         </li>
       }
     </ul>

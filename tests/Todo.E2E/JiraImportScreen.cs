@@ -67,6 +67,14 @@ public sealed class JiraImportScreen(TodoApp app)
     /// </summary>
     public static ILocator OpenIssueIn(ILocator row) => row.GetByTestId("jira-open-issue");
 
+    /// <summary>
+    /// Why this row's issue could not be opened. Scoped to the row on purpose: the message is held
+    /// beside the button that was pressed rather than at the top of the screen, because the column is
+    /// 480 px wide and a notice above twenty rows would be out of sight — which is the same silence
+    /// as no notice at all. A page-wide locator could not tell the two apart.
+    /// </summary>
+    public static ILocator OpenErrorIn(ILocator row) => row.GetByTestId("jira-open-error");
+
     public static ILocator PickOf(ILocator row) => row.Locator("input[type=checkbox]");
 
     public Task PreviewAsync() => PreviewButton.ClickAsync();
