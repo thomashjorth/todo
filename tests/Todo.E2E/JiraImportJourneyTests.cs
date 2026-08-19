@@ -343,8 +343,20 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
             "The click took the window with it, and this window has no way back.");
 
-        // The button sits outside the row's <label> on purpose, so reading an issue is not the same
-        // gesture as choosing it. Inside the label, this click would have unticked the row.
+        // The button sits outside the row's <label> on purpose, and this is the assertion that
+        // measures it: a label's text becomes the accessible name of the control inside it, so a
+        // button moved in there would leave the checkbox announced as "… Åbn sagen".
+        //
+        // Said this way rather than as "the tick survived the click", which was the first version
+        // and could not fail: a <button> inside a <label> is interactive content, so the browser
+        // skips the label's activation behaviour and the checkbox does not toggle. Measured —
+        // moving the button inside the label left that assertion green.
+        await Assertions
+            .Expect(row.GetByRole(AriaRole.Checkbox, new() { Name = "Åbn sagen" }))
+            .ToHaveCountAsync(0);
+
+        // And the tick is still there, which is what makes the claim above about this row: a
+        // count of zero would also hold on a screen with no checkbox at all.
         await Assertions.Expect(JiraImportScreen.PickOf(row)).ToBeCheckedAsync();
     }
 
