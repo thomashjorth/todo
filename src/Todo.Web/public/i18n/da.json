@@ -9,6 +9,7 @@
     "tasks": "Opgaver",
     "import": "Retro-import",
     "jira": "Jira-import",
+    "ado": "ADO-import",
     "settings": "Indstillinger"
   },
   "tasks": {
@@ -102,6 +103,37 @@
     },
     "receipt": "{{imported}} importeret, {{skipped}} sprunget over"
   },
+  "ado": {
+    "heading": "ADO-import",
+    "preview": "Hent sager",
+    "notConfigured": "Azure DevOps er ikke sat op, så der er ingen sager at hente.",
+    "settingsLink": "Sæt Azure DevOps op under Indstillinger",
+    "deadlineNotice": "Azure DevOps har ingen deadline, så appen foreslår en ud fra dagantallet under Indstillinger.",
+    "noneAssigned": "Ingen sager er tildelt dig.",
+    "showing": "Viser {{shown}} af {{total}} sager.",
+    "typeValue": "Type: {{value}}",
+    "stateValue": "Tilstand: {{value}}",
+    "deadlineValue": "Foreslået deadline: {{value}}",
+    "noDeadline": "Uden deadline — dagantallet er sat til nul.",
+    "requesterValue": "Opgavestiller: {{value}}",
+    "hasNote": "Beskrivelsen følger med.",
+    "waiting": "Importeres som ventende.",
+    "waitingSinceValue": "Venter siden {{value}}",
+    "alreadyImported": "importeret tidligere",
+    "allExcluded": {
+      "one": "{{count}} sag er udeladt af importen.",
+      "other": "{{count}} sager er udeladt af importen."
+    },
+    "allAlreadyImported": {
+      "one": "{{count}} sag er importeret tidligere.",
+      "other": "{{count}} sager er importeret tidligere."
+    },
+    "import": {
+      "one": "Importér {{count}} sag",
+      "other": "Importér {{count}} sager"
+    },
+    "receipt": "{{imported}} importeret, {{skipped}} sprunget over"
+  },
   "settings": {
     "heading": "Indstillinger",
     "language": "Sprog",
@@ -114,6 +146,7 @@
       "language": "Sprog",
       "delegates": "Uddelegering",
       "jira": "Jira-import",
+      "ado": "ADO-import",
       "retro": "Retro-import"
     },
     "delegates": {
@@ -148,6 +181,31 @@
       "dutyStatusesHint": "Vagt slår ventende: står en status på begge lister, afgør kontakten nedenfor hvad den betyder.",
       "onDuty": "Jeg har vagten",
       "onDutyHint": "2nd. level-sagerne kommer med i importen, også når de ikke er tildelt dig, og de lander som handlingsklare frem for ventende."
+    },
+    "ado": {
+      "baseUrl": "Samlingens URL",
+      "baseUrlPlaceholder": "https://ado.eksempel.dk/Min%20Samling",
+      "baseUrlHint": "Indsæt URL'en som den står i browseren. Et mellemrum i samlingens navn er allerede skrevet som %20 der, og appen laver det ikke om.",
+      "project": "Projekt",
+      "projectPlaceholder": "Projektets navn",
+      "token": "Personligt adgangstoken",
+      "tokenPlaceholder": "Indsæt tokenet",
+      "tokenStored": "Et token er gemt. Det vises aldrig igen.",
+      "saveToken": "Gem token",
+      "clearToken": "Ryd token",
+      "testConnection": "Test forbindelse",
+      "connectedAs": "Forbundet som {{name}}",
+      "waitingStates": "Hvilke tilstande betyder, at du venter?",
+      "loadStates": "Hent tilstande",
+      "statesEmpty": "Hent tilstandene for at vælge dem. Listen kommer af dine egne sager, så en tilstand ingen af dem står i lige nu, kan ikke vælges.",
+      "includeWaiting": "Importér også sager du venter på",
+      "workItemTypes": "Hvilke sagstyper skal importeres?",
+      "workItemTypesHint": "Testplaner og testsuiter er sager i Azure DevOps, men ikke arbejde du løser. Tages den sidste type af listen, får du et svar frem for de tre standardtyper tilbage.",
+      "addWorkItemType": "Tilføj en sagstype",
+      "addWorkItemTypePlaceholder": "Fx Bug",
+      "removeWorkItemType": "Fjern {{type}}",
+      "deadlineDays": "Deadline om hvor mange dage?",
+      "deadlineDaysHint": "Azure DevOps har intet deadline-felt, så appen sætter en ved import. Nul betyder ingen deadline. Ændringen gælder kun sager du henter fremover."
     }
   },
   "errors": {

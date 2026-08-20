@@ -9,6 +9,7 @@
     "tasks": "Tasks",
     "import": "Retro import",
     "jira": "Jira import",
+    "ado": "ADO import",
     "settings": "Settings"
   },
   "tasks": {
@@ -102,6 +103,37 @@
     },
     "receipt": "{{imported}} imported, {{skipped}} skipped"
   },
+  "ado": {
+    "heading": "ADO import",
+    "preview": "Load work items",
+    "notConfigured": "Azure DevOps is not set up, so there are no work items to load.",
+    "settingsLink": "Set Azure DevOps up under Settings",
+    "deadlineNotice": "Azure DevOps has no deadline of its own, so the app proposes one from the number of days under Settings.",
+    "noneAssigned": "No work item is assigned to you.",
+    "showing": "Showing {{shown}} of {{total}} work items.",
+    "typeValue": "Type: {{value}}",
+    "stateValue": "State: {{value}}",
+    "deadlineValue": "Proposed deadline: {{value}}",
+    "noDeadline": "No deadline — the number of days is set to zero.",
+    "requesterValue": "Requester: {{value}}",
+    "hasNote": "The description comes along.",
+    "waiting": "Imported as waiting.",
+    "waitingSinceValue": "Waiting since {{value}}",
+    "alreadyImported": "imported before",
+    "allExcluded": {
+      "one": "{{count}} work item is left out of the import.",
+      "other": "{{count}} work items are left out of the import."
+    },
+    "allAlreadyImported": {
+      "one": "{{count}} work item was imported before.",
+      "other": "{{count}} work items were imported before."
+    },
+    "import": {
+      "one": "Import {{count}} work item",
+      "other": "Import {{count}} work items"
+    },
+    "receipt": "{{imported}} imported, {{skipped}} skipped"
+  },
   "settings": {
     "heading": "Settings",
     "language": "Language",
@@ -114,6 +146,7 @@
       "language": "Language",
       "delegates": "Delegating",
       "jira": "Jira import",
+      "ado": "ADO import",
       "retro": "Retro import"
     },
     "delegates": {
@@ -148,6 +181,31 @@
       "dutyStatusesHint": "Duty beats waiting: if a status is on both lists, the switch below decides what it means.",
       "onDuty": "I am on duty",
       "onDutyHint": "The 2nd level support issues are included in the import, even when they are not assigned to you, and they arrive actionable rather than waiting."
+    },
+    "ado": {
+      "baseUrl": "Collection URL",
+      "baseUrlPlaceholder": "https://ado.example.com/My%20Collection",
+      "baseUrlHint": "Paste the URL as it stands in the browser. A space in the collection name is already written as %20 there, and the app leaves it alone.",
+      "project": "Project",
+      "projectPlaceholder": "The project's name",
+      "token": "Personal access token",
+      "tokenPlaceholder": "Paste the token",
+      "tokenStored": "A token is stored. It is never shown again.",
+      "saveToken": "Save token",
+      "clearToken": "Clear token",
+      "testConnection": "Test connection",
+      "connectedAs": "Connected as {{name}}",
+      "waitingStates": "Which states mean you are waiting?",
+      "loadStates": "Load states",
+      "statesEmpty": "Load the states to pick them. The list comes off your own work items, so a state none of them is in right now cannot be picked.",
+      "includeWaiting": "Import work items you are waiting for too",
+      "workItemTypes": "Which work item types should be imported?",
+      "workItemTypesHint": "Test plans and test suites are work items in Azure DevOps, but not work you do. Take the last type off the list and you get an answer rather than the three default types back.",
+      "addWorkItemType": "Add a work item type",
+      "addWorkItemTypePlaceholder": "For instance Bug",
+      "removeWorkItemType": "Remove {{type}}",
+      "deadlineDays": "A deadline how many days ahead?",
+      "deadlineDaysHint": "Azure DevOps has no due date field, so the app sets one at import. Zero means no deadline. The change only applies to work items you load from now on."
     }
   },
   "errors": {

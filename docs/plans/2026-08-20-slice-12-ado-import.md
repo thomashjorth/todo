@@ -414,11 +414,62 @@ Klokken er fastfrosset i `AdoEndpointsTests` (`FixedClock(FakeAdo.Today)`), hvad
 ikke havde brug for: hver deadline her er regnestykke på *i dag*, så en datopåstand ville ellers
 påstå om den dag suiten tilfældigvis kører.
 
-## Task 5: Frontenden
+## Task 5: Frontenden — kørt
 
 En importskærm som Jiras, og en femte indstillingsgruppe. **`app.routes.ts` har fire ruter i dag; ADO
 bliver den femte**, og `ContrastTests` går dem alle igennem i begge temaer — tallet står skrevet i
 `CLAUDE.md` og designdokumentets afsnit 10 og skal rettes.
+
+**Genvejsbogstavet er `a`.** Frit målt: `app.html` havde `o/i/j/s` og `task-list.html` `n/v/m`, og
+`ShortcutStore.register` er et `Map.set` — **last-writer-wins uden nogen vagt**. Målt ved at sætte
+nav-ado til `j`: **nul** af 239 Vitest faldt, og badge-mærkaten ville heller ikke afsløre det, fordi
+bogstavet i mærkaten er skrevet i skabelonen og ikke afledt af `appShortcut`. Kun en E2E-rejse på det
+kolliderede bogstav ville fange det, og kun fordi `Alt_J_follows_the_jira_link` tilfældigvis findes.
+Chrome på Windows binder intet `Alt+A`; de nære naboer er `Ctrl+A` og `Alt+D`, andre
+modifikator-/tastesæt.
+
+**To E2E-konstanter kunne ikke vente på Task 6, og planen havde dem ikke.** En femte nav-link fælder
+`KeyboardJourneyTests` med det samme: `BadgeCount` var **7** (set fejle: `Locator expected to have
+count '7' But was: '8'`) og `TrailToTheField` listede fire nav-testid'er, så tab-rækkefølgen var
+forkert. Begge er *tal om nav'en*, ikke nye tests, og de er rettet her, fordi `dotnet test Todo.sln`
+ellers står rødt mellem Task 5 og Task 6.
+
+**Hele `settings.spec.ts`s forventede PUT-kroppe flyttede sig, og planen nævnte kun de to
+fixtures.** `adoWorkItemTypes` er aldrig tom, når den er læst fra serveren, så den følger med **hver**
+gemning — otte `toEqual`-påstande på requestkroppen fik `adoWorkItemTypes: defaultTypes` tilføjet.
+Det er ikke en fejl i store'n; det er det en fuld erstatning betyder.
+
+**`adoWorkItemTypes` har en tredje tilstand de andre lister ikke har, og "udelad for at rydde" er
+forkert for den.** Fraværende betyder *genopret de tre standardtyper*, og en nærværende tom liste
+**afvises** med `ado.workItemTypesRequired`. Mønstret `x.length === 0 ? undefined : x` ville derfor
+gøre den kode **uopnåelig fra UI'et** — og værre: at fjerne den sidste type ville tavst lægge de tre
+standarder tilbage, hvilket ligner at appen fortrød klikket. Reglen er derfor
+`types.length === 0 && !('adoWorkItemTypes' in changes)`: tomhed sendes **kun** når kalderen bad om
+den. Set fejle i begge retninger — det naive `undefined` fælder to tests
+(`expected {} to deeply equal { adoWorkItemTypes: [] }`), og et ubetinget `types` fælder syv, fordi en
+sprogændring før første læsning så ville bære `adoWorkItemTypes: []` og blive afvist.
+
+**Noten vises som *at* den findes, ikke som hvad der står i den.** ADO's felt er rå HTML, ikke
+CommonMark (Task 3's ejede afvigelse), og importen fører den uændret videre til noten, hvor `marked`
+lader inline-HTML passere — så `<div>` og `<br>` **renderer** i detaljepanelet og læses fint. En
+forhåndsvisning der viste markuppen som tekst ville altså vise noget brugeren aldrig ser, og et
+`[innerHTML]` her ville både være en XSS-flade og en påstand om en konvertering der ikke er sket.
+Linjen er `ado.hasNote` ("Beskrivelsen følger med."). Set fejle ved at bytte den til `{{ row.note }}`.
+
+**`waitingSince` er et tidsstempel og må derfor **ikke** gennem `deadlineDate`.** `formatDeadline`s
+regex kræver præcis `YYYY-MM-DD` og svarer **tom streng** for et ISO-tidsstempel, så linjen ville stå
+som "Venter siden " uden dato. Målt: `expected 'Venter siden ' to match /\b14\b/`. Komponenten har
+derfor sin egen `waitingSince()`, som bruger `new Date` med vilje — modsat deadline-reglen, fordi
+dette *er* et øjeblik og den lokale dag netop er spørgsmålet.
+
+**De 13 `errors.ado.*`-nøgler fandtes fra Task 3 og 4** — briefen sagde 14. Ingen nye fejlkoder blev
+lagt på.
+
+**Testtal efter Task 5:** Core **164** (uændret), Api **283** (uændret), E2E **35** (uændret, to
+konstanter rettet), Vitest **239** (+41).
+De 41 fordeler sig: **12** `ado-store.spec.ts`, **13** `ado-import.spec.ts`, **8** nye i
+`settings-store.spec.ts` og **8** nye i `settings.spec.ts`. Skævheden er, at skærmen er alt hvad denne
+opgave er: der kom ingen ren funktion til, så Core og Api står helt stille.
 
 `SettingsStore.save` bærer i dag **otte** felter i `current` (talt i `settings-store.ts`, linje
 117–124); ADO's **seks** gør det **fjorten** — ikke tretten, som planen skrev: tokenet er ikke et felt
@@ -470,6 +521,34 @@ opgavelisten med et rigtigt `externalUrl` kræver `FromAdo` **plus** en gemt `ad
 `externalUrl` for ADO på `/api/tasks` og målte det gennem importen; en builder-vej findes ikke endnu.
 
 **Byg før E2E.** `Todo.E2E.csproj` har intet build-trin, og hosten servérer bare `wwwroot`.
+
+**Grenene Task 5 efterlod, med vælger.** Indstillingssiden er allerede halvt dækket, fordi
+`ContrastTests`' settings-teori går siden igennem: de altid-renderede dele af `ado-settings` blev målt
+i denne kørsel og var grønne. Det der **mangler** en farve er hver af disse:
+
+- Indstillinger: `[data-testid="ado-token-stored"]`, `[data-testid="ado-clear-token"]`,
+  `[data-testid="ado-connection"]` (kræver et svar på `**/api/ado/test`),
+  `[data-testid="ado-state-row"]` (kræver et svar på `**/api/ado/states` **eller** en gemt
+  `adoWaitingStates`), `[data-testid="ado-settings-error"]` og `[data-testid="ado-error"]`.
+  `[data-testid="ado-states-empty"]` og `ado-work-item-type-row` er derimod målt allerede — den ene er
+  standardtilstanden, den anden følger af de tre standardtyper.
+- Importskærmen, som er **helt** umålt: `ado-not-configured` + `ado-settings-link` (standard),
+  `ado-deadline-notice` + `ado-preview` (kræver gemt `adoBaseUrl`, `adoProject` **og** et token),
+  `ado-import-error`, `ado-none-assigned`, `ado-showing`, `ado-nothing-to-select`, `ado-row`,
+  `ado-type`, `ado-deadline`, `ado-no-deadline`, `ado-requester`, `ado-note`, `ado-waiting`,
+  `ado-waiting-since`, `ado-excluded`, `ado-already-imported`, `ado-open-item`, `ado-open-error`,
+  `ado-import`, `ado-receipt`.
+
+**Rutehandlerens krop skal bære felterne, ellers er grenene tomme.** `**/api/ado/preview` skal svare
+med rækker der har `workItemType` (ny mod Jira), `state`, `isWaiting`, `alreadyImported` og `url` — og
+mindst fire varianter i rækkefølge, fordi grenene udelukker hinanden: en afvisning, en tom liste, en
+liste hvor hver række er blokeret (`excluded: "ado.excludedWaiting"`), og en liste med én række der kan
+importeres. `deadline` skal være **udfyldt på én række og fraværende på en anden** — det er den ene
+gren ingen Jira-skærm har. `requester`, `note` og `waitingSince` skal stå på mindst én række og mangle
+på en anden. Der er **ingen** `isDuty`.
+
+**`ado-settings-error` nås uden en rutehandler:** fjern den sidste sagstype, og den rigtige backend
+svarer `ado.workItemTypesRequired`. Samme for `alreadyImported` — importér, forhåndsvis igen.
 
 Dokumentér **hvad abstraktionen ikke tålte**. Det er skivens formål, og det er den ene ting der ikke
 kan læses ud af koden bagefter.

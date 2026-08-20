@@ -1,0 +1,228 @@
+<h2 class="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+  {{ 'ado.heading' | transloco }}
+</h2>
+
+<!-- Ord frem for en tom liste: uden opsætning er der ingenting at hente, og en knap der altid
+     fejler siger mindre end vejen til siden der retter det. -->
+@if (!configured()) {
+  <p data-testid="ado-not-configured" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+    {{ 'ado.notConfigured' | transloco }}
+  </p>
+  <p class="mt-2 text-sm">
+    <a
+      data-testid="ado-settings-link"
+      routerLink="/settings"
+      class="text-blue-700 underline dark:text-blue-300"
+      >{{ 'ado.settingsLink' | transloco }}</a
+    >
+  </p>
+} @else {
+  <!-- Den ene ting Jira-skærmen ikke skal sige: Azure DevOps har intet deadline-felt, så datoen på
+       hver række er appens eget regnestykke og ikke noget der blev hentet. Uden ordene ligner en
+       foreslået deadline en hentet, og så ville brugeren tro sagen havde en aftale bag sig. -->
+  <p data-testid="ado-deadline-notice" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+    {{ 'ado.deadlineNotice' | transloco }}
+  </p>
+
+  <button
+    type="button"
+    data-testid="ado-preview"
+    class="mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+    [disabled]="store.busy()"
+    (click)="preview()"
+  >
+    {{ 'ado.preview' | transloco }}
+  </button>
+}
+
+@if (store.error(); as message) {
+  <p
+    data-testid="ado-import-error"
+    role="alert"
+    class="mt-3 text-sm text-red-700 dark:text-red-300"
+  >
+    {{ message }}
+  </p>
+}
+
+@if (previewed()) {
+  @if (noneAssigned()) {
+    <p data-testid="ado-none-assigned" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+      {{ 'ado.noneAssigned' | transloco }}
+    </p>
+  } @else {
+    <p data-testid="ado-showing" class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'ado.showing' | transloco: { shown: store.rows().length, total: store.total() } }}
+    </p>
+
+    <!-- Hvilken af de to, og hvor mange: at listen står der uden et eneste tændt afkrydsningsfelt
+         ligner ellers en fejl i skærmen. -->
+    @if (nothingToSelect()) {
+      <p data-testid="ado-nothing-to-select" class="mt-2 text-sm text-gray-700 dark:text-gray-300">
+        @if (excludedCount() > 0) {
+          <span class="block">{{
+            pluralKey(excludedCount(), 'ado.allExcluded') | transloco: { count: excludedCount() }
+          }}</span>
+        }
+        @if (alreadyImportedCount() > 0) {
+          <span class="block">{{
+            pluralKey(alreadyImportedCount(), 'ado.allAlreadyImported')
+              | transloco: { count: alreadyImportedCount() }
+          }}</span>
+        }
+      </p>
+    }
+
+    <ul class="mt-3 space-y-2">
+      @for (row of store.rows(); track row.key) {
+        <li data-testid="ado-row" class="rounded border border-gray-200 p-2 dark:border-gray-700">
+          <label class="flex items-start gap-2">
+            <input
+              #pick
+              type="checkbox"
+              class="mt-1 shrink-0"
+              [checked]="isSelected(row)"
+              [disabled]="isBlocked(row)"
+              (change)="select(row, pick.checked)"
+            />
+            <span class="min-w-0 flex-1">
+              <span class="block font-mono text-xs text-gray-700 dark:text-gray-300">{{
+                row.key
+              }}</span>
+              <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
+                row.title
+              }}</span>
+              <!-- Typen står før tilstanden, og den står der overhovedet, fordi et tilstandsnavn
+                   ikke betyder det samme på tværs af typer: en Test Suite bruger In Progress hvor en
+                   Bug bruger Active. Uden typen kan brugeren ikke afgøre om tilstanden er den hun
+                   valgte som ventende. Ingen @if: typen er altid udfyldt. -->
+              <span data-testid="ado-type" class="block text-xs text-gray-500 dark:text-gray-400">{{
+                'ado.typeValue' | transloco: { value: row.workItemType }
+              }}</span>
+              <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+                'ado.stateValue' | transloco: { value: row.state }
+              }}</span>
+              <!-- Foreslået, ikke hentet, og begge grene siges højt: er dagantallet nul, kommer
+                   sagen ind uden deadline, og en linje der bare mangler kan ikke skelnes fra en
+                   indstilling der ikke virkede. -->
+              @if (row.deadline) {
+                <span
+                  data-testid="ado-deadline"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{
+                    'ado.deadlineValue' | transloco: { value: row.deadline | deadlineDate }
+                  }}</span
+                >
+              } @else {
+                <span
+                  data-testid="ado-no-deadline"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'ado.noDeadline' | transloco }}</span
+                >
+              }
+              @if (row.requester) {
+                <span
+                  data-testid="ado-requester"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'ado.requesterValue' | transloco: { value: row.requester } }}</span
+                >
+              }
+              <!-- At beskrivelsen findes, ikke hvad der står i den. Azure DevOps' felt er rå HTML og
+                   ikke CommonMark endnu, så teksten her ville hverken være den brugeren ender med at
+                   se i noten eller en ærlig gengivelse af markuppen. -->
+              @if (row.note) {
+                <span
+                  data-testid="ado-note"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'ado.hasNote' | transloco }}</span
+                >
+              }
+              <!-- Serveren ejer beslutningen og tager den igen ved import, så den må ikke genudledes
+                   her ud af tilstanden og indstillingerne. Datoen ligger indeni, fordi den kun
+                   følger med en ventende række. -->
+              @if (row.isWaiting) {
+                <span
+                  data-testid="ado-waiting"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'ado.waiting' | transloco }}</span
+                >
+                <!-- @let frem for as: @if indsnævrer ikke et udtryk til waitingSince(), som kræver
+                     en string. -->
+                @let since = row.waitingSince;
+                @if (since) {
+                  <span
+                    data-testid="ado-waiting-since"
+                    class="block text-xs text-gray-500 dark:text-gray-400"
+                    >{{ 'ado.waitingSinceValue' | transloco: { value: waitingSince(since) } }}</span
+                  >
+                }
+              }
+              <!-- Udeladt vises frem for at skjules: skjult ville sagen ligne en Azure DevOps havde
+                   tabt, og indstillingen adoIncludeWaiting ville være usynlig. -->
+              @if (row.excluded) {
+                <span
+                  data-testid="ado-excluded"
+                  class="block text-xs font-medium text-gray-700 dark:text-gray-300"
+                  >{{ excludedReason(row) }}</span
+                >
+              } @else if (row.alreadyImported) {
+                <span
+                  data-testid="ado-already-imported"
+                  class="block text-xs font-medium text-gray-700 dark:text-gray-300"
+                  >{{ 'ado.alreadyImported' | transloco }}</span
+                >
+              }
+            </span>
+          </label>
+          <!-- Uden for <label> med vilje: en knap inde i den ville lægge sin tekst i
+               afkrydsningsfeltets tilgængelige navn, og E2E-suiten matcher navne i deres helhed. -->
+          <p class="mt-1 pl-6 text-xs">
+            <!-- En <button>, ikke et <a href>: Photino-vinduet har hverken adresselinje eller
+                 tilbage-knap, så en navigation væk er enkeltrettet. Ingen @if: url er required på
+                 kontrakten. Nøglen er tasks.openIssue, samme handling på samme slags ting. -->
+            <button
+              type="button"
+              data-testid="ado-open-item"
+              class="text-blue-700 underline dark:text-blue-300"
+              (click)="openItem(row)"
+            >
+              {{ 'tasks.openIssue' | transloco }}
+            </button>
+          </p>
+          <!-- Ved rækken man trykkede på, ikke øverst: spalten er ~480 px og listen kan være tyve
+               rækker lang, så en besked i toppen ville være ude af syne. -->
+          @let failedOpen = openError();
+          @if (failedOpen && failedOpen.key === row.key) {
+            <p
+              data-testid="ado-open-error"
+              role="alert"
+              class="mt-1 pl-6 text-xs text-red-700 dark:text-red-300"
+            >
+              {{ failedOpen.message }}
+            </p>
+          }
+        </li>
+      }
+    </ul>
+
+    <button
+      type="button"
+      data-testid="ado-import"
+      class="mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+      [disabled]="selectedRows().length === 0 || store.busy()"
+      (click)="importSelected()"
+    >
+      {{
+        pluralKey(selectedRows().length, 'ado.import') | transloco: { count: selectedRows().length }
+      }}
+    </button>
+  }
+}
+
+<p
+  data-testid="ado-receipt"
+  aria-live="polite"
+  class="mt-2 text-sm text-gray-900 dark:text-gray-100"
+>
+  {{ receipt() }}
+</p>

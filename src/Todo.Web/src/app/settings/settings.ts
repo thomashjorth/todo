@@ -1,8 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { AdoStore } from '../ado/ado-store';
 import { JiraStore } from '../jira/jira-store';
 import { RetroStore } from '../retro/retro-store';
 import { SettingsStore } from './settings-store';
+
+/** Anything the browser's number field can hand over that is not a whole number of days. */
+const wholeNumber = /^\d+$/;
 
 const languageOptions = ['system', 'da', 'en'] as const;
 
@@ -15,6 +19,7 @@ export class Settings {
   protected readonly settings = inject(SettingsStore);
   protected readonly retro = inject(RetroStore);
   protected readonly jira = inject(JiraStore);
+  protected readonly ado = inject(AdoStore);
 
   protected readonly options = languageOptions;
 
@@ -23,6 +28,9 @@ export class Settings {
    * singleton, so a token left in one would survive navigating away from this page.
    */
   protected readonly token = signal('');
+
+  /** The Azure DevOps token being typed, its own field for the same reason and never mixed in. */
+  protected readonly adoToken = signal('');
 
   // Following the system is the absence of a stored language, so it needs a name of its own here.
   protected readonly choice = computed(() => this.settings.language() ?? 'system');
@@ -40,6 +48,19 @@ export class Settings {
   protected readonly dutyStatusOptions = computed(() =>
     this.optionsFor(this.settings.jiraDutyStatuses()),
   );
+
+  /**
+   * The Azure DevOps states to pick from: what the server answered, plus anything already chosen it
+   * did not mention. The second half matters more here than it does for Jira, because the list comes
+   * off the user's own work items rather than off a project definition - so a state nothing is in
+   * today is missing from the answer, and without this it could never be unticked again.
+   */
+  protected readonly stateOptions = computed(() => {
+    const fetched = this.ado.states();
+    const chosen = this.settings.adoWaitingStates();
+
+    return [...fetched, ...chosen.filter((name) => !fetched.includes(name))];
+  });
 
   constructor() {
     void this.retro.loadAliases();
@@ -130,6 +151,88 @@ export class Settings {
 
   protected setOnDuty(onDuty: boolean): void {
     void this.settings.save({ jiraOnDuty: onDuty });
+  }
+
+  protected saveAdoBaseUrl(value: string): void {
+    void this.settings.saveAdo({ adoBaseUrl: value });
+  }
+
+  protected saveAdoProject(value: string): void {
+    void this.settings.saveAdo({ adoProject: value });
+  }
+
+  /** The blank check is the server's, as it is for Jira's token: the answer teaches more. */
+  protected async storeAdoToken(): Promise<void> {
+    if (await this.settings.setAdoToken(this.adoToken())) {
+      this.adoToken.set('');
+    }
+  }
+
+  protected clearAdoToken(): void {
+    void this.settings.clearAdoToken();
+  }
+
+  protected isWaitingState(state: string): boolean {
+    return this.settings.adoWaitingStates().includes(state);
+  }
+
+  protected toggleWaitingState(state: string, waiting: boolean): void {
+    const current = this.settings.adoWaitingStates();
+    if (waiting === current.includes(state)) {
+      return;
+    }
+
+    void this.settings.saveAdo({
+      adoWaitingStates: waiting ? [...current, state] : current.filter((n) => n !== state),
+    });
+  }
+
+  protected setAdoIncludeWaiting(include: boolean): void {
+    void this.settings.saveAdo({ adoIncludeWaiting: include });
+  }
+
+  /**
+   * The same shape as addDelegate, and the repeat check is exact for a different reason: the server
+   * compares work item types ordinally, because Azure DevOps keeps two names apart that differ only
+   * in case. Folding them here would merge two types the system does not.
+   */
+  protected addWorkItemType(input: HTMLInputElement): void {
+    const type = input.value.trim();
+    if (!type || this.settings.adoWorkItemTypes().includes(type)) {
+      return;
+    }
+
+    input.value = '';
+    void this.settings.saveAdo({
+      adoWorkItemTypes: [...this.settings.adoWorkItemTypes(), type],
+    });
+  }
+
+  /**
+   * Removing the last type is deliberately allowed through to the server, which refuses it with
+   * ado.workItemTypesRequired. A guard here would either restore the three defaults behind the
+   * user's back or leave a button that silently does nothing.
+   */
+  protected removeWorkItemType(type: string): void {
+    void this.settings.saveAdo({
+      adoWorkItemTypes: this.settings.adoWorkItemTypes().filter((t) => t !== type),
+    });
+  }
+
+  /**
+   * Anything but a whole number is dropped rather than sent. The field is a number input, so the only
+   * value a user can realistically get in here that is not a number is an empty one - and an empty
+   * field is not a number of days, while `Number('')` is `0`, which on this setting means "no
+   * deadline". Out of range is another matter and does go: the server refuses 400 days with
+   * ado.defaultDeadlineDaysInvalid, and being told beats being silently clamped.
+   */
+  protected saveDeadlineDays(value: string): void {
+    const days = value.trim();
+    if (!wholeNumber.test(days)) {
+      return;
+    }
+
+    void this.settings.saveAdo({ adoDefaultDeadlineDays: Number(days) });
   }
 
   protected addAlias(input: HTMLInputElement): void {
