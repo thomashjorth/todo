@@ -263,7 +263,8 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 
         await App.Page.Keyboard.PressAsync("Alt+s");
 
-        await Assertions.Expect(new SettingsScreen(App).Language).ToBeVisibleAsync();
+        await Assertions.Expect(new SettingsScreen(App).SectionToggle(SettingsScreen.LanguageSection))
+            .ToBeVisibleAsync();
         await Assertions.Expect(App.Tasks.NewTaskInput).ToHaveCountAsync(0);
     }
 
@@ -280,7 +281,10 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await App.Page.Keyboard.PressAsync("Alt+o");
 
         await Assertions.Expect(App.Tasks.NewTaskInput).ToBeVisibleAsync();
-        await Assertions.Expect(settings.Language).ToHaveCountAsync(0);
+        // The heading, not the language select: the select is absent on the settings page too, now
+        // that the groups arrive folded, so asserting on it could not tell the two screens apart.
+        await Assertions.Expect(settings.SectionToggle(SettingsScreen.LanguageSection))
+            .ToHaveCountAsync(0);
     }
 
     /// <summary>

@@ -681,9 +681,12 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
     fraværende række læses som 30 og et bevidst `0` bevares, validering af både negativ og en øvre
     grænse, og **ingen** række gemt for standardværdien — ellers vælter de tre tests der påstår om
     hele `Settings`-tabellen. Læs `AdoDefaults` og `AdoSettingsReader` før feltet skrives.
-    **Uafgjort:** om `0` betyder *ingen grænse* eller *kun i dag*. For dagantallet i skive 12 blev
-    `0` valgt til at betyde "slået fra", og den læsning peger her mod *ingen grænse* — men det er en
-    beslutning, ikke en aflæsning, og den skal træffes eksplicit.
+    **Afgjort 2026-08-20 af brugeren: `0` betyder *ingen grænse*.** Altså samme læsning som
+    dagantallet i skive 12, hvor `0` betyder "slået fra" — filtret er slået fra, ikke skruet helt i
+    bund. Bemærk konsekvensen for valideringen: `0` er dermed en **gyldig** værdi der skal bevares,
+    ikke en fejl, og den øvre grænse er det eneste der afvises sammen med det negative. Og bemærk
+    faldgruben i formuleringen til brugeren: en hjælpetekst der siger "0 betyder ingen omtaler" ville
+    sige det stik modsatte af hvad koden gør.
 
     **Fælles for de to filtre:** de fjerner rækker brugeren ellers ville have set, så de skal kunne
     **ses** virke. Et filter der tavst tømmer en indbakke ligner en tom indbakke, og skive 11's

@@ -111,6 +111,11 @@ export class SettingsStore {
 
   readonly hasAdoToken = signal(false);
 
+  /**
+   * The language group's line, and after the Jira group got one of its own that is all it is: the
+   * only caller left is `choose`. Kept as the default `put` target rather than renamed, because a
+   * future group that forgets to pass its own signal should land somewhere visible.
+   */
   readonly error = signal<string | null>(null);
 
   /**
@@ -119,6 +124,16 @@ export class SettingsStore {
    * would print every rejection twice.
    */
   readonly delegatesError = signal<string | null>(null);
+
+  /**
+   * The Jira group's own message. The group went without one until the groups could fold: `error`
+   * is written by every save, so a refused base URL, project key, status list or token landed on
+   * the line above the language select — visible, but a screen away from the field that caused it.
+   * Once a group can be folded shut that stops being merely wrong and becomes silent, which is the
+   * same failure the user reported about Test connection. The token routes answer in here too, as
+   * Azure DevOps' do: the field sits in this group.
+   */
+  readonly jiraError = signal<string | null>(null);
 
   /**
    * The Azure DevOps group's own message, for the same reason the delegate list has one: `error` is
@@ -163,6 +178,14 @@ export class SettingsStore {
    */
   async saveDelegates(delegates: readonly string[]): Promise<void> {
     await this.put({ delegates }, this.delegatesError);
+  }
+
+  /**
+   * The same one path as `save`, answering into the Jira group's own line. Every field still goes
+   * with it - this is which line the refusal lands on, not which fields are sent.
+   */
+  async saveJira(changes: SettingsChanges): Promise<void> {
+    await this.put(changes, this.jiraError);
   }
 
   /**
@@ -242,22 +265,22 @@ export class SettingsStore {
    * store cannot do it: the value never comes in here.
    */
   async setToken(token: string): Promise<boolean> {
-    this.error.set(null);
+    this.jiraError.set(null);
     try {
       this.read(await firstValueFrom(this.client.setJiraToken(new JiraTokenRequest({ token }))));
       return true;
     } catch (error) {
-      this.error.set(apiErrorMessage(this.transloco, error));
+      this.jiraError.set(apiErrorMessage(this.transloco, error));
       return false;
     }
   }
 
   async clearToken(): Promise<void> {
-    this.error.set(null);
+    this.jiraError.set(null);
     try {
       this.read(await firstValueFrom(this.client.clearJiraToken()));
     } catch (error) {
-      this.error.set(apiErrorMessage(this.transloco, error));
+      this.jiraError.set(apiErrorMessage(this.transloco, error));
     }
   }
 

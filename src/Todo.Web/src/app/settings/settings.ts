@@ -3,6 +3,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { AdoStore } from '../ado/ado-store';
 import { JiraStore } from '../jira/jira-store';
 import { RetroStore } from '../retro/retro-store';
+import { SettingsSection } from './settings-section';
 import { SettingsStore } from './settings-store';
 
 /** Anything the browser's number field can hand over that is not a whole number of days. */
@@ -10,9 +11,12 @@ const wholeNumber = /^\d+$/;
 
 const languageOptions = ['system', 'da', 'en'] as const;
 
+/** The five groups. Only used as a type here — the page names them one by one in the template. */
+type SettingsSectionName = 'language' | 'delegate' | 'jira' | 'ado' | 'retro';
+
 @Component({
   selector: 'app-settings',
-  imports: [TranslocoPipe],
+  imports: [SettingsSection, TranslocoPipe],
   templateUrl: './settings.html',
 })
 export class Settings {
@@ -31,6 +35,17 @@ export class Settings {
 
   /** The Azure DevOps token being typed, its own field for the same reason and never mixed in. */
   protected readonly adoToken = signal('');
+
+  /**
+   * Which group is unfolded, where `null` — nothing open — is both the state the page arrives in
+   * and a state a click can return to, as an accordion's own convention has it.
+   *
+   * It lives here rather than in a setting on the server, and the choice has a price: navigating to
+   * an import screen and back folds the page up again. A stored one would cost a field on the
+   * contract, a row in `Setting` and a round trip for something the user did not ask for, so the
+   * fold is treated as a view state. To undo the choice, move this into `SettingsStore`.
+   */
+  protected readonly openSection = signal<SettingsSectionName | null>(null);
 
   // Following the system is the absence of a stored language, so it needs a name of its own here.
   protected readonly choice = computed(() => this.settings.language() ?? 'system');
@@ -66,6 +81,21 @@ export class Settings {
     void this.retro.loadAliases();
   }
 
+  protected isOpen(section: SettingsSectionName): boolean {
+    return this.openSection() === section;
+  }
+
+  /**
+   * One open group at most, and clicking the open one closes it. Focus deliberately stays on the
+   * heading button rather than moving into the panel: that is the accordion convention — the user
+   * tabs on from where they are — and moving it would leave nothing to Shift+Tab back to when the
+   * click was a mistake. The shortcut lesson does not apply here: this <em>is</em> the element's
+   * own activation, not a key standing in for one.
+   */
+  protected toggleSection(section: SettingsSectionName): void {
+    this.openSection.update((current) => (current === section ? null : section));
+  }
+
   protected languageKey(option: string): string {
     return `settings.languages.${option}`;
   }
@@ -94,11 +124,11 @@ export class Settings {
   }
 
   protected saveBaseUrl(value: string): void {
-    void this.settings.save({ jiraBaseUrl: value });
+    void this.settings.saveJira({ jiraBaseUrl: value });
   }
 
   protected saveProjectKey(value: string): void {
-    void this.settings.save({ jiraProjectKey: value });
+    void this.settings.saveJira({ jiraProjectKey: value });
   }
 
   /**
@@ -125,13 +155,13 @@ export class Settings {
       return;
     }
 
-    void this.settings.save({
+    void this.settings.saveJira({
       jiraWaitingStatuses: waiting ? [...current, status] : current.filter((n) => n !== status),
     });
   }
 
   protected setIncludeWaiting(include: boolean): void {
-    void this.settings.save({ jiraIncludeWaiting: include });
+    void this.settings.saveJira({ jiraIncludeWaiting: include });
   }
 
   protected isDutyStatus(status: string): boolean {
@@ -144,13 +174,13 @@ export class Settings {
       return;
     }
 
-    void this.settings.save({
+    void this.settings.saveJira({
       jiraDutyStatuses: duty ? [...current, status] : current.filter((n) => n !== status),
     });
   }
 
   protected setOnDuty(onDuty: boolean): void {
-    void this.settings.save({ jiraOnDuty: onDuty });
+    void this.settings.saveJira({ jiraOnDuty: onDuty });
   }
 
   protected saveAdoBaseUrl(value: string): void {

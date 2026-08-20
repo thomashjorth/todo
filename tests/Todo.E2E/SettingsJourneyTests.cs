@@ -59,6 +59,11 @@ public class SettingsJourneyTests(BrowserFixture fixture) : IClassFixture<Browse
                 settings = await tasks.GoToSettings();
 
                 await Assertions.Expect(settings.Heading).ToHaveTextAsync("Settings");
+
+                // The page arrives folded, so the select has to be brought back on screen: the
+                // fold is view state and is deliberately not stored, which is what makes coming
+                // back to a folded page the expected thing rather than a bug.
+                await settings.OpenAsync(SettingsScreen.LanguageSection);
                 await Assertions.Expect(settings.Language).ToHaveValueAsync("en");
 
                 await app.Page.CloseAsync();

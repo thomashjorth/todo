@@ -87,10 +87,24 @@ function press(element: HTMLElement, testid: string): void {
   element.querySelector<HTMLButtonElement>(`[data-testid="${testid}"]`)!.click();
 }
 
+/** The five groups, named the way the heading button's id and test id are built from. */
+type Section = 'language' | 'delegate' | 'jira' | 'ado' | 'retro';
+
+/**
+ * Unfolds one group, and folds whichever was open. Every control on this page now lives behind an
+ * `@if`, so a lookup for anything but the five headings finds nothing until its group is open —
+ * one helper rather than the same click spelled out at each of the ninety-odd lookups.
+ */
+function expand(screen: Screen, section: Section): void {
+  press(screen.element, `${section}-section-toggle`);
+  screen.fixture.detectChanges();
+}
+
 async function open(
   stored: string | null,
   aliases: string[] = [],
   rest: SettingsFixture = {},
+  section: Section | null = null,
 ): Promise<Screen> {
   const http = TestBed.inject(HttpTestingController);
 
@@ -103,7 +117,32 @@ async function open(
   fixture.detectChanges();
   http.expectOne('/api/retro/aliases').flush(new Blob([JSON.stringify({ aliases })]));
 
-  return { fixture, element, http };
+  const screen = { fixture, element, http };
+  // Nothing is open on arrival, so a test that wants a field has to say which group holds it.
+  if (section !== null) {
+    expand(screen, section);
+  }
+
+  return screen;
+}
+
+function toggle(element: HTMLElement, section: Section): HTMLButtonElement {
+  return element.querySelector<HTMLButtonElement>(`[data-testid="${section}-section-toggle"]`)!;
+}
+
+/**
+ * The names of the groups whose heading says it is expanded. Names rather than a count, so a
+ * failure says <em>which</em> group was open — "two were open" would not.
+ */
+function expandedSections(element: HTMLElement): string[] {
+  return [...element.querySelectorAll<HTMLButtonElement>('[data-testid$="-section-toggle"]')]
+    .filter((button) => button.getAttribute('aria-expanded') === 'true')
+    .map((button) => button.id.replace('-section-toggle', ''));
+}
+
+/** The ids of the panels actually in the DOM, which is the other half of what aria-expanded says. */
+function renderedPanels(element: HTMLElement): string[] {
+  return [...element.querySelectorAll('[role="region"]')].map((panel) => panel.id);
 }
 
 function headingBecomes(screen: Screen, text: string): Promise<void> {
@@ -137,7 +176,7 @@ describe('Settings', () => {
   });
 
   it('should offer the system alongside both languages, and label the choice', async () => {
-    const { element } = await open(null);
+    const { element } = await open(null, [], {}, 'language');
 
     const label = element.querySelector<HTMLLabelElement>('label[for="settings-language"]')!;
     expect(label.textContent!.trim()).toBe('Sprog');
@@ -154,14 +193,14 @@ describe('Settings', () => {
   });
 
   it('should show the stored language as the one in force', async () => {
-    const { element } = await open('en');
+    const { element } = await open('en', [], {}, 'language');
 
     expect(select(element).value).toBe('en');
     expect(element.querySelector('h2')!.textContent!.trim()).toBe('Settings');
   });
 
   it('should store a chosen language and translate the page at once', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'language');
 
     choose(screen.element, 'en');
 
@@ -177,7 +216,7 @@ describe('Settings', () => {
   });
 
   it('should clear the stored language when the system is chosen again', async () => {
-    const screen = await open('en');
+    const screen = await open('en', [], {}, 'language');
 
     choose(screen.element, 'system');
 
@@ -206,7 +245,9 @@ describe('Settings', () => {
     ]);
 
     const headings = sections.map((s) => s.querySelector('h3')!);
-    expect(headings.map((h) => h.textContent!.trim())).toEqual([
+    // The heading's own text, not the button's: the chevron is a text node inside it too, so the
+    // label is read off the span that carries the words.
+    expect(headings.map((h) => h.querySelector('span')!.textContent!.trim())).toEqual([
       'Sprog',
       'Uddelegering',
       'Jira-import',
@@ -217,19 +258,108 @@ describe('Settings', () => {
     // Equal groups look equal: one class list for all five, rather than three structures with
     // three levels, which is what the page had.
     expect([...new Set(headings.map((h) => h.className))]).toHaveLength(1);
-
-    // The lists stay a level down: they are subsections of their source, not groups beside it. Three
-    // under ADO — the waiting states, the type filter and the day count — and there is deliberately
-    // no fourth: Azure DevOps has no duty pool, so it has no second list of names.
-    expect(sections[2].querySelectorAll('h4')).toHaveLength(2);
-    expect(sections[3].querySelectorAll('h4')).toHaveLength(3);
-    // The board question is the same — it belongs to the retro import, and only to it.
-    expect(sections[4].querySelector('h4')!.textContent!.trim()).toBe('Hvem er du på boardet?');
     expect(element.querySelectorAll('h3')).toHaveLength(5);
   });
 
-  it('should say that delegating is bookkeeping only, and that nobody is on the list yet', async () => {
+  // One group at a time, so each of these has to be unfolded before its subsections exist at all.
+  it('should keep the lists a level down inside their own group', async () => {
+    const screen = await open(null);
+
+    // Subsections of their source, not groups beside it. Two under Jira, and three under ADO — the
+    // waiting states, the type filter and the day count. There is deliberately no fourth: Azure
+    // DevOps has no duty pool, so it has no second list of names.
+    expand(screen, 'jira');
+    expect(screen.element.querySelectorAll('h4')).toHaveLength(2);
+
+    expand(screen, 'ado');
+    expect(screen.element.querySelectorAll('h4')).toHaveLength(3);
+
+    // The board question is the same — it belongs to the retro import, and only to it.
+    expand(screen, 'retro');
+    expect(screen.element.querySelector('h4')!.textContent!.trim()).toBe('Hvem er du på boardet?');
+    expect(screen.element.querySelectorAll('h4')).toHaveLength(1);
+  });
+
+  // The whole point of the fold: five headings and nothing else, rather than one long heap. Nothing
+  // open is the arrival state and a state a click can return to, as an accordion's own default has
+  // it.
+  it('should arrive with every group folded, and say so on each heading', async () => {
     const { element } = await open(null);
+
+    expect(expandedSections(element)).toEqual([]);
+    expect(renderedPanels(element)).toEqual([]);
+
+    for (const section of ['language', 'delegate', 'jira', 'ado', 'retro'] as const) {
+      const button = toggle(element, section);
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(button.getAttribute('aria-controls')).toBe(`${section}-section-panel`);
+      // Inside the heading, so the heading level survives being made clickable.
+      expect(button.parentElement!.tagName).toBe('H3');
+    }
+
+    // Not a single field is in the DOM yet, which is what makes the guard on a colour inside a
+    // panel honest: it cannot measure text that was never painted.
+    expect(element.querySelector('[data-testid="language-select"]')).toBeNull();
+    expect(element.querySelector('[data-testid="jira-base-url"]')).toBeNull();
+  });
+
+  it('should render only the open group, and point the panel back at its heading', async () => {
+    const screen = await open(null, [], {}, 'jira');
+
+    expect(expandedSections(screen.element)).toEqual(['jira']);
+    expect(renderedPanels(screen.element)).toEqual(['jira-section-panel']);
+
+    const panel = screen.element.querySelector('#jira-section-panel')!;
+    expect(panel.getAttribute('role')).toBe('region');
+    expect(panel.getAttribute('aria-labelledby')).toBe('jira-section-toggle');
+    expect(toggle(screen.element, 'jira').id).toBe('jira-section-toggle');
+    expect(panel.querySelector('[data-testid="jira-base-url"]')).not.toBeNull();
+  });
+
+  // Named after the rule, and asserted the way it can actually fail: a check that merely counted
+  // the open ones would pass on nothing open at all, which is the state the page starts in.
+  it('should open the group clicked and fold the one that was open', async () => {
+    const screen = await open(null, [], {}, 'jira');
+    expect(expandedSections(screen.element)).toEqual(['jira']);
+
+    expand(screen, 'ado');
+
+    expect(expandedSections(screen.element)).toEqual(['ado']);
+    expect(renderedPanels(screen.element)).toEqual(['ado-section-panel']);
+    expect(toggle(screen.element, 'jira').getAttribute('aria-expanded')).toBe('false');
+    // The fields of the group that closed are gone, not merely hidden.
+    expect(screen.element.querySelector('[data-testid="jira-base-url"]')).toBeNull();
+    expect(screen.element.querySelector('[data-testid="ado-base-url"]')).not.toBeNull();
+  });
+
+  it('should fold a group again when its own heading is clicked', async () => {
+    const screen = await open(null, [], {}, 'delegate');
+    expect(expandedSections(screen.element)).toEqual(['delegate']);
+
+    expand(screen, 'delegate');
+
+    expect(expandedSections(screen.element)).toEqual([]);
+    expect(renderedPanels(screen.element)).toEqual([]);
+    expect(screen.element.querySelector('[data-testid="delegate-input"]')).toBeNull();
+  });
+
+  // The chevron says the direction to the eye and nothing to assistive tech, which already hears
+  // "expanded" from aria-expanded. Without the attribute the character joins the button's
+  // accessible name, and the suite matches those in full.
+  it('should keep the chevron out of the heading button’s accessible name', async () => {
+    const screen = await open(null, [], {}, 'jira');
+
+    const chevrons = [...screen.element.querySelectorAll('[data-testid="section-chevron"]')];
+    expect(chevrons).toHaveLength(5);
+    expect(chevrons.every((c) => c.getAttribute('aria-hidden') === 'true')).toBe(true);
+
+    // The open one points down, the folded ones sideways.
+    expect(chevrons[2].textContent!.trim()).toBe('▾');
+    expect(chevrons.filter((c) => c.textContent!.trim() === '▸')).toHaveLength(4);
+  });
+
+  it('should say that delegating is bookkeeping only, and that nobody is on the list yet', async () => {
+    const { element } = await open(null, [], {}, 'delegate');
 
     // The one part of this that is a claim about what a user expects rather than about the code:
     // without the words, delegating reads as though the other person was told.
@@ -244,7 +374,12 @@ describe('Settings', () => {
   });
 
   it('should list the delegates with a labelled button for each', async () => {
-    const screen = await open(null, [], { delegates: ['Mette Kirkegaard', 'Flemming'] });
+    const screen = await open(
+      null,
+      [],
+      { delegates: ['Mette Kirkegaard', 'Flemming'] },
+      'delegate',
+    );
 
     const rows = screen.element.querySelectorAll('[data-testid="delegate-row"]');
     expect(rows).toHaveLength(2);
@@ -265,7 +400,7 @@ describe('Settings', () => {
   });
 
   it('should add a delegate on Enter, and send nothing for a blank or repeated name', async () => {
-    const screen = await open(null, [], { delegates: ['Mette Kirkegaard'] });
+    const screen = await open(null, [], { delegates: ['Mette Kirkegaard'] }, 'delegate');
 
     const input = field(screen.element, 'delegate-input');
     input.value = '  Flemming  ';
@@ -295,7 +430,7 @@ describe('Settings', () => {
   // The repeat check on screen is exact, so a name differing only in case reaches the server — and
   // the reason has to land beside the list, not up beside the language select.
   it('should show the reason the server refused a delegate, in the delegate group', async () => {
-    const screen = await open(null, [], { delegates: ['Mette'] });
+    const screen = await open(null, [], { delegates: ['Mette'] }, 'delegate');
 
     const input = field(screen.element, 'delegate-input');
     input.value = 'mette';
@@ -323,7 +458,7 @@ describe('Settings', () => {
   });
 
   it('should list the aliases with a labelled button for each', async () => {
-    const screen = await open(null, ['TH', 'Thomas Hjorth']);
+    const screen = await open(null, ['TH', 'Thomas Hjorth'], {}, 'retro');
 
     const rows = await settled(screen, () => {
       const found = screen.element.querySelectorAll('[data-testid="alias-row"]');
@@ -342,7 +477,7 @@ describe('Settings', () => {
   });
 
   it('should add an alias on Enter', async () => {
-    const screen = await open(null, ['TH']);
+    const screen = await open(null, ['TH'], {}, 'retro');
     await settled(screen, () =>
       expect(screen.element.querySelectorAll('[data-testid="alias-row"]')).toHaveLength(1),
     );
@@ -357,7 +492,7 @@ describe('Settings', () => {
   });
 
   it('should send no alias request for a blank or repeated name', async () => {
-    const screen = await open(null, ['TH']);
+    const screen = await open(null, ['TH'], {}, 'retro');
     await settled(screen, () =>
       expect(screen.element.querySelectorAll('[data-testid="alias-row"]')).toHaveLength(1),
     );
@@ -373,7 +508,7 @@ describe('Settings', () => {
   });
 
   it('should show the reason the server rejected an alias list', async () => {
-    const screen = await open(null, ['Thomas']);
+    const screen = await open(null, ['Thomas'], {}, 'retro');
     await settled(screen, () =>
       expect(screen.element.querySelectorAll('[data-testid="alias-row"]')).toHaveLength(1),
     );
@@ -399,13 +534,18 @@ describe('Settings', () => {
   });
 
   it('should show the stored Jira settings in their fields', async () => {
-    const screen = await open(null, [], {
-      jiraBaseUrl: 'https://jira.test',
-      jiraProjectKey: 'SAAS',
-      jiraWaitingStatuses: ['Afventer general'],
-      jiraIncludeWaiting: true,
-      hasJiraToken: true,
-    });
+    const screen = await open(
+      null,
+      [],
+      {
+        jiraBaseUrl: 'https://jira.test',
+        jiraProjectKey: 'SAAS',
+        jiraWaitingStatuses: ['Afventer general'],
+        jiraIncludeWaiting: true,
+        hasJiraToken: true,
+      },
+      'jira',
+    );
 
     expect(field(screen.element, 'jira-base-url').value).toBe('https://jira.test');
     expect(field(screen.element, 'jira-project-key').value).toBe('SAAS');
@@ -422,7 +562,12 @@ describe('Settings', () => {
   // The regression from the store's side, seen through the screen: the base URL is saved by the
   // same one path, so the language and the rest go with it.
   it('should keep the other settings when a base URL is typed', async () => {
-    const screen = await open('en', [], { jiraProjectKey: 'SAAS', jiraIncludeWaiting: true });
+    const screen = await open(
+      'en',
+      [],
+      { jiraProjectKey: 'SAAS', jiraIncludeWaiting: true },
+      'jira',
+    );
 
     const input = field(screen.element, 'jira-base-url');
     input.value = 'https://jira.test';
@@ -447,7 +592,7 @@ describe('Settings', () => {
   });
 
   it('should empty the token field once the token is stored, and offer to clear it', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'jira');
     expect(screen.element.querySelector('[data-testid="jira-clear-token"]')).toBeNull();
 
     const input = field(screen.element, 'jira-token');
@@ -473,7 +618,7 @@ describe('Settings', () => {
   });
 
   it('should keep a refused token in the field so it can be corrected', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'jira');
 
     const input = field(screen.element, 'jira-token');
     input.value = '   ';
@@ -488,17 +633,49 @@ describe('Settings', () => {
       );
 
     const error = await settled(screen, () => {
-      const found = screen.element.querySelector('[data-testid="settings-error"]');
+      const found = screen.element.querySelector(
+        '[data-testid="jira-settings"] [data-testid="jira-settings-error"]',
+      );
       expect(found).not.toBeNull();
       return found!;
     });
 
     expect(error.textContent).toContain('Tokenet må ikke være tomt.');
+    // Not up beside the language select, where SettingsStore.error is shown: with the language
+    // group folded, a message written there would be one the user never sees.
+    expect(screen.element.querySelector('[data-testid="settings-error"]')).toBeNull();
     expect(field(screen.element, 'jira-token').value).toBe('   ');
   });
 
+  // Every Jira control on this page saves through the one settings route, and until the groups could
+  // fold they all answered on the line above the language select. A 500 rather than a coded refusal
+  // because PUT /api/settings validates no Jira field at all — the language, the delegates and the
+  // two ADO settings are the four it checks — so a failed save is the only failure this path has.
+  it('should show a failed Jira save in the Jira group', async () => {
+    const screen = await open(null, [], {}, 'jira');
+
+    const input = field(screen.element, 'jira-base-url');
+    input.value = 'https://jira.test';
+    input.dispatchEvent(new Event('change'));
+
+    screen.http
+      .expectOne('/api/settings')
+      .flush(new Blob(['boom']), { status: 500, statusText: 'Server Error' });
+
+    const error = await settled(screen, () => {
+      const found = screen.element.querySelector(
+        '[data-testid="jira-settings"] [data-testid="jira-settings-error"]',
+      );
+      expect(found).not.toBeNull();
+      return found!;
+    });
+
+    expect(error.textContent).toContain('Noget gik galt.');
+    expect(screen.element.querySelector('[data-testid="settings-error"]')).toBeNull();
+  });
+
   it('should name whoever the token belongs to when the connection is tested', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'jira');
     expect(screen.element.querySelector('[data-testid="jira-connection"]')).toBeNull();
 
     press(screen.element, 'jira-test');
@@ -516,7 +693,7 @@ describe('Settings', () => {
   });
 
   it('should say why the status list is empty rather than showing nothing', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'jira');
 
     expect(
       screen.element.querySelector('[data-testid="jira-statuses-empty"]')!.textContent,
@@ -544,10 +721,15 @@ describe('Settings', () => {
   });
 
   it('should show the stored duty statuses and say what having the duty does', async () => {
-    const screen = await open(null, [], {
-      jiraDutyStatuses: ['Afventer general'],
-      jiraOnDuty: true,
-    });
+    const screen = await open(
+      null,
+      [],
+      {
+        jiraDutyStatuses: ['Afventer general'],
+        jiraOnDuty: true,
+      },
+      'jira',
+    );
 
     expect(field(screen.element, 'jira-on-duty').checked).toBe(true);
 
@@ -566,10 +748,15 @@ describe('Settings', () => {
   // Duty overrides waiting, so the page has to ask in that order: read the other way round it
   // looks as though the waiting list wins.
   it('should ask about the duty pool after asking about waiting', async () => {
-    const { element } = await open(null, [], {
-      jiraWaitingStatuses: ['Afventer kunde'],
-      jiraDutyStatuses: ['Afventer general'],
-    });
+    const { element } = await open(
+      null,
+      [],
+      {
+        jiraWaitingStatuses: ['Afventer kunde'],
+        jiraDutyStatuses: ['Afventer general'],
+      },
+      'jira',
+    );
 
     const order = [...element.querySelectorAll('[data-testid]')].map((e) =>
       e.getAttribute('data-testid'),
@@ -584,7 +771,7 @@ describe('Settings', () => {
   });
 
   it('should offer the one fetched status list for the duty pool too', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'jira');
 
     expect(
       screen.element.querySelector('[data-testid="jira-duty-statuses-empty"]')!.textContent,
@@ -617,10 +804,15 @@ describe('Settings', () => {
   });
 
   it('should save the duty switch without disturbing the waiting list', async () => {
-    const screen = await open(null, [], {
-      jiraWaitingStatuses: ['Afventer general'],
-      jiraDutyStatuses: ['Afventer general'],
-    });
+    const screen = await open(
+      null,
+      [],
+      {
+        jiraWaitingStatuses: ['Afventer general'],
+        jiraDutyStatuses: ['Afventer general'],
+      },
+      'jira',
+    );
 
     field(screen.element, 'jira-on-duty').click();
 
@@ -643,15 +835,20 @@ describe('Settings', () => {
   });
 
   it('should show the stored Azure DevOps settings in their fields', async () => {
-    const screen = await open(null, [], {
-      adoBaseUrl: 'https://ado.test/Min%20Samling',
-      adoProject: 'Saas',
-      adoWaitingStates: ['Blocked'],
-      adoIncludeWaiting: true,
-      adoWorkItemTypes: ['Bug', 'Task'],
-      adoDefaultDeadlineDays: 7,
-      hasAdoToken: true,
-    });
+    const screen = await open(
+      null,
+      [],
+      {
+        adoBaseUrl: 'https://ado.test/Min%20Samling',
+        adoProject: 'Saas',
+        adoWaitingStates: ['Blocked'],
+        adoIncludeWaiting: true,
+        adoWorkItemTypes: ['Bug', 'Task'],
+        adoDefaultDeadlineDays: 7,
+        hasAdoToken: true,
+      },
+      'ado',
+    );
 
     expect(field(screen.element, 'ado-base-url').value).toBe('https://ado.test/Min%20Samling');
     expect(field(screen.element, 'ado-project').value).toBe('Saas');
@@ -677,7 +874,7 @@ describe('Settings', () => {
   });
 
   it('should offer the states Azure DevOps answered with and save the ticked one', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'ado');
 
     expect(screen.element.querySelector('[data-testid="ado-states-empty"]')!.textContent).toContain(
       'Listen kommer af dine egne sager',
@@ -705,7 +902,7 @@ describe('Settings', () => {
   });
 
   it('should add a work item type on Enter, and send nothing for a blank or repeated name', async () => {
-    const screen = await open(null, [], { adoWorkItemTypes: ['Bug'] });
+    const screen = await open(null, [], { adoWorkItemTypes: ['Bug'] }, 'ado');
 
     const input = field(screen.element, 'ado-work-item-type-input');
     input.value = '  Task  ';
@@ -735,7 +932,7 @@ describe('Settings', () => {
   // guard of its own: the alternative to the server's refusal is that the three defaults come back
   // without anybody saying so, which reads as the app having ignored the click.
   it('should show the refusal when the last work item type is removed, in the ADO group', async () => {
-    const screen = await open(null, [], { adoWorkItemTypes: ['Bug'] });
+    const screen = await open(null, [], { adoWorkItemTypes: ['Bug'] }, 'ado');
 
     press(screen.element, 'remove-work-item-type');
 
@@ -770,7 +967,7 @@ describe('Settings', () => {
   // Zero is the one value that means something of its own — no deadline — so it has to reach the
   // server, while an empty field is not a number of days and must not be read as zero.
   it('should save a day count of zero, and send nothing for an empty field', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'ado');
 
     const input = field(screen.element, 'ado-deadline-days');
     expect(input.value).toBe('3');
@@ -794,7 +991,7 @@ describe('Settings', () => {
   });
 
   it('should empty the Azure DevOps token field once it is stored, and offer to clear it', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'ado');
     expect(screen.element.querySelector('[data-testid="ado-clear-token"]')).toBeNull();
 
     const input = field(screen.element, 'ado-token');
@@ -822,7 +1019,7 @@ describe('Settings', () => {
   });
 
   it('should show a refused Azure DevOps token in the ADO group', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'ado');
 
     const input = field(screen.element, 'ado-token');
     input.value = '   ';
@@ -848,7 +1045,7 @@ describe('Settings', () => {
   });
 
   it('should name whoever the Azure DevOps token belongs to when the connection is tested', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'ado');
     expect(screen.element.querySelector('[data-testid="ado-connection"]')).toBeNull();
 
     press(screen.element, 'ado-test');
@@ -871,7 +1068,7 @@ describe('Settings', () => {
   // two tests are one each. First: the call succeeds but the server names nobody, which the screen
   // used to render as the empty sentence "Forbundet som ." - visible, but saying nothing.
   it('should say the server gave no name rather than showing an empty sentence', async () => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, 'ado');
 
     press(screen.element, 'ado-test');
     screen.http.expectOne('/api/ado/test').flush(new Blob([JSON.stringify({ displayName: '' })]));
@@ -896,7 +1093,7 @@ describe('Settings', () => {
     ['jira', 'jira.refused'],
     ['ado', 'ado.refused'],
   ])('should put a failed %s connection beside the button that caused it', async (source, code) => {
-    const screen = await open(null);
+    const screen = await open(null, [], {}, source as Section);
 
     press(screen.element, `${source}-test`);
     screen.http

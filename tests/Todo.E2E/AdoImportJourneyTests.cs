@@ -174,7 +174,8 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
 
         await ado.SettingsLink.ClickAsync();
 
-        await Assertions.Expect(new SettingsScreen(App).Language).ToBeVisibleAsync();
+        await Assertions.Expect(new SettingsScreen(App).SectionToggle(SettingsScreen.LanguageSection))
+            .ToBeVisibleAsync();
     }
 
     /// <summary>
