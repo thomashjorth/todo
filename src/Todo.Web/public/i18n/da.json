@@ -143,8 +143,12 @@
       "da": "Dansk",
       "en": "Engelsk"
     },
+    "autostart": {
+      "label": "Start med Windows",
+      "hint": "Appen åbner et vindue når du logger ind. Der er ingen bakke-ikon endnu, så den starter synligt."
+    },
     "groups": {
-      "language": "Sprog",
+      "language": "Generelt",
       "delegates": "Uddelegering",
       "jira": "Jira-import",
       "ado": "ADO-import",
@@ -258,6 +262,10 @@
       "workItemTypesRequired": "Vælg mindst én sagstype. En tom liste betyder ikke alle typer.",
       "defaultDeadlineDaysInvalid": "Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline.",
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra."
+    },
+    "autostart": {
+      "failed": "Autostart kunne ikke ændres. Kontrollér om Windows tillader det på maskinen.",
+      "unsupported": "Autostart er kun implementeret til Windows."
     },
     "system": {
       "unsupportedScheme": "Kun http- og https-links kan åbnes."

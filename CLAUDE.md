@@ -789,7 +789,22 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 16's Task 2 (`wwwroot` ind i exe'en): **164** Todo.Core.Tests, **294** Todo.Api.Tests,
+Efter skive 16's Task 4 og 5 (autostart): **164** Todo.Core.Tests, **300** Todo.Api.Tests, **46**
+Todo.E2E, **254** Vitest. Opgaven lagde **6** Api-tests til (294 → 300, alle `AutostartEndpointsTests`),
+**2** E2E (44 → 46, `AutostartJourneyTests`) og **4** Vitest (250 → 254: tre i `settings-store.spec.ts`
+om ruten og den afviste registry, én i `settings.spec.ts` om kontakten). Core stod stille: autostart er
+en side-effekt på maskinen, ikke en ren funktion.
+**Den ene E2E-rejse var værd hele opgaven** — den fandt en fejl ingen Vitest kunne se: browseren
+sætter selv fluebenet ved et klik, og `[checked]` genanvendes **kun når signalet skifter**, så på en
+maskine hvor registret afviser, blev signalet `false` → `false`, bindingen havde intet at gøre, og
+fluebenet stod til mens **intet** var registreret. Komponenten skriver nu elementet tilbage fra
+signalet efter rundturen. Samme mønster findes på de øvrige kontakter (`jira-on-duty`,
+`ado-include-waiting`) og er **ikke** rettet der — de fejler kun hvis serveren afviser, hvilket ingen
+af dem har en kodet grund til i dag, hvor et låst register er den *sandsynlige* sag for autostart.
+`ContrastTests` voksede **ikke**: gruppen åbnes allerede, så mærkaten måles automatisk — verificeret
+ved at male den `text-gray-400 dark:text-gray-600` og se én fejl i hvert tema.
+
+Før den, efter skive 16's Task 2 (`wwwroot` ind i exe'en): **164** Todo.Core.Tests, **294** Todo.Api.Tests,
 **44** Todo.E2E, **250** Vitest. Opgaven lagde **2** Api-tests til (292 → 294), begge
 `EmbeddedFrontendTests`, og rørte ikke de tre andre tal. Fordelingen siger noget vigtigt: **de 44 E2E
 er uændrede og var grønne både før og efter**, fordi de kører mod den samme host — men de kan ikke se

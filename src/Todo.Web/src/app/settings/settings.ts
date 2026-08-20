@@ -222,6 +222,23 @@ export class Settings {
   }
 
   /**
+   * Not through `saveAdo` or any other `put`: autostart has its own route, because PUT
+   * /api/settings is a full replacement that would read the absent field as "clear". The checkbox
+   * is bound to the signal rather than to its own state, so a registry that refuses puts the tick
+   * back where it was.
+   */
+  protected setAutostart(input: HTMLInputElement): void {
+    void this.settings.setAutostart(input.checked).then(() => {
+      // Written back from the signal, and this is the bug an E2E journey found rather than a
+      // flourish. The browser ticks the box itself on click, and `[checked]` only re-applies when
+      // the signal *changes* - so on a machine whose registry refuses, the signal stays false, the
+      // binding sees nothing to do, and the tick stays on while nothing was registered. The switch
+      // has to end up showing what the machine says, not what the click intended.
+      input.checked = this.settings.autostart();
+    });
+  }
+
+  /**
    * The same shape as addDelegate, and the repeat check is exact for a different reason: the server
    * compares work item types ordinally, because Azure DevOps keeps two names apart that differ only
    * in case. Folding them here would merge two types the system does not.

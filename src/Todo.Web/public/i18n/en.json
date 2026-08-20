@@ -143,8 +143,12 @@
       "da": "Danish",
       "en": "English"
     },
+    "autostart": {
+      "label": "Start with Windows",
+      "hint": "The app opens a window when you sign in. There is no tray icon yet, so it starts visibly."
+    },
     "groups": {
-      "language": "Language",
+      "language": "General",
       "delegates": "Delegating",
       "jira": "Jira import",
       "ado": "ADO import",
@@ -258,6 +262,10 @@
       "workItemTypesRequired": "Pick at least one work item type. An empty list does not mean every type.",
       "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline.",
       "excludedWaiting": "You are waiting for it, and waiting work items are turned off."
+    },
+    "autostart": {
+      "failed": "Autostart could not be changed. Check whether Windows allows it on this machine.",
+      "unsupported": "Autostart is only implemented for Windows."
     },
     "system": {
       "unsupportedScheme": "Only http and https links can be opened."

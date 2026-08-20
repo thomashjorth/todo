@@ -888,6 +888,12 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("hasAdoToken")]
         public bool HasAdoToken { get; set; }
 
+        /// <summary>
+        /// Whether the app starts when the user signs in to Windows. Read from the registry rather than from the Settings table, because the registry is what Windows reads it from - so it is the only answer that cannot be stale. Absent from SettingsRequest on purpose: it is written through PUT and DELETE /api/settings/autostart.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("autostart")]
+        public bool Autostart { get; set; }
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]

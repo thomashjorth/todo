@@ -6,8 +6,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
 using Todo.Core.Ado;
+using Todo.Core.Autostart;
 using Todo.Core.Jira;
 using Todo.Host.Ado;
+using Todo.Host.Autostart;
 using Todo.Host.Endpoints;
 using Todo.Host.Jira;
 using Todo.Host.Links;
@@ -74,6 +76,20 @@ public static class TodoHost
         builder.Services.AddHttpClient<AdoTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
 
         builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
+
+        // Registered behind the OS check the analyser asks for rather than unconditionally: the
+        // registry APIs are annotated Windows-only, and the target framework is net10.0 rather than
+        // net10.0-windows. The app is Windows-only either way - Photino and %APPDATA% both say so -
+        // so the other branch is a courtesy to the compiler and to anyone who opens this on a Mac,
+        // not a platform this ships to. It answers "off" and refuses to lie about turning on.
+        if (OperatingSystem.IsWindows())
+        {
+            builder.Services.AddSingleton<IAutostart, RegistryAutostart>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<IAutostart, UnsupportedAutostart>();
+        }
 
         configureServices?.Invoke(builder.Services);
 

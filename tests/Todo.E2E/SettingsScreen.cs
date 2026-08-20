@@ -126,7 +126,20 @@ public sealed class SettingsScreen(TodoApp app)
     /// from <see cref="JiraError"/> on purpose, the same way the two ADO lines are: this one is the
     /// app's own server refusing a setting, that one is Jira refusing a call.
     /// </summary>
-    public ILocator JiraSettingsError => Page.GetByTestId("jira-settings-error");
+    public ILocator JiraSettingsError => Page.GetByTestId("jira-settings-error");
+
+    /// <summary>The switch that registers the app to start when the user signs in.</summary>
+    public ILocator Autostart => Page.GetByTestId("autostart");
+
+    /// <summary>
+    /// The general group's own error line, apart from <see cref="SettingsError"/> for the same
+    /// reason each source group has one: since the accordion, a message written to another group's
+    /// line can be inside a folded section, so the user sees nothing at all.
+    /// </summary>
+    public ILocator AutostartError => Page.GetByTestId("autostart-error");
+
+    /// <summary>The line the language select writes to, which autostart must not use.</summary>
+    public ILocator SettingsError => Page.GetByTestId("settings-error");
 
     private ILocator AliasInput => Page.GetByTestId("alias-input");
 

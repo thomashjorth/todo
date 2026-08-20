@@ -351,6 +351,42 @@ havner filen **inde** i exe'en, og `File.Exists` siger nej på en fil der er "ud
 (3) Brugerens app kører fra `bin\Release\net10.0` og **låser** mappen, så `dotnet run -c Release`
 fejler med `MSB3021` mens vinduet er åbent. Ingen af de tre kan gættes af den næste der møder dem.*
 
+### Kørt 2026-08-20 — Task 4 og 5
+
+**To ruter, og feltet kun på svaret.** `PUT`/`DELETE /api/settings/autostart`, og `autostart` er
+`required` på `SettingsResponse` men findes **ikke** på `SettingsRequest`. Vagten på netop det er
+`Saving_every_other_setting_leaves_autostart_alone`: en fuld erstatning af alt andet må ikke slå den
+fra.
+
+**Gruppen heder nu "Generelt".** Autostart hører hos sproget — dine egne først — men overskriften
+"Sprog" navngav én kontrol, og gruppen har to nu. Konsekvensen var større end navnet: sprogvælgerens
+mærkat var `sr-only` med begrundelsen *"gruppen har præcis én kontrol, så en synlig mærkat ville skrive
+ordet to gange"*, og den begrundelse holdt op med at gælde i samme øjeblik. Mærkaten er synlig nu.
+To tests pinner overskriften og måtte rettes: `settings.spec.ts`' gruppetest og
+`SettingsAccordionJourneyTests.Groups`.
+
+**Den ene E2E-rejse fandt en fejl ingen Vitest kunne se, og det er opgavens vigtigste resultat.**
+Browseren sætter selv fluebenet ved et klik, og `[checked]` genanvendes **kun når signalet skifter** —
+så da registret afviste, gik signalet `false` → `false`, bindingen havde intet at gøre, og **fluebenet
+stod til mens intet var registreret**. Præcis den tilstand kontraktens beskrivelse advarer mod.
+Komponenten skriver nu elementet tilbage fra signalet efter rundturen. **Bemærk hvad der ikke er
+rettet:** `jira-on-duty` og `ado-include-waiting` har samme mønster, og de er urørte — de fejler kun
+hvis serveren afviser, hvilket ingen af dem har en kodet grund til i dag, hvor et låst register er den
+*sandsynlige* sag for autostart.
+
+**`UnsupportedAutostart` er utestet med vilje.** Den findes fordi registry-API'erne er annoteret
+Windows-only mens målrammen er `net10.0`, så registreringen skal spørge `OperatingSystem.IsWindows()`
+først — og den anden gren skal være noget der *siger* det frem for at lade som om. Den er uopnåelig på
+den maskine appen sendes til, og en test der påstod noget om den ville måle sin egen opsætning.
+
+**Kontrastvagten voksede ikke.** Gruppen åbnes allerede af rejsen, så kontaktens mærkat måles
+automatisk — verificeret ved at male den `text-gray-400 dark:text-gray-600` og se én fejl i hvert
+tema, ikke ved at antage det.
+
+**Fejlkoden `autostart.failed` dækker begge retninger og hver årsag.** Brugeren kan kun gøre én ting
+ved et låst register, en politik eller en manglende nøgle — se på maskinen — så en kode pr. årsag ville
+love en forskel appen ikke kan se.
+
 ## Hvad skiven ikke gør
 
 **Ingen opdateringsmekanisme.** Ingen signering, ingen SmartScreen-håndtering, ingen
