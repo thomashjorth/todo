@@ -191,7 +191,7 @@
       "refused": "Azure DevOps rejected the token. Check the token under Settings.",
       "unreachable": "Azure DevOps could not be reached. Check the collection URL and the network.",
       "workItemTypeInvalid": "A work item type cannot contain a quotation mark or a backslash. Fix the list under Settings.",
-      "workItemTypesRequired": "Pick at least one work item type. Clearing the list uses the default types.",
+      "workItemTypesRequired": "Pick at least one work item type. An empty list does not mean every type.",
       "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline."
     },
     "system": {

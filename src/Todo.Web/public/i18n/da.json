@@ -191,7 +191,7 @@
       "refused": "Azure DevOps afviste tokenet. Kontrollér tokenet under Indstillinger.",
       "unreachable": "Azure DevOps kunne ikke nås. Kontrollér samlingens URL og netværket.",
       "workItemTypeInvalid": "En sagstype må ikke indeholde anførselstegn eller backslash. Ret listen under Indstillinger.",
-      "workItemTypesRequired": "Vælg mindst én sagstype. Rydder du listen, bruges standardtyperne.",
+      "workItemTypesRequired": "Vælg mindst én sagstype. En tom liste betyder ikke alle typer.",
       "defaultDeadlineDaysInvalid": "Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline."
     },
     "system": {

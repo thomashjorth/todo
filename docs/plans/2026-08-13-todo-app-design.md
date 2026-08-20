@@ -638,6 +638,31 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
     **ikke et work item** — så de to slags omtaler kommer fra hver sin kilde, og "indiker ophavet"
     er derfor ikke et felt på én række, men to veje der skal mødes i én indbakke. Det skal måles
     før skiven planlægges, på linje med målingen af `updates` mod `comments`.
+
+    *Krav tilføjet 2026-08-20, to filtre:*
+
+    **Er omtalen på et pull request der er `completed`, filtreres den fra.** Bemærk hvad det
+    forudsætter, og at det er en **tredje** rundtur: omtalen kommer fra kommentaren, sagstypen fra
+    pull requestet, og *tilstanden* af pull requestet er endnu et opslag. Filtret kan derfor ikke
+    ligge i WIQL'en. Og bemærk faldgruben: et pull request der lukkes **efter** at omtalen blev
+    hentet, forsvinder først ved næste hentning — filtret er en egenskab ved *nu*, ikke ved
+    omtalen. Om `abandoned` skal filtreres på lige fod med `completed` er **ikke** afgjort;
+    spørg frem for at gætte, for en forladt gennemgang kan stadig kræve et svar.
+
+    **Omtaler ældre end 30 dage filtreres fra, og grænsen er en indstilling.** Samme form som
+    `ado.defaultDeadlineDays` fra skive 12, og den præcedens skal genbruges frem for genopfindes:
+    et **ikke-nullable** `int` med `default:` i kontrakten, standarden i **læselaget** så en
+    fraværende række læses som 30 og et bevidst `0` bevares, validering af både negativ og en øvre
+    grænse, og **ingen** række gemt for standardværdien — ellers vælter de tre tests der påstår om
+    hele `Settings`-tabellen. Læs `AdoDefaults` og `AdoSettingsReader` før feltet skrives.
+    **Uafgjort:** om `0` betyder *ingen grænse* eller *kun i dag*. For dagantallet i skive 12 blev
+    `0` valgt til at betyde "slået fra", og den læsning peger her mod *ingen grænse* — men det er en
+    beslutning, ikke en aflæsning, og den skal træffes eksplicit.
+
+    **Fælles for de to filtre:** de fjerner rækker brugeren ellers ville have set, så de skal kunne
+    **ses** virke. Et filter der tavst tømmer en indbakke ligner en tom indbakke, og skive 11's
+    forhåndsvisning har præcedensen — den blokerede rækker *synligt* med hver sin grund frem for at
+    udelade dem.
 14. **Baggrundssync, tray og notifikationer.**
 15. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
 16. **Pakning** — self-contained exe, autostart.
