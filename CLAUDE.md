@@ -428,6 +428,15 @@ forkerte grund.
   `DeadlineBucket` kan ikke få drift-testen til at fejle, uanset hvordan den serialiseres, så den
   har sin egen påstand — `"bucket":"deferred"` — i
   `Wire_format_uses_the_names_the_contract_declares`. Læg en ny værdi der, ikke kun i kontrakten.
+- **Kun *tre* spec-fixtures er compiler-synlige, og det er opgjort — ikke gættet.** Et nyt `required`
+  felt fælder `Spec_project_passes_the_type_checker` **kun** hvis fixturet føres ind i en **genereret
+  type**, altså som argument til et `new X(...)`. De tre steder er `jira-store.spec.ts` (to gange,
+  `new JiraPreviewRow`) og `retro-store.spec.ts` (`new RetroPreviewRow`). **Alt andet** — begge
+  settings-fixtures, `jira-import.spec.ts`, rutehandlerne i `ContrastTests` og E2E — bygger en **rå
+  svarkrop** til `flush(...)` eller til `page.RouteAsync`, og er dermed usynlig for compileren. Jeg har
+  forudsagt "typetjekkeren fælder den" tre gange og taget fejl tre gange; opgørelsen er den holdbare
+  form. Konsekvensen: et manglende felt i en usynlig fixture er **grønt**, og bliver et `undefined` i et
+  `string[]`- eller `number`-signal først når UI'et læser det.
 - **Tre håndskrevne wire-fixtures har ingen compiler over sig.** `settings-store.spec.ts`,
   `settings.spec.ts` og `jira-import.spec.ts` beskriver hver især serverens svar som et objekt
   skrevet i hånden — bevidst, fordi det er *wiren* de skal måle og ikke den genererede klasse — men

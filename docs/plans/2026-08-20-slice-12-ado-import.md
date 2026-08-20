@@ -176,8 +176,15 @@ begrundelse for metoderne som i skive 11: `test` og `preview` er **POST**, fordi
 beder om og forventer at gentage; `states` er en **GET**, fordi en liste af navne er en cachebar
 ressource.
 
-`AdoPreviewRow` spejler `JiraPreviewRow`: `key`, `title`, `url` (**required**, se nedenfor), `note`,
-`deadline`, `requester`, `state`, `isWaiting`, `alreadyImported`, `excluded`.
+`AdoPreviewRow` spejler `JiraPreviewRow`, med `required: [key, title, url, state, workItemType,
+isWaiting, alreadyImported]` plus `note`, `deadline`, `requester`, `waitingSince` og `excluded` som
+nullable.
+
+**`workItemType` er med på *begge* rækker** — også `AdoImportRow` — fordi serveren skal kunne genudlede
+typefiltret fra beslutning B ved import. Planens første udgave udelod det; rettet efter Task 1.
+
+Og **`AdoImportRequest` er `{ rows: AdoImportRow[] }`**. Planens første udgave nævnte den kun i
+rute-tabellen, ikke i skemalisten, så kontrakten ville ikke have kunnet opløses.
 
 **`url` er required og ikke nullable**, af samme grund som i "Åbn sagen"-leverancen: en
 forhåndsvisning kan ikke ske uden en konfigureret samling, så URL'en er aldrig fraværende — og et
