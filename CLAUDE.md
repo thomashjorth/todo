@@ -229,13 +229,28 @@ fokus, skulle brugeren trykke Alt+O og **derefter** Enter. Og et programmatisk `
 lige så meget som den handler. Direktivet har derfor
 `appShortcutAction="focus" | "activate"`, hvor `'activate'` kalder begge.
 
-**Bogstaverne er `Alt+O/I/J/S/N/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
+**Bogstaverne er `Alt+O/I/J/A/S/N/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
 piletasterne, som Chrome stjæler under udvikling. De er frie i Photino-vinduet, men en genvej der
 virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende. `J` kom til med
 Jira-importen i skive 11 og kolliderer ikke: Chrome på Windows binder intet `Alt+J`, og den nære
 nabo er DevTools-konsollen, som er `Ctrl+Shift+J` — et andet modifikatorsæt. (På macOS er den
-`Cmd+Option+J`, men appen er Windows-only.) **Registret er last-writer-wins**, så bogstaverne skal
+`Cmd+Option+J`, men appen er Windows-only.) `A` kom til med ADO-importen i skive 12 og kolliderer
+heller ikke: Chrome på Windows binder intet `Alt+A`, og de nære naboer er `Ctrl+A` og `Alt+D`,
+altså andre taste- og modifikatorsæt. **Registret er last-writer-wins**, så bogstaverne skal
 blive ved at være globalt unikke; se designdokumentets afsnit 10.
+
+**Og fra skive 12 findes der en vagt på netop det**, hvad der ikke gjorde før:
+`KeyboardJourneyTests.Every_shortcut_letter_on_screen_is_its_own` læser `aria-keyshortcuts` af hvert
+element på opgavelisten og kræver bogstaverne distinkte. Den er nødvendig, fordi **intet andet kan se
+en kollision**: `ShortcutStore.register` er et rent `Map.set`, mærkatens bogstav er skrevet i
+skabelonen og ikke afledt af `appShortcut`, og målt i skive 12 fældede `nav-ado="j"` **nul af 239**
+Vitest. Vagten er set fejle med netop den mutation og navngiver begge elementer:
+`Two elements claim the same Alt letter … nav-ado=Alt+J, …, nav-jira=Alt+J, …`. **Bemærk hvad
+mutationen ellers afslørede:** `Alt_J_follows_the_jira_link` faldt **også** — last-writer-wins gjorde
+`Alt+J` til ADO-skærmens — så en kollision på et bogstav der har en rejse, fanges af rejsen. En
+kollision på `m` eller `v` ville ingen have set. Vagtens grænse er, at den kun sammenligner de
+genveje der er **renderet nu**; alle otte bor på opgavelisten i dag, og tællingen mod otte er det der
+tvinger spørgsmålet frem, hvis en fremtidig genvej kun findes på en anden skærm.
 
 **`Ctrl+Alt` er AltGr på et dansk tastatur.** En global `Alt+bogstav`-lytter skal tjekke
 `!event.ctrlKey && !event.metaKey`, ellers kan brugeren ikke skrive `@`, `£` eller `$` — en fejl
@@ -399,6 +414,20 @@ ikke ordentlighed, det er den eneste rækkefølge der kører** — og børn ud f
 et `CREATE INDEX` med samme navn fejler. Opret derfor indeksene **til sidst**, efter at de gamle
 tabeller er droppet.
 
+**`UriBuilder` af-escaper *ikke* en sti på net10.0 — kun dobbelt escaping kan måles.** Skive 11 målte,
+at `%20` blev et mellemrum, og den måling gjaldt en **query string** (JQL'en); den overføres ikke til
+en sti, og en for bred læsning af den ville sende nogen efter en fejl der ikke findes. Målt tre gange i
+skive 12 ved at mutere `AdoTaskSource.UriFor` og køre suiten: `UriBuilder` **bevarer** `%20` i både sti
+og query og giver **36 grønne**; en interpolation af `Uri`-objektet af-escaper godt nok
+(`Uri.ToString()` giver `/Fake Collection`), men `new Uri(...)` re-escaper mellemrummet på vejen ind
+igen, så også den giver 36 grønne. En **sti** heler altså sig selv. Det der *kan* måles, er **dobbelt**
+escaping — `Fake%2520Collection` — og det er præcis hvad
+`The_space_in_the_collection_name_stays_escaped_on_the_wire` blev set fælde. Strengbygningen står
+alligevel, fordi batch-kaldet **har** en query string, og der heler ingenting sig selv. Og
+asymmetrien er det egentlige: samlingen er en **URL** brugeren har indsat og er escaped i forvejen,
+projektet er et **navn** appen selv skal escape — `AdoSettings.BrowseUrl` gør netop det, og gør man det
+omvendt, får man `%2520` i den ene ende og et brækket projektnavn i den anden.
+
 **Backenden læser et fraværende felt som "ryd".** `PUT /api/tasks/{id}` er en fuld erstatning, så
 `TaskStore.update` skal bære **hvert** felt med i sit `current`-objekt. Mangler ét, sletter enhver
 redigering af noget andet det lydløst — sådan tabte en gemt `DeferUntil` sig selv, når man rettede
@@ -428,22 +457,30 @@ forkerte grund.
   `DeadlineBucket` kan ikke få drift-testen til at fejle, uanset hvordan den serialiseres, så den
   har sin egen påstand — `"bucket":"deferred"` — i
   `Wire_format_uses_the_names_the_contract_declares`. Læg en ny værdi der, ikke kun i kontrakten.
-- **Kun *tre* spec-fixtures er compiler-synlige, og det er opgjort — ikke gættet.** Et nyt `required`
-  felt fælder `Spec_project_passes_the_type_checker` **kun** hvis fixturet føres ind i en **genereret
-  type**, altså som argument til et `new X(...)`. De tre steder er `jira-store.spec.ts` (to gange,
-  `new JiraPreviewRow`) og `retro-store.spec.ts` (`new RetroPreviewRow`). **Alt andet** — begge
-  settings-fixtures, `jira-import.spec.ts`, rutehandlerne i `ContrastTests` og E2E — bygger en **rå
-  svarkrop** til `flush(...)` eller til `page.RouteAsync`, og er dermed usynlig for compileren. Jeg har
-  forudsagt "typetjekkeren fælder den" tre gange og taget fejl tre gange; opgørelsen er den holdbare
-  form. Konsekvensen: et manglende felt i en usynlig fixture er **grønt**, og bliver et `undefined` i et
-  `string[]`- eller `number`-signal først når UI'et læser det.
-- **Tre håndskrevne wire-fixtures har ingen compiler over sig.** `settings-store.spec.ts`,
-  `settings.spec.ts` og `jira-import.spec.ts` beskriver hver især serverens svar som et objekt
-  skrevet i hånden — bevidst, fordi det er *wiren* de skal måle og ikke den genererede klasse — men
-  ingen af dem afstemmes mod kontrakten. Lægger en skive et felt på et svar og glemmer det her,
-  bliver de grønne på en form serveren ikke længere sender. Det er stedet en fremtidig skive taber
-  et felt; læg det nye felt i alle tre, og lad `ContrastTests`' og E2E-suitens rutehandlere være den
-  fjerde kopi du også skal huske.
+- **Kun *fem* steder i *fire* filer er compiler-synlige, og det er opgjort — ikke gættet.** Et nyt
+  `required` felt fælder `Spec_project_passes_the_type_checker` **kun** hvis fixturet føres ind i en
+  **genereret type**, altså som argument til et `new X(...)`. Opgørelsen er
+  `grep -rn "new \(Ado\|Jira\|Retro\)PreviewRow" --include=*.spec.ts`: `jira-store.spec.ts` (to gange),
+  `ado-store.spec.ts` (to gange, kom til i skive 12) og `retro-store.spec.ts` (én gang). **Alt andet** —
+  begge settings-fixtures, `jira-import.spec.ts`, `ado-import.spec.ts`, rutehandlerne i `ContrastTests`
+  og E2E — bygger en **rå svarkrop** til `flush(...)` eller til `page.RouteAsync`, og er dermed usynlig
+  for compileren. Jeg har forudsagt "typetjekkeren fælder den" tre gange og taget fejl tre gange;
+  opgørelsen er den holdbare form. Konsekvensen: et manglende felt i en usynlig fixture er **grønt**,
+  og bliver et `undefined` i et `string[]`- eller `number`-signal først når UI'et læser det.
+- **Seks håndskrevne wire-fixtures har ingen compiler over sig — ikke tre.** Tallet stod som **tre**
+  her indtil skive 12, og det var forkert af **to** grunde, hvoraf kun den ene er ADO's. Opgørelsen er
+  `grep -rn "^interface " --include=*.spec.ts`, og den navngiver seks filer med en håndskreven
+  wire-form: `settings-store.spec.ts` (`SettingsJson`), `settings.spec.ts` (`SettingsFixture`),
+  `jira-store.spec.ts`, `jira-import.spec.ts`, `ado-store.spec.ts` og `ado-import.spec.ts` (alle fire
+  `PreviewRowJson`). De to nye er skive 12's; **`jira-store.spec.ts` stod der i forvejen og var glemt.**
+  Hver af dem beskriver serverens svar som et objekt skrevet i hånden — bevidst, fordi det er *wiren*
+  de skal måle og ikke den genererede klasse — men ingen af dem afstemmes mod kontrakten. Lægger en
+  skive et felt på et svar og glemmer det her, bliver de grønne på en form serveren ikke længere
+  sender. Læg det nye felt i alle seks, og lad `ContrastTests`' og E2E-suitens rutehandlere være den
+  syvende kopi du også skal huske. Bemærk at **`ado-store.spec.ts` står på *begge* lister** — den er
+  den første fil der gør det: dens `row()` fodrer både et `flush(...)` (umålt) og et
+  `new AdoPreviewRow(...)` (målt). `retro-store.spec.ts` og `retro-import.spec.ts` er **ikke** på
+  listen: de bygger gennem `new RetroPreviewRow({...})` og har ingen egen wire-form.
 - **Paritetstesten kan ikke se en nøgle der mangler i *begge* sprogfiler.** `translations.spec.ts`
   sammenligner `da.json` med `en.json` og med intet andet, så en symmetrisk mangel er de to filer
   *enige* om — ordret samme blindvinkel som en før/efter-sammenligning over en migrering, hvor
@@ -522,22 +559,36 @@ forkerte grund.
   Playwright med en afbrydelse — så en E2E-påstand skrevet på kodens tekst fejler, uden at der er
   noget i vejen med koden.
 - **Kontrast måles i browseren** med `getComputedStyle`, fordi kun browseren har afgjort hvilken
-  baggrund et stykke tekst endte på. `ContrastTests` går appens **fire** skærme igennem i begge
-  farvetemaer — `app.routes.ts` har præcis fire ruter: opgavelisten, retro-importen, Jira-importen
-  og indstillingerne — og måler derudover det **udvidede detaljepanel**, hvor noten, underopgaverne
-  og statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en femte skærm; tæl det
-  ikke som en. **En `@if`-gren er umålt, indtil fixturet har en opgave i den tilstand og rejsen
-  åbner rækken** — vagten kan ikke se en farve, der aldrig blev renderet, så en ny betinget linje
-  koster en fixture-opgave og en klik-og-vent i `ContrastTests`. Hintet om en startdato efter
-  deadline kom ind i vagten netop derfor, og blev set fejle i begge temaer.
+  baggrund et stykke tekst endte på. `ContrastTests` går appens **fem** skærme igennem i begge
+  farvetemaer — `app.routes.ts` har præcis fem ruter: opgavelisten, retro-importen, Jira-importen,
+  ADO-importen og indstillingerne — og måler derudover det **udvidede detaljepanel**, hvor noten,
+  underopgaverne og statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en sjette skærm;
+  tæl det ikke som en. (Tallet var fire indtil 2026-08-20; ADO-importen gjorde det fem, og vagten
+  fulgte med i skive 12's sidste opgave.) **En `@if`-gren er umålt, indtil fixturet har en opgave i den
+  tilstand og rejsen åbner rækken** — vagten kan ikke se en farve, der aldrig blev renderet, så en ny
+  betinget linje koster en fixture-opgave og en klik-og-vent i `ContrastTests`. Hintet om en startdato
+  efter deadline kom ind i vagten netop derfor, og blev set fejle i begge temaer.
 - **En gren bag et fremmedsystem er umålt, indtil kaldet opsnappes.** Skive 11 efterlod **elleve**
-  `@if`-grene som ingen farve nogensinde blev renderet i, fordi hver af dem kræver et svar fra Jira.
-  Playwright kan ikke starte en `FakeJira` inde i hostens proces, så `ContrastTests` svarer selv på
-  `**/api/jira/preview`, `**/api/jira/test` og `**/api/jira/statuses` med `page.RouteAsync` — samme
+  `@if`-grene som ingen farve nogensinde blev renderet i, fordi hver af dem kræver et svar fra Jira;
+  skive 12 efterlod **toogtyve** af samme slags bag ADO. `ContrastTests` svarer derfor selv på
+  `**/api/jira/preview|test|statuses` og `**/api/ado/preview|test|states` med `page.RouteAsync` — samme
   greb som afbrydelsen af `/api/system/open-link`. Fire forskellige svar i rækkefølge er nødvendige,
   fordi grenene udelukker hinanden: en afvisning, en tom liste, en liste hvor hver række er
   blokeret, og en liste med én række der kan importeres. **Én rute-handler der læser en variabel**,
   ikke fire handlere, hvis præcedens ellers ville afgøre udfaldet.
+- **Men "Playwright kan ikke bruge en falsk server" er forkert, og den stod her som en begrundelse.**
+  Sætningen var *"Playwright kan ikke starte en `FakeJira` inde i hostens proces"* — og den blander to
+  ting sammen. `FakeJira` og `FakeAdo` er **deres egne Kestrel-instanser på 127.0.0.1**, og
+  `RunningHost` starter appen **i testprocessen**, så hostens egen `HttpClient` kan nå dem. Målt i
+  skive 12: gemmer man `fake.BaseUrl` som `ado.baseUrl`, kører hele kæden ægte — WIQL'en, typefiltret,
+  note-mapningen, dedup'en og den udledte deadline — uden at ét kald opsnappes.
+  `AdoImportJourneyTests.Importing_derives_the_deadline_on_the_server_and_the_next_preview_says_so`
+  gør netop det, og tre ting kan **kun** måles sådan: at typefiltret holder en Test Suite ude *hele
+  vejen til opgavelisten*, at deadlinen er serverens regnestykke, og at "importeret tidligere" er
+  appens egen dedup. Det gyldige stykke af den gamle sætning er, at en rutehandler stadig er den
+  eneste vej til en **bestemt feltkombination** — et svar hvor én række har deadline og en anden ikke
+  har, kan den rigtige server aldrig give, fordi dagantallet er én indstilling for alle rækker. Brug
+  derfor det ægte til rejsen og opsnapningen til grenene.
   **Og at opsnappe kaldet er ikke nok — kroppen skal bære feltet.** Vagt-mærkaten hænger på
   `row.isDuty` alene, og handleren ovenfor sendte rækker **uden** feltet, så klienten læste
   `undefined`, grenen var falsk, og ingen farve blev nogensinde malet — mens rutehandleren så ud til
@@ -552,6 +603,14 @@ forkerte grund.
   fjernes `FromJira` fra fixturet igen, siger Playwright `element(s) not found 'Åbn sagen'`.
   **Og linket kræver to ting, ikke én:** kilden *og* en gemt `jira.baseUrl`, for URL'en er beregnet
   af basisURL'en. Mangler den, er grenen stadig tom, uanset hvordan kilden er stavet.
+  **ADO's samme gren har derimod *ingen* builder, og det er et valg.** `TaskItemBuilder` har `FromRetro`
+  og `FromJira` men ikke `FromAdo`, og et `FromAdo` blev ikke lavet i skive 12: den ægte
+  `FakeAdo`-rejse importerer gennem endpointet, så opgaven får sin kilde og sin nøgle af koden frem for
+  af et fixture, og linket måles derfor **stærkere** end en builder kunne. Målt ved at bytte
+  `AdoTaskSource.Id => ado.BrowseUrl(...)` i `TaskEndpoints.ToContract` til `=> null`:
+  `element(s) not found 'Åbn sagen'`. Skal en fremtidig skive have en ADO-opgave i listen *uden* at
+  importere, kræver den `FromAdo` **plus** både `ado.baseUrl` og `ado.project` — to ting mod Jiras én,
+  fordi `AdoSettings.BrowseUrl` kræver begge.
 - **`getComputedStyle` giver `oklch(...)`, ikke `rgb(...)`** for farver skrevet i oklch. En regex
   over cifrene læser `oklch(0.967 0.003 264.542)` som en blå kanal på 264 — og vagtens første
   udgave gav derfor **usynlig tekst omkring 8:1 og bestod**. Mal farven på et 1×1-canvas og læs
@@ -584,6 +643,27 @@ forkerte grund.
   fejlen læses `span text "Flemming Overgaard" 2,60:1` — uden et testid at søge på. Læs hele listen
   frem for kun de linjer der har et navn i firkantet parentes; en mutation der fælder to grene kan
   ellers se ud som om den kun fældede én.
+- **Et fallback gør en prioritet umålelig.** `AdoTaskSource` vælger notefeltet pr. sagstype med et
+  fallback til det andet felt, og instansens målte Bug havde **kun** `ReproSteps` — så et fixture
+  bygget af målingen kan ikke skelne *"en Bug foretrækker ReproSteps"* fra *"tag det felt der er
+  udfyldt"*, fordi fallbacket redder begge. Kun en sag der bærer **begge** felter med forskellig tekst
+  kan måle reglen, og den er derfor konstrueret frem for målt (`FakeAdo`s 17165). Har en regel et
+  fallback, skal fixturet ramme det sted hvor de to grene giver forskellige svar — ellers måler du
+  fallbacket.
+- **Typer man feltet i sin falske server, kan den ulæselige fixture ikke længere udtrykkes.** Det er en
+  stærkere vagt end en fejlende test: `FakeAdo` udsender tidsstempler som **`string`** netop for at et
+  work item kan bære `"ikke en dato"`, og var feltet typet `DateTimeOffset`, ville compileren nægte
+  fixturet — og hullet ville se ud som om det ikke fandtes. Samme familie som "en falsk server der
+  udsender .NET's format måler sig selv", men den anden vej: typen i fixturen afgør hvilke fejl der
+  kan *skrives ned*.
+- **Et fallback der læser samme felt gennem samme parse er ikke et fallback.** `ITaskSource` siger:
+  læs `ExternalTask.StatusChangedAt` og kald `FetchStatusChangedAtAsync` når den er `null`. For ADO er
+  det **forkert** — metoden læser `Microsoft.VSTS.Common.StateChangeDate` gennem samme parse som `Map`,
+  så den kan kun svare `null` en gang mere, mod én spildt rundtur pr. række med et ulæseligt
+  tidsstempel. Målt ved at lægge `?? await FetchStatusChangedAtAsync(...)` ind:
+  `An_unreadable_state_change_date_is_not_chased_with_a_second_call` faldt med
+  `Assert.Empty() Failure: Collection was not empty / Collection: [17162]`, og `WaitingSince` var
+  stadig `null`. Fallbacket hører til en kilde **uden** feltet, og Jira er den.
 - **En udvidet vagt kan finde ingenting og stadig være værd at udvide.** At føre gennemgangen ud
   over noter, underopgaver, de analyserede importrækker og aliasrækkerne gav **nul** nye
   farvefejl — forudsigelsen om at `@tailwindcss/typography` ville fejle holdt ikke. Hvad den til
@@ -592,7 +672,39 @@ forkerte grund.
 
 ## Testtal
 
-Efter uddelegeringen: **103** Todo.Core.Tests, **191** Todo.Api.Tests, **35** Todo.E2E, **198** Vitest.
+Efter skive 12 (ADO-import): **164** Todo.Core.Tests, **283** Todo.Api.Tests, **43** Todo.E2E,
+**239** Vitest. Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Skiven lagde **61** Core-tests til (103 → 164), **92** Api-tests (191 → 283), **8** E2E (35 → 43) og
+**41** Vitest (198 → 239). Fordelingen siger hvor arbejdet lå, og den er skæv med vilje: fire af de seks
+opgaver rørte **ingen** E2E overhovedet.
+**Alle 61 Core-tests ligger i fire klasser, og summen er målt frem for regnet:** `AdoSettingsTests`
+**31**, `AdoWorkItemTypesTests` **11**, `AdoStateRolesTests` **10**, `AdoDeadlineTests` **9**. Hver af de
+fire er en ren funktion af nogle indstillinger og én værdi, og det er grunden til at de hører i Core
+frem for hos endpointet, der kalder dem to gange — én gang i forhåndsvisningen og én gang i importen.
+**Alle 92 Api-tests ligger i fire klasser, også målt:** `AdoTaskSourceTests` **36**,
+`AdoSettingsEndpointsTests` **28**, `AdoEndpointsTests` **27**, `AdoTaskSourceRegistrationTests` **1**.
+Kildens tests tæller som Api frem for Core, fordi de måles mod en **falsk ADO på loopback**: URL'en,
+Basic-auth'en, WIQL-teksten, pagineringen af *hydreringen* og at rækkefølgen genskabes. Bemærk at
+kontraktens wire-format-tests og drift-testen **ikke** voksede — de fik nye påstande inde i de tests
+der var der. **`ErrorCodeTranslationTests` voksede heller *ikke*** — den er en `[Theory]` over de to
+sprog**filer**, så seks nye fejlkoder kan ikke flytte tallet; `ErrorCodes` har nu **37** koder, og
+vagten siger tallet selv i sin fejlbesked.
+**De 41 Vitest er alle skærmlogik** — 12 `ado-store.spec.ts`, 13 `ado-import.spec.ts`, 8 nye i
+`settings-store.spec.ts` og 8 nye i `settings.spec.ts` — fordi skærmen er alt hvad Task 5 var.
+**De 8 E2E er skivens sidste opgave alene**, og de fordeler sig i tre: **fire**
+`AdoImportJourneyTests` (den ukonfigurerede skærm, de to blokerede rækker med hver sin grund plus
+type- og deadline-linjerne, "Åbn sagen" fra forhåndsvisningen, og hele rejsen mod en ægte `FakeAdo`),
+**to** `KeyboardJourneyTests` (`Alt_A_follows_the_ado_link` og
+`Every_shortcut_letter_on_screen_is_its_own`, den første vagt nogensinde på `aria-keyshortcuts`), og
+**to** af `The_Ado_screens_meet_WCAG_AA`, som er en `[Theory]` over de to farvetemaer.
+`KeyboardJourneyTests`' to *konstanter* — `BadgeCount` 7 → 8 og `TrailToTheField` med `nav-ado` — måtte
+rettes allerede i Task 5, fordi en femte nav-link ellers gjorde `dotnet test` rødt mellem opgaverne;
+det var tal om nav'en, ikke nye tests, og de flyttede ikke tællingen.
+Forudsigelsen om at ADO-skærmen ville koste nye kontrastfejl **holdt ikke**: begge nye teori-tilfælde
+var grønne i første kørsel. Vagten er alligevel målt — `ado-type` sat til
+`text-gray-400 dark:text-gray-600` gav tre fejl pr. tema (2,60:1 og 2,35:1).
+
+Før den, efter uddelegeringen: **103** Todo.Core.Tests, **191** Todo.Api.Tests, **35** Todo.E2E, **198** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
 Leverancen lagde **13** Core-tests til (90 → 103), **4** Api-tests (187 → 191), **1** E2E (34 → 35) og
 **12** Vitest (186 → 198). Fordelingen er skæv med vilje, og den siger hvad leverancen egentlig var:
@@ -606,7 +718,8 @@ fejlkoder der findes, så en ny kode kan **ikke** flytte tallet. (Task 2's egen 
 det var forkert, og de 4 er alle fire nye `[Fact]`s.)
 **De 12 Vitest er alle skærmlogik**, fordi begge lister kun sammenlignes i browseren: to i
 `settings-store.spec.ts` om at hele listen sendes og serverens svar tages tilbage, fem i `settings.spec.ts`
-om de fire grupper og uddelegeringsgruppens tre tilstande, og fem i `task-list.spec.ts` om fokus, om at et
+om de dengang fire grupper (de er **fem** fra skive 12, hvor ADO blev den femte) og uddelegeringsgruppens
+tre tilstande, og fem i `task-list.spec.ts` om fokus, om at et
 blot udvidet ventende felt **ikke** stjæler fokus, og om de to vagter der værner om noget der virker —
 "venter på ingen" og et navn der ikke står på listen.
 **Den ene E2E er hele rejsen**, `A_name_from_the_delegate_list_is_offered_and_saved_when_a_task_starts_waiting`:

@@ -196,6 +196,66 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(App.Tasks.NewTaskInput).ToHaveCountAsync(0);
     }
 
+    /// <summary>
+    /// Alt+A, the fifth nav link's shortcut, arriving with the Azure DevOps import screen in slice 12.
+    /// Same shape as Alt+J: the destination is asserted through a locator that cannot exist on the task
+    /// list, so a shortcut that only moved focus fails here.
+    /// </summary>
+    [Fact]
+    public async Task Alt_A_follows_the_ado_link()
+    {
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+
+        await App.Page.Keyboard.PressAsync("Alt+a");
+
+        await Assertions.Expect(new AdoImportScreen(App).NotConfigured).ToBeVisibleAsync();
+        await Assertions.Expect(App.Tasks.NewTaskInput).ToHaveCountAsync(0);
+    }
+
+    /// <summary>
+    /// Nothing else in the repo can see a shortcut collision. <c>ShortcutStore.register</c> is a plain
+    /// <c>Map.set</c>, so a second claim on a letter overwrites the first in silence; the badge count
+    /// cannot see it, because a badge is one element per directive whatever letter it carries; and the
+    /// visible badge text is written in the template rather than derived from <c>appShortcut</c>, so it
+    /// would keep showing the old letter. Measured in slice 12: setting nav-ado to <c>j</c> failed none
+    /// of the 239 Vitest specs.
+    ///
+    /// The letters are read off <c>aria-keyshortcuts</c>, which the directive puts on its own host — so
+    /// this is a claim about what the directive actually registered rather than about what a template
+    /// says. It is also the only assertion anywhere on that attribute, which the design document's
+    /// section 10 lists as unguarded.
+    ///
+    /// The limit is worth knowing: only shortcuts <em>rendered right now</em> are compared, and all
+    /// eight happen to live on the task list today — five nav links, the new-task field and the two
+    /// switches. A future shortcut that exists only on another screen would need its own pass, and the
+    /// count below is what forces that question rather than letting it slide.
+    /// </summary>
+    [Fact]
+    public async Task Every_shortcut_letter_on_screen_is_its_own()
+    {
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+
+        var claimed = await App.Page.EvaluateAsync<string[]>(
+            """
+            () => [...document.querySelectorAll('[aria-keyshortcuts]')].map(
+              (el) => `${el.dataset.testid ?? el.tagName.toLowerCase()}=${el.getAttribute('aria-keyshortcuts')}`)
+            """);
+
+        // Every shortcut the app has, so this cannot pass on a page that rendered none of them — the
+        // same reason the badge count asserts zero before it asserts eight.
+        Assert.Equal(BadgeCount, claimed.Length);
+
+        var letters = claimed
+            .Select(entry => entry[(entry.IndexOf('=') + 1)..])
+            .ToList();
+
+        // The whole list is in the message rather than the duplicate alone: a collision is two
+        // elements' business, and the one that lost is the one nobody would think to look at.
+        Assert.True(letters.Distinct(StringComparer.Ordinal).Count() == letters.Count,
+            "Two elements claim the same Alt letter, and the last one to register wins in silence: "
+            + string.Join(", ", claimed.Order()));
+    }
+
     [Fact]
     public async Task Alt_S_follows_the_settings_link()
     {

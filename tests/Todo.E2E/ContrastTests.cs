@@ -184,6 +184,88 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         }
         """;
 
+    /// <summary>
+    /// Enough for <see cref="Todo.Core.Ado.AdoSettings.BrowseUrl"/> to produce a link, and spelled with
+    /// the space the real collection has. Nothing in this suite ever calls it.
+    /// </summary>
+    private const string AdoBaseUrl = "https://ado.test/Fake%20Collection";
+
+    private const string AdoProject = "Saas";
+
+    private const string AdoUnreachable =
+        """{ "code": "ado.unreachable", "message": "Azure DevOps could not be reached." }""";
+
+    private const string AdoRefusedToken =
+        """{ "code": "ado.refused", "message": "Azure DevOps refused the token." }""";
+
+    private const string NoWorkItems = """{ "rows": [], "total": 0 }""";
+
+    /// <summary>
+    /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one
+    /// imported on an earlier run. The waiting one carries <c>waitingSince</c> and <em>no</em>
+    /// deadline, the other carries a deadline — which is how both halves of the deadline branch get a
+    /// colour on one screen. That branch is the one no Jira row has, because Jira's due date came off
+    /// the issue while this one is the app's own arithmetic.
+    ///
+    /// <c>workItemType</c>, <c>state</c>, <c>isWaiting</c>, <c>alreadyImported</c> and <c>url</c> are
+    /// spelled out on every row, and they have to be: intercepting the call is not enough, because a
+    /// field the body leaves out reads as undefined in the client and its line renders nothing at all —
+    /// while the route handler looks like it covered the case. There is no <c>isDuty</c>: Azure DevOps
+    /// has no duty pool, so the label has no counterpart here.
+    /// </summary>
+    private const string BlockedWorkItems = """
+        {
+          "rows": [
+            {
+              "key": "16901",
+              "title": "Afventer svar",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/16901",
+              "state": "Blocked",
+              "workItemType": "User Story",
+              "isWaiting": true,
+              "waitingSince": "2026-08-05T09:12:00Z",
+              "alreadyImported": false,
+              "excluded": "ado.excludedWaiting"
+            },
+            {
+              "key": "17170",
+              "title": "Skriv testene",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/17170",
+              "deadline": "2026-08-20",
+              "state": "PO Review",
+              "workItemType": "Task",
+              "isWaiting": false,
+              "alreadyImported": true
+            }
+          ],
+          "total": 2
+        }
+        """;
+
+    /// <summary>
+    /// One row that can be imported, carrying the three optional fields the blocked rows leave out:
+    /// a note, a requester and a proposed deadline.
+    /// </summary>
+    private const string OneImportableWorkItem = """
+        {
+          "rows": [
+            {
+              "key": "15664",
+              "title": "Ret rapporten",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/15664",
+              "note": "<div>Tallene i tabellen er fra sidste kvartal.</div>",
+              "deadline": "2026-08-20",
+              "requester": "Mette Kirkegaard",
+              "state": "Active",
+              "workItemType": "Bug",
+              "isWaiting": false,
+              "alreadyImported": false
+            }
+          ],
+          "total": 1
+        }
+        """;
+
     private static readonly FixedClock Clock = new(new DateOnly(2026, 8, 17));
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -559,6 +641,225 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
 
         await jira.ImportAsync();
         await Assertions.Expect(jira.Receipt).ToHaveTextAsync("1 importeret, 0 sprunget over");
+        await Snapshot();
+
+        AssertNoFailures(failures, scheme);
+    }
+
+    /// <summary>
+    /// The fifth screen, and the Azure DevOps half of the settings — twenty-odd branches neither
+    /// journey above can reach, because almost every one of them needs an answer from Azure DevOps.
+    /// Playwright cannot start a <c>FakeAdo</c> inside the host's process, so the app's own calls are
+    /// intercepted, the same grip <c>/api/system/open-link</c> is held with. Four preview answers are
+    /// needed and they are given in this order because each leaves the screen in the state the next
+    /// branch depends on: a refusal, an empty list, a list where every row is blocked, and a list with
+    /// one row that can be imported.
+    ///
+    /// Two branches are reached without any route handler at all, and deliberately: the "imported
+    /// earlier" line is the real database answering, and the settings group's own red line is the real
+    /// backend refusing an empty work item type list. A staged answer would have measured the same
+    /// colour while proving nothing about either.
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task The_Ado_screens_meet_WCAG_AA(ColorScheme scheme)
+    {
+        // A collection URL and a project but deliberately no token: an unconfigured screen is the
+        // default state, and it is the branch the user meets first.
+        await Host.AddAndSaveChangesAsync(
+            new Setting { Key = SettingKeys.AdoBaseUrl, Value = AdoBaseUrl },
+            new Setting { Key = SettingKeys.AdoProject, Value = AdoProject });
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1600 }, scheme);
+
+        var failures = new List<string>();
+
+        async Task Snapshot() => failures.AddRange(await App.ContrastFailuresAsync());
+
+        // Mutable on purpose: one route handler that answers with whatever the journey has reached,
+        // rather than several handlers whose precedence would decide the outcome.
+        var preview = (Status: 400, Body: AdoUnreachable);
+        var connection = (Status: 400, Body: AdoRefusedToken);
+
+        await App.Page.RouteAsync("**/api/ado/preview", route => route.FulfillAsync(new()
+        {
+            Status = preview.Status,
+            ContentType = "application/json",
+            Body = preview.Body,
+        }));
+
+        await App.Page.RouteAsync("**/api/ado/test", route => route.FulfillAsync(new()
+        {
+            Status = connection.Status,
+            ContentType = "application/json",
+            Body = connection.Body,
+        }));
+
+        await App.Page.RouteAsync("**/api/ado/states", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = """{ "names": ["Active", "Blocked", "PO Review"] }""",
+        }));
+
+        await App.Page.RouteAsync("**/api/ado/import", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = """{ "imported": 1, "skipped": 0 }""",
+        }));
+
+        // A test run has no business asking the operating system to open a browser window. The abort is
+        // also what paints the row's own red line further down: a failed open is what that line exists
+        // for, and it cannot be reached any other way from here.
+        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
+
+        // Unconfigured: a sentence and a link to the page that fixes it, and no Load button at all.
+        var ado = await App.GoToAdo();
+
+        await Assertions.Expect(ado.NotConfigured)
+            .ToHaveTextAsync("Azure DevOps er ikke sat op, så der er ingen sager at hente.");
+        await Assertions.Expect(ado.SettingsLink)
+            .ToHaveTextAsync("Sæt Azure DevOps op under Indstillinger");
+        await Snapshot();
+
+        // The token is stored through the page rather than seeded, because storing it is what puts the
+        // "a token is held" line and the Clear button on screen — two branches of their own.
+        var settings = await ado.GoToSettings();
+
+        await settings.StoreAdoTokenAsync("not-a-real-token");
+        await Assertions.Expect(settings.AdoTokenStored).ToContainTextAsync("aldrig");
+        await Assertions.Expect(settings.ClearAdoToken).ToHaveTextAsync("Ryd token");
+        await Snapshot();
+
+        // A refused connection first, because that is the store's own red line — and the successful
+        // reply below clears it, so it has to be measured before. Two lines, two owners: this one is
+        // Azure DevOps refusing a call, the one at the end of the group is our server refusing a
+        // setting.
+        await settings.TestAdoConnection.ClickAsync();
+        await Assertions.Expect(settings.AdoError).ToContainTextAsync("afviste tokenet");
+        await Snapshot();
+
+        connection = (200, $$"""{ "displayName": "{{Me}}" }""");
+
+        await settings.TestAdoConnection.ClickAsync();
+        await Assertions.Expect(settings.AdoConnection).ToHaveTextAsync($"Forbundet som {Me}");
+        await Assertions.Expect(settings.AdoError).ToHaveCountAsync(0);
+        await Snapshot();
+
+        // The state list replaces the sentence that stands in for it, so the rows are a state the
+        // screen has no other way into.
+        await settings.LoadAdoStates.ClickAsync();
+        await Assertions.Expect(settings.AdoStateRows).ToHaveCountAsync(3);
+        await Assertions.Expect(settings.AdoStatesEmpty).ToHaveCountAsync(0);
+        await Snapshot();
+
+        // The group's own red line, and it needs no interception: emptying the work item type list is
+        // refused by the real backend with ado.workItemTypesRequired. Removing the last one is a click
+        // that leaves the row where it is, so it is pressed directly rather than through the helper
+        // that waits for the row to go.
+        //
+        // This is the last thing done to the settings on purpose: every other saveAdo call, and storing
+        // a token, clears adoError on its way out.
+        await settings.RemoveWorkItemTypeAsync("Bug");
+        await settings.RemoveWorkItemTypeAsync("User Story");
+
+        await settings.WorkItemTypeRows.GetByTestId("remove-work-item-type").ClickAsync();
+        await Assertions.Expect(settings.AdoSettingsError).ToContainTextAsync("mindst én sagstype");
+        await Assertions.Expect(settings.WorkItemTypeRows).ToHaveCountAsync(1);
+        await Snapshot();
+
+        // Configured now, so the fifth screen has a Load button where the sentence used to be — and the
+        // notice that the deadline on every row is the app's own invention, which no Jira screen has.
+        ado = await settings.GoToAdo();
+
+        await Assertions.Expect(ado.PreviewButton).ToHaveTextAsync("Hent sager");
+        await Assertions.Expect(ado.NotConfigured).ToHaveCountAsync(0);
+        await Assertions.Expect(ado.DeadlineNotice).ToContainTextAsync("foreslår");
+        await Snapshot();
+
+        // A refusal. The red line is the app's own failure path, reached through the button a user
+        // presses rather than staged from the outside.
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.Error)
+            .ToHaveTextAsync("Azure DevOps kunne ikke nås. Kontrollér samlingens URL og netværket.");
+        await Snapshot();
+
+        // An empty answer is an answer, and it has a sentence of its own that the refusal above must
+        // not be mistaken for.
+        preview = (200, NoWorkItems);
+
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.NoneAssigned).ToHaveTextAsync("Ingen sager er tildelt dig.");
+        await Assertions.Expect(ado.Error).ToHaveCountAsync(0);
+        await Snapshot();
+
+        // Every row blocked: both reasons on their own row, both sentences under the count, and the
+        // Import button in its disabled colours — which are a pair of their own. This answer is also
+        // where the waiting pair and the no-deadline half get their only colour.
+        preview = (200, BlockedWorkItems);
+
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.Rows).ToHaveCountAsync(2);
+        await Assertions.Expect(ado.Showing).ToHaveTextAsync("Viser 2 af 2 sager.");
+        await Assertions.Expect(ado.NothingToSelect)
+            .ToContainTextAsync("1 sag er udeladt af importen.");
+        await Assertions.Expect(ado.NothingToSelect)
+            .ToContainTextAsync("1 sag er importeret tidligere.");
+
+        var waiting = ado.Row("Afventer svar");
+        var seenBefore = ado.Row("Skriv testene");
+
+        await Assertions.Expect(AdoImportScreen.TypeIn(waiting)).ToHaveTextAsync("Type: User Story");
+        await Assertions.Expect(AdoImportScreen.NoDeadlineIn(waiting))
+            .ToContainTextAsync("Uden deadline");
+        await Assertions.Expect(AdoImportScreen.WaitingIn(waiting))
+            .ToHaveTextAsync("Importeres som ventende.");
+
+        // Waited for by the year rather than by the element: the line renders before the date is
+        // formatted into it, and a timestamp put through the deadline formatter answers with an empty
+        // string — which is a colour of nothing.
+        await Assertions.Expect(AdoImportScreen.WaitingSinceIn(waiting)).ToContainTextAsync("2026");
+        await Assertions.Expect(AdoImportScreen.ExcludedIn(waiting)).ToContainTextAsync("slået fra");
+        await Assertions.Expect(AdoImportScreen.DeadlineIn(seenBefore)).ToContainTextAsync("2026");
+        await Assertions.Expect(AdoImportScreen.AlreadyImportedIn(seenBefore))
+            .ToHaveTextAsync("importeret tidligere");
+        await Assertions.Expect(ado.ImportButton).ToBeDisabledAsync();
+        await Snapshot();
+
+        // One row that can be imported, which is what enables the button — a different colour from the
+        // disabled one measured above — plus the note and requester lines the blocked rows leave out.
+        preview = (200, OneImportableWorkItem);
+
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.ImportButton).ToHaveTextAsync("Importér 1 sag");
+        await Assertions.Expect(ado.ImportButton).ToBeEnabledAsync();
+        await Assertions.Expect(ado.NothingToSelect).ToHaveCountAsync(0);
+
+        var importable = ado.Row("Ret rapporten");
+
+        await Assertions.Expect(AdoImportScreen.RequesterIn(importable))
+            .ToHaveTextAsync($"Opgavestiller: {Requester}");
+        await Assertions.Expect(AdoImportScreen.NoteIn(importable))
+            .ToHaveTextAsync("Beskrivelsen følger med.");
+
+        // The button that opens the work item before anyone imports it. No branch guards it — the
+        // contract makes <c>url</c> required — so this colour is measured without a fixture state of
+        // its own. Waited for by its text all the same: the element is there before the localized label
+        // is interpolated into it, and no text is invisible to the measurement.
+        await Assertions.Expect(AdoImportScreen.OpenItemIn(importable))
+            .ToHaveTextAsync(OpenIssueLabel);
+
+        // And the line that says the open failed, which is a branch of its own: the paragraph renders
+        // only while this row is the one that failed. Pressed rather than staged — the route above
+        // aborts the call, and an aborted call is a failure to the client.
+        await AdoImportScreen.OpenItemIn(importable).ClickAsync();
+        await Assertions.Expect(AdoImportScreen.OpenErrorIn(importable)).ToHaveTextAsync(OpenFailed);
+        await Snapshot();
+
+        await ado.ImportAsync();
+        await Assertions.Expect(ado.Receipt).ToHaveTextAsync("1 importeret, 0 sprunget over");
         await Snapshot();
 
         AssertNoFailures(failures, scheme);

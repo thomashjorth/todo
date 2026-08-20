@@ -70,6 +70,16 @@ public sealed class TodoApp
         return screen;
     }
 
+    public async Task<AdoImportScreen> GoToAdo()
+    {
+        await Page.GetByTestId("nav-ado").ClickAsync();
+
+        var screen = new AdoImportScreen(this);
+        await screen.WaitUntilShownAsync();
+
+        return screen;
+    }
+
     public async Task<SettingsScreen> GoToSettings()
     {
         await Page.GetByTestId("nav-settings").ClickAsync();

@@ -502,7 +502,7 @@ Og `settings-store.spec.ts` linje 361 påstår
 `expect(own.filter((key) => /token/i.test(key))).toEqual(['hasJiraToken'])`; den skal have
 `'hasAdoToken'` med, i **erklæringsrækkefølge**.
 
-## Task 6: E2E, kontrast og dokumentation
+## Task 6: E2E, kontrast og dokumentation — kørt
 
 Én rejse hele vejen: konfigurér, forhåndsvis, importér, og find opgaven i listen. Opsnap ADO-kaldene
 med `page.RouteAsync`, og **`/api/system/open-link` skal fortsat opsnappes og afbrydes** — afbrydelsen
@@ -548,10 +548,51 @@ gren ingen Jira-skærm har. `requester`, `note` og `waitingSince` skal stå på 
 på en anden. Der er **ingen** `isDuty`.
 
 **`ado-settings-error` nås uden en rutehandler:** fjern den sidste sagstype, og den rigtige backend
-svarer `ado.workItemTypesRequired`. Samme for `alreadyImported` — importér, forhåndsvis igen.
+svarer `ado.workItemTypesRequired`. ~~Samme for `alreadyImported` — importér, forhåndsvis igen.~~ —
+**forkert, og målt.** Med en **opsnappet** forhåndsvisning kommer `alreadyImported` af rutehandlerens
+krop og aldrig af databasen, så importér-og-forhåndsvis-igen efterlader flaget `false`. Set fejle:
+`Locator … GetByTestId("ado-already-imported")` med aria-snapshottet der viser rækken uden linjen. Kun
+`ado-settings-error` nås uden en handler, fordi den går gennem `PUT /api/settings`, som **er** appens
+egen backend.
+
+**Og den større fejl, som var min egen begrundelse:** ~~Playwright kan ikke bruge `FakeAdo`~~ —
+**den kan**. `FakeAdo` er sin egen Kestrel på `127.0.0.1`, og `RunningHost` starter appen **i
+testprocessen**, så hostens `HttpClient` når den. Gemmer man `fake.BaseUrl` som `ado.baseUrl`, kører
+hele kæden ægte, og *så* kommer `alreadyImported` af dedup'en som planen ville have det.
+`AdoImportJourneyTests.Importing_derives_the_deadline_on_the_server_and_the_next_preview_says_so` gør
+det, og tre ting kan kun måles sådan: typefiltret helt frem til opgavelisten (fem af `FakeAdo`s ni
+work items), deadlinen som serverens regnestykke, og dedup'en. Det gyldige stykke af den gamle sætning
+er at en rutehandler stadig er den eneste vej til en bestemt **feltkombination** — deadline på én række
+og ikke på en anden kan den rigtige server aldrig svare, fordi dagantallet er én indstilling for alle
+rækker. Se `CLAUDE.md` og designdokumentets afsnit 10.
+
+**Genvejskollisionen blev lukket frem for skrevet ned.**
+`KeyboardJourneyTests.Every_shortcut_letter_on_screen_is_its_own` læser `aria-keyshortcuts` af hvert
+element på opgavelisten — hvor alle otte genveje bor — og kræver bogstaverne distinkte, plus at der er
+otte, så den ikke kan bestå på en side uden genveje. Set fejle med den rigtige mutation (`nav-ado="j"`),
+og fejlbeskeden navngiver begge elementer. **Bonusfund:** samme mutation fælder også
+`Alt_J_follows_the_jira_link`, fordi last-writer-wins gjorde `Alt+J` til ADO-skærmens — så en kollision
+på et bogstav med en rejse ville være fanget, mens en på `m` eller `v` ikke ville. Vagten er desuden
+den **første** påstand nogensinde på `aria-keyshortcuts`, som designdokumentets afsnit 10 listede som
+uvagtet.
+
+**`FromAdo` blev ikke lavet, og det er et valg.** Den ægte rejse importerer gennem endpointet, så
+opgaven får sin kilde og nøgle af koden frem for af et fixture — en stærkere måling end en builder.
+Målt ved at bytte `AdoTaskSource.Id => ado.BrowseUrl(...)` i `TaskEndpoints.ToContract` til `=> null`:
+`element(s) not found 'Åbn sagen'`. Skal en fremtidig skive have en ADO-opgave i listen **uden** at
+importere, kræver den `FromAdo` plus både `ado.baseUrl` og `ado.project`.
+
+**Forudsigelsen om nye kontrastfejl holdt ikke.** Begge nye teori-tilfælde var grønne i første kørsel.
+Vagten er alligevel målt: `ado-type` sat til `text-gray-400 dark:text-gray-600` gav tre fejl pr. tema
+(2,60:1 i lyst, 2,35:1 i mørkt).
 
 Dokumentér **hvad abstraktionen ikke tålte**. Det er skivens formål, og det er den ene ting der ikke
-kan læses ud af koden bagefter.
+kan læses ud af koden bagefter. — Gjort i designdokumentets afsnit 9, punkt 12: fire punkter, hvoraf
+`FetchStatusChangedAtAsync` er det ene der er direkte **forkert** for ADO frem for blot fraværende.
+
+**Testtal efter Task 6:** Core **164** (uændret), Api **283** (uændret), E2E **43** (+8), Vitest
+**239** (uændret). De 8 er fire `AdoImportJourneyTests`, to `KeyboardJourneyTests` og to af
+`The_Ado_screens_meet_WCAG_AA`.
 
 ---
 
