@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 using Todo.TestSupport;
 
@@ -21,9 +20,6 @@ public class FrontendStrictnessTests
         CommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
     };
-
-    /// <summary>A generous ceiling: the spec project compiles in a couple of seconds.</summary>
-    private static readonly TimeSpan Ceiling = TimeSpan.FromMinutes(2);
 
     [Fact]
     public void Base_config_compiles_the_frontend_in_strict_mode()
@@ -80,53 +76,16 @@ public class FrontendStrictnessTests
             $"The TypeScript compiler is missing at {compiler}. That is an uninstalled "
                 + "node_modules, not a type error: run `npm.cmd install --prefix src\\Todo.Web`.");
 
-        var startInfo = new ProcessStartInfo(compiler)
-        {
-            // Required: the paths inside tsconfig.spec.json are relative to src/Todo.Web.
-            WorkingDirectory = RepoPaths.WebRoot,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        startInfo.ArgumentList.Add("-p");
-        startInfo.ArgumentList.Add("tsconfig.spec.json");
-        startInfo.ArgumentList.Add("--noEmit");
-        startInfo.ArgumentList.Add("--listFiles");
-
-        using var compile = Process.Start(startInfo)
-            ?? throw new InvalidOperationException($"Could not start {compiler}.");
-
-        // Drain both pipes while waiting; a full buffer on either one deadlocks the child.
-        var standardOutput = compile.StandardOutput.ReadToEndAsync();
-        var standardError = compile.StandardError.ReadToEndAsync();
-
-        using var ceiling = new CancellationTokenSource(Ceiling);
-
-        try
-        {
-            await compile.WaitForExitAsync(ceiling.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            compile.Kill(entireProcessTree: true);
-
-            Assert.Fail(
-                $"tsc -p tsconfig.spec.json --noEmit did not finish within {Ceiling.TotalMinutes:0} "
-                    + "minute(s) and was killed. It normally takes a couple of seconds.");
-        }
-
-        var lines = string.Concat(await standardOutput, Environment.NewLine, await standardError)
-            .Split('\n')
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0)
-            .ToList();
+        // Required: the paths inside tsconfig.spec.json are relative to src/Todo.Web.
+        var compile = await ExternalCommand.RunAsync(
+            compiler,
+            RepoPaths.WebRoot,
+            ["-p", "tsconfig.spec.json", "--noEmit", "--listFiles"]);
 
         // --listFiles prints one existing path per line; a diagnostic never names an existing
         // file, because it carries `(line,col): error TSxxxx: ...` after the path.
-        var compiled = lines.Where(File.Exists).ToList();
-        var diagnostics = lines.Where(line => !File.Exists(line)).ToList();
+        var compiled = compile.Lines.Where(File.Exists).ToList();
+        var diagnostics = compile.Lines.Where(line => !File.Exists(line)).ToList();
 
         Assert.True(
             compile.ExitCode == 0,
