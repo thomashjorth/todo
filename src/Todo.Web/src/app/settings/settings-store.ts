@@ -3,6 +3,7 @@ import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../api/api-error-message';
 import {
+  AdoTokenRequest,
   JiraTokenRequest,
   SettingsClient,
   SettingsRequest,
@@ -24,7 +25,25 @@ export interface SettingsChanges {
   jiraIncludeWaiting?: boolean;
   jiraDutyStatuses?: readonly string[];
   jiraOnDuty?: boolean;
+  adoBaseUrl?: string | null;
+  adoProject?: string | null;
+  adoWaitingStates?: readonly string[];
+  adoIncludeWaiting?: boolean;
+  adoWorkItemTypes?: readonly string[];
+  adoDefaultDeadlineDays?: number;
 }
+
+/**
+ * The number of days the contract itself declares, read off the generated request rather than
+ * written down a second time: the `= 3` initializer runs only for a `new SettingsRequest()` built
+ * without a data object, and that is the only place it can be seen from here. The `?? 3` is a
+ * fallback for a contract that lost its default, not a second home for the number.
+ *
+ * It is needed because omitting the key is how the wire spells "the default", and this is the one
+ * field where the cleared value is not the falsy one: `0` means <em>no deadline</em>. A save that
+ * never mentioned Azure DevOps must therefore leave the key out, and a deliberate `0` must not.
+ */
+const defaultDeadlineDays = new SettingsRequest().adoDefaultDeadlineDays ?? 3;
 
 @Injectable({ providedIn: 'root' })
 export class SettingsStore {
@@ -64,6 +83,34 @@ export class SettingsStore {
    */
   readonly hasJiraToken = signal(false);
 
+  /** The Azure DevOps collection URL, which may carry a `%20` for a space in the collection name. */
+  readonly adoBaseUrl = signal<string | null>(null);
+  readonly adoProject = signal<string | null>(null);
+
+  /**
+   * The states that mean "waiting for somebody else". States rather than statuses because that is
+   * Azure DevOps' own word for it, and the two systems do not even agree on the values: the same
+   * meaning is `Active` on a Bug and `In Progress` on a Test Suite.
+   */
+  readonly adoWaitingStates = signal<string[]>([]);
+  readonly adoIncludeWaiting = signal(false);
+
+  /**
+   * The work item types the import will take. Never empty as it comes back from the server, which
+   * answers the three defaults for an absent row - so the empty list this starts out as only ever
+   * means "not read yet".
+   */
+  readonly adoWorkItemTypes = signal<string[]>([]);
+
+  /**
+   * How many days ahead an imported work item gets its deadline, because Azure DevOps has no due
+   * date field at all. `0` means no deadline, which is why this is a number rather than a nullable
+   * one - and why it cannot be sent through a truthiness check.
+   */
+  readonly adoDefaultDeadlineDays = signal(defaultDeadlineDays);
+
+  readonly hasAdoToken = signal(false);
+
   readonly error = signal<string | null>(null);
 
   /**
@@ -72,6 +119,14 @@ export class SettingsStore {
    * would print every rejection twice.
    */
   readonly delegatesError = signal<string | null>(null);
+
+  /**
+   * The Azure DevOps group's own message, for the same reason the delegate list has one: `error` is
+   * written by every save, so a refused work item type shown there would also appear above the
+   * language select the next time a language was chosen. The token routes answer in here too - the
+   * token field sits in that group, and that is where its refusal has to land.
+   */
+  readonly adoError = signal<string | null>(null);
 
   async start(): Promise<void> {
     try {
@@ -83,7 +138,7 @@ export class SettingsStore {
     await this.apply();
   }
 
-  /** The language select's one path to the server, so it cannot forget the other seven fields. */
+  /** The language select's one path to the server, so it cannot forget the other thirteen fields. */
   async choose(language: string | null): Promise<void> {
     await this.save({ language });
   }
@@ -93,7 +148,9 @@ export class SettingsStore {
    * every field goes with every save — the same reason TaskStore.update builds a `current` object.
    * A field whose value <em>is</em> the cleared one (no URL, no statuses, no delegates, waiting
    * off, off duty) is sent as absent, because that is how the wire spells cleared; language
-   * especially, which the API rejects as an empty string but accepts as missing.
+   * especially, which the API rejects as an empty string but accepts as missing. The two Azure
+   * DevOps fields where cleared is <em>not</em> the falsy value are the exceptions, and each says so
+   * where it is built.
    */
   async save(changes: SettingsChanges): Promise<void> {
     await this.put(changes, this.error);
@@ -106,6 +163,14 @@ export class SettingsStore {
    */
   async saveDelegates(delegates: readonly string[]): Promise<void> {
     await this.put({ delegates }, this.delegatesError);
+  }
+
+  /**
+   * The same one path as `save`, answering into the Azure DevOps group's own line. Every field still
+   * goes with it - this is which line the refusal lands on, not which fields are sent.
+   */
+  async saveAdo(changes: SettingsChanges): Promise<void> {
+    await this.put(changes, this.adoError);
   }
 
   /**
@@ -122,12 +187,20 @@ export class SettingsStore {
       jiraIncludeWaiting: this.jiraIncludeWaiting(),
       jiraDutyStatuses: this.jiraDutyStatuses(),
       jiraOnDuty: this.jiraOnDuty(),
+      adoBaseUrl: this.adoBaseUrl(),
+      adoProject: this.adoProject(),
+      adoWaitingStates: this.adoWaitingStates(),
+      adoIncludeWaiting: this.adoIncludeWaiting(),
+      adoWorkItemTypes: this.adoWorkItemTypes(),
+      adoDefaultDeadlineDays: this.adoDefaultDeadlineDays(),
       ...changes,
     };
 
     const delegates = [...(next.delegates ?? [])];
     const waiting = [...(next.jiraWaitingStatuses ?? [])];
     const duty = [...(next.jiraDutyStatuses ?? [])];
+    const states = [...(next.adoWaitingStates ?? [])];
+    const types = [...(next.adoWorkItemTypes ?? [])];
     const request = new SettingsRequest({
       language: blank(next.language),
       delegates: delegates.length === 0 ? undefined : delegates,
@@ -137,6 +210,22 @@ export class SettingsStore {
       jiraIncludeWaiting: next.jiraIncludeWaiting === true ? true : undefined,
       jiraDutyStatuses: duty.length === 0 ? undefined : duty,
       jiraOnDuty: next.jiraOnDuty === true ? true : undefined,
+      adoBaseUrl: blank(next.adoBaseUrl),
+      adoProject: blank(next.adoProject),
+      adoWaitingStates: states.length === 0 ? undefined : states,
+      adoIncludeWaiting: next.adoIncludeWaiting === true ? true : undefined,
+      // The one list where an empty one is not how the wire spells cleared: absent restores the
+      // three default types, and a present empty list is refused with ado.workItemTypesRequired. So
+      // emptiness is only sent when the caller asked for it - taking the last type off the list is
+      // answered, while a save that never mentioned the types (before the first read, when the
+      // signal is still empty) cannot be refused by them.
+      adoWorkItemTypes: types.length === 0 && !('adoWorkItemTypes' in changes) ? undefined : types,
+      // Never through a truthiness check: 0 is a value here, and the falsy one. Omitted at the
+      // default, because absent is how the wire spells "the default" on this field.
+      adoDefaultDeadlineDays:
+        next.adoDefaultDeadlineDays === defaultDeadlineDays
+          ? undefined
+          : next.adoDefaultDeadlineDays,
     });
 
     into.set(null);
@@ -172,7 +261,33 @@ export class SettingsStore {
     }
   }
 
-  /** All four routes answer with the whole settings shape, so all four are read the same way. */
+  /**
+   * The Azure DevOps token, on its own route for the same reason Jira's is: PUT /api/settings is a
+   * full replacement that reads an absent field as "clear", so a token on it would be wiped by every
+   * other change. Written out again rather than shared with the Jira pair - the two call different
+   * generated methods, and a shared one would take the route as a parameter.
+   */
+  async setAdoToken(token: string): Promise<boolean> {
+    this.adoError.set(null);
+    try {
+      this.read(await firstValueFrom(this.client.setAdoToken(new AdoTokenRequest({ token }))));
+      return true;
+    } catch (error) {
+      this.adoError.set(apiErrorMessage(this.transloco, error));
+      return false;
+    }
+  }
+
+  async clearAdoToken(): Promise<void> {
+    this.adoError.set(null);
+    try {
+      this.read(await firstValueFrom(this.client.clearAdoToken()));
+    } catch (error) {
+      this.adoError.set(apiErrorMessage(this.transloco, error));
+    }
+  }
+
+  /** All six routes answer with the whole settings shape, so all six are read the same way. */
   private read(response: SettingsResponse): void {
     this.language.set(response.language ?? null);
     this.delegates.set(response.delegates);
@@ -183,6 +298,13 @@ export class SettingsStore {
     this.jiraDutyStatuses.set(response.jiraDutyStatuses);
     this.jiraOnDuty.set(response.jiraOnDuty);
     this.hasJiraToken.set(response.hasJiraToken);
+    this.adoBaseUrl.set(response.adoBaseUrl ?? null);
+    this.adoProject.set(response.adoProject ?? null);
+    this.adoWaitingStates.set(response.adoWaitingStates);
+    this.adoIncludeWaiting.set(response.adoIncludeWaiting);
+    this.adoWorkItemTypes.set(response.adoWorkItemTypes);
+    this.adoDefaultDeadlineDays.set(response.adoDefaultDeadlineDays);
+    this.hasAdoToken.set(response.hasAdoToken);
   }
 
   private async apply(): Promise<void> {

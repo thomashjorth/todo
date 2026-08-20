@@ -22,7 +22,7 @@ function configure(system: string): { store: SettingsStore; http: HttpTestingCon
 }
 
 /**
- * Every field of the settings response, because the contract makes six of them non-optional and
+ * Every field of the settings response, because the contract makes eleven of them non-optional and
  * a fixture that leaves one out would hand the store an undefined the types say cannot happen.
  * The type checker cannot catch that here — this shape is not `ISettingsResponse` — so a field
  * added to the contract has to be added by hand.
@@ -39,6 +39,13 @@ interface SettingsJson {
   jiraDutyStatuses?: string[];
   jiraOnDuty?: boolean;
   hasJiraToken?: boolean;
+  adoBaseUrl?: string | null;
+  adoProject?: string | null;
+  adoWaitingStates?: string[];
+  adoIncludeWaiting?: boolean;
+  adoWorkItemTypes?: string[];
+  adoDefaultDeadlineDays?: number;
+  hasAdoToken?: boolean;
 }
 
 function settingsJson(overrides: SettingsJson = {}): Blob {
@@ -53,6 +60,15 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       jiraDutyStatuses: [],
       jiraOnDuty: false,
       hasJiraToken: false,
+      adoBaseUrl: null,
+      adoProject: null,
+      adoWaitingStates: [],
+      adoIncludeWaiting: false,
+      // Never empty on the wire: the read layer answers the three defaults for an absent row, and
+      // PUT refuses an empty list rather than storing one, so `[]` is a shape the server cannot send.
+      adoWorkItemTypes: ['Bug', 'User Story', 'Task'],
+      adoDefaultDeadlineDays: 3,
+      hasAdoToken: false,
       ...overrides,
     }),
   ]);
@@ -176,9 +192,11 @@ describe('SettingsStore', () => {
 
   it('should keep every setting in the request so saving one does not clear another', async () => {
     // The backend reads an absent field as "clear". SettingsStore.save must therefore carry all
-    // eight fields, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil to this.
-    // The duty pair and the delegates are in here rather than in tests of their own: two tests each
-    // asserting half of the request would both pass while the other half was dropped.
+    // fourteen fields, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil to
+    // this. Fourteen and not fifteen: neither token is a field on this route, because a full
+    // replacement would wipe it on every other change.
+    // Every pair is in here rather than in tests of their own: two tests each asserting half of the
+    // request would both pass while the other half was dropped.
     const { store, http } = configure('da-DK');
 
     store.delegates.set(['Mette Kirkegaard']);
@@ -188,6 +206,14 @@ describe('SettingsStore', () => {
     store.jiraIncludeWaiting.set(true);
     store.jiraDutyStatuses.set(['Afventer general', 'Afventer 2nd level']);
     store.jiraOnDuty.set(true);
+    store.adoBaseUrl.set('https://ado.test/Min%20Samling');
+    store.adoProject.set('Saas');
+    store.adoWaitingStates.set(['Blocked', 'PO Review']);
+    store.adoIncludeWaiting.set(true);
+    store.adoWorkItemTypes.set(['Bug']);
+    // Seven rather than three, because three is the contract's default and the wire spells the
+    // default as an absent key — a field left at its default could not show that it was carried.
+    store.adoDefaultDeadlineDays.set(7);
 
     const saved = store.save({ language: 'en' });
 
@@ -202,6 +228,12 @@ describe('SettingsStore', () => {
       jiraIncludeWaiting: true,
       jiraDutyStatuses: ['Afventer general', 'Afventer 2nd level'],
       jiraOnDuty: true,
+      adoBaseUrl: 'https://ado.test/Min%20Samling',
+      adoProject: 'Saas',
+      adoWaitingStates: ['Blocked', 'PO Review'],
+      adoIncludeWaiting: true,
+      adoWorkItemTypes: ['Bug'],
+      adoDefaultDeadlineDays: 7,
     });
     request.flush(
       settingsJson({
@@ -213,6 +245,12 @@ describe('SettingsStore', () => {
         jiraIncludeWaiting: true,
         jiraDutyStatuses: ['Afventer general', 'Afventer 2nd level'],
         jiraOnDuty: true,
+        adoBaseUrl: 'https://ado.test/Min%20Samling',
+        adoProject: 'Saas',
+        adoWaitingStates: ['Blocked', 'PO Review'],
+        adoIncludeWaiting: true,
+        adoWorkItemTypes: ['Bug'],
+        adoDefaultDeadlineDays: 7,
       }),
     );
     await saved;
@@ -221,6 +259,156 @@ describe('SettingsStore', () => {
     expect(store.delegates()).toEqual(['Mette Kirkegaard']);
     expect(store.jiraDutyStatuses()).toEqual(['Afventer general', 'Afventer 2nd level']);
     expect(store.jiraOnDuty()).toBe(true);
+    expect(store.adoProject()).toBe('Saas');
+    expect(store.adoWaitingStates()).toEqual(['Blocked', 'PO Review']);
+    expect(store.adoWorkItemTypes()).toEqual(['Bug']);
+    expect(store.adoDefaultDeadlineDays()).toBe(7);
+  });
+
+  it('should read every Azure DevOps setting the server answers with', async () => {
+    const { store, http } = configure('da-DK');
+
+    const started = store.start();
+    http.expectOne('/api/settings').flush(
+      settingsJson({
+        adoBaseUrl: 'https://ado.test/Min%20Samling',
+        adoProject: 'Saas',
+        adoWaitingStates: ['Blocked'],
+        adoIncludeWaiting: true,
+        adoWorkItemTypes: ['Bug', 'Task'],
+        adoDefaultDeadlineDays: 0,
+        hasAdoToken: true,
+      }),
+    );
+    await started;
+
+    expect(store.adoBaseUrl()).toBe('https://ado.test/Min%20Samling');
+    expect(store.adoProject()).toBe('Saas');
+    expect(store.adoWaitingStates()).toEqual(['Blocked']);
+    expect(store.adoIncludeWaiting()).toBe(true);
+    expect(store.adoWorkItemTypes()).toEqual(['Bug', 'Task']);
+    expect(store.adoDefaultDeadlineDays()).toBe(0);
+    expect(store.hasAdoToken()).toBe(true);
+  });
+
+  // The one field where the cleared value is not the falsy one: 0 means "no deadline", and any
+  // truthiness check on the way out would drop it and let the server bind its default of 3.
+  it('should send a deliberate zero rather than dropping it', async () => {
+    const { store, http } = configure('da-DK');
+    store.adoDefaultDeadlineDays.set(0);
+
+    const saved = store.saveAdo({ adoDefaultDeadlineDays: 0 });
+
+    const request = http.expectOne('/api/settings');
+    expect(JSON.parse(request.request.body)).toEqual({ adoDefaultDeadlineDays: 0 });
+    request.flush(settingsJson({ adoDefaultDeadlineDays: 0 }));
+    await saved;
+
+    expect(store.adoDefaultDeadlineDays()).toBe(0);
+  });
+
+  // And the other half of that rule: the default is spelled as an absent key, so a save that leaves
+  // the number where it is cannot be read as having asked for anything.
+  it('should leave the day count out when it is the default', async () => {
+    const { store, http } = configure('da-DK');
+    store.adoDefaultDeadlineDays.set(3);
+
+    const saved = store.save({ language: 'en' });
+
+    const request = http.expectOne('/api/settings');
+    expect(Object.keys(JSON.parse(request.request.body))).toEqual(['language']);
+    request.flush(settingsJson({ language: 'en' }));
+    await saved;
+  });
+
+  // Emptying the type list has to reach the server, which refuses it — the alternative is that the
+  // three defaults come back without anybody saying so, which looks like the app undid the click.
+  it('should send an emptied work item type list so the server can refuse it', async () => {
+    const { store, http } = configure('da-DK');
+    store.adoWorkItemTypes.set(['Bug']);
+
+    const saved = store.saveAdo({ adoWorkItemTypes: [] });
+
+    const request = http.expectOne('/api/settings');
+    expect(JSON.parse(request.request.body)).toEqual({ adoWorkItemTypes: [] });
+    request.flush(
+      new Blob([
+        JSON.stringify({
+          code: 'ado.workItemTypesRequired',
+          message: 'At least one work item type is required.',
+        }),
+      ]),
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await saved;
+
+    expect(store.adoError()).toBe('Vælg mindst én sagstype. En tom liste betyder ikke alle typer.');
+    expect(store.error()).toBeNull();
+    expect(store.adoWorkItemTypes()).toEqual(['Bug']);
+  });
+
+  // The other side of the same rule: before the first read the list is empty because nothing has
+  // been read, not because anybody emptied it, so a language change must not be refused by it.
+  it('should carry no opinion about the types when it has read none', async () => {
+    const { store, http } = configure('da-DK');
+
+    const chosen = store.choose('en');
+
+    const request = http.expectOne('/api/settings');
+    expect(Object.keys(JSON.parse(request.request.body))).toEqual(['language']);
+    request.flush(settingsJson({ language: 'en' }));
+    await chosen;
+  });
+
+  it('should say why Azure DevOps refused a setting without touching the settings error', async () => {
+    const { store, http } = configure('da-DK');
+
+    const saved = store.saveAdo({ adoDefaultDeadlineDays: 400 });
+    http.expectOne('/api/settings').flush(
+      new Blob([
+        JSON.stringify({
+          code: 'ado.defaultDeadlineDaysInvalid',
+          message: 'A deadline of 400 days ahead is outside 0-365.',
+        }),
+      ]),
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await saved;
+
+    expect(store.adoError()).toBe(
+      'Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline.',
+    );
+    expect(store.error()).toBeNull();
+    expect(store.delegatesError()).toBeNull();
+  });
+
+  it('should store an Azure DevOps token on its own route and report that there is one', async () => {
+    const { store, http } = configure('da-DK');
+
+    const saved = store.setAdoToken('et-personligt-adgangstoken');
+
+    const request = http.expectOne('/api/settings/ado-token');
+    expect(request.request.method).toBe('PUT');
+    expect(JSON.parse(request.request.body)).toEqual({ token: 'et-personligt-adgangstoken' });
+    request.flush(settingsJson({ hasAdoToken: true }));
+
+    expect(await saved).toBe(true);
+    expect(store.hasAdoToken()).toBe(true);
+    // Its own route, so the Jira token cannot have been touched on the way.
+    expect(store.hasJiraToken()).toBe(false);
+  });
+
+  it('should forget a stored Azure DevOps token', async () => {
+    const { store, http } = configure('da-DK');
+    store.hasAdoToken.set(true);
+
+    const cleared = store.clearAdoToken();
+    const request = http.expectOne('/api/settings/ado-token');
+    expect(request.request.method).toBe('DELETE');
+    request.flush(settingsJson({ hasAdoToken: false }));
+    await cleared;
+
+    expect(store.hasAdoToken()).toBe(false);
   });
 
   it('should send the whole delegate list and take the server list back', async () => {
@@ -331,27 +519,36 @@ describe('SettingsStore', () => {
     expect(store.hasJiraToken()).toBe(false);
   });
 
-  it('should never hold the token in a signal', async () => {
-    // The token is write-only: it goes out through setJiraToken and comes back only as
-    // hasJiraToken. A signal holding it would put it in a component's template scope, and it
-    // would survive navigating away from the settings page.
+  it('should never hold either token in a signal', async () => {
+    // Both tokens are write-only: they go out through their own route and come back only as
+    // hasJiraToken and hasAdoToken. A signal holding one would put it in a component's template
+    // scope, and it would survive navigating away from the settings page.
     const { store, http } = configure('da-DK');
     const secret = 'det-her-maa-ikke-blive-liggende';
+    const adoSecret = 'og-det-her-heller-ikke';
 
     const saved = store.setToken(secret);
     http.expectOne('/api/settings/jira-token').flush(settingsJson({ hasJiraToken: true }));
     await saved;
 
+    const savedAdo = store.setAdoToken(adoSecret);
+    http.expectOne('/api/settings/ado-token').flush(settingsJson({ hasAdoToken: true }));
+    await savedAdo;
+
     // Names first, so a field called `jiraToken` is caught even before anything is written to it.
+    // In declaration order, which is the order Object.keys answers in.
     const own = Object.keys(store);
-    expect(own.filter((key) => /token/i.test(key))).toEqual(['hasJiraToken']);
+    expect(own.filter((key) => /token/i.test(key))).toEqual(['hasJiraToken', 'hasAdoToken']);
 
     // And then the values, because the name guard on its own is dodged by calling the field
     // something else. Methods live on the prototype, so the only own properties that are
     // functions here are the signals — calling them has no side effect.
     const holding = Object.entries(store as unknown as Record<string, unknown>)
       .filter(([, value]) => typeof value === 'function')
-      .filter(([, value]) => JSON.stringify((value as () => unknown)() ?? null).includes(secret))
+      .filter(([, value]) => {
+        const held = JSON.stringify((value as () => unknown)() ?? null);
+        return held.includes(secret) || held.includes(adoSecret);
+      })
       .map(([key]) => key);
 
     expect(holding).toEqual([]);

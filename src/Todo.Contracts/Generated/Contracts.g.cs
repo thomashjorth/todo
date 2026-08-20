@@ -563,6 +563,172 @@ namespace Todo.Contracts
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoConnectionResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("displayName")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string DisplayName { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoStatesResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("names")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> Names { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoPreviewRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        /// <summary>
+        /// Where Azure DevOps shows this work item. Built by the app rather than taken from the server, whose own URLs address the project by GUID and are not humanly navigable. Always present: a preview cannot happen without a configured collection, so this is required rather than nullable — a nullable field would add an @if branch, and a branch is unmeasured until a fixture renders it.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("url")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Url { get; set; }
+
+        /// <summary>
+        /// The work item description, converted to CommonMark. Which field it comes from depends on the work item type: a Bug carries Microsoft.VSTS.TCM.ReproSteps, a User Story System.Description. Nullable because a type may carry neither.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        /// <summary>
+        /// The deadline the import would set, derived by the server from today plus adoDefaultDeadlineDays. Azure DevOps has no due date field of its own, so the app proposes one. Nullable because adoDefaultDeadlineDays 0 means no deadline. The client shows this value; it does not send it back, and the import derives it again.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("deadline")]
+        public System.DateOnly? Deadline { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
+        public string Requester { get; set; }
+
+        /// <summary>
+        /// The work item state, shown so the user can see why a row is waiting.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("state")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string State { get; set; }
+
+        /// <summary>
+        /// The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("workItemType")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string WorkItemType { get; set; }
+
+        /// <summary>
+        /// Whether the state is in the user's waiting list.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("isWaiting")]
+        public bool IsWaiting { get; set; }
+
+        /// <summary>
+        /// Microsoft.VSTS.Common.StateChangeDate, which arrives with the work item itself — no second call per row, unlike Jira, whose equivalent required the changelog.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
+        public System.DateTimeOffset? WaitingSince { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("alreadyImported")]
+        public bool AlreadyImported { get; set; }
+
+        /// <summary>
+        /// Why import will skip this row, as an error code the frontend translates. Null means it will be imported.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("excluded")]
+        public string Excluded { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoPreviewResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<AdoPreviewRow> Rows { get; set; } = new System.Collections.ObjectModel.Collection<AdoPreviewRow>();
+
+        /// <summary>
+        /// What Azure DevOps reported as the total, so a truncated page is visible.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total")]
+        public int Total { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoImportRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
+        public string Requester { get; set; }
+
+        /// <summary>
+        /// The work item state. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire. The row carries no deadline either, for the same reason: the deadline is derived from the clock and adoDefaultDeadlineDays. The fact can be sent; the decision cannot.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("state")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string State { get; set; }
+
+        /// <summary>
+        /// The work item type, so the server can apply the adoWorkItemTypes filter again rather than trusting that the client did.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("workItemType")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string WorkItemType { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
+        public System.DateTimeOffset? WaitingSince { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoImportRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<AdoImportRow> Rows { get; set; } = new System.Collections.ObjectModel.Collection<AdoImportRow>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoImportResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("imported")]
+        public int Imported { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("skipped")]
+        public int Skipped { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SettingsRequest
     {
 
@@ -598,6 +764,40 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("jiraOnDuty")]
         public bool JiraOnDuty { get; set; }
+
+        /// <summary>
+        /// The Azure DevOps collection URL, which may contain a space in its name.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoBaseUrl")]
+        public string AdoBaseUrl { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("adoProject")]
+        public string AdoProject { get; set; }
+
+        /// <summary>
+        /// States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoWaitingStates")]
+        public System.Collections.Generic.ICollection<string> AdoWaitingStates { get; set; }
+
+        /// <summary>
+        /// Whether rows in a waiting state are imported anyway. Off by default.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoIncludeWaiting")]
+        public bool AdoIncludeWaiting { get; set; }
+
+        /// <summary>
+        /// The work item types to import, so test artefacts stay out. A requirement rather than an optional filter: an empty list is rejected with ado.workItemTypesRequired, and an absent one restores the default Bug, User Story, Task. The plan said an empty list meant every type; that was wrong twice over. It is the same trap as the empty project key — the absence of a limit is not a neutral default — and the storage cannot carry the claim anyway, because an empty list is stored as no row at all and the reader cannot tell never-configured from deliberately-emptied. Compared ordinally, like adoWaitingStates.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoWorkItemTypes")]
+        public System.Collections.Generic.ICollection<string> AdoWorkItemTypes { get; set; }
+
+        /// <summary>
+        /// How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. Rejected below 0 or above 365 with ado.defaultDeadlineDaysInvalid.
+        /// <br/>The default is load-bearing here and only here. This is a full replacement, so an absent field means clear — but System.Text.Json gives 0 for an absent int, and 0 is a meaningful value, so without the default a request that never mentioned this field would silently turn the deadline off. NSwag turns the default into a property initializer, which the deserialiser leaves alone for an absent field, so absent binds to 3 and a deliberate 0 stays 0. SettingsResponse deliberately carries no default: an initializer there would let a handler that never assigned the field answer 3 and make the test for it unfailable.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoDefaultDeadlineDays")]
+        public int AdoDefaultDeadlineDays { get; set; } = 3;
 
     }
 
@@ -647,10 +847,61 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("hasJiraToken")]
         public bool HasJiraToken { get; set; }
 
+        /// <summary>
+        /// The Azure DevOps collection URL, which may contain a space in its name.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoBaseUrl")]
+        public string AdoBaseUrl { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("adoProject")]
+        public string AdoProject { get; set; }
+
+        /// <summary>
+        /// States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoWaitingStates")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> AdoWaitingStates { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        /// <summary>
+        /// Whether rows in a waiting state are imported anyway. Off by default.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoIncludeWaiting")]
+        public bool AdoIncludeWaiting { get; set; }
+
+        /// <summary>
+        /// The work item types to import, so test artefacts stay out. Never empty: an absent row reads back as the default Bug, User Story, Task, and PUT /api/settings rejects an empty list rather than storing one. See the request schema for why.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoWorkItemTypes")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> AdoWorkItemTypes { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        /// <summary>
+        /// How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Always the effective value: an absent row reads back as 3. No default is declared here on purpose — see the request schema.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoDefaultDeadlineDays")]
+        public int AdoDefaultDeadlineDays { get; set; }
+
+        /// <summary>
+        /// Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("hasAdoToken")]
+        public bool HasAdoToken { get; set; }
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class JiraTokenRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("token")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Token { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoTokenRequest
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("token")]

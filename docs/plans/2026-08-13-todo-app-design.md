@@ -628,8 +628,67 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
     *Skiven efterlod desuden elleve umålte `@if`-grene og et manglende `FromJira` på builderen —
     lukket i skivens sidste opgave; se afsnit 10.*
     *Udvidet 2026-08-19 med **vagt-statusser**, uden et skivenummer; se nedenfor og afsnit 4a.*
-12. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 11 duer.
+12. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 11 duer. **Færdig.**
+    Planen ligger i `docs/plans/2026-08-20-slice-12-ado-import.md`.
+    *Svaret på skivens eget spørgsmål: **abstraktionen duede, men den var Jira-formet på fire punkter**,
+    og alle fire er skrevet ned der hvor de mærkes frem for her.* **(1)** `ExternalTask` manglede to
+    felter, `ItemType` og `StatusChangedAt`, og Jira svarer `null` på begge. **(2)**
+    `FetchStatusChangedAtAsync` er **forkert** for ADO: `Microsoft.VSTS.Common.StateChangeDate` kommer
+    med i samme svar, så metoden ville læse samme felt gennem samme parse og kun kunne svare `null` en
+    gang mere — mod én spildt rundtur pr. række. Fallbacket hører til en kilde **uden** feltet.
+    **(3)** Pagineringen sidder et andet sted: WIQL pagineres ikke, **hydreringen** gør, fordi `?ids=`
+    er kappet ved 200 — og batch-svaret lover ikke rækkefølgen, så `ORDER BY` skal genskabes. Jira
+    havde ingen af de to problemer, fordi dets `/search` returnerede sagerne selv. **(4)** ADO har
+    **ingen deadline** og ingen vagt-pulje, så beslutning A (`ado.defaultDeadlineDays`) og beslutning B
+    (`ado.workItemTypes`) er indstillinger uden Jira-modparter, mens `jiraDutyStatuses`/`jiraOnDuty` er
+    uden ADO-modparter. `AdoSettings` blev derfor sin egen record, og en fælles abstraktion er stadig en
+    oprydning der venter på et tredje eksempel.
+    *To ejede afvigelser er **ikke** lukket, og de er kendte:* `note` er ADO's **rå HTML** og ikke
+    CommonMark, hvad kontraktens beskrivelse stadig påstår — konverteren venter på en målt prøve og på
+    skive 13's kommentar-HTML, så den kan bygges mod to prøver frem for nul. Og tilstandslisten hentes
+    af **brugerens egne sager** frem for af `_apis/wit/workitemtypes`, fordi 0d kun spurgte det endpoint
+    om `name` og `referenceName`; prisen er at en tilstand ingen af dine sager står i lige nu, ikke kan
+    vælges.
+    *Skiven efterlod **toogtyve** umålte `@if`-grene efter Task 5 — dobbelt så mange som skive 11 —
+    lukket i skivens sidste opgave. Mønstret gentog sig altså: en skærm bygget færdig uden en E2E-rejse
+    ved siden af kan ikke vise, at dens betingede linjer aldrig blev renderet.*
+    *Og en påstand i `CLAUDE.md` faldt undervejs: **Playwright kan** bruge en falsk server. `FakeAdo`
+    er sin egen Kestrel på loopback og hosten kører i testprocessen, så hele kæden kan køres ægte; se
+    afsnit 10.*
 13. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+    *Krav tilføjet 2026-08-20:* **omtalens ophav afgør hvordan den præsenteres.** Er kommentaren
+    på et **pull request**, skal det *indikeres* — en omtale i en kodegennemgang er en anden slags
+    arbejde end en i et krav, og den skal kunne skelnes på listen uden at åbne den. Er den på en
+    **user story, task eller feature**, præsenteres den som en **kravsafklaring**. Bemærk hvad det
+    betyder for hentningen: work item-typen er allerede i WIQL-svaret, men et pull request er
+    **ikke et work item** — så de to slags omtaler kommer fra hver sin kilde, og "indiker ophavet"
+    er derfor ikke et felt på én række, men to veje der skal mødes i én indbakke. Det skal måles
+    før skiven planlægges, på linje med målingen af `updates` mod `comments`.
+
+    *Krav tilføjet 2026-08-20, to filtre:*
+
+    **Er omtalen på et pull request der er `completed`, filtreres den fra.** Bemærk hvad det
+    forudsætter, og at det er en **tredje** rundtur: omtalen kommer fra kommentaren, sagstypen fra
+    pull requestet, og *tilstanden* af pull requestet er endnu et opslag. Filtret kan derfor ikke
+    ligge i WIQL'en. Og bemærk faldgruben: et pull request der lukkes **efter** at omtalen blev
+    hentet, forsvinder først ved næste hentning — filtret er en egenskab ved *nu*, ikke ved
+    omtalen. Om `abandoned` skal filtreres på lige fod med `completed` er **ikke** afgjort;
+    spørg frem for at gætte, for en forladt gennemgang kan stadig kræve et svar.
+
+    **Omtaler ældre end 30 dage filtreres fra, og grænsen er en indstilling.** Samme form som
+    `ado.defaultDeadlineDays` fra skive 12, og den præcedens skal genbruges frem for genopfindes:
+    et **ikke-nullable** `int` med `default:` i kontrakten, standarden i **læselaget** så en
+    fraværende række læses som 30 og et bevidst `0` bevares, validering af både negativ og en øvre
+    grænse, og **ingen** række gemt for standardværdien — ellers vælter de tre tests der påstår om
+    hele `Settings`-tabellen. Læs `AdoDefaults` og `AdoSettingsReader` før feltet skrives.
+    **Uafgjort:** om `0` betyder *ingen grænse* eller *kun i dag*. For dagantallet i skive 12 blev
+    `0` valgt til at betyde "slået fra", og den læsning peger her mod *ingen grænse* — men det er en
+    beslutning, ikke en aflæsning, og den skal træffes eksplicit.
+
+    **Fælles for de to filtre:** de fjerner rækker brugeren ellers ville have set, så de skal kunne
+    **ses** virke. Et filter der tavst tømmer en indbakke ligner en tom indbakke, og skive 11's
+    forhåndsvisning har præcedensen — den blokerede rækker *synligt* med hver sin grund frem for at
+    udelade dem.
 14. **Baggrundssync, tray og notifikationer.**
 15. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
 16. **Pakning** — self-contained exe, autostart.
@@ -761,12 +820,31 @@ vagt-statusserne blev leveret uden for skiverne og står nedenfor som lukkede.
   til **usynlig tekst**: `dark:text-gray-100` på hvid er 1,10:1. `<body>` har nu
   `bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100` og `scheme-light-dark`, og
   `task-list.html` og `task-row.html` har fået `dark:`-modparter så godt som overalt. Lektionen
-  er, at kontrasten ikke længere holdes af øjemål: `ContrastTests` går appens **fire** skærme
-  igennem i **begge** farvetemaer — `app.routes.ts` har præcis fire ruter: opgavelisten,
-  retro-importen, Jira-importen og indstillingerne — og måler derudover det **udvidede
+  er, at kontrasten ikke længere holdes af øjemål: `ContrastTests` går appens **fem** skærme
+  igennem i **begge** farvetemaer — `app.routes.ts` har præcis fem ruter: opgavelisten,
+  retro-importen, Jira-importen, ADO-importen og indstillingerne — og måler derudover det **udvidede
   detaljepanel** med noten, underopgaverne og statusvælgeren. Panelet er en tilstand på
-  opgavelisten, ikke en femte skærm. *Tallet var tre indtil 2026-08-19; Jira-importen gjorde det
-  fire, og vagten fulgte med i skive 11's sidste opgave.*
+  opgavelisten, ikke en sjette skærm. *Tallet var tre indtil 2026-08-19; Jira-importen gjorde det
+  fire, og vagten fulgte med i skive 11's sidste opgave. ADO-importen gjorde det **fem** 2026-08-20,
+  og vagten fulgte med i skive 12's sidste opgave — `The_Ado_screens_meet_WCAG_AA`, en `[Theory]` over
+  de to farvetemaer. Forudsigelsen om nye farvefejl holdt ikke: begge tilfælde var grønne i første
+  kørsel, og vagten blev derfor målt ved at bryde `ado-type`.*
+- **En falsk server på loopback *kan* bruges fra Playwright, og det modsatte stod skrevet**
+  (målt i skive 12). Begrundelsen i `CLAUDE.md` og i skive 11's og 12's planer var *"Playwright kan
+  ikke starte en `FakeJira`/`FakeAdo` inde i hostens proces"*, og den blander to ting sammen. De falske
+  servere er **deres egne Kestrel-instanser på 127.0.0.1**, og `RunningHost` starter appen **i
+  testprocessen** — så hostens egen `HttpClient` kan nå dem. Gemmer man `fake.BaseUrl` som
+  `ado.baseUrl`, kører hele kæden ægte: WIQL'en, typefiltret, note-mapningen, dedup'en og den udledte
+  deadline, uden at ét kald opsnappes. Tre ting kan **kun** måles sådan, og
+  `AdoImportJourneyTests.Importing_derives_the_deadline_on_the_server_and_the_next_preview_says_so`
+  måler dem: at typefiltret holder en Test Suite ude **hele vejen til opgavelisten** (fem af ni work
+  items kommer igennem), at deadlinen er serverens regnestykke på dens eget ur, og at "importeret
+  tidligere" er appens egen dedup frem for et felt et fixture satte. Det **gyldige** stykke af den gamle
+  sætning er, at en rutehandler stadig er den eneste vej til en bestemt *feltkombination*: et svar hvor
+  én række har deadline og en anden ikke har, kan den rigtige server aldrig give, fordi dagantallet er
+  én indstilling for alle rækker. Brug det ægte til rejsen og opsnapningen til grenene. **Konsekvens for
+  skive 13:** mentions-indbakkens rejser bør bygges på samme måde, og Jira-siden kan lægges om på et
+  tidspunkt hvor det ikke er en omskrivning midt i en skive.
 - **Én farve står tilbage uden `dark:`-modpart, og det er bevidst** (opgjort i skive 7).
   Overskredet-sektionens ramme i `task-list.html` er
   `section.bucket === overdue ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'` — den
@@ -806,15 +884,27 @@ vagt-statusserne blev leveret uden for skiverne og står nedenfor som lukkede.
   posten stadig tilhører den der kalder. Angular ødelægger en udgående skærm **efter** at den
   indkommende har initialiseret, så gjorde to skærme krav på samme bogstav, ville den udgående
   skærms `unregister` slette den indkommendes mål, og tasten ville dø — hvilket ville ligne
-  "genvejen holdt op med at virke, efter jeg navigerede". **De seks bogstaver er globalt unikke,
+  "genvejen holdt op med at virke, efter jeg navigerede". **De otte bogstaver er globalt unikke,
   og det undgår problemet helt**; det er en begrænsning der skal holdes, ikke et tilfælde.
+  *Tallet stod som **seks** her indtil 2026-08-20 og var forkert i to skiver: `Alt+J` gjorde det syv i
+  skive 11 uden at tallet blev rettet, og `Alt+A` gjorde det otte i skive 12.* **Og fra skive 12 er
+  begrænsningen vagtet**, hvad den ikke var: `Every_shortcut_letter_on_screen_is_its_own` læser
+  `aria-keyshortcuts` af hvert element på opgavelisten — hvor alle otte bor — og kræver bogstaverne
+  distinkte. Målt frem for antaget: `nav-ado="j"` fældede **nul af 239** Vitest, og den mutation fælder
+  nu både vagten (som navngiver begge elementer) og `Alt_J_follows_the_jira_link`, fordi
+  last-writer-wins gjorde `Alt+J` til ADO-skærmens. En kollision på et bogstav **uden** en rejse — `m`,
+  `v` — havde ingen kunnet se før nu. Vagtens grænse: den sammenligner kun de genveje der er renderet,
+  så en fremtidig genvej der kun findes på en anden skærm kræver sin egen tælling.
 - **Fem ting om genvejene er uvagtede** (opgjort i skive 8). `window:blur`-grenen der rydder
   `altHeld` — slettes den, ville mærkaterne blive hængende efter Alt+Tab — er der ingen test på.
   **Hvilket bogstav hver mærkat viser** er heller ikke dækket: mærkattesten tæller elementer frem
   for at læse bogstaver, og det er bevidst, fordi kontakten ved siden af V-mærkaten hedder "Vis
   færdige", så en søgning efter bogstavet ville finde et uanset om mærkaten var tegnet; men en
-  mærkat der renderede `X` frem for `V`, ville bestå. `aria-keyshortcuts` asserteres ingen
-  steder, og direktivet har slet ingen Vitest-spec, så E2E-testene er dens eneste dækning.
+  mærkat der renderede `X` frem for `V`, ville bestå. ~~`aria-keyshortcuts` asserteres ingen
+  steder~~ — **lukket i skive 12**: `Every_shortcut_letter_on_screen_is_its_own` læser attributten på
+  hvert element og er dermed også den første påstand på den; den måler dog **unikhed**, ikke at det
+  rigtige bogstav står det rigtige sted, så "hvilket bogstav hver mærkat viser" er stadig udækket.
+  Direktivet har fortsat ingen Vitest-spec, så E2E-testene er dens eneste dækning.
   Endelig er hverken tilbageskiftet med `Alt+V` to gange eller at `preventDefault()` faktisk
   kaldes dækket.
 - **`ShortcutStore` er `providedIn: 'root'`** (opgjort i skive 8), så Vitest-specs i samme fil

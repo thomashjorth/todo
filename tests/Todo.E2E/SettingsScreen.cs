@@ -57,6 +57,49 @@ public sealed class SettingsScreen(TodoApp app)
 
     public ILocator JiraError => Page.GetByTestId("jira-error");
 
+    public ILocator AdoBaseUrl => Page.GetByTestId("ado-base-url");
+
+    public ILocator AdoProject => Page.GetByTestId("ado-project");
+
+    public ILocator AdoToken => Page.GetByTestId("ado-token");
+
+    public ILocator SaveAdoToken => Page.GetByTestId("ado-save-token");
+
+    /// <summary>Says a token is held. Only a stored token puts it or the Clear button on screen.</summary>
+    public ILocator AdoTokenStored => Page.GetByTestId("ado-token-stored");
+
+    public ILocator ClearAdoToken => Page.GetByTestId("ado-clear-token");
+
+    public ILocator TestAdoConnection => Page.GetByTestId("ado-test");
+
+    /// <summary>The name Azure DevOps reports for the token's owner, which only a reply puts here.</summary>
+    public ILocator AdoConnection => Page.GetByTestId("ado-connection");
+
+    public ILocator LoadAdoStates => Page.GetByTestId("ado-load-states");
+
+    public ILocator AdoStateRows => Page.GetByTestId("ado-state-row");
+
+    public ILocator AdoStatesEmpty => Page.GetByTestId("ado-states-empty");
+
+    public ILocator AdoIncludeWaiting => Page.GetByTestId("ado-include-waiting");
+
+    /// <summary>
+    /// The work item types the import is filtered to. Never empty as it stands: an absent row reads
+    /// as the three defaults, and emptying the list is refused rather than folded back.
+    /// </summary>
+    public ILocator WorkItemTypeRows => Page.GetByTestId("ado-work-item-type-row");
+
+    public ILocator AdoDeadlineDays => Page.GetByTestId("ado-deadline-days");
+
+    /// <summary>
+    /// The group's own red line, written by a rejected save. Separate from <see cref="AdoError"/> on
+    /// purpose: this one is the app's own server refusing a setting, that one is Azure DevOps refusing
+    /// a call.
+    /// </summary>
+    public ILocator AdoSettingsError => Page.GetByTestId("ado-settings-error");
+
+    public ILocator AdoError => Page.GetByTestId("ado-error");
+
     private ILocator AliasInput => Page.GetByTestId("alias-input");
 
     private ILocator DelegateInput => Page.GetByTestId("delegate-input");
@@ -116,9 +159,36 @@ public sealed class SettingsScreen(TodoApp app)
         await Assertions.Expect(JiraTokenStored).ToBeVisibleAsync();
     }
 
+    /// <summary>
+    /// Types a token and saves it, then waits for the line that says one is held: the field is
+    /// write-only, so the confirmation is the only evidence the round trip happened.
+    /// </summary>
+    public async Task StoreAdoTokenAsync(string token)
+    {
+        await AdoToken.FillAsync(token);
+        await SaveAdoToken.ClickAsync();
+
+        await Assertions.Expect(AdoTokenStored).ToBeVisibleAsync();
+    }
+
+    /// <summary>
+    /// Takes one work item type off the list and waits for the row to go. Removing the <em>last</em>
+    /// one is refused by the server, so a caller after that refusal must not use this — it would wait
+    /// for a row that is still there.
+    /// </summary>
+    public async Task RemoveWorkItemTypeAsync(string type)
+    {
+        var row = WorkItemTypeRows.Filter(new() { HasText = type });
+
+        await row.GetByTestId("remove-work-item-type").ClickAsync();
+        await Assertions.Expect(row).ToHaveCountAsync(0);
+    }
+
     public Task<RetroImportScreen> GoToImport() => app.GoToImport();
 
     public Task<JiraImportScreen> GoToJira() => app.GoToJira();
+
+    public Task<AdoImportScreen> GoToAdo() => app.GoToAdo();
 
     public Task<TaskListScreen> GoToTasks() => app.GoToTasks();
 
