@@ -30,22 +30,82 @@ Playwright, Vitest.
 - **De URL'er ADO giver tilbage bruger projektets GUID**, ikke navnet, så de er ikke menneskeligt
   navigerbare. En browse-URL skal bygges selv, som `JiraSettings.BrowseUrl`.
 
-**Ikke målt, og det er skivens første opgave.** Alt ovenfor kom af mentions-målingen, som handlede om
-`System.History`. Tildelte work items er en anden query og andre felter:
+**Måling 0 er kørt 2026-08-20**, og fire fund ændrer skiven. To af dem var ikke forudset.
 
-- Virker `[System.AssignedTo] = @Me`?
-- Hvordan hentes felterne for de fundne id'er — `workitemsbatch`, eller `?ids=`?
-- **Findes der et deadline-felt i deres procesmodel, og hvad heder det?**
-  `Microsoft.VSTS.Scheduling.DueDate` findes i nogle skabeloner og ikke i andre.
-- Hvilke `System.State`-værdier bruger projektet? Det er modstykket til Jiras statusliste.
+**`[System.AssignedTo] = @Me` virker.** 12 work items, ikke lukkede, og `asOf` i svaret — watermarket
+er gratis også her. Det var den sidste blokerende antagelse.
 
-**Skriv ingen feltnavne i kode, før Måling 0 er kørt.** Skive 11 lærte det på den hårde måde: Jira
-staver `duedate` i ét ord, camelCase-politikken ledte efter `dueDate`, og **hver deadline ankom som
-null** uden at nogen test faldt — fordi der fandtes en test for en sag *uden* deadline.
+**Batch-hentning virker med `?ids=`**, svaret er `count` + `value`. Bemærk at et kald med ugyldige
+id'er svarer `400` med en **oplysende** besked ("The following Ids are not valid"), altså ikke en tavs
+tom liste.
+
+**Der findes intet deadline-felt.** Feltlisten på en Bug har ingen `Microsoft.VSTS.Scheduling.DueDate`.
+ADO-opgaver har altså **ingen** deadline at importere. Se beslutning A.
+
+**Notefeltet afhænger af sagstypen.** Sag 15664 er en **Bug** og har `Microsoft.VSTS.TCM.ReproSteps` —
+**ikke** `System.Description`. En User Story ville have `System.Description`. Beskrivelsen skal derfor
+mappes **pr. `System.WorkItemType`** med et fallback, ikke fra ét felt. Det er samme klasse som Jiras
+`duedate`, men værre: der er ikke ét forkert navn, der er flere rigtige.
+
+**`Microsoft.VSTS.Common.StateChangeDate` findes — og det gør ADO lettere end Jira.** Det er
+modstykket til Jiras `statuscategorychangedate`, som **ikke** fandtes og tvang os til et
+changelog-kald pr. sag. Her kommer `WaitingSince` med i samme svar. **Ingen ekstra kald.**
+
+**Tilstandsnavnene afhænger også af typen.** Målt på de tolv: `New`, `Active`, `Blocked`,
+`In Progress`, `PO Review` — og **Test Suite** bruger `In Progress` hvor Bug, User Story og Task bruger
+`Active`. Samme betydning, to navne. Det er samme inkonsekvens som Jiras seks ventende statusser, og
+det er argumentet for en eksplicit brugervalgt liste frem for en heuristik. Oplagte ventende-kandidater:
+**`Blocked`** og **`PO Review`**.
+
+**Felter der findes og er værd at kende:** `System.Title`, `System.CreatedBy` (opgavestiller),
+`System.State`, `System.WorkItemType`, `System.CommentCount`, `System.ChangedDate`,
+`System.IterationPath`, `System.AreaPath`, `System.Reason`, plus custom-felter (`Custom.Timelog` og et
+med et GUID-navn). **Bind hvert felt eksplicit** — camelCase-politikken er ikke i spil her, men
+per-type-forskellen er.
+
+## Beslutning A: en standard-deadline på tre dage, som en indstilling
+
+Besluttet af brugeren 2026-08-20. ADO har ingen deadline, så appen sætter en: **`ado.defaultDeadlineDays`,
+default `3`.** En importeret ADO-opgave får `Deadline = i dag + N`.
+
+**Serveren udleder den, ikke klienten.** Ellers afhænger deadlinen af hvilken maskine der klikker, og
+appen har allerede `IClock` som ejer af "i dag" — det er samme grund som at `WaitingSince` sættes
+serverside. Klienten sender **ingenting** om deadline; det er en beslutning, og skive 11 målte at
+beslutninger ikke kan sendes over wiren. Forhåndsvisningen **viser** den foreslåede dato, men importen
+**genudleder** den.
+
+**Konsekvensen at kende:** forhåndsviser du i dag og importerer i morgen, får du morgendagens
+udregning. Vinduet er et døgn, og det er det rigtige — datoen er relativ til importen.
+
+**Ændringen gælder kun fremtidige imports.** Brugerens ord, og det passer med afsnit 4: deadline ejes
+altid lokalt, og Jiras due date er kun et forslag ved import som sync aldrig overskriver. ADO foreslår
+blot noget appen selv har regnet ud.
+
+**`0` betyder ingen deadline.** Feltet er en **ikke-nullable** `int` frem for nullable: et nullable felt
+ville give en `@if`-gren i frontenden, og de tre seneste leverancer har handlet om netop dem. `0` er en
+læselig "slået fra" for et dagantal. Afvis negative værdier og noget over 365 — en negativ standard
+betyder "overskredet ved import", hvilket er meningsløst, og 300 mod 3 er en sandsynlig slåfejl.
+
+## Beslutning B: filtrér på sagstype
+
+Besluttet af brugeren 2026-08-20. **`ado.workItemTypes`, default `["Bug", "User Story", "Task"]`.**
+
+To af de tolv målte sager er **Test Plan** og **Test Suite** — testartefakter, ikke arbejde man løser.
+17 % støj i dag.
+
+**En tom liste betyder alle typer, og det modsiger *ikke* skive 11's lektion om den tomme
+projektnøgle.** Forskellen er hvordan tomheden nås: projektnøglen var tom **som udgangspunkt**, så et
+tilbagefald til "alle projekter" blev ramt ved at gøre ingenting. Her er defaulten udfyldt, så en tom
+liste kræver en **bevidst** rydning. Skriv forskellen ned — den ser ellers ud som en inkonsekvens.
 
 ---
 
-## Måling 0: kun brugeren kan køre den
+## Måling 0 — kørt 2026-08-20, bevaret som opskrift
+
+Kommandoerne står her, fordi de skal køres igen efter en serveropgradering. **Læg ikke pladsholdere som
+`DIT-ID` i en kørbar blok** — det blev gjort, og de blev kørt ordret. Brug en variabel.
+
+### Kun brugeren kan køre den
 
 **Ingen agent kan gøre dette** — det kræver instansen og et token. Kør det, og skriv svarene ind i
 denne plan, før Task 1 begynder.
