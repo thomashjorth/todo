@@ -41,8 +41,16 @@ derfor have været en indstilling brugeren aldrig fik tilbudt — og uopnåelig,
 fraværende. Reglen svarer en `bool`: Jiras enum tjener sig hjem på **tre** roller, to ville være en bool
 med ekstra trin.
 
-**Testtal efter skive 12:** Core **164**, Api **283**, E2E **43**, Vitest **239** — alle grønne.
-Fordelingen pr. opgave står i `CLAUDE.md`s Testtal-afsnit.
+**Testtal nu:** Core **164**, Api **286**, E2E **44**, Vitest **250** — alle grønne. Fordelingen pr.
+opgave står i `CLAUDE.md`s Testtal-afsnit.
+
+Skive 12 selv sluttede på 164/283/43/239. De tre Api og tre Vitest ovenover kom af
+**`Test forbindelse`-rettelsen** (2026-08-20): fejllinjen stod i bunden af sin sektion, over hundrede
+linjer under knappen i en spalte på 480 px, så et afvist token lignede en død knap — i **både** Jira-
+og ADO-gruppen. Og `AdoTaskSource.TestAsync` læste kun `providerDisplayName`, så en server der udfylder
+`customDisplayName` gav et **200 med intet navn**, som skærmen skrev som "Forbundet som ." Begge
+læses nu, og en tom svarer med sin egen sætning. Den sidste E2E og de otte Vitest kom af
+**foldningen** af indstillingssiden.
 
 Uden for skiverne: app-ikon og titel, `Todo.cmd`-launcher, omstrukturering til feature-mapper,
 testdata-builders, `ApiTest`/`BrowserTest`-basisklasser, og **linket til API-dokumentationen på
