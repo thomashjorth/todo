@@ -137,6 +137,12 @@ hvid, 4,63:1 på `bg-gray-50`), men `dark:text-gray-500` fejler (3,67:1 på `gra
 tekst er derfor `text-gray-500 dark:text-gray-400`. Bytter man mekanisk 400 til 500 på begge
 sider, ødelægger man den mørke.
 
+**`Write`-værktøjet skriver LF i denne CRLF-arbejdskopi.** Samme klasse som `sed`-fælden, men gennem
+et andet værktøj: `git diff` siger *"LF will be replaced by CRLF"*, diffen ser ærlig ud, og
+arbejdskopien er alligevel ude af trit med indekset. Målt i uddelegeringsleverancen. Foretræk `Edit`
+på en eksisterende fil, og skal `Write` bruges, så konvertér tilbage til CRLF og verificér med **nul
+LF-only-linjer** plus et `od` på en linje med danske tegn.
+
 **Pladsholderfarven ligger på `::placeholder`**, ikke på elementet, så en DOM-gennemgang der kun
 læser `style.color` er blind for den — `getComputedStyle(el, '::placeholder')` skal spørges
 særskilt. Og et felt **uden** en `placeholder-*`-klasse arver `currentColor` med omkring 54 %
