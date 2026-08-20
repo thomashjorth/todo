@@ -3,9 +3,46 @@
     <RootNamespace>Todo.Host</RootNamespace>
     <OutputType>Exe</OutputType>
     <ApplicationIcon>..\Todo.Web\public\favicon.ico</ApplicationIcon>
+    <!-- /api/health prints this, so it is the one place a user can read which build is running.
+         Major 1 because the app has been in daily use since slice 1; minor is the slice that
+         shipped the build. Without it the answer was the assembly default, 1.0.0.0, which says
+         only that nobody set a version. -->
+    <Version>1.16.0</Version>
+  </PropertyGroup>
+  <!-- Everything below is about the publish output. Measured 2026-08-20 on a self-contained
+       single-file publish: 31 files, of which five beside the exe are not needed to run. -->
+  <PropertyGroup>
+    <!-- No web.config. It configures the ASP.NET Core Module in IIS, and this app is a Photino
+         window that hosts Kestrel on loopback - it is never a site. -->
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+    <!-- No Todo.Host.staticwebassets.endpoints.json (55 kB). The manifest is read by
+         MapStaticAssets; this app serves wwwroot through UseStaticFiles, which reads the file
+         system. Measured removable: deleted from the output, / and /api/health and /scalar/ all
+         still answered 200. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- No .pdb files - one for this project, and one each for Todo.Core and Todo.Contracts, which
+         travel as related files of a project reference and need the second property rather than
+         the first. This is a trade-off, not tidying: without symbols a stack trace from the
+         running app loses its line numbers. For one personal app on one machine, read by the
+         person who can rebuild it with symbols in a minute, three files beat three line numbers.
+         Release only, so debugging a Debug build is untouched - and dotnet test builds Debug. -->
+    <DebugType>none</DebugType>
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="..\Todo.Web\public\favicon.ico" Link="icon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Three pieces of metadata, and each one is needed for a different reason.
+         CopyToOutputDirectory is build output - it is what makes the icon appear beside a Debug
+         build. CopyToPublishDirectory is publish output, a separate list: having only the first is
+         why the published exe called SetIconFile on a path that did not exist.
+         And ExcludeFromSingleFile, because publish output is not the same as a file on disk under
+         PublishSingleFile: measured with -getItem:ResolvedFileToPublish, the icon is in the list
+         with PublishSingleFile=false and gone with it true, because _ComputeFilesToBundle takes
+         every resolved file that is not marked and hands it to the bundler. Photino needs a path,
+         so this one has to stay outside the exe. The wwwroot glob is marked the same way by the
+         Web SDK, which is why those files were never swallowed. -->
+    <Content Include="..\Todo.Web\public\favicon.ico" Link="icon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
   <ItemGroup>
     <!-- Kontrakten følger med ind i assemblyen, fordi dokumentationssiden servérer den selv.

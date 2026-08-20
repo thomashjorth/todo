@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Scalar.AspNetCore;
 using Todo.Core.Ado;
@@ -35,7 +36,11 @@ public static class TodoHost
     /// </param>
     public static WebApplication Build(string[] args, Action<IServiceCollection>? configureServices = null)
     {
-        var builder = WebApplication.CreateBuilder(args);
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = args,
+            ContentRootPath = DefaultContentRoot(args),
+        });
 
         if (builder.Configuration["urls"] is null)
         {
@@ -143,6 +148,36 @@ public static class TodoHost
         app.MapFallbackToFile("index.html");
 
         return app;
+    }
+
+    /// <summary>
+    /// The content root to use when nobody has named one: the folder the exe lives in.
+    /// </summary>
+    /// <remarks>
+    /// The framework's default is the process working directory, which a published exe does not
+    /// control - whoever starts it does, and autostart is exactly such a caller. Measured on the
+    /// published exe: run from the repository root, <c>/</c> answered 404 and the log said
+    /// <c>The WebRootPath was not found: C:\privat-git\todo\wwwroot</c>; run from its own folder the
+    /// same exe answered 200. wwwroot is published beside the exe, so the exe's folder is the one
+    /// answer that holds wherever the process is started from.
+    /// <para>
+    /// Returning <see langword="null"/> means "leave the default alone", and that is the point of
+    /// asking first: <see cref="WebApplicationOptions.ContentRootPath"/> is applied on top of
+    /// configuration, so setting it unconditionally would beat an explicit <c>--contentRoot</c>.
+    /// Every test host passes one, pointing at src\Todo.Host where wwwroot actually lives - the
+    /// test binary's own folder has none. The three sources probed here are the three the host
+    /// itself would read a content root from, in its own order of precedence.
+    /// </para>
+    /// </remarks>
+    private static string? DefaultContentRoot(string[] args)
+    {
+        var named = new ConfigurationBuilder()
+            .AddEnvironmentVariables("DOTNET_")
+            .AddEnvironmentVariables("ASPNETCORE_")
+            .AddCommandLine(args)
+            .Build()["contentRoot"];
+
+        return named is null ? AppContext.BaseDirectory : null;
     }
 
     private static string ReadEmbeddedContract()

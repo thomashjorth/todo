@@ -789,7 +789,15 @@ forkerte grund.
 
 ## Testtal
 
-Efter formaterings- og linjeskiftsvagterne: **164** Todo.Core.Tests, **290** Todo.Api.Tests,
+Efter skive 16's Task 1 (pakningsfejlene): **164** Todo.Core.Tests, **292** Todo.Api.Tests,
+**44** Todo.E2E, **250** Vitest. Opgaven lagde **2** Api-tests til (290 → 292) og rørte ikke de tre
+andre tal. Begge er `HostContentRootTests`, og de er et par frem for én af samme grund som vagterne
+nedenfor: den ene siger at standarden er exe'ens mappe, den anden at `--contentRoot` stadig vinder, og
+en rettelse der kun holder den ene vej fælder præcis én af dem. **`HealthEndpointTests` voksede
+*ikke*** — versionspåstanden kom ind i den test der var der, som planen bad om. Ingen af dem hører i
+Core: begge er påstande om hostens opstart, ikke om en ren funktion.
+
+Før den, efter formaterings- og linjeskiftsvagterne: **164** Todo.Core.Tests, **290** Todo.Api.Tests,
 **44** Todo.E2E, **250** Vitest. Leverancen lagde **4** Api-tests til (286 → 290) og rørte ikke de tre
 andre tal. Fordelingen er hele historien: **to `FrontendFormattingTests`** og **to `LineEndingTests`**,
 og de er par frem for enkelttests af samme grund i begge tilfælde — den ene påstand er "værktøjet var

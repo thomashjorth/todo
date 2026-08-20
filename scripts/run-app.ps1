@@ -34,5 +34,11 @@ if ($needsBuild) {
 }
 
 Write-Host 'Starter Todo...' -ForegroundColor Cyan
-& dotnet run --project (Join-Path $root 'src\Todo.Host') -c Release --no-launch-profile -- @args
+
+# Indholdsroden navngives her, fordi standarden er exe'ens egen mappe fra og med skive 16 - og
+# under "dotnet run" er den mappe bin\Release\net10.0, som ikke har nogen wwwroot. Kun
+# projektmappen har. En udgivet exe har wwwroot ved siden af sig og behoever derfor ingen
+# --contentRoot; det er praecis den forskel argumentet findes for. Uden linjen er vinduet blankt.
+$hostProject = Join-Path $root 'src\Todo.Host'
+& dotnet run --project $hostProject -c Release --no-launch-profile -- --contentRoot $hostProject @args
 exit $LASTEXITCODE
