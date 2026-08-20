@@ -9,630 +9,673 @@
      ADO-import står ved siden af Jira-import, fordi de to grupper har samme form — URL, projekt,
      token, test, ventende-liste, kontakt — så læseren møder mønstret én gang frem for to gange med
      noget imellem. Retro-import bliver sidst: den er ikke en forbundet kilde, den er en fil man
-     lægger ind, så den har hverken URL eller token og hører derfor yderst. -->
-<section data-testid="language-settings">
-  <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
-    {{ 'settings.groups.language' | transloco }}
-  </h3>
-
-  <!-- Mærkaten er skjult for øjet, ikke for hjælpemidler: overskriften siger allerede Sprog, og
-       gruppen har præcis én kontrol, så en synlig mærkat ville skrive ordet to gange. -->
-  <label for="settings-language" class="sr-only text-gray-900 dark:text-gray-100">{{
-    'settings.language' | transloco
-  }}</label>
-  <select
-    #language
-    id="settings-language"
-    data-testid="language-select"
-    class="mt-2 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
-    (change)="choose(language.value)"
+     lægger ind, så den har hverken URL eller token og hører derfor yderst.
+     Foldningen ændrer ikke den rækkefølge — kun hvor meget af den der er fremme ad gangen. Én
+     åben gruppe, og nul er en gyldig tilstand: siden ankommer sådan, og et klik på den åbne
+     overskrift lukker den igen. -->
+<div class="mt-4 border-t border-gray-300 dark:border-gray-700">
+  <section
+    appSettingsSection
+    data-testid="language-settings"
+    name="language"
+    heading="settings.groups.language"
+    [open]="isOpen('language')"
+    (toggled)="toggleSection('language')"
   >
-    @for (option of options; track option) {
-      <option [value]="option" [selected]="option === choice()">
-        {{ languageKey(option) | transloco }}
-      </option>
-    }
-  </select>
-
-  @if (settings.error(); as message) {
-    <p
-      data-testid="settings-error"
-      role="alert"
-      class="mt-2 text-sm text-red-700 dark:text-red-300"
+    <!-- Mærkaten er skjult for øjet, ikke for hjælpemidler: overskriften siger allerede Sprog, og
+         gruppen har præcis én kontrol, så en synlig mærkat ville skrive ordet to gange. -->
+    <label for="settings-language" class="sr-only text-gray-900 dark:text-gray-100">{{
+      'settings.language' | transloco
+    }}</label>
+    <select
+      #language
+      id="settings-language"
+      data-testid="language-select"
+      class="mt-2 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+      (change)="choose(language.value)"
     >
-      {{ message }}
+      @for (option of options; track option) {
+        <option [value]="option" [selected]="option === choice()">
+          {{ languageKey(option) | transloco }}
+        </option>
+      }
+    </select>
+
+    @if (settings.error(); as message) {
+      <p
+        data-testid="settings-error"
+        role="alert"
+        class="mt-2 text-sm text-red-700 dark:text-red-300"
+      >
+        {{ message }}
+      </p>
+    }
+  </section>
+
+  <section
+    appSettingsSection
+    data-testid="delegate-settings"
+    name="delegate"
+    heading="settings.groups.delegates"
+    [open]="isOpen('delegate')"
+    (toggled)="toggleSection('delegate')"
+  >
+    <!-- Ordene er den ene halvdel af det her: uddelegering er bogføring, og en bruger der tror der
+         blev sendt en besked, har handlet uden at vide at ingen fik det at vide. -->
+    <p data-testid="delegates-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.delegates.hint' | transloco }}
     </p>
-  }
-</section>
 
-<section data-testid="delegate-settings">
-  <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
-    {{ 'settings.groups.delegates' | transloco }}
-  </h3>
+    @if (settings.delegates().length === 0) {
+      <p data-testid="delegates-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
+        {{ 'settings.delegates.empty' | transloco }}
+      </p>
+    } @else {
+      <ul class="mt-2 space-y-1">
+        @for (name of settings.delegates(); track name) {
+          <li data-testid="delegate-row" class="flex items-center gap-2">
+            <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+              name
+            }}</span>
+            <button
+              type="button"
+              data-testid="remove-delegate"
+              [attr.aria-label]="'settings.delegates.remove' | transloco: { name }"
+              class="shrink-0 text-xs text-red-700 dark:text-red-300"
+              (click)="removeDelegate(name)"
+            >
+              ✕
+            </button>
+          </li>
+        }
+      </ul>
+    }
 
-  <!-- Ordene er den ene halvdel af det her: uddelegering er bogføring, og en bruger der tror der
-       blev sendt en besked, har handlet uden at vide at ingen fik det at vide. -->
-  <p data-testid="delegates-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-    {{ 'settings.delegates.hint' | transloco }}
-  </p>
+    <label class="mt-2 block">
+      <span class="block text-xs text-gray-700 dark:text-gray-300">{{
+        'settings.delegates.add' | transloco
+      }}</span>
+      <input
+        #delegateInput
+        data-testid="delegate-input"
+        type="text"
+        [placeholder]="'settings.delegates.addPlaceholder' | transloco"
+        class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+        (keyup.enter)="addDelegate(delegateInput)"
+      />
+    </label>
 
-  @if (settings.delegates().length === 0) {
-    <p data-testid="delegates-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
-      {{ 'settings.delegates.empty' | transloco }}
+    @if (settings.delegatesError(); as message) {
+      <p
+        data-testid="delegates-error"
+        role="alert"
+        class="mt-2 text-sm text-red-700 dark:text-red-300"
+      >
+        {{ message }}
+      </p>
+    }
+  </section>
+
+  <section
+    appSettingsSection
+    data-testid="jira-settings"
+    name="jira"
+    heading="settings.groups.jira"
+    [open]="isOpen('jira')"
+    (toggled)="toggleSection('jira')"
+  >
+    <label
+      for="jira-base-url"
+      class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
+      >{{ 'settings.jira.baseUrl' | transloco }}</label
+    >
+    <input
+      #baseUrl
+      id="jira-base-url"
+      data-testid="jira-base-url"
+      type="url"
+      [value]="settings.jiraBaseUrl() ?? ''"
+      [placeholder]="'settings.jira.baseUrlPlaceholder' | transloco"
+      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+      (change)="saveBaseUrl(baseUrl.value)"
+    />
+
+    <label
+      for="jira-project-key"
+      class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
+      >{{ 'settings.jira.projectKey' | transloco }}</label
+    >
+    <input
+      #projectKey
+      id="jira-project-key"
+      data-testid="jira-project-key"
+      type="text"
+      [value]="settings.jiraProjectKey() ?? ''"
+      [placeholder]="'settings.jira.projectKeyPlaceholder' | transloco"
+      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+      (change)="saveProjectKey(projectKey.value)"
+    />
+
+    <label
+      for="jira-token"
+      class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
+      >{{ 'settings.jira.token' | transloco }}</label
+    >
+    <input
+      #tokenInput
+      id="jira-token"
+      data-testid="jira-token"
+      type="password"
+      autocomplete="off"
+      [value]="token()"
+      [placeholder]="'settings.jira.tokenPlaceholder' | transloco"
+      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+      (input)="token.set(tokenInput.value)"
+    />
+
+    @if (settings.hasJiraToken()) {
+      <p data-testid="jira-token-stored" class="mt-1 text-xs text-gray-700 dark:text-gray-300">
+        {{ 'settings.jira.tokenStored' | transloco }}
+      </p>
+    }
+
+    <div class="mt-2 flex flex-wrap gap-2">
+      <button
+        type="button"
+        data-testid="jira-save-token"
+        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+        (click)="storeToken()"
+      >
+        {{ 'settings.jira.saveToken' | transloco }}
+      </button>
+
+      @if (settings.hasJiraToken()) {
+        <button
+          type="button"
+          data-testid="jira-clear-token"
+          class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+          (click)="clearToken()"
+        >
+          {{ 'settings.jira.clearToken' | transloco }}
+        </button>
+      }
+    </div>
+
+    <!-- Above the status picker on purpose: the picker needs a working connection, so a wrong token
+         shows here as a reason rather than there as an empty list. -->
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        data-testid="jira-test"
+        [disabled]="jira.busy()"
+        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+        (click)="jira.testConnection()"
+      >
+        {{ 'settings.jira.testConnection' | transloco }}
+      </button>
+
+      @let connection = jira.connection();
+      @if (connection !== null) {
+        <span
+          data-testid="jira-connection"
+          aria-live="polite"
+          class="text-sm text-gray-900 dark:text-gray-100"
+          >{{
+            connection === ''
+              ? ('settings.connectedNoName' | transloco)
+              : ('settings.jira.connectedAs' | transloco: { name: connection })
+          }}</span
+        >
+      }
+    </div>
+
+    <!-- The store's error belongs beside the button that causes it, not at the foot of the section.
+         It lived down there until a user reported that Test connection "said nothing": in a 480px
+         column the message was over a hundred lines below the button, so a refused token looked
+         like a dead button. Both testConnection and loadStates write this signal, and both buttons
+         are within a few lines of here. -->
+    @if (jira.error(); as message) {
+      <p data-testid="jira-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+        {{ message }}
+      </p>
+    }
+
+    <h4 class="mt-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+      {{ 'settings.jira.waitingStatuses' | transloco }}
+    </h4>
+
+    <button
+      type="button"
+      data-testid="jira-load-statuses"
+      [disabled]="jira.busy()"
+      class="mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+      (click)="jira.loadStatuses()"
+    >
+      {{ 'settings.jira.loadStatuses' | transloco }}
+    </button>
+
+    @if (statusOptions().length === 0) {
+      <p data-testid="jira-statuses-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
+        {{ 'settings.jira.statusesEmpty' | transloco }}
+      </p>
+    } @else {
+      <ul class="mt-2 space-y-1">
+        @for (status of statusOptions(); track status) {
+          <li data-testid="jira-status-row">
+            <label class="flex items-center gap-2">
+              <input
+                #waiting
+                type="checkbox"
+                class="shrink-0"
+                [checked]="isWaiting(status)"
+                (change)="toggleWaiting(status, waiting.checked)"
+              />
+              <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+                status
+              }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    }
+
+    <label class="mt-3 flex items-center gap-2">
+      <input
+        #includeWaiting
+        data-testid="jira-include-waiting"
+        type="checkbox"
+        class="shrink-0"
+        [checked]="settings.jiraIncludeWaiting()"
+        (change)="setIncludeWaiting(includeWaiting.checked)"
+      />
+      <span class="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">{{
+        'settings.jira.includeWaiting' | transloco
+      }}</span>
+    </label>
+
+    <!-- Efter den ventende, ikke før: vagten *overskriver* ventende, og læses de i omvendt
+         rækkefølge ser det ud som om ventende vinder. -->
+    <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
+      {{ 'settings.jira.dutyStatuses' | transloco }}
+    </h4>
+
+    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.jira.dutyStatusesHint' | transloco }}
     </p>
-  } @else {
+
+    @if (dutyStatusOptions().length === 0) {
+      <p
+        data-testid="jira-duty-statuses-empty"
+        class="mt-2 text-xs text-gray-700 dark:text-gray-300"
+      >
+        {{ 'settings.jira.statusesEmpty' | transloco }}
+      </p>
+    } @else {
+      <ul class="mt-2 space-y-1">
+        @for (status of dutyStatusOptions(); track status) {
+          <li data-testid="jira-duty-status-row">
+            <label class="flex items-center gap-2">
+              <input
+                #duty
+                type="checkbox"
+                class="shrink-0"
+                [checked]="isDutyStatus(status)"
+                (change)="toggleDutyStatus(status, duty.checked)"
+              />
+              <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+                status
+              }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    }
+
+    <label class="mt-3 flex items-center gap-2">
+      <input
+        #onDuty
+        data-testid="jira-on-duty"
+        type="checkbox"
+        class="shrink-0"
+        [checked]="settings.jiraOnDuty()"
+        (change)="setOnDuty(onDuty.checked)"
+      />
+      <span class="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">{{
+        'settings.jira.onDuty' | transloco
+      }}</span>
+    </label>
+
+    <!-- Ord frem for kun en mærkat: kontakten henter puljens sager *og* gør dem handlingsklare, og
+         en kontakt der kun hedder Jeg har vagten siger ikke det sidste. -->
+    <p data-testid="jira-on-duty-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.jira.onDutyHint' | transloco }}
+    </p>
+
+    <!-- Gruppens egen linje, som ADO-gruppen har haft hele tiden og denne ikke havde: `error`
+         skrives af hver gemning, så en afvist basis-URL eller et afvist token landede på linjen
+         over sprogvælgeren. Med foldning er det værre end forkert placeret — er sproggruppen
+         lukket, ser brugeren ingenting. -->
+    @if (settings.jiraError(); as message) {
+      <p
+        data-testid="jira-settings-error"
+        role="alert"
+        class="mt-2 text-sm text-red-700 dark:text-red-300"
+      >
+        {{ message }}
+      </p>
+    }
+  </section>
+
+  <section
+    appSettingsSection
+    data-testid="ado-settings"
+    name="ado"
+    heading="settings.groups.ado"
+    [open]="isOpen('ado')"
+    (toggled)="toggleSection('ado')"
+  >
+    <label
+      for="ado-base-url"
+      class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
+      >{{ 'settings.ado.baseUrl' | transloco }}</label
+    >
+    <input
+      #adoBaseUrl
+      id="ado-base-url"
+      data-testid="ado-base-url"
+      type="url"
+      [value]="settings.adoBaseUrl() ?? ''"
+      [placeholder]="'settings.ado.baseUrlPlaceholder' | transloco"
+      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+      (change)="saveAdoBaseUrl(adoBaseUrl.value)"
+    />
+
+    <!-- Samlingens URL bærer sit eget mellemrum som %20, og appen escaper den ikke igen — projektet
+         er derimod et navn brugeren skriver, og det escaper appen. Derfor to felter og ikke ét. -->
+    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.ado.baseUrlHint' | transloco }}
+    </p>
+
+    <label
+      for="ado-project"
+      class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
+      >{{ 'settings.ado.project' | transloco }}</label
+    >
+    <input
+      #adoProject
+      id="ado-project"
+      data-testid="ado-project"
+      type="text"
+      [value]="settings.adoProject() ?? ''"
+      [placeholder]="'settings.ado.projectPlaceholder' | transloco"
+      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+      (change)="saveAdoProject(adoProject.value)"
+    />
+
+    <label
+      for="ado-token"
+      class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
+      >{{ 'settings.ado.token' | transloco }}</label
+    >
+    <input
+      #adoTokenInput
+      id="ado-token"
+      data-testid="ado-token"
+      type="password"
+      autocomplete="off"
+      [value]="adoToken()"
+      [placeholder]="'settings.ado.tokenPlaceholder' | transloco"
+      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+      (input)="adoToken.set(adoTokenInput.value)"
+    />
+
+    @if (settings.hasAdoToken()) {
+      <p data-testid="ado-token-stored" class="mt-1 text-xs text-gray-700 dark:text-gray-300">
+        {{ 'settings.ado.tokenStored' | transloco }}
+      </p>
+    }
+
+    <div class="mt-2 flex flex-wrap gap-2">
+      <button
+        type="button"
+        data-testid="ado-save-token"
+        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+        (click)="storeAdoToken()"
+      >
+        {{ 'settings.ado.saveToken' | transloco }}
+      </button>
+
+      @if (settings.hasAdoToken()) {
+        <button
+          type="button"
+          data-testid="ado-clear-token"
+          class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+          (click)="clearAdoToken()"
+        >
+          {{ 'settings.ado.clearToken' | transloco }}
+        </button>
+      }
+    </div>
+
+    <!-- Over tilstandsvælgeren af samme grund som hos Jira: vælgeren kræver en forbindelse der
+         virker, så et forkert token vises her som en grund frem for der som en tom liste. -->
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        data-testid="ado-test"
+        [disabled]="ado.busy()"
+        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+        (click)="ado.testConnection()"
+      >
+        {{ 'settings.ado.testConnection' | transloco }}
+      </button>
+
+      @let adoConnection = ado.connection();
+      @if (adoConnection !== null) {
+        <span
+          data-testid="ado-connection"
+          aria-live="polite"
+          class="text-sm text-gray-900 dark:text-gray-100"
+          >{{
+            adoConnection === ''
+              ? ('settings.connectedNoName' | transloco)
+              : ('settings.ado.connectedAs' | transloco: { name: adoConnection })
+          }}</span
+        >
+      }
+    </div>
+
+    <!-- Beside the button for the same reason as in the Jira section above. -->
+    @if (ado.error(); as message) {
+      <p data-testid="ado-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+        {{ message }}
+      </p>
+    }
+
+    <h4 class="mt-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+      {{ 'settings.ado.waitingStates' | transloco }}
+    </h4>
+
+    <button
+      type="button"
+      data-testid="ado-load-states"
+      [disabled]="ado.busy()"
+      class="mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+      (click)="ado.loadStates()"
+    >
+      {{ 'settings.ado.loadStates' | transloco }}
+    </button>
+
+    @if (stateOptions().length === 0) {
+      <p data-testid="ado-states-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
+        {{ 'settings.ado.statesEmpty' | transloco }}
+      </p>
+    } @else {
+      <ul class="mt-2 space-y-1">
+        @for (state of stateOptions(); track state) {
+          <li data-testid="ado-state-row">
+            <label class="flex items-center gap-2">
+              <input
+                #waitingState
+                type="checkbox"
+                class="shrink-0"
+                [checked]="isWaitingState(state)"
+                (change)="toggleWaitingState(state, waitingState.checked)"
+              />
+              <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+                state
+              }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    }
+
+    <label class="mt-3 flex items-center gap-2">
+      <input
+        #adoIncludeWaiting
+        data-testid="ado-include-waiting"
+        type="checkbox"
+        class="shrink-0"
+        [checked]="settings.adoIncludeWaiting()"
+        (change)="setAdoIncludeWaiting(adoIncludeWaiting.checked)"
+      />
+      <span class="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">{{
+        'settings.ado.includeWaiting' | transloco
+      }}</span>
+    </label>
+
+    <!-- Ingen vagt-liste her, og det er ikke en mangel: Azure DevOps har ingen pulje af sager der
+         venter på den der har vagten, så en anden liste ville være en indstilling uden en
+         betydning. -->
+    <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
+      {{ 'settings.ado.workItemTypes' | transloco }}
+    </h4>
+
+    <p data-testid="ado-work-item-types-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.ado.workItemTypesHint' | transloco }}
+    </p>
+
     <ul class="mt-2 space-y-1">
-      @for (name of settings.delegates(); track name) {
-        <li data-testid="delegate-row" class="flex items-center gap-2">
+      @for (type of settings.adoWorkItemTypes(); track type) {
+        <li data-testid="ado-work-item-type-row" class="flex items-center gap-2">
           <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
-            name
+            type
           }}</span>
           <button
             type="button"
-            data-testid="remove-delegate"
-            [attr.aria-label]="'settings.delegates.remove' | transloco: { name }"
+            data-testid="remove-work-item-type"
+            [attr.aria-label]="'settings.ado.removeWorkItemType' | transloco: { type }"
             class="shrink-0 text-xs text-red-700 dark:text-red-300"
-            (click)="removeDelegate(name)"
+            (click)="removeWorkItemType(type)"
           >
             ✕
           </button>
         </li>
       }
     </ul>
-  }
 
-  <label class="mt-2 block">
-    <span class="block text-xs text-gray-700 dark:text-gray-300">{{
-      'settings.delegates.add' | transloco
-    }}</span>
+    <label class="mt-2 block">
+      <span class="block text-xs text-gray-700 dark:text-gray-300">{{
+        'settings.ado.addWorkItemType' | transloco
+      }}</span>
+      <input
+        #workItemTypeInput
+        data-testid="ado-work-item-type-input"
+        type="text"
+        [placeholder]="'settings.ado.addWorkItemTypePlaceholder' | transloco"
+        class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+        (keyup.enter)="addWorkItemType(workItemTypeInput)"
+      />
+    </label>
+
+    <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
+      {{ 'settings.ado.deadlineDays' | transloco }}
+    </h4>
+
+    <p data-testid="ado-deadline-days-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.ado.deadlineDaysHint' | transloco }}
+    </p>
+
+    <label for="ado-deadline-days" class="sr-only text-gray-900 dark:text-gray-100">{{
+      'settings.ado.deadlineDays' | transloco
+    }}</label>
     <input
-      #delegateInput
-      data-testid="delegate-input"
-      type="text"
-      [placeholder]="'settings.delegates.addPlaceholder' | transloco"
-      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-      (keyup.enter)="addDelegate(delegateInput)"
+      #deadlineDays
+      id="ado-deadline-days"
+      data-testid="ado-deadline-days"
+      type="number"
+      min="0"
+      max="365"
+      [value]="settings.adoDefaultDeadlineDays()"
+      class="mt-2 w-24 rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+      (change)="saveDeadlineDays(deadlineDays.value)"
     />
-  </label>
 
-  @if (settings.delegatesError(); as message) {
-    <p
-      data-testid="delegates-error"
-      role="alert"
-      class="mt-2 text-sm text-red-700 dark:text-red-300"
-    >
-      {{ message }}
-    </p>
-  }
-</section>
-
-<section data-testid="jira-settings">
-  <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
-    {{ 'settings.groups.jira' | transloco }}
-  </h3>
-
-  <label
-    for="jira-base-url"
-    class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
-    >{{ 'settings.jira.baseUrl' | transloco }}</label
-  >
-  <input
-    #baseUrl
-    id="jira-base-url"
-    data-testid="jira-base-url"
-    type="url"
-    [value]="settings.jiraBaseUrl() ?? ''"
-    [placeholder]="'settings.jira.baseUrlPlaceholder' | transloco"
-    class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-    (change)="saveBaseUrl(baseUrl.value)"
-  />
-
-  <label
-    for="jira-project-key"
-    class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
-    >{{ 'settings.jira.projectKey' | transloco }}</label
-  >
-  <input
-    #projectKey
-    id="jira-project-key"
-    data-testid="jira-project-key"
-    type="text"
-    [value]="settings.jiraProjectKey() ?? ''"
-    [placeholder]="'settings.jira.projectKeyPlaceholder' | transloco"
-    class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-    (change)="saveProjectKey(projectKey.value)"
-  />
-
-  <label for="jira-token" class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100">{{
-    'settings.jira.token' | transloco
-  }}</label>
-  <input
-    #tokenInput
-    id="jira-token"
-    data-testid="jira-token"
-    type="password"
-    autocomplete="off"
-    [value]="token()"
-    [placeholder]="'settings.jira.tokenPlaceholder' | transloco"
-    class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-    (input)="token.set(tokenInput.value)"
-  />
-
-  @if (settings.hasJiraToken()) {
-    <p data-testid="jira-token-stored" class="mt-1 text-xs text-gray-700 dark:text-gray-300">
-      {{ 'settings.jira.tokenStored' | transloco }}
-    </p>
-  }
-
-  <div class="mt-2 flex flex-wrap gap-2">
-    <button
-      type="button"
-      data-testid="jira-save-token"
-      class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
-      (click)="storeToken()"
-    >
-      {{ 'settings.jira.saveToken' | transloco }}
-    </button>
-
-    @if (settings.hasJiraToken()) {
-      <button
-        type="button"
-        data-testid="jira-clear-token"
-        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
-        (click)="clearToken()"
+    <!-- Gruppens egen linje, ikke settings-error: den skrives af hver gemning, så en afvist
+         sagstype ville dukke op igen over sprogvælgeren næste gang sproget blev valgt. -->
+    @if (settings.adoError(); as message) {
+      <p
+        data-testid="ado-settings-error"
+        role="alert"
+        class="mt-2 text-sm text-red-700 dark:text-red-300"
       >
-        {{ 'settings.jira.clearToken' | transloco }}
-      </button>
+        {{ message }}
+      </p>
     }
-  </div>
+  </section>
 
-  <!-- Above the status picker on purpose: the picker needs a working connection, so a wrong token
-       shows here as a reason rather than there as an empty list. -->
-  <div class="mt-3 flex flex-wrap items-center gap-2">
-    <button
-      type="button"
-      data-testid="jira-test"
-      [disabled]="jira.busy()"
-      class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
-      (click)="jira.testConnection()"
-    >
-      {{ 'settings.jira.testConnection' | transloco }}
-    </button>
-
-    @let connection = jira.connection();
-    @if (connection !== null) {
-      <span
-        data-testid="jira-connection"
-        aria-live="polite"
-        class="text-sm text-gray-900 dark:text-gray-100"
-        >{{
-          connection === ''
-            ? ('settings.connectedNoName' | transloco)
-            : ('settings.jira.connectedAs' | transloco: { name: connection })
-        }}</span
-      >
-    }
-  </div>
-
-  <!-- The store's error belongs beside the button that causes it, not at the foot of the section. It
-       lived down there until a user reported that Test connection "said nothing": in a 480px column the
-       message was over a hundred lines below the button, so a refused token looked like a dead button.
-       Both testConnection and loadStates write this signal, and both buttons are within a few lines of
-       here. -->
-  @if (jira.error(); as message) {
-    <p data-testid="jira-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
-      {{ message }}
-    </p>
-  }
-
-  <h4 class="mt-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-    {{ 'settings.jira.waitingStatuses' | transloco }}
-  </h4>
-
-  <button
-    type="button"
-    data-testid="jira-load-statuses"
-    [disabled]="jira.busy()"
-    class="mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
-    (click)="jira.loadStatuses()"
+  <!-- Aliaserne hører her, ikke sammen med de delegerede: de betyder hvad der er *mit* i en
+       importeret CSV og findes kun fordi retro-importen findes. De delegerede er andre mennesker.
+       -->
+  <section
+    appSettingsSection
+    data-testid="retro-settings"
+    name="retro"
+    heading="settings.groups.retro"
+    [open]="isOpen('retro')"
+    (toggled)="toggleSection('retro')"
   >
-    {{ 'settings.jira.loadStatuses' | transloco }}
-  </button>
+    <h4 class="mt-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+      {{ 'settings.aliases.heading' | transloco }}
+    </h4>
 
-  @if (statusOptions().length === 0) {
-    <p data-testid="jira-statuses-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
-      {{ 'settings.jira.statusesEmpty' | transloco }}
-    </p>
-  } @else {
     <ul class="mt-2 space-y-1">
-      @for (status of statusOptions(); track status) {
-        <li data-testid="jira-status-row">
-          <label class="flex items-center gap-2">
-            <input
-              #waiting
-              type="checkbox"
-              class="shrink-0"
-              [checked]="isWaiting(status)"
-              (change)="toggleWaiting(status, waiting.checked)"
-            />
-            <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
-              status
-            }}</span>
-          </label>
+      @for (alias of retro.aliases(); track alias) {
+        <li data-testid="alias-row" class="flex items-center gap-2">
+          <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+            alias
+          }}</span>
+          <button
+            type="button"
+            data-testid="remove-alias"
+            [attr.aria-label]="'settings.aliases.remove' | transloco: { alias }"
+            class="shrink-0 text-xs text-red-700 dark:text-red-300"
+            (click)="removeAlias(alias)"
+          >
+            ✕
+          </button>
         </li>
       }
     </ul>
-  }
 
-  <label class="mt-3 flex items-center gap-2">
-    <input
-      #includeWaiting
-      data-testid="jira-include-waiting"
-      type="checkbox"
-      class="shrink-0"
-      [checked]="settings.jiraIncludeWaiting()"
-      (change)="setIncludeWaiting(includeWaiting.checked)"
-    />
-    <span class="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">{{
-      'settings.jira.includeWaiting' | transloco
-    }}</span>
-  </label>
+    <label class="mt-2 block">
+      <span class="block text-xs text-gray-700 dark:text-gray-300">{{
+        'settings.aliases.add' | transloco
+      }}</span>
+      <input
+        #aliasInput
+        data-testid="alias-input"
+        type="text"
+        class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+        (keyup.enter)="addAlias(aliasInput)"
+      />
+    </label>
 
-  <!-- Efter den ventende, ikke før: vagten *overskriver* ventende, og læses de i omvendt
-       rækkefølge ser det ud som om ventende vinder. -->
-  <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
-    {{ 'settings.jira.dutyStatuses' | transloco }}
-  </h4>
-
-  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-    {{ 'settings.jira.dutyStatusesHint' | transloco }}
-  </p>
-
-  @if (dutyStatusOptions().length === 0) {
-    <p data-testid="jira-duty-statuses-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
-      {{ 'settings.jira.statusesEmpty' | transloco }}
-    </p>
-  } @else {
-    <ul class="mt-2 space-y-1">
-      @for (status of dutyStatusOptions(); track status) {
-        <li data-testid="jira-duty-status-row">
-          <label class="flex items-center gap-2">
-            <input
-              #duty
-              type="checkbox"
-              class="shrink-0"
-              [checked]="isDutyStatus(status)"
-              (change)="toggleDutyStatus(status, duty.checked)"
-            />
-            <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
-              status
-            }}</span>
-          </label>
-        </li>
-      }
-    </ul>
-  }
-
-  <label class="mt-3 flex items-center gap-2">
-    <input
-      #onDuty
-      data-testid="jira-on-duty"
-      type="checkbox"
-      class="shrink-0"
-      [checked]="settings.jiraOnDuty()"
-      (change)="setOnDuty(onDuty.checked)"
-    />
-    <span class="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">{{
-      'settings.jira.onDuty' | transloco
-    }}</span>
-  </label>
-
-  <!-- Ord frem for kun en mærkat: kontakten henter puljens sager *og* gør dem handlingsklare, og
-       en kontakt der kun hedder Jeg har vagten siger ikke det sidste. -->
-  <p data-testid="jira-on-duty-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-    {{ 'settings.jira.onDutyHint' | transloco }}
-  </p>
-</section>
-
-<section data-testid="ado-settings">
-  <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
-    {{ 'settings.groups.ado' | transloco }}
-  </h3>
-
-  <label
-    for="ado-base-url"
-    class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
-    >{{ 'settings.ado.baseUrl' | transloco }}</label
-  >
-  <input
-    #adoBaseUrl
-    id="ado-base-url"
-    data-testid="ado-base-url"
-    type="url"
-    [value]="settings.adoBaseUrl() ?? ''"
-    [placeholder]="'settings.ado.baseUrlPlaceholder' | transloco"
-    class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-    (change)="saveAdoBaseUrl(adoBaseUrl.value)"
-  />
-
-  <!-- Samlingens URL bærer sit eget mellemrum som %20, og appen escaper den ikke igen — projektet
-       er derimod et navn brugeren skriver, og det escaper appen. Derfor to felter og ikke ét. -->
-  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-    {{ 'settings.ado.baseUrlHint' | transloco }}
-  </p>
-
-  <label
-    for="ado-project"
-    class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
-    >{{ 'settings.ado.project' | transloco }}</label
-  >
-  <input
-    #adoProject
-    id="ado-project"
-    data-testid="ado-project"
-    type="text"
-    [value]="settings.adoProject() ?? ''"
-    [placeholder]="'settings.ado.projectPlaceholder' | transloco"
-    class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-    (change)="saveAdoProject(adoProject.value)"
-  />
-
-  <label for="ado-token" class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100">{{
-    'settings.ado.token' | transloco
-  }}</label>
-  <input
-    #adoTokenInput
-    id="ado-token"
-    data-testid="ado-token"
-    type="password"
-    autocomplete="off"
-    [value]="adoToken()"
-    [placeholder]="'settings.ado.tokenPlaceholder' | transloco"
-    class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-    (input)="adoToken.set(adoTokenInput.value)"
-  />
-
-  @if (settings.hasAdoToken()) {
-    <p data-testid="ado-token-stored" class="mt-1 text-xs text-gray-700 dark:text-gray-300">
-      {{ 'settings.ado.tokenStored' | transloco }}
-    </p>
-  }
-
-  <div class="mt-2 flex flex-wrap gap-2">
-    <button
-      type="button"
-      data-testid="ado-save-token"
-      class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
-      (click)="storeAdoToken()"
-    >
-      {{ 'settings.ado.saveToken' | transloco }}
-    </button>
-
-    @if (settings.hasAdoToken()) {
-      <button
-        type="button"
-        data-testid="ado-clear-token"
-        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
-        (click)="clearAdoToken()"
-      >
-        {{ 'settings.ado.clearToken' | transloco }}
-      </button>
+    @if (retro.error(); as message) {
+      <p data-testid="alias-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+        {{ message }}
+      </p>
     }
-  </div>
-
-  <!-- Over tilstandsvælgeren af samme grund som hos Jira: vælgeren kræver en forbindelse der
-       virker, så et forkert token vises her som en grund frem for der som en tom liste. -->
-  <div class="mt-3 flex flex-wrap items-center gap-2">
-    <button
-      type="button"
-      data-testid="ado-test"
-      [disabled]="ado.busy()"
-      class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
-      (click)="ado.testConnection()"
-    >
-      {{ 'settings.ado.testConnection' | transloco }}
-    </button>
-
-    @let adoConnection = ado.connection();
-    @if (adoConnection !== null) {
-      <span
-        data-testid="ado-connection"
-        aria-live="polite"
-        class="text-sm text-gray-900 dark:text-gray-100"
-        >{{
-          adoConnection === ''
-            ? ('settings.connectedNoName' | transloco)
-            : ('settings.ado.connectedAs' | transloco: { name: adoConnection })
-        }}</span
-      >
-    }
-  </div>
-
-  <!-- Beside the button for the same reason as in the Jira section above. -->
-  @if (ado.error(); as message) {
-    <p data-testid="ado-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
-      {{ message }}
-    </p>
-  }
-
-  <h4 class="mt-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-    {{ 'settings.ado.waitingStates' | transloco }}
-  </h4>
-
-  <button
-    type="button"
-    data-testid="ado-load-states"
-    [disabled]="ado.busy()"
-    class="mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
-    (click)="ado.loadStates()"
-  >
-    {{ 'settings.ado.loadStates' | transloco }}
-  </button>
-
-  @if (stateOptions().length === 0) {
-    <p data-testid="ado-states-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
-      {{ 'settings.ado.statesEmpty' | transloco }}
-    </p>
-  } @else {
-    <ul class="mt-2 space-y-1">
-      @for (state of stateOptions(); track state) {
-        <li data-testid="ado-state-row">
-          <label class="flex items-center gap-2">
-            <input
-              #waitingState
-              type="checkbox"
-              class="shrink-0"
-              [checked]="isWaitingState(state)"
-              (change)="toggleWaitingState(state, waitingState.checked)"
-            />
-            <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
-              state
-            }}</span>
-          </label>
-        </li>
-      }
-    </ul>
-  }
-
-  <label class="mt-3 flex items-center gap-2">
-    <input
-      #adoIncludeWaiting
-      data-testid="ado-include-waiting"
-      type="checkbox"
-      class="shrink-0"
-      [checked]="settings.adoIncludeWaiting()"
-      (change)="setAdoIncludeWaiting(adoIncludeWaiting.checked)"
-    />
-    <span class="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">{{
-      'settings.ado.includeWaiting' | transloco
-    }}</span>
-  </label>
-
-  <!-- Ingen vagt-liste her, og det er ikke en mangel: Azure DevOps har ingen pulje af sager der
-       venter på den der har vagten, så en anden liste ville være en indstilling uden en betydning. -->
-  <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
-    {{ 'settings.ado.workItemTypes' | transloco }}
-  </h4>
-
-  <p data-testid="ado-work-item-types-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-    {{ 'settings.ado.workItemTypesHint' | transloco }}
-  </p>
-
-  <ul class="mt-2 space-y-1">
-    @for (type of settings.adoWorkItemTypes(); track type) {
-      <li data-testid="ado-work-item-type-row" class="flex items-center gap-2">
-        <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
-          type
-        }}</span>
-        <button
-          type="button"
-          data-testid="remove-work-item-type"
-          [attr.aria-label]="'settings.ado.removeWorkItemType' | transloco: { type }"
-          class="shrink-0 text-xs text-red-700 dark:text-red-300"
-          (click)="removeWorkItemType(type)"
-        >
-          ✕
-        </button>
-      </li>
-    }
-  </ul>
-
-  <label class="mt-2 block">
-    <span class="block text-xs text-gray-700 dark:text-gray-300">{{
-      'settings.ado.addWorkItemType' | transloco
-    }}</span>
-    <input
-      #workItemTypeInput
-      data-testid="ado-work-item-type-input"
-      type="text"
-      [placeholder]="'settings.ado.addWorkItemTypePlaceholder' | transloco"
-      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-      (keyup.enter)="addWorkItemType(workItemTypeInput)"
-    />
-  </label>
-
-  <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
-    {{ 'settings.ado.deadlineDays' | transloco }}
-  </h4>
-
-  <p data-testid="ado-deadline-days-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-    {{ 'settings.ado.deadlineDaysHint' | transloco }}
-  </p>
-
-  <label for="ado-deadline-days" class="sr-only text-gray-900 dark:text-gray-100">{{
-    'settings.ado.deadlineDays' | transloco
-  }}</label>
-  <input
-    #deadlineDays
-    id="ado-deadline-days"
-    data-testid="ado-deadline-days"
-    type="number"
-    min="0"
-    max="365"
-    [value]="settings.adoDefaultDeadlineDays()"
-    class="mt-2 w-24 rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
-    (change)="saveDeadlineDays(deadlineDays.value)"
-  />
-
-  <!-- Gruppens egen linje, ikke settings-error: den skrives af hver gemning, så en afvist sagstype
-       ville dukke op igen over sprogvælgeren næste gang sproget blev valgt. -->
-  @if (settings.adoError(); as message) {
-    <p
-      data-testid="ado-settings-error"
-      role="alert"
-      class="mt-2 text-sm text-red-700 dark:text-red-300"
-    >
-      {{ message }}
-    </p>
-  }
-</section>
-
-<!-- Aliaserne hører her, ikke sammen med de delegerede: de betyder hvad der er *mit* i en
-     importeret CSV og findes kun fordi retro-importen findes. De delegerede er andre mennesker. -->
-<section data-testid="retro-settings">
-  <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
-    {{ 'settings.groups.retro' | transloco }}
-  </h3>
-
-  <h4 class="mt-3 text-sm font-medium text-gray-900 dark:text-gray-100">
-    {{ 'settings.aliases.heading' | transloco }}
-  </h4>
-
-  <ul class="mt-2 space-y-1">
-    @for (alias of retro.aliases(); track alias) {
-      <li data-testid="alias-row" class="flex items-center gap-2">
-        <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
-          alias
-        }}</span>
-        <button
-          type="button"
-          data-testid="remove-alias"
-          [attr.aria-label]="'settings.aliases.remove' | transloco: { alias }"
-          class="shrink-0 text-xs text-red-700 dark:text-red-300"
-          (click)="removeAlias(alias)"
-        >
-          ✕
-        </button>
-      </li>
-    }
-  </ul>
-
-  <label class="mt-2 block">
-    <span class="block text-xs text-gray-700 dark:text-gray-300">{{
-      'settings.aliases.add' | transloco
-    }}</span>
-    <input
-      #aliasInput
-      data-testid="alias-input"
-      type="text"
-      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
-      (keyup.enter)="addAlias(aliasInput)"
-    />
-  </label>
-
-  @if (retro.error(); as message) {
-    <p data-testid="alias-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
-      {{ message }}
-    </p>
-  }
-</section>
+  </section>
+</div>

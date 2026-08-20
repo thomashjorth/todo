@@ -137,7 +137,8 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
 
         await jira.SettingsLink.ClickAsync();
 
-        await Assertions.Expect(new SettingsScreen(App).Language).ToBeVisibleAsync();
+        await Assertions.Expect(new SettingsScreen(App).SectionToggle(SettingsScreen.LanguageSection))
+            .ToBeVisibleAsync();
     }
 
     /// <summary>
@@ -410,6 +411,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
         // and the server reads it back from the settings on both the preview and the import.
         var settings = await App.GoToSettings();
 
+        await settings.OpenAsync(SettingsScreen.JiraSection);
         await settings.OnDuty.CheckAsync();
         await Assertions.Expect(settings.OnDuty).ToBeCheckedAsync();
 

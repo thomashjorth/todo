@@ -93,6 +93,25 @@ prosaord og ikke markup, så GUID-matchet sker i klienten; det **fulde visningsn
 (25 af 25 bar GUID'et) hvor fornavnet gav et falsk positiv; og kommentaren er **HTML**, så skive 13
 skal konvertere HTML til markdown.
 
+**Uden for skiverne: indstillingssiden foldet til en accordion** (2026-08-20). Brugerens ord anden gang:
+*"Det ligner stadig en stor bunke… en overskrift til hver sektion. Når man klikker på den bliver sektionens
+settings synlig. Der må kun være en sektion åben af gangen."* Grupperne fandtes fra uddelegeringen — det var
+**foldningen** der manglede. Nyt er én komponent, `section[appSettingsSection]` (attributvælger som
+`li[appTaskRow]`), med `<h3><button aria-expanded aria-controls>` og et panel med `role="region"` +
+`aria-labelledby`. Panelet **fjernes** fra DOM'en med `@if` frem for at skjules, så kontrastvagten ikke
+måler tekst der ikke vises. Højst én åben, og **nul åbne er en gyldig tilstand**: siden ankommer sådan, og et
+klik på den åbne overskrift lukker den. Tilstanden er `Settings.openSection`, et signal, **ikke** en
+indstilling — prisen er, at en tur til importskærmen og tilbage folder siden op igen. Ingen PrimeNG (appen
+har den ikke); chevronen er `▾`/`▸` med `aria-hidden="true"`, og glyffet frem for en SVG er en
+*testbeslutning*: kun et tekstglyf kan siges at sive ind i knappens tilgængelige navn, så mutationen kan
+måles. **Og foldningen afdækkede en rigtig fejl:** hver Jira-gemning og Jira-tokenruten skrev til
+`settings.error`, som renderes inde i **sproggruppen** — usynligt når den er lukket. Det er præcis det hul
+uddelegeringsafsnittet ovenfor skrev ned, og det er nu lukket: `SettingsStore.jiraError` + `saveJira` +
+`jira-settings-error` i Jira-gruppens fod, symmetrisk med ADO's to linjer. **Bemærk sideordnet fund:**
+`PUT /api/settings` validerer kun fire ting — sprog, delegerede, ADO-sagstyper og ADO-dagantal — og **intet**
+Jira-felt, så Jira-gruppens eneste kodede afvisning kommer fra tokenruten. Testtal efter: Core **164**,
+Api **286**, E2E **44**, Vitest **250**.
+
 ## Tilbage
 
 Skive 12 er færdig, og **næste nummererede skive er 13 (mentions-indbakke)**. Dens krav blev udvidet

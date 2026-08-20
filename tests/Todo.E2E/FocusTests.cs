@@ -41,6 +41,7 @@ public class FocusTests(BrowserFixture fixture) : BrowserTest(fixture)
     {
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
         var settings = await App.GoToSettings();
+        await settings.OpenAsync(SettingsScreen.LanguageSection);
 
         await settings.Language.FocusAsync();
 

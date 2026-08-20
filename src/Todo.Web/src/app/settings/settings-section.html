@@ -1,0 +1,37 @@
+<!-- The button sits inside the heading rather than in place of it: the level has to stay, so a
+     screen reader's list of headings still names all five groups. The whole row is the click
+     target, not just the words. -->
+<h3>
+  <button
+    type="button"
+    [id]="toggleId()"
+    [attr.data-testid]="toggleId()"
+    [attr.aria-expanded]="open()"
+    [attr.aria-controls]="panelId()"
+    class="flex w-full items-center justify-between gap-2 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:focus-visible:outline-blue-400"
+    (click)="toggled.emit()"
+  >
+    <span
+      class="min-w-0 flex-1 text-sm font-semibold break-words text-gray-900 dark:text-gray-100"
+      >{{ heading() | transloco }}</span
+    >
+    <!-- The direction is for the eye only. `aria-expanded` already says it to assistive tech, and a
+         character that leaked into the button's accessible name would break every name-based
+         locator — the suite matches those in full. -->
+    <span
+      data-testid="section-chevron"
+      aria-hidden="true"
+      class="shrink-0 text-sm text-gray-500 dark:text-gray-400"
+      >{{ open() ? '▾' : '▸' }}</span
+    >
+  </button>
+</h3>
+
+<!-- Removed from the DOM rather than hidden in it, the same as the expanded task row: it keeps the
+     contrast guard honest, because a colour it can only measure on text that is actually painted
+     cannot be measured against a background chain that does not apply. -->
+@if (open()) {
+  <div [id]="panelId()" [attr.aria-labelledby]="toggleId()" role="region" class="pb-4">
+    <ng-content />
+  </div>
+}

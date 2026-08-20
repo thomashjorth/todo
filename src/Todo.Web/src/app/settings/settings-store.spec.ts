@@ -360,6 +360,25 @@ describe('SettingsStore', () => {
     await chosen;
   });
 
+  // A failed save of a Jira setting answers in the Jira group's line, not in the language group's.
+  // A 500 rather than a coded refusal, and that is not laziness: PUT /api/settings validates four
+  // things — the language, the delegate list, the ADO work item types and the ADO day count — and
+  // not one Jira field, so a transport failure is the only way this path fails today. The Jira
+  // group's coded refusals come from its token route, which is tested below.
+  it('should say a Jira setting could not be saved without touching the settings error', async () => {
+    const { store, http } = configure('da-DK');
+
+    const saved = store.saveJira({ jiraBaseUrl: 'https://jira.test' });
+    http
+      .expectOne('/api/settings')
+      .flush(new Blob(['boom']), { status: 500, statusText: 'Server Error' });
+    await saved;
+
+    expect(store.jiraError()).toBe('Noget gik galt. Prøv igen.');
+    expect(store.error()).toBeNull();
+    expect(store.adoError()).toBeNull();
+  });
+
   it('should say why Azure DevOps refused a setting without touching the settings error', async () => {
     const { store, http } = configure('da-DK');
 
@@ -502,7 +521,10 @@ describe('SettingsStore', () => {
       );
 
     expect(await saved).toBe(false);
-    expect(store.error()).toBe('Tokenet må ikke være tomt.');
+    // The Jira group's own line, as Azure DevOps' token answers on the ADO group's: `error` is the
+    // language group's, and a message there is invisible once that group is folded shut.
+    expect(store.jiraError()).toBe('Tokenet må ikke være tomt.');
+    expect(store.error()).toBeNull();
     expect(store.hasJiraToken()).toBe(false);
   });
 

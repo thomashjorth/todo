@@ -2,8 +2,29 @@ using Microsoft.Playwright;
 
 namespace Todo.E2E;
 
+/// <summary>
+/// The settings page, whose five groups fold. Only one is open at a time and none is open on
+/// arrival, so every locator below the headings finds nothing until its group has been unfolded —
+/// the panel is removed from the DOM, not hidden in it.
+/// <para>
+/// The methods that act on a group unfold it themselves through <see cref="OpenAsync"/>, which is
+/// idempotent, so a caller that only uses those needs to know nothing about the fold. A caller that
+/// reaches for a locator directly has to open its group first.
+/// </para>
+/// </summary>
 public sealed class SettingsScreen(TodoApp app)
 {
+    /// <summary>The five groups, spelled the way each heading button's test id is built.</summary>
+    public const string LanguageSection = "language";
+
+    public const string DelegateSection = "delegate";
+
+    public const string JiraSection = "jira";
+
+    public const string AdoSection = "ado";
+
+    public const string RetroSection = "retro";
+
     public ILocator Heading => Page.GetByRole(AriaRole.Heading, new() { Level = 2 });
 
     public ILocator Language => Page.GetByTestId("language-select");
@@ -100,14 +121,55 @@ public sealed class SettingsScreen(TodoApp app)
 
     public ILocator AdoError => Page.GetByTestId("ado-error");
 
+    /// <summary>
+    /// The group's own red line, written by a rejected save of a Jira setting or token. Separate
+    /// from <see cref="JiraError"/> on purpose, the same way the two ADO lines are: this one is the
+    /// app's own server refusing a setting, that one is Jira refusing a call.
+    /// </summary>
+    public ILocator JiraSettingsError => Page.GetByTestId("jira-settings-error");
+
     private ILocator AliasInput => Page.GetByTestId("alias-input");
 
     private ILocator DelegateInput => Page.GetByTestId("delegate-input");
 
     private IPage Page => app.Page;
 
+    /// <summary>The heading button of one group, which is what folds and unfolds it.</summary>
+    public ILocator SectionToggle(string section) => Page.GetByTestId($"{section}-section-toggle");
+
+    /// <summary>
+    /// The panel of one group. It exists only while the group is open, so a caller after "the group
+    /// is folded" asserts a count of zero on this rather than on visibility.
+    /// </summary>
+    public ILocator SectionPanel(string section) =>
+        Page.Locator($"#{section}-section-panel[role='region']");
+
+    /// <summary>
+    /// Unfolds one group, and does nothing if it is already open. Idempotent on purpose: the methods
+    /// below call it, so a caller that opens a group and then uses one of them does not close it
+    /// again. Waits for the heading to say it is expanded rather than for a field, because which
+    /// field a group holds is the caller's business.
+    /// </summary>
+    public async Task OpenAsync(string section)
+    {
+        var toggle = SectionToggle(section);
+
+        if (await toggle.GetAttributeAsync("aria-expanded") != "true")
+        {
+            await toggle.ClickAsync();
+        }
+
+        await Assertions.Expect(toggle).ToHaveAttributeAsync("aria-expanded", "true");
+        await Assertions.Expect(SectionPanel(section)).ToBeVisibleAsync();
+    }
+
     /// <summary>Chooses "system", "da" or "en" — the values the API stores, not a browser locale.</summary>
-    public Task ChooseLanguageAsync(string value) => Language.SelectOptionAsync(value);
+    public async Task ChooseLanguageAsync(string value)
+    {
+        await OpenAsync(LanguageSection);
+
+        await Language.SelectOptionAsync(value);
+    }
 
     public async Task AddAliasAsync(string name)
     {
@@ -122,6 +184,8 @@ public sealed class SettingsScreen(TodoApp app)
     /// </summary>
     public async Task SubmitAliasAsync(string name)
     {
+        await OpenAsync(RetroSection);
+
         await AliasInput.FillAsync(name);
         await AliasInput.PressAsync("Enter");
     }
@@ -143,6 +207,8 @@ public sealed class SettingsScreen(TodoApp app)
     /// </summary>
     public async Task SubmitDelegateAsync(string name)
     {
+        await OpenAsync(DelegateSection);
+
         await DelegateInput.FillAsync(name);
         await DelegateInput.PressAsync("Enter");
     }
@@ -153,6 +219,8 @@ public sealed class SettingsScreen(TodoApp app)
     /// </summary>
     public async Task StoreJiraTokenAsync(string token)
     {
+        await OpenAsync(JiraSection);
+
         await JiraToken.FillAsync(token);
         await SaveJiraToken.ClickAsync();
 
@@ -165,6 +233,8 @@ public sealed class SettingsScreen(TodoApp app)
     /// </summary>
     public async Task StoreAdoTokenAsync(string token)
     {
+        await OpenAsync(AdoSection);
+
         await AdoToken.FillAsync(token);
         await SaveAdoToken.ClickAsync();
 
@@ -178,6 +248,8 @@ public sealed class SettingsScreen(TodoApp app)
     /// </summary>
     public async Task RemoveWorkItemTypeAsync(string type)
     {
+        await OpenAsync(AdoSection);
+
         var row = WorkItemTypeRows.Filter(new() { HasText = type });
 
         await row.GetByTestId("remove-work-item-type").ClickAsync();
@@ -192,5 +264,11 @@ public sealed class SettingsScreen(TodoApp app)
 
     public Task<TaskListScreen> GoToTasks() => app.GoToTasks();
 
-    internal Task WaitUntilShownAsync() => Assertions.Expect(Language).ToBeVisibleAsync();
+    /// <summary>
+    /// Arrival is the language heading, not the language select: nothing is unfolded on arrival, so
+    /// the select is not in the DOM yet. A locator that is absent in the state it is meant to prove
+    /// would make every navigation here pass on any page at all.
+    /// </summary>
+    internal Task WaitUntilShownAsync() =>
+        Assertions.Expect(SectionToggle(LanguageSection)).ToBeVisibleAsync();
 }

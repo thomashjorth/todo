@@ -411,9 +411,22 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         var settings = await App.GoToSettings();
         await Assertions.Expect(settings.Heading).ToHaveTextAsync("Indstillinger");
 
+        // The page arrives with all five groups folded, which is a screen state of its own: five
+        // heading buttons and their chevrons, and nothing else. Snapshotted before anything is
+        // opened, because it is not reachable again afterwards — one group is always open from here.
+        await Snapshot();
+
+        // A folded group's panel is out of the DOM, so the guard cannot see a colour in it: every
+        // group has to be unfolded in turn to be measured at all. The language select is the whole
+        // of the first one.
+        await settings.OpenAsync(SettingsScreen.LanguageSection);
+        await Assertions.Expect(settings.Language).ToBeVisibleAsync();
+        await Snapshot();
+
         // The delegate group's empty branch, which is the default state — so this snapshot is the
         // one that measures it. Waited for by its text rather than by the element: a paragraph the
         // localized string has not been interpolated into yet is invisible to the measurement.
+        await settings.OpenAsync(SettingsScreen.DelegateSection);
         await Assertions.Expect(settings.DelegatesEmpty).ToContainTextAsync("Ingen på listen endnu");
         await Assertions.Expect(settings.DelegateRows).ToHaveCountAsync(0);
         await Snapshot();
@@ -539,6 +552,14 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         // The token is stored through the page rather than seeded, because storing it is what puts
         // the "a token is held" line and the Clear button on screen — two branches of their own.
         var settings = await jira.GoToSettings();
+
+        // The group's own red line first, because storing a real token below is what clears it. It
+        // is the only branch here nothing else paints, and there is exactly one way in: the token
+        // route refuses a blank one, while PUT /api/settings validates no Jira field at all.
+        await settings.OpenAsync(SettingsScreen.JiraSection);
+        await settings.SaveJiraToken.ClickAsync();
+        await Assertions.Expect(settings.JiraSettingsError).ToContainTextAsync("må ikke være tomt");
+        await Snapshot();
 
         await settings.StoreJiraTokenAsync("not-a-real-token");
         await Assertions.Expect(settings.JiraTokenStored).ToContainTextAsync("aldrig");

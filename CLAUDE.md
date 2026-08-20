@@ -74,6 +74,11 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   vejen ind. Filen på disken *er* ændret, men Git siger nej, så en midlertidig ændring man tror er
   rullet tilbage, ligger der stadig. Samme klasse af tavs fejl som prettier-fælden ovenfor, men
   gennem et værktøj man bruger til enlinjers-rettelser. Målt i skive 11.
+- **`element.dataset.testid` compilerer ikke i en spec-fil.** `noPropertyAccessFromIndexSignature` er
+  slået til, så Angulars bygning stopper med `TS4111: Property 'testid' comes from an index signature, so
+  it must be accessed with ['testid']`. Fejlen kommer fra `ng test`s egen bygning, ikke fra
+  typetjek-vagten, og den er hurtig at møde — men beskeden peger på en indeks-signatur og ikke på flaget.
+  Brug `getAttribute('data-testid')` eller elementets `id`.
 - **Verificér commit-emner med `od` gennem Bash-værktøjet, aldrig gennem en PowerShell-pipe.** En
   pipe fra PowerShell til `od.exe` tilføjer en **UTF-8 BOM**, så emnet ser ud til at begynde med
   `357 273 277` foran gitmojien. Tallet er pipens, ikke commit'ens — og havde nogen troet på det,
@@ -428,6 +433,51 @@ asymmetrien er det egentlige: samlingen er en **URL** brugeren har indsat og er 
 projektet er et **navn** appen selv skal escape — `AdoSettings.BrowseUrl` gør netop det, og gør man det
 omvendt, får man `%2520` i den ene ende og et brækket projektnavn i den anden.
 
+**Indstillingssiden er en accordion, og foldningen er `@if`, ikke `hidden`.** De fem grupper er hver en
+`section[appSettingsSection]` — attributvælger som `li[appTaskRow]`, så `<section>` bliver værten og
+beholder sit `data-testid`, og skillelinjen falder mellem søskende. Højst **én** åben, og **nul åbne er en
+gyldig tilstand**: siden ankommer sådan, og et klik på den åbne overskrift lukker den. Tilstanden bor i
+`Settings.openSection` som `signal<SettingsSectionName | null>` og er **ikke** gemt — prisen er, at en tur
+til importskærmen og tilbage folder siden op igen. Det er et *valg*, ikke en mangel: en gemt tilstand
+koster et felt på kontrakten, en række i `Setting` og en rundtur for noget brugeren ikke har bedt om. Skal
+det omgøres, flyttes signalet ind i `SettingsStore`.
+
+**Konsekvensen for enhver locator på indstillingssiden er total.** Et felt i en lukket gruppe findes
+**ikke** i DOM'en, så `SettingsScreen.WaitUntilShownAsync` — som ventede på `language-select` — blev en
+påstand der ikke kunne holde: elementet er væk på netop den skærm den skulle bevise. Samme fælde ramte
+`KeyboardJourneyTests.Alt_O_følger_opgavelinket`, hvor `ToHaveCountAsync(0)` på sprogvælgeren nu er sandt
+**også** mens man står på indstillingssiden — en assertion der ikke kan fejle. Begge peger nu på
+`language-section-toggle`, som findes uanset foldning. Leder du efter et felt her: åbn gruppen først.
+`SettingsScreen.OpenAsync` er idempotent og kaldes af `ChooseLanguageAsync`, `SubmitAliasAsync`,
+`SubmitDelegateAsync`, `StoreJiraTokenAsync`, `StoreAdoTokenAsync` og `RemoveWorkItemTypeAsync`, så en
+kalder der kun bruger dem behøver intet at vide om foldningen.
+
+**Chevronen skal være et tekstglyf, ikke en inline-SVG — og det er en testbeslutning.** `▾`/`▸` er
+tekstknuder inde i overskriftsknappen, så `aria-hidden="true"` er **bærende**: målt ved at fjerne den,
+hvorefter `GetByRole(Button, Name = "Sprog", Exact = true)` gav
+`Locator expected to have count '1' But was: '0'`. En `<svg>` uden titel bidrager intet til det
+tilgængelige navn, så samme mutation ville have fældet **ingenting** — vagten havde ikke kunnet skrives.
+Prisen er, at `h3.textContent.trim()` nu indeholder chevronen; overskriftens ord læses af `<span>`'en.
+Og glyfferne er tekst, så kontrastvagten måler dem: de bærer `text-gray-500 dark:text-gray-400`, det
+dæmpede par, målt fældet ved `text-gray-400 dark:text-gray-600` (2,60:1 og 2,35:1).
+
+**`PUT /api/settings` validerer præcis fire ting, og ingen af dem er et Jira-felt.** Ukendt sprog,
+dubleret delegeret, tom ADO-sagstypeliste og ADO-dagantal uden for 0–365 — det er hele listen i
+`SettingsEndpoints`. Konsekvensen: `saveJira`'s fejlvej kan i dag **kun** nås af en transportfejl, og
+Jira-gruppens eneste *kodede* afvisning kommer fra tokenruten (`settings.emptyToken`). En test der staged
+`jira.statusNameInvalid` på `PUT /api/settings` ville måle en form serveren aldrig sender — koden rejses af
+`JiraTaskSource`, altså i forhåndsvisningen, ikke i gemningen.
+
+**Og det var her foldningen afdækkede en rigtig fejl.** `settings.error` skrives af `save`, og
+`saveBaseUrl`, `saveProjectKey`, `toggleWaiting`, `setIncludeWaiting`, `toggleDutyStatus`, `setOnDuty`,
+`setToken` og `clearToken` gik alle den vej — men linjen `settings-error` renderes inde i
+**sproggruppen**. Et afvist Jira-token stod altså over sprogvælgeren, og med foldning ser brugeren
+**ingenting**, hvis sproggruppen er lukket. ADO-gruppen havde `adoError` af netop den grund; Jira havde
+ikke. Rettelsen er `SettingsStore.jiraError` + `saveJira` + `jira-settings-error` i gruppens fod, symmetrisk
+med ADO's to linjer: `jira-error` (Jira afviser et kald) ved siden af knappen, `jira-settings-error` (vores
+server afviser en indstilling) i foden. `settings.error` har nu **én** kaller, `choose`, og det er
+sproggruppens linje.
+
 **Backenden læser et fraværende felt som "ryd".** `PUT /api/tasks/{id}` er en fuld erstatning, så
 `TaskStore.update` skal bære **hvert** felt med i sit `current`-objekt. Mangler ét, sletter enhver
 redigering af noget andet det lydløst — sådan tabte en gemt `DeferUntil` sig selv, når man rettede
@@ -568,6 +618,14 @@ forkerte grund.
   tilstand og rejsen åbner rækken** — vagten kan ikke se en farve, der aldrig blev renderet, så en ny
   betinget linje koster en fixture-opgave og en klik-og-vent i `ContrastTests`. Hintet om en startdato
   efter deadline kom ind i vagten netop derfor, og blev set fejle i begge temaer.
+  **Indstillingssiden er fra foldningen fem skærmtilstande i stedet for én**, og den foldede side er en af
+  dem: fem overskrifter og intet andet, en tilstand rejsen aldrig kan nå tilbage til, når først en gruppe
+  er åbnet — så den snapshottes **først**. De fire andre er de fire grupper der ikke åbnes af noget andet;
+  Jiras og ADO's åbnes af `StoreJiraTokenAsync`/`StoreAdoTokenAsync`. Målt at det virker frem for antaget:
+  overskriftens `<span>` sat til `text-gray-400 dark:text-gray-600` gav **fem** fejl pr. tema i **tre**
+  teorier (`Every_screen`, `The_Jira_screens`, `The_Ado_screens`), én pr. gruppenavn —
+  `span text "Sprog" 2,60:1 needs 4,5`. Tælles skærme, er svaret stadig fem ruter; tælles **tilstande**,
+  koster indstillingssiden nu fem snapshots.
 - **En gren bag et fremmedsystem er umålt, indtil kaldet opsnappes.** Skive 11 efterlod **elleve**
   `@if`-grene som ingen farve nogensinde blev renderet i, fordi hver af dem kræver et svar fra Jira;
   skive 12 efterlod **toogtyve** af samme slags bag ADO. `ContrastTests` svarer derfor selv på
@@ -672,7 +730,26 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 12 (ADO-import): **164** Todo.Core.Tests, **283** Todo.Api.Tests, **43** Todo.E2E,
+Efter foldningen af indstillingssiden: **164** Todo.Core.Tests, **286** Todo.Api.Tests, **44** Todo.E2E,
+**250** Vitest. Leverancen lagde **1** E2E til (43 → 44) og **8** Vitest (242 → 250); Core og Api stod
+stille, fordi hele leverancen er skærmtilstand og ét signal i en store.
+**Den ene E2E er hele reglen**, `SettingsAccordionJourneyTests.Only_the_group_you_click_is_open_and_clicking_it_again_folds_it`:
+ankomst med fem lukkede grupper, de fem overskrifters **præcise** tilgængelige navne, én åben, en anden
+åben så den første lukkede, og et klik på den åbne så **ingen** er åben. Den ligger i browseren og ikke i
+Vitest af én grund: navneberegningen. Kun browseren afgør at chevronen siver ind i knappens navn.
+**De 8 Vitest er 7 i `settings.spec.ts`** — listerne et niveau ned inde i deres egen gruppe, ankomsten
+foldet, kun den åbne gruppe renderet med `role="region"` og `aria-labelledby`, den ene der lukker den
+anden, klikket der lukker sig selv, chevronens `aria-hidden`, og at en fejlet Jira-gemning står i
+Jira-gruppen — **og 1 i `settings-store.spec.ts`** om at `saveJira` svarer i `jiraError`.
+`ContrastTests` voksede **ikke** med en test: de tre nye flader — de fem overskrifter, chevronerne og
+`jira-settings-error` — kostede tre `OpenAsync`-kald, et klik på Gem token med et tomt felt og fire
+`Snapshot()`-kald inde i de teorier der allerede var der.
+**Bemærk at 242 og 286 ikke stod her før.** Blokken nedenfor sagde **283** og **239**, fordi `50f0e61`
+("Test forbindelse tav…") lagde 3 Api-tests og 3 Vitest til og rørte `CLAUDE.md` **uden** at rette
+testtallene — samme udfald som `e6be619` gjorde ved 185/186. Tallene her er **målt** med `dotnet test`
+og `npm run test` før arbejdet begyndte, ikke regnet videre på det forrige.
+
+Før den, efter skive 12 (ADO-import): **164** Todo.Core.Tests, **283** Todo.Api.Tests, **43** Todo.E2E,
 **239** Vitest. Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
 Skiven lagde **61** Core-tests til (103 → 164), **92** Api-tests (191 → 283), **8** E2E (35 → 43) og
 **41** Vitest (198 → 239). Fordelingen siger hvor arbejdet lå, og den er skæv med vilje: fire af de seks
