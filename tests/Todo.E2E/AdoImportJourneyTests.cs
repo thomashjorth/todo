@@ -11,10 +11,18 @@ using IClock = Todo.Core.Time.IClock;
 namespace Todo.E2E;
 
 /// <summary>
-/// The Azure DevOps import screen, driven from the browser. Playwright cannot start a <c>FakeAdo</c>
-/// inside the host's process, so the app's own calls to <c>/api/ado/preview</c> are intercepted:
-/// this suite is about what the screen does with an answer, and <c>AdoTaskSourceTests</c> already owns
-/// what an answer looks like. <c>/api/ado/import</c> is deliberately <em>not</em> intercepted in the
+/// The Azure DevOps import screen, driven from the browser. Most of these journeys intercept
+/// <c>/api/ado/preview</c> — not because a fake is out of reach, but because a route handler is the
+/// only way to stage a <em>specific field combination</em>: a body where one row has a deadline and
+/// another does not is something the real server can never send, since the day count is one setting
+/// for all rows. This suite is about what the screen does with an answer, and
+/// <c>AdoTaskSourceTests</c> already owns what an answer looks like.
+///
+/// Do not read the interception as "Playwright cannot use a fake". It can, and the last journey here
+/// proves it: <c>FakeAdo</c> is its own Kestrel on 127.0.0.1 and <c>RunningHost</c> starts the app in
+/// the test process, so the host's own <c>HttpClient</c> reaches it. That sentence was carried as a
+/// justification for three slices before slice 12 measured it. <c>/api/ado/import</c> is deliberately
+/// <em>not</em> intercepted in the
 /// journey that imports — the deadline is the server's arithmetic on its own clock, and that
 /// derivation is the subject. <c>/api/system/open-link</c> is aborted rather than answered: letting it
 /// through would ask the operating system to open a real browser window on the machine running the
