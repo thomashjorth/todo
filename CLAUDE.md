@@ -789,7 +789,19 @@ forkerte grund.
 
 ## Testtal
 
-Efter foldningen af indstillingssiden: **164** Todo.Core.Tests, **286** Todo.Api.Tests, **44** Todo.E2E,
+Efter formaterings- og linjeskiftsvagterne: **164** Todo.Core.Tests, **290** Todo.Api.Tests,
+**44** Todo.E2E, **250** Vitest. Leverancen lagde **4** Api-tests til (286 → 290) og rørte ikke de tre
+andre tal. Fordelingen er hele historien: **to `FrontendFormattingTests`** og **to `LineEndingTests`**,
+og de er par frem for enkelttests af samme grund i begge tilfælde — den ene påstand er "værktøjet var
+tilfreds", den anden er "værktøjet så noget". Sådan bliver en kørsel på nul filer ikke et bestået.
+Ingen af de fire hører i Core: begge vagter er påstande om værktøjskæden, som
+`FrontendStrictnessTests`. **`ContrastTests` voksede *ikke*** af at tekstområders pladsholder nu måles —
+udvidelsen finder ingenting i dag, fordi ingen `<textarea>` i appen har en pladsholder, og den blev
+bevist med en midlertidig én frem for skrevet ned som ubevist. Og **Vitest stod stille** selvom ni
+frontend-filer blev formateret: formatering ændrer ingen adfærd, og et flyttet tal dér ville have
+betydet at prettier havde skrevet noget om.
+
+Før den, efter foldningen af indstillingssiden: **164** Todo.Core.Tests, **286** Todo.Api.Tests, **44** Todo.E2E,
 **250** Vitest. Leverancen lagde **1** E2E til (43 → 44) og **8** Vitest (242 → 250); Core og Api stod
 stille, fordi hele leverancen er skærmtilstand og ét signal i en store.
 **Den ene E2E er hele reglen**, `SettingsAccordionJourneyTests.Only_the_group_you_click_is_open_and_clicking_it_again_folds_it`:
