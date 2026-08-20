@@ -31,6 +31,14 @@ public sealed class TaskListScreen(TodoApp app)
 
     public ILocator WaitingOnInput => Detail.GetByTestId("waiting-on-input");
 
+    /// <summary>
+    /// The suggestions behind the who field, in the one shared &lt;datalist&gt;. The popup itself is
+    /// browser chrome and cannot be driven from Playwright, but these options are DOM — so this is
+    /// the assertion that proves the names reached the screen at all. Never visible: a
+    /// &lt;datalist&gt; is not rendered, so count and attribute are the only honest questions.
+    /// </summary>
+    public ILocator DelegateOptions => Page.Locator("datalist#delegate-names option");
+
     public ILocator CompletedRows => Page.GetByTestId("completed-section").GetByTestId("task-row");
 
     public ILocator WaitingSection => Page.GetByTestId("waiting-section");

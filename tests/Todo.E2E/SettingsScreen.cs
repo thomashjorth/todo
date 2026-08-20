@@ -12,6 +12,21 @@ public sealed class SettingsScreen(TodoApp app)
 
     public ILocator Error => Page.GetByTestId("alias-error");
 
+    /// <summary>
+    /// The people tasks are handed to. Only a stored list puts a row here, and the list comes from
+    /// the real backend: nothing in this suite stubs <c>/api/settings</c>, so a row exists because a
+    /// name was saved through the page rather than because an answer was staged.
+    /// </summary>
+    public ILocator DelegateRows => Page.GetByTestId("delegate-row");
+
+    /// <summary>
+    /// The sentence that stands in for the list while it is empty — the default state, and the other
+    /// half of the branch <see cref="DelegateRows"/> measures.
+    /// </summary>
+    public ILocator DelegatesEmpty => Page.GetByTestId("delegates-empty");
+
+    public ILocator DelegatesError => Page.GetByTestId("delegates-error");
+
     public ILocator JiraBaseUrl => Page.GetByTestId("jira-base-url");
 
     public ILocator JiraToken => Page.GetByTestId("jira-token");
@@ -44,6 +59,8 @@ public sealed class SettingsScreen(TodoApp app)
 
     private ILocator AliasInput => Page.GetByTestId("alias-input");
 
+    private ILocator DelegateInput => Page.GetByTestId("delegate-input");
+
     private IPage Page => app.Page;
 
     /// <summary>Chooses "system", "da" or "en" — the values the API stores, not a browser locale.</summary>
@@ -64,6 +81,27 @@ public sealed class SettingsScreen(TodoApp app)
     {
         await AliasInput.FillAsync(name);
         await AliasInput.PressAsync("Enter");
+    }
+
+    /// <summary>
+    /// Types a name onto the delegate list and waits for its row: the round trip is a real PUT
+    /// against the real backend, so the row is the only evidence the name was stored.
+    /// </summary>
+    public async Task AddDelegateAsync(string name)
+    {
+        await SubmitDelegateAsync(name);
+
+        await Assertions.Expect(DelegateRows.Filter(new() { HasText = name })).ToBeVisibleAsync();
+    }
+
+    /// <summary>
+    /// Types a name and submits it without waiting for a row: the API rejects a duplicate, and the
+    /// rejection is what a caller is sometimes after.
+    /// </summary>
+    public async Task SubmitDelegateAsync(string name)
+    {
+        await DelegateInput.FillAsync(name);
+        await DelegateInput.PressAsync("Enter");
     }
 
     /// <summary>
