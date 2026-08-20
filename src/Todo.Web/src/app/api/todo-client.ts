@@ -3379,9 +3379,10 @@ export class SettingsRequest implements ISettingsRequest {
     adoWaitingStates?: string[];
     /** Whether rows in a waiting state are imported anyway. Off by default. */
     adoIncludeWaiting?: boolean;
-    /** The work item types to import, so test artefacts stay out. An empty list means every type — which does not contradict the project key that may not be empty, because the default here is populated, so emptying it is a deliberate act rather than the state reached by doing nothing. */
+    /** The work item types to import, so test artefacts stay out. A requirement rather than an optional filter: an empty list is rejected with ado.workItemTypesRequired, and an absent one restores the default Bug, User Story, Task. The plan said an empty list meant every type; that was wrong twice over. It is the same trap as the empty project key — the absence of a limit is not a neutral default — and the storage cannot carry the claim anyway, because an empty list is stored as no row at all and the reader cannot tell never-configured from deliberately-emptied. Compared ordinally, like adoWaitingStates. */
     adoWorkItemTypes?: string[];
-    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. */
+    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. Rejected below 0 or above 365 with ado.defaultDeadlineDaysInvalid.
+The default is load-bearing here and only here. This is a full replacement, so an absent field means clear — but System.Text.Json gives 0 for an absent int, and 0 is a meaningful value, so without the default a request that never mentioned this field would silently turn the deadline off. NSwag turns the default into a property initializer, which the deserialiser leaves alone for an absent field, so absent binds to 3 and a deliberate 0 stays 0. SettingsResponse deliberately carries no default: an initializer there would let a handler that never assigned the field answer 3 and make the test for it unfailable. */
     adoDefaultDeadlineDays?: number;
 
     constructor(data?: ISettingsRequest) {
@@ -3390,6 +3391,9 @@ export class SettingsRequest implements ISettingsRequest {
                 if (data.hasOwnProperty(property))
                     (this as any)[property] = (data as any)[property];
             }
+        }
+        if (!data) {
+            this.adoDefaultDeadlineDays = 3;
         }
     }
 
@@ -3428,7 +3432,7 @@ export class SettingsRequest implements ISettingsRequest {
                 for (let item of _data["adoWorkItemTypes"])
                     this.adoWorkItemTypes!.push(item);
             }
-            this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"];
+            this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"] !== undefined ? _data["adoDefaultDeadlineDays"] : 3;
         }
     }
 
@@ -3498,9 +3502,10 @@ export interface ISettingsRequest {
     adoWaitingStates?: string[];
     /** Whether rows in a waiting state are imported anyway. Off by default. */
     adoIncludeWaiting?: boolean;
-    /** The work item types to import, so test artefacts stay out. An empty list means every type — which does not contradict the project key that may not be empty, because the default here is populated, so emptying it is a deliberate act rather than the state reached by doing nothing. */
+    /** The work item types to import, so test artefacts stay out. A requirement rather than an optional filter: an empty list is rejected with ado.workItemTypesRequired, and an absent one restores the default Bug, User Story, Task. The plan said an empty list meant every type; that was wrong twice over. It is the same trap as the empty project key — the absence of a limit is not a neutral default — and the storage cannot carry the claim anyway, because an empty list is stored as no row at all and the reader cannot tell never-configured from deliberately-emptied. Compared ordinally, like adoWaitingStates. */
     adoWorkItemTypes?: string[];
-    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. */
+    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. Rejected below 0 or above 365 with ado.defaultDeadlineDaysInvalid.
+The default is load-bearing here and only here. This is a full replacement, so an absent field means clear — but System.Text.Json gives 0 for an absent int, and 0 is a meaningful value, so without the default a request that never mentioned this field would silently turn the deadline off. NSwag turns the default into a property initializer, which the deserialiser leaves alone for an absent field, so absent binds to 3 and a deliberate 0 stays 0. SettingsResponse deliberately carries no default: an initializer there would let a handler that never assigned the field answer 3 and make the test for it unfailable. */
     adoDefaultDeadlineDays?: number;
 }
 
@@ -3525,9 +3530,9 @@ export class SettingsResponse implements ISettingsResponse {
     adoWaitingStates!: string[];
     /** Whether rows in a waiting state are imported anyway. Off by default. */
     adoIncludeWaiting!: boolean;
-    /** The work item types to import, so test artefacts stay out. An empty list means every type — which does not contradict the project key that may not be empty, because the default here is populated, so emptying it is a deliberate act rather than the state reached by doing nothing. */
+    /** The work item types to import, so test artefacts stay out. Never empty: an absent row reads back as the default Bug, User Story, Task, and PUT /api/settings rejects an empty list rather than storing one. See the request schema for why. */
     adoWorkItemTypes!: string[];
-    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. */
+    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Always the effective value: an absent row reads back as 3. No default is declared here on purpose — see the request schema. */
     adoDefaultDeadlineDays!: number;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
     hasAdoToken!: boolean;
@@ -3659,9 +3664,9 @@ export interface ISettingsResponse {
     adoWaitingStates: string[];
     /** Whether rows in a waiting state are imported anyway. Off by default. */
     adoIncludeWaiting: boolean;
-    /** The work item types to import, so test artefacts stay out. An empty list means every type — which does not contradict the project key that may not be empty, because the default here is populated, so emptying it is a deliberate act rather than the state reached by doing nothing. */
+    /** The work item types to import, so test artefacts stay out. Never empty: an absent row reads back as the default Bug, User Story, Task, and PUT /api/settings rejects an empty list rather than storing one. See the request schema for why. */
     adoWorkItemTypes: string[];
-    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. */
+    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Always the effective value: an absent row reads back as 3. No default is declared here on purpose — see the request schema. */
     adoDefaultDeadlineDays: number;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
     hasAdoToken: boolean;

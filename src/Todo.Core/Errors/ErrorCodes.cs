@@ -41,5 +41,20 @@ public static class ErrorCodes
     /// </summary>
     public const string JiraExcludedWaiting = "jira.excludedWaiting";
 
+    /// <summary>
+    /// The work item type filter is a requirement rather than an optional filter, so an empty list is
+    /// refused instead of being read as "every type" - the same rule as
+    /// <see cref="JiraProjectKeyRequired"/>, and for the same reason: the absence of a limit is not a
+    /// neutral default. The message must read whole without the value, because api-error-message.ts
+    /// translates without params.
+    /// </summary>
+    public const string AdoWorkItemTypesRequired = "ado.workItemTypesRequired";
+
+    /// <summary>
+    /// A number of days below 0 or above <see cref="Ado.AdoDefaults.DeadlineDaysMax"/>. Negative would
+    /// mean "overdue the moment it is imported", and 300 is a plausible typo for 3.
+    /// </summary>
+    public const string AdoDefaultDeadlineDaysInvalid = "ado.defaultDeadlineDaysInvalid";
+
     public const string SystemUnsupportedScheme = "system.unsupportedScheme";
 }

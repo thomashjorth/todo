@@ -185,6 +185,10 @@
       "statusNameInvalid": "Et statusnavn må ikke indeholde anførselstegn eller backslash. Hent statusserne igen under Indstillinger.",
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra."
     },
+    "ado": {
+      "workItemTypesRequired": "Vælg mindst én sagstype. Rydder du listen, bruges standardtyperne.",
+      "defaultDeadlineDaysInvalid": "Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline."
+    },
     "system": {
       "unsupportedScheme": "Kun http- og https-links kan åbnes."
     }

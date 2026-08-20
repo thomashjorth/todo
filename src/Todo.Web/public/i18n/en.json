@@ -185,6 +185,10 @@
       "statusNameInvalid": "A status name cannot contain a quotation mark or a backslash. Load the statuses again under Settings.",
       "excludedWaiting": "You are waiting for it, and waiting issues are turned off."
     },
+    "ado": {
+      "workItemTypesRequired": "Pick at least one work item type. Clearing the list uses the default types.",
+      "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline."
+    },
     "system": {
       "unsupportedScheme": "Only http and https links can be opened."
     }

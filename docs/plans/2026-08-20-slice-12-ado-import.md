@@ -93,10 +93,14 @@ Besluttet af brugeren 2026-08-20. **`ado.workItemTypes`, default `["Bug", "User 
 To af de tolv målte sager er **Test Plan** og **Test Suite** — testartefakter, ikke arbejde man løser.
 17 % støj i dag.
 
-**En tom liste betyder alle typer, og det modsiger *ikke* skive 11's lektion om den tomme
-projektnøgle.** Forskellen er hvordan tomheden nås: projektnøglen var tom **som udgangspunkt**, så et
-tilbagefald til "alle projekter" blev ramt ved at gøre ingenting. Her er defaulten udfyldt, så en tom
-liste kræver en **bevidst** rydning. Skriv forskellen ned — den ser ellers ud som en inkonsekvens.
+~~**En tom liste betyder alle typer**~~ — **forkert, omgjort i Task 2.** Argumentet var, at tomheden
+nås på en anden måde end den tomme projektnøgle: defaulten er udfyldt, så en rydning er bevidst. Det
+holder ikke, af to grunde. Den ene er skive 11's egen lektion ordret — fraværet af en afgrænsning er
+ikke en neutral standard, og "alle typer" trækker netop de testartefakter ind som filtret findes for at
+holde ude. Den anden er, at **lagringsformen ikke kan bære påstanden**: en tom liste gemmes som *ingen
+række*, og læseren kan derfor ikke skelne *aldrig konfigureret* fra *bevidst tømt* — de er den samme
+byte. Så: en tom liste **afvises** på PUT med `ado.workItemTypesRequired`, og en fraværende række læses
+som de tre standardtyper. Kontrakten er rettet til at sige det.
 
 ---
 
@@ -200,9 +204,29 @@ beslutningen kan ikke.**
 spec-fixture føres ind i en genereret type. Målt tre gange nu: det er kun de fixtures der bruges som
 argument til en `new …()`, ikke dem der bruges som rå svarkrop til `flush(...)`.
 
-## Task 2: Indstillingerne
+## Task 2: Indstillingerne — kørt
 
-`ado.baseUrl` (samlingen), `ado.project`, `ado.token`, `ado.waitingStates`, `ado.includeWaiting`.
+**Syv, ikke fem.** Planens første udgave nævnte kun `ado.baseUrl` (samlingen), `ado.project`,
+`ado.token`, `ado.waitingStates` og `ado.includeWaiting` — men beslutning A og B er også
+indstillinger, og kontrakten fra Task 1 erklærer dem: `ado.workItemTypes` og
+`ado.defaultDeadlineDays`. Rettet efter Task 2.
+
+**Standarden på tre dage kom til at ligge i kontrakten, og det er det ene sted den kan ligge.**
+`adoDefaultDeadlineDays` er en ikke-nullable `int` hvor `0` betyder *ingen deadline*, så
+System.Text.Json giver `0` for både et fraværende felt og et bevidst nul — og de to skal ende
+forskellige steder. Løsningen er `default: 3` på **`SettingsRequest`** i kontrakten: NSwag laver den om
+til en property-initializer, som deserialiseringen lader stå for et fraværende felt, så fravær binder
+til 3 og et bevidst 0 bliver 0. `SettingsResponse` har med vilje **ingen** default — en initializer der
+ville lade en handler der aldrig satte feltet svare 3, og gøre testen for det uophævelig.
+Målt: fjernes initializeren, falder **tre** eksisterende tests i `SettingsEndpointsTests` der påstår om
+hele `Settings`-tabellen, plus de to nye.
+
+**Standarderne kommer af fraværet af en række**, ikke af en seeding — hverken de tre typer eller de tre
+dage lægger en række i en tom database. Derfor gemmes dagantallet kun når det **afviger** fra
+`AdoDefaults.DeadlineDays`, på samme måde som de to bool'er kun gemmes når de er slået til.
+
+**Testtal efter Task 2:** Core **122** (+19), Api **219** (+28, med `ContractDriftTests` fortsat rød på
+de fire `/api/ado/*`), E2E **35** (uændret), Vitest **198** (uændret).
 
 **Tokenet får sit eget endpoint**, `PUT`/`DELETE /api/settings/ado-token`, af samme grund som Jiras:
 `PUT /api/settings` er en fuld erstatning der læser et fraværende felt som *ryd*, så et token på den
@@ -255,8 +279,24 @@ En importskærm som Jiras, og en femte indstillingsgruppe. **`app.routes.ts` har
 bliver den femte**, og `ContrastTests` går dem alle igennem i begge temaer — tallet står skrevet i
 `CLAUDE.md` og designdokumentets afsnit 10 og skal rettes.
 
-`SettingsStore.save` bærer i dag **otte** felter i `current`; ADO's fem gør det tretten. **Udvid den
-eksisterende regressionstest** frem for at lægge en ny ved siden af.
+`SettingsStore.save` bærer i dag **otte** felter i `current` (talt i `settings-store.ts`, linje
+117–124); ADO's **seks** gør det **fjorten** — ikke tretten, som planen skrev: tokenet er ikke et felt
+på den rute. **Udvid den eksisterende regressionstest** frem for at lægge en ny ved siden af.
+
+**Fælden i `current` er `adoDefaultDeadlineDays`.** Mønstret i `put()` er `x.length === 0 ? undefined :
+x`, altså "udelad for at rydde" — og skrives dagantallet med `|| undefined` eller et tilsvarende
+sandhedstjek, forsvinder et bevidst `0`, som er den ene værdi der betyder noget særligt. Udelades
+nøglen, binder serveren til 3; sendes `0`, gemmes `0`. Bemærk også at
+`new SettingsRequest({...})`-konstruktøren **ikke** anvender sin `= 3`-default når den får et
+data-objekt — den kopierer kun nøglerne der er der — så defaulten kommer fra serveren, ikke fra
+klienten.
+
+**To wire-fixtures beskriver nu en form serveren ikke sender:** `settings-store.spec.ts` linje 67 og
+`settings.spec.ts` linje 65 har `adoWorkItemTypes: []`, men svaret bærer altid mindst de tre
+standardtyper — en tom liste kan ikke opstå. Ret begge til `['Bug', 'User Story', 'Task']` i Task 5.
+Og `settings-store.spec.ts` linje 361 påstår
+`expect(own.filter((key) => /token/i.test(key))).toEqual(['hasJiraToken'])`; den skal have
+`'hasAdoToken'` med, i **erklæringsrækkefølge**.
 
 ## Task 6: E2E, kontrast og dokumentation
 
