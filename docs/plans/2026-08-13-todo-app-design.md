@@ -670,12 +670,68 @@ vagt-statusserne blev leveret uden for skiverne og står nedenfor som lukkede.
 
 ## 10. Risici og åbne punkter
 
-- **ADO-mentions** er den mest usikre antagelse. Punktet sagde "verificér i skive 11, ikke i 12" —
-  altså mens "Test forbindelse" bygges, ikke først når ADO-importen skal bruge den. **Skive 11
-  gjorde det ikke, og kunne ikke:** målingen kræver et kald mod brugerens egen ADO-instans med
-  brugerens eget token, og det kan ingen agent gøre herfra. Den står nu som næste måling i
-  `docs/HANDOFF.md`, med WIQL'en fra afsnit 6 og med noten om **aldrig** at lægge et token direkte i
-  en kommandolinje — sæt det i `$env:NAVN` først. Skive 12 må ikke starte, før den er kørt.
+- **ADO-mentions er målt 2026-08-20, og den mest usikre antagelse i hele designet holder.** Den stod
+  som "verificér i skive 11, ikke i 12"; skive 11 kunne ikke, fordi målingen kræver brugerens egen
+  instans og eget token. Den er nu kørt, og **skive 12 er ikke længere blokeret.** Elleve ting er
+  afgjort, og fire af dem ændrer designet.
+
+  **Instansen.** `deploymentType: onPremises` — TFS/ADO Server, ikke Cloud. Samlingen er
+  `Edora Software` **med et mellemrum**, som skal være `%20` i en URL, projektet er `Saas`, og der er
+  **ingen `/tfs/`-mappe**: samlingen ligger i roden. Bemærk at projektet heder `Saas` her og `SAAS` i
+  Jira — to systemer, to stavemåder, egen indstilling.
+
+  **Versionen er 7.1, ikke 7.2.** Målt med `OPTIONS {collection}/_apis/wit`: `wiql`, `updates` og
+  `workItems` har alle `maxVersion 7.2` men `releasedVersion 7.1`. Bruger vi 7.2, kalder vi et
+  preview-API der må ændre sig under os.
+
+  **`comments` er preview-only, og det ændrer designet.** `releasedVersion` er `0.0` på **begge**
+  registrerede rækker, altså i hele spændet 3.0–7.2 — ressourcen er aldrig blevet GA på denne server.
+  **`updates` er derimod GA på 7.1** og bærer `System.History` pr. revision, altså kommentarteksten
+  *plus* hvornår den kom. `updates` er derfor ikke en fallback, den er **den primære vej**, og afsnit
+  6's formulering om at "hente kommentarerne" skal læses som revisioner.
+
+  **`CONTAINS WORDS` på `System.History` virker.** Det var hele antagelsen, og den er nu et 200 med
+  resultater frem for en formodning.
+
+  **Men serveren kan ikke filtrere på mentions, og det er målt to gange.** Mention-markupen er
+  `<a href="#" data-vss-mention="version:2.0,{GUID}">@Visningsnavn</a>`, og GUID'et identificerer
+  personen entydigt — men **`CONTAINS` uden `WORDS` giver 200 med nul resultater** for både
+  `data-vss-mention` og et konkret GUID, selv på en sag vi *ved* indeholder strengen og som ligger
+  inde i vinduet. Indekset dækker **prosaord, ikke markup**. Kontrollen er afgørende for at læse det
+  rigtigt: den samme query med navnet gav 25 hits, så nul betyder "ikke indekseret", ikke "intet at
+  finde". **GUID-matchet skal derfor ske i klienten.**
+
+  **Det fulde visningsnavn er præcist; fornavnet er ikke.** `CONTAINS WORDS 'Thomas'` over 30 dage gav
+  syv, hvoraf **én var falsk** — en sag hvor teksten omtaler en anden Thomas i prosa, og den eneste
+  faktiske mention er af en tredje person. `CONTAINS WORDS 'Thomas Hjorth Hansen'` over 90 dage gav
+  25, **ekskluderede netop den falske**, og **alle 25 bar GUID'et** ved verifikation. Flerords-
+  `CONTAINS WORDS` kræver altså alle ordene, og en rigtig mention renderes med det fulde navn mens en
+  prosa-omtale ikke gør. Klientverifikationen er dermed et **sikkerhedsnet**, ikke et filter der gør
+  reelt arbejde.
+
+  **Volumen er lav.** 25 kandidater på 90 dage, 10 mentions på 30 — ingen paginering i UI'et, ingen
+  filtrering før visning.
+
+  **Én sag kan bære flere mentions** (én havde fire, en anden to), så indbakkens enhed er
+  **kommentaren**, ikke sagen — afsnit 4's `Mention` med et unikt indeks er rigtig. Men nøglen kan
+  ikke være et kommentar-id: `updates` giver **revisioner**, så den er `workItemId` + `rev`.
+
+  **`revisedDate` er `Z`, ikke et offset** — modsat Jiras `+0200`, som kostede en runde. Ingen
+  omregning.
+
+  **Kommentaren er HTML** (`<div>`, `<br>`, `&nbsp;`), så skive 13 skal konvertere **HTML til
+  markdown**, hvor skive 11 konverterede wiki-markup. Anden retning, samme klasse af arbejde — og
+  skive 11 målte, at en markup-konverter skal testes på det **renderede** resultat, ikke på
+  mellemformen.
+
+  **To ting til implementeringen.** WIQL-svaret bærer `asOf`, som er watermarket til inkrementel
+  hentning — vi behøver ikke udlede tidspunktet. Og de URL'er ADO giver tilbage bruger projektets
+  **GUID** frem for navnet, så en URL vi får udleveret er ikke menneskeligt navigerbar: skal en
+  mention linke til sagen, skal vi bygge URL'en selv, som `JiraSettings.BrowseUrl`.
+
+  **Og brugerens GUID hører i en indstilling.** `NoRealInstanceTests` vagter **værtsnavne, ikke
+  GUID'er**, så et fixture med det rigtige GUID ville lægge brugerens identitet i repoet uden at nogen
+  vagt sagde noget. Brug et opdigtet GUID i tests.
 - **Jira-versionen er målt: Data Center 10.3.24** (2026-08-18, læst i Jiras egen om-dialog).
   Det afgør tre ting, som ellers skulle gættes. **Jira 10.x findes kun som Data Center** —
   Server udgik i februar 2024 — så selvhostet er ikke længere en antagelse. Selvhostet Jira

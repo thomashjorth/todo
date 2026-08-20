@@ -74,8 +74,13 @@ vagt-statusserne. Testtal efter: Core **103**, Api **191**, E2E **35**, Vitest *
 huller er skrevet ned i designet: `settings-error` bærer **hver** Jira-indstillings fejl og står nu
 ved sproggruppen (og **ingen** test påstår hvilken gruppe den bor i), og der findes ingen
 formateringsvagt — leverancen efterlod fire prettier-afvigelser, som først blev fundet i hånden.
-**ADO-mentions er fortsat ikke verificeret**, og målingen under "Åbne spørgsmål" bør køres, før
-skive 12 planlægges.
+**ADO-mentions er målt 2026-08-20, og antagelsen holder.** `CONTAINS WORDS` på `System.History`
+virker, så **skive 12 er ikke længere blokeret**. Elleve ting blev afgjort — se designdokumentets
+afsnit 10. De fire der ændrer designet: `comments` er **preview-only** på denne server, så `updates`
+(GA på **7.1**) er den primære vej; serveren kan **ikke** filtrere på mentions, fordi indekset dækker
+prosaord og ikke markup, så GUID-matchet sker i klienten; det **fulde visningsnavn** er præcist
+(25 af 25 bar GUID'et) hvor fornavnet gav et falsk positiv; og kommentaren er **HTML**, så skive 13
+skal konvertere HTML til markdown.
 
 ## Tilbage
 
