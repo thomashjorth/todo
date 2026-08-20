@@ -630,6 +630,14 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
     *Udvidet 2026-08-19 med **vagt-statusser**, uden et skivenummer; se nedenfor og afsnit 4a.*
 12. **ADO-import** — samme mønster. Her viser det sig om abstraktionen fra 11 duer.
 13. **Mentions-indbakke** — WIQL, dedup, "gør til opgave". Mest usikre del, derfor sent.
+    *Krav tilføjet 2026-08-20:* **omtalens ophav afgør hvordan den præsenteres.** Er kommentaren
+    på et **pull request**, skal det *indikeres* — en omtale i en kodegennemgang er en anden slags
+    arbejde end en i et krav, og den skal kunne skelnes på listen uden at åbne den. Er den på en
+    **user story, task eller feature**, præsenteres den som en **kravsafklaring**. Bemærk hvad det
+    betyder for hentningen: work item-typen er allerede i WIQL-svaret, men et pull request er
+    **ikke et work item** — så de to slags omtaler kommer fra hver sin kilde, og "indiker ophavet"
+    er derfor ikke et felt på én række, men to veje der skal mødes i én indbakke. Det skal måles
+    før skiven planlægges, på linje med målingen af `updates` mod `comments`.
 14. **Baggrundssync, tray og notifikationer.**
 15. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
 16. **Pakning** — self-contained exe, autostart.
