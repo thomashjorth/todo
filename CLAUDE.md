@@ -55,7 +55,14 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   brugerens vindue og en probe. Et `Stop-Process -Name Todo.Host` ville have lukket begge.
 - **Kør ikke prettier på hele repoet.** Arbejdskopien er CRLF og prettier skriver LF, så en
   fuld kørsel omskriver 3810 linjer genereret klientkode og begraver den rigtige diff. Kør den
-  kun på filer du selv har rørt, navngivet eksplicit.
+  kun på filer du selv har rørt, navngivet eksplicit. **Og `--check` alene er ubrugelig her:**
+  `.prettierrc` sætter ikke `endOfLine`, så standarden `lf` gør **hver** fil i repoet til en
+  "style issue", og et rigtigt fund drukner i støjen. Den brugbare form er
+  `.\node_modules\.bin\prettier.cmd --end-of-line crlf --check <filer>` fra `src\Todo.Web`, og
+  den er værd at køre: **uddelegeringsleverancen efterlod fire rigtige afvigelser i tre filer**
+  — en `<p>` der blev for lang, da `settings.html` fik et indrykningsniveau mere, en tom linje
+  før et `</section>`, og to ombrudte kald — som ingen test kan se, fordi der ikke findes en
+  formateringsvagt.
 - **Brug ikke `sed -i` på en fil i dette repo — brug `Edit`.** `sed` skriver **LF** i en
   CRLF-arbejdskopi, og `git diff` viser derefter **ingen ændring**, fordi autocrlf normaliserer på
   vejen ind. Filen på disken *er* ændret, men Git siger nej, så en midlertidig ændring man tror er
@@ -143,11 +150,33 @@ arbejdskopien er alligevel ude af trit med indekset. Målt i uddelegeringslevera
 på en eksisterende fil, og skal `Write` bruges, så konvertér tilbage til CRLF og verificér med **nul
 LF-only-linjer** plus et `od` på en linje med danske tegn.
 
+**Men verificér den med `tr`, ikke med `grep` — `grep -cv $'\r$'` giver et falsk bestået.** Målt på et
+minimalt tilfælde: en fil med **nul** CR-bytes får `grep -c $'\r$'` til at svare "alle linjer matcher"
+og `grep -cv $'\r$'` til at svare **0**. Git Bash' grep læser i teksttilstand og har allerede fjernet
+CR'erne, når mønsteret prøves, så `\r$` er sandt uanset hvad der står i filen. Netop den påstand —
+"nul LF-only-linjer" — kan derfor **ikke fejle**, og den er den vagt afsnittet ovenfor beder om. Den
+holdbare måling er `tr -dc '\r' < fil | wc -c` op mod `tr -dc '\n' < fil | wc -c`: er de ens, er filen
+CRLF; er CR nul, er den LF. **Sådan slap begge planfiler igennem** — `docs/plans/2026-08-19-*.md` var
+ren LF gennem hele leverancen, og hver `grep`-verificering undervejs sagde at de var i orden. (Det
+koster i praksis kun ryddelighed her, fordi `core.autocrlf=true` og `* text=auto` normaliserer på
+vejen ind, så en omlægning til CRLF giver **tom** `git diff` — men `git status` viser en falsk `M`
+fra stat-cachen bagefter; `git update-index --refresh` rydder den.)
+
 **Pladsholderfarven ligger på `::placeholder`**, ikke på elementet, så en DOM-gennemgang der kun
 læser `style.color` er blind for den — `getComputedStyle(el, '::placeholder')` skal spørges
 særskilt. Og et felt **uden** en `placeholder-*`-klasse arver `currentColor` med omkring 54 %
 alfa og fejler i begge temaer; en optælling af de klasser der står der, kan ikke se en klasse
 der mangler.
+
+**Men reglen om en `placeholder-*`-klasse er *betinget*, ikke absolut.** Vagten spørger kun om
+`::placeholder`, hvis attributten står der — `TodoApp.cs` gør det bag
+`el instanceof HTMLInputElement && el.placeholder` — så et felt **uden** en `placeholder` slipper
+udenom, og det er derfor `alias-input` har stået uden klassen gennem hele suitens levetid uden at
+fejle. Kravet følger altså attributten: giver du et felt en pladsholder, skal klassen med i samme
+ombæring. Målt i uddelegeringsleverancen, hvor `waitingOn`-feltet bevidst ingen pladsholder fik og
+derfor ingen farveflade tilføjede. **Og betingelsen har et hul mere:** den nævner kun
+`HTMLInputElement`, så en `<textarea placeholder="…">` måles **aldrig**. Ingen findes i dag; laves
+en, er dens pladsholder umålt.
 
 **Bredde.** Appen bruges i en spalte på ~480 px, under Tailwinds `sm`-brydepunkt. De
 uprefixede klasser **er** den smalle udgave; `sm:`/`md:` bruges kun til at udvide.
@@ -289,11 +318,46 @@ skal blive konjunktioner:
 inde i en parentes der forsvandt. Samme udfald som en tom projektnøgle, nået ad en vej ingen af de
 gamle vagter kigger ned.
 
+**`SettingList.Read` er delt, men `Write` er det *ikke* — og de to ser ens ud.** Læsningen af en
+JSON-liste i `Setting` er samme regel overalt (korrupt værdi læses som tom, så en ulæselig
+indstilling ikke stopper appen fra at åbne), og den bor derfor ét sted. **Skrivningen er to
+forskellige regler:** `SettingList.Write` deduper **versalufølsomt** som aliaslisten, mens Jiras
+`StatusList` deduper **ordinalt**, fordi `JiraStatusRoles.For` sammenligner statusnavne ordinalt —
+en versalufølsom dedup på skrivevejen ville flette to statusser Jira holder adskilt. "Udtræk før du
+tilføjer" peger derfor det forkerte sted hen her: fælles læsning, delte skrivninger.
+
+**En `errors.*`-nøgle må ikke indeholde `{{value}}`.** `api-error-message.ts` kalder
+`transloco.translate(key)` **uden params**, så en pladsholder når brugeren **urenderet** — hun ser
+bogstaverne `{{value}}`. Naboen `errors.retro.duplicateAlias` er netop derfor formuleret uden
+interpolation, og `errors.settings.duplicateDelegate` er det af samme grund. Ingen test kan se det:
+paritetstesten sammenligner nøglemængder, og `ErrorCodeTranslationTests` kræver at nøglen *findes*.
+Skriv sætningen så den er hel uden værdien.
+
 **Et hemmeligt felt skal have sit eget endpoint.** `PUT /api/settings` er en fuld erstatning der
 læser et fraværende felt som "ryd", og tokenet kan aldrig sendes *tilbage* til klienten — så en
 klient der gemmer noget andet på siden, ville rydde tokenet hver gang. Tokenet har derfor
 `PUT`/`DELETE /api/jira/token` for sig, og `SettingsResponse` bærer kun `hasJiraToken`. Det er
 samme fælde som `TaskStore.update`, med den forskel at her kan `current`-tricket ikke bruges.
+
+**Uddelegering er en genvej, ikke en tilstand.** En opgave med status `WaitingFor` og et navn i
+`WaitingOn` **er** en uddelegeret opgave, så der er **ingen `Delegated`-status**, intet felt på
+`TaskItem` og ingen migrering — samme valg som udskudtheden ovenfor, og det er et *valg*, ikke en
+mangel. Leder du efter en status og ikke finder den: den findes ikke, og den skal ikke laves.
+Genvejen er tre ting, alle uden ny datamodel: indstillingen `delegates` (JSON i `Setting`), en delt
+`<datalist id="delegate-names">` i `task-list.html`, og at statusvælgeren giver hvem-feltet fokus.
+**Listen er forslag, ikke et krav** — `waitingOn` bliver ved at være et tekstfelt, fordi "venter på
+ingen" og "venter på en der ikke står på listen" begge er gyldige tilstande i dag; gør nogen navnet
+obligatorisk, brækkes noget der virker. Og **kun bogføring**: ingen besked til den anden, og en
+uddelegeret Jira-sag skifter **ikke** assignee i Jira.
+
+**Intentionen om at spørge hvem bor i `TaskStore.askingWho`, ikke i rækken.** Rækken der spørger, er
+ikke rækken der svarer: `PUT`'en flytter opgaven ud af sin deadline-sektion og ind i "Venter på" —
+to forskellige `@for`-blokke — så `<li>`'en og komponentinstansen med den **destrueres**, og en frisk
+renderer feltet. Et flag holdt i rækken var derfor altid falsk, når feltet endelig fandtes. Signalet
+er `signal<number | null>` og læses af **ingen** skabelon, så en skrivning fra en effekt ikke kan
+slås med change detection. Og feltet findes først **efter** en serverrundtur, fordi `@if` hænger på
+den genindlæste opgaves status — en E2E-rejse skal derfor vente på det frem for at antage det, og
+opløse sin locator igen bagefter.
 
 **Udskudtheden er beregnet, ikke gemt.** `DeadlineBuckets.For` svarer `Deferred`, når `DeferUntil`
 ligger *strengt efter* i dag — der er ingen `Deferred`-status på `TodoStatus`, og **intet skal
@@ -493,6 +557,18 @@ forkerte grund.
   tilfældigvis unik for genvejsmærkaterne, så optællingen ville have virket — indtil det første
   dekorative ikon pustede tallet op. Mærkaterne fik `data-testid="shortcut-badge"` i stedet, som
   navngiver tingen selv.
+- **En påstand lige efter en store-opdatering er allerede serverens svar.** `TaskStore.update`
+  slutter med `load()`, så rækkens tekst efter et gem er læst tilbage fra API'et og ikke fra lokal
+  tilstand. Målt i uddelegeringsleverancen: udelades `waitingOn` af gemningen, falder **den første**
+  rækkepåstand — ikke den efter genindlæsningen, som man ellers ville tro var den eneste ærlige. En
+  rejse behøver derfor ikke en genindlæsning for at bevise *at* der blev gemt; genindlæsningen måler
+  noget andet og svagere, nemlig at det også overlevede en frisk `GET` uden tilstand i hukommelsen.
+  Skriv aldrig "kun det sidste led kan fange det" uden at have set de foregående bestå.
+- **Kontrastvagtens fejllinje navngiver det element der *bærer teksten*, ikke rækken omkring det.**
+  `data-testid` sidder på `<li data-testid="delegate-row">`, men teksten står i dens `<span>`, så
+  fejlen læses `span text "Flemming Overgaard" 2,60:1` — uden et testid at søge på. Læs hele listen
+  frem for kun de linjer der har et navn i firkantet parentes; en mutation der fælder to grene kan
+  ellers se ud som om den kun fældede én.
 - **En udvidet vagt kan finde ingenting og stadig være værd at udvide.** At føre gennemgangen ud
   over noter, underopgaver, de analyserede importrækker og aliasrækkerne gav **nul** nye
   farvefejl — forudsigelsen om at `@tailwindcss/typography` ville fejle holdt ikke. Hvad den til
@@ -501,9 +577,34 @@ forkerte grund.
 
 ## Testtal
 
-Efter "Åbn sagen" fra forhåndsvisningen: **90** Todo.Core.Tests, **187** Todo.Api.Tests, **34** Todo.E2E,
-**185** Vitest.
+Efter uddelegeringen: **103** Todo.Core.Tests, **191** Todo.Api.Tests, **35** Todo.E2E, **198** Vitest.
 Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
+Leverancen lagde **13** Core-tests til (90 → 103), **4** Api-tests (187 → 191), **1** E2E (34 → 35) og
+**12** Vitest (186 → 198). Fordelingen er skæv med vilje, og den siger hvad leverancen egentlig var:
+**alle 13 Core-tests er `SettingListTests`** — syv `[Fact]` og to `[Theory]` med tre tilfælde hver — fordi
+listehjælperen er den ene rene funktion i leverancen og det ene sted noget kan gå galt uden at nogen kan
+se det (korrupt JSON, blanke navne, dubletter der kun afviger i versalitet).
+**Alle 4 Api-tests er `SettingsEndpointsTests`**: rundturen, at en tom liste fjerner rækken, at en dublet
+afvises frem for at foldes, og at en fraværende liste rydder den gemte. **`ErrorCodeTranslationTests`
+voksede *ikke*** — den er en `[Theory]` over de to sprog**filer**, altså to tilfælde uanset hvor mange
+fejlkoder der findes, så en ny kode kan **ikke** flytte tallet. (Task 2's egen rapport påstod "+2" der;
+det var forkert, og de 4 er alle fire nye `[Fact]`s.)
+**De 12 Vitest er alle skærmlogik**, fordi begge lister kun sammenlignes i browseren: to i
+`settings-store.spec.ts` om at hele listen sendes og serverens svar tages tilbage, fem i `settings.spec.ts`
+om de fire grupper og uddelegeringsgruppens tre tilstande, og fem i `task-list.spec.ts` om fokus, om at et
+blot udvidet ventende felt **ikke** stjæler fokus, og om de to vagter der værner om noget der virker —
+"venter på ingen" og et navn der ikke står på listen.
+**Den ene E2E er hele rejsen**, `A_name_from_the_delegate_list_is_offered_and_saved_when_a_task_starts_waiting`:
+læg navnet på listen, se forslagene i den delte `<datalist>`, flyt opgaven til "Venter på", se fokus flytte,
+vælg navnet, og find det igen **efter en genindlæsning**. `ContrastTests` voksede **ikke** med en test: de
+tre nye grene — tom liste, liste med rækker, og listens egen røde linje — kostede en `AddDelegateAsync` og
+tre `Snapshot()`-kald inde i de to teorier der allerede var der.
+**Bemærk at 186 ikke stod her før.** Blokken nedenfor sagde **185**, fordi `e6be619` ("Sig det ved rækken
+når en sag ikke kunne åbnes") lagde én Vitest til og rørte `CLAUDE.md` **uden** at rette testtallene. Tallet
+her er målt, ikke regnet videre på det forrige.
+
+Før den, efter "Åbn sagen" fra forhåndsvisningen: **90** Todo.Core.Tests, **187** Todo.Api.Tests, **34** Todo.E2E,
+**185** Vitest (i praksis 186, se ovenfor).
 Den leverance lagde **én** Api-test til (186 → 187, `A_preview_row_carries_the_url_of_the_issue`), **én**
 E2E (33 → 34, at klikket beder skallen om sagen uden at importere den) og **to** Vitest (184 → 185 plus
 en omskrevet). Core stod stille: URL'en beregnes af `JiraSettings.BrowseUrl`, som var testet i forvejen.
