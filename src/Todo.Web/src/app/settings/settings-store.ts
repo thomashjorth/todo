@@ -112,10 +112,7 @@ export class SettingsStore {
    * Answers into whichever line the caller shows, because the two error signals are two places on
    * the page rather than two kinds of failure.
    */
-  private async put(
-    changes: SettingsChanges,
-    into: WritableSignal<string | null>,
-  ): Promise<void> {
+  private async put(changes: SettingsChanges, into: WritableSignal<string | null>): Promise<void> {
     const next: SettingsChanges = {
       language: this.language(),
       delegates: this.delegates(),

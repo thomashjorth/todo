@@ -264,12 +264,14 @@ describe('Settings', () => {
     input.value = 'mette';
     input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
 
-    screen.http.expectOne('/api/settings').flush(
-      new Blob([
-        JSON.stringify({ code: 'settings.duplicateDelegate', message: 'Duplicate delegate.' }),
-      ]),
-      { status: 400, statusText: 'Bad Request' },
-    );
+    screen.http
+      .expectOne('/api/settings')
+      .flush(
+        new Blob([
+          JSON.stringify({ code: 'settings.duplicateDelegate', message: 'Duplicate delegate.' }),
+        ]),
+        { status: 400, statusText: 'Bad Request' },
+      );
 
     const error = await settled(screen, () => {
       const found = screen.element.querySelector(

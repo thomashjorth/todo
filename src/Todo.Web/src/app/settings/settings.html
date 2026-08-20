@@ -31,7 +31,11 @@
   </select>
 
   @if (settings.error(); as message) {
-    <p data-testid="settings-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+    <p
+      data-testid="settings-error"
+      role="alert"
+      class="mt-2 text-sm text-red-700 dark:text-red-300"
+    >
       {{ message }}
     </p>
   }
@@ -96,7 +100,6 @@
       {{ message }}
     </p>
   }
-
 </section>
 
 <section data-testid="jira-settings">
