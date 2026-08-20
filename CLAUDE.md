@@ -35,6 +35,12 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
 - **Læg aldrig et token direkte i en kommandolinje.** Sæt det i `$env:NAVN` først og referér det
   — ellers følger det med i fejlbeskeder, historik og enhver kopiering af kommandoen. PowerShell
   klippede et PAT efter to tegn i en fejlbesked her, og det var held, ikke design.
+- **`ConvertFrom-Json` i PowerShell 5.1 kaster på JSON med to nøgler der kun afviger i
+  versalfølsomhed.** Beskeden er `Cannot process argument because the value of argument "name" is not
+  valid`, og den ligner alt andet end årsagen. Målt mod ADO's `_apis/wit/workitemtypes`. Den nære fælde
+  er, at et **401** på samme endpoint giver `Ugyldig JSON-primitiv` — fordi svaret så er en HTML-side —
+  så de to fejl står side om side og har intet med hinanden at gøre. Læs data et andet sted, eller
+  undgå at pipe gennem `ConvertFrom-Json`.
 - **Antivirussen (AMSI) blokerer visse PowerShell-scripts**, især `Start-Process` kombineret
   med `Invoke-WebRequest`. Del kommandoen op, eller brug `curl` gennem Bash-værktøjet.
 - **Ingen `"` i en `git commit -m`-heredoc.** PowerShell citerer om for native kommandoer, og

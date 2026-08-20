@@ -127,20 +127,30 @@ $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$env:ADO_PAT
 curl.exe -s -w "`nHTTP %{http_code}`n" -H $h[0] -H "Content-Type: application/json" -d "@$env:TEMP\ado-mine.json" "$col/$proj/_apis/wit/wiql?api-version=7.1"
 ```
 
-**0b — felterne på én sag.** Tag et id fra 0a:
+**0b — felterne på én sag.** Sæt id'et i en variabel, så kommandoen kan køres som den står:
 
 ```powershell
-curl.exe -s -H $h[0] "$col/_apis/wit/workItems/DIT-ID?api-version=7.1" | ConvertFrom-Json | Select-Object -ExpandProperty fields | ConvertTo-Json -Depth 3
+$id = 15664
+curl.exe -s -H $h[0] "$col/_apis/wit/workItems/$id`?api-version=7.1" | ConvertFrom-Json | Select-Object -ExpandProperty fields | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name
 ```
 
-**Det er den vigtigste af de fire.** Den viser de faktiske feltnavne — titel, opgavestiller, tilstand
-og om der er en deadline overhovedet.
+**Det er den vigtigste af de fire**, og den viser **kun feltnavnene** — ikke værdierne, så der ikke
+sendes kundetekst. Den afgjorde at der ingen deadline findes, og at en Bug bruger `ReproSteps` frem for
+`System.Description`.
 
-**0c — batch-hentning**, fordi et kald pr. sag er dyrt:
+**0c — batch-hentning og tilstandene i én.** Hentes fra sagerne selv frem for fra `workitemtypes`, af
+en grund der er værd at kende (se fælden nedenfor):
 
 ```powershell
-curl.exe -s -w "`nHTTP %{http_code}`n" -H $h[0] "$col/_apis/wit/workitems?ids=ID1,ID2&fields=System.Id,System.Title,System.State&api-version=7.1"
+$ids = '15664,16901,17170,17169,17165,17162,16977,17057,17142,17141,16524,17119'
+curl.exe -s -w "`nHTTP %{http_code}`n" -H $h[0] "$col/_apis/wit/workitems?ids=$ids&fields=System.State,System.WorkItemType&api-version=7.1"
 ```
+
+**Fælde: `ConvertFrom-Json` i PowerShell 5.1 kaster på ADO's `workitemtypes`.** Beskeden er
+`Cannot process argument because the value of argument "name" is not valid` — den kommer af to JSON-nøgler
+der kun afviger i versalfølsomhed, hvilket PS 5.1's parser ikke tåler. Det er **ikke** en
+autentificeringsfejl, selvom den optræder samme sted som en. Læs tilstandene af sagerne i stedet, eller
+undgå at pipe gennem `ConvertFrom-Json` på det endpoint.
 
 Bemærk `&` i URL'en — **den skal i anførselstegn**, ellers giver PowerShell `AmpersandNotAllowed`.
 
