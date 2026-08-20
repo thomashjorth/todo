@@ -86,10 +86,33 @@ compiler over sig.
 (`settingsJson`/`JiraFixture`). De er **uafhængige** — sidste leverance troede den ene dækkede begge
 og tog fejl. Læg `delegates` i **begge**.
 
-Bemærk hvorfor typetjekkeren ikke altid ser dem: `SettingsJson` er bevidst sin egen form frem for
-`Partial<ISettingsResponse>`, fordi wiren staver et fraværende sprog `null` og ikke `undefined`. Den
-der **føres ind i en genereret type**, fælder compileren; den der bruges som **rå svarkrop** til
-`flush(...)` gør ikke. Kør typetjekkeren og lad den sige hvilken.
+> **Rettet efter kørslen, 2026-08-19. Leveret i `6d37597`.** **Typetjekkeren fælder ingen af dem** —
+> `Spec_project_passes_the_type_checker` bestod, **før** fixturene blev rørt.
+>
+> Reglen er rigtig: en form der føres ind i en **genereret type** fælder compileren; en der bruges som
+> **rå svarkrop** til `flush(...)` gør ikke. Men **begge** settings-fixtures er af den anden slags —
+> de bygger `new Blob([JSON.stringify({...})])`. Så spørgsmålet "hvilken fil falder" svarer
+> **ingen**, og rettelsen var nødvendig **udelukkende** af den tavse grund: et `undefined` der lander
+> i et `string[]`-signal i Task 3 og 4, hvor intet klager.
+>
+> Det er tredje gang i tre leverancer, at jeg har taget fejl om denne mekanik. Den rigtige model er:
+> **det er `jira-store.spec.ts`' forhåndsvisningsrække der er compiler-synlig**, fordi den føres ind i
+> `new JiraPreviewRow(...)`. Settings-fixturene er det ikke, og har aldrig været det.
+>
+> Tre fejl mere i denne task:
+>
+> - **"Vælg en form der matcher de øvrige flow-sekvenser" har ingen referent** — der findes **ingen**
+>   ombrudt flow-sekvens i filen. Præcedensen er `HealthResponse`s **blok-sekvens**, og den blev fulgt.
+>   Længste linje er uændret 102 (præeksisterende); mine 101 var altså ikke filens længste.
+> - **Doc-kommentaren i `settings-store.spec.ts` sagde "five of them non-optional".** Med `delegates`
+>   er det seks. Et plan-trin der kun lægger feltet til, efterlader en falsk kommentar.
+> - **`settings.spec.ts`' override-interface hed `JiraFixture`** og var dokumenteret som "the Jira half
+>   of the settings response" — og `delegates` er **emphatically ikke** Jira. Omdøbt til
+>   `SettingsFixture`. Det er præcis den betydningssløring designets beslutning 3 advarer imod.
+>
+> **Og til Task 5:** hverken `ContrastTests` eller E2E stubber `/api/settings` — de kører mod den
+> **rigtige** backend. Den nye gruppes farvegrene kræver derfor **rigtige gemte delegerede** via et
+> `PUT` i rejsen, ikke en rutehandler.
 
 **Step 4: Kør og commit**
 
