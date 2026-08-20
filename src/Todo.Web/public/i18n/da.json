@@ -190,9 +190,15 @@
       "projectRequired": "Projektet mangler. Udfyld det under Indstillinger.",
       "refused": "Azure DevOps afviste tokenet. Kontrollér tokenet under Indstillinger.",
       "unreachable": "Azure DevOps kunne ikke nås. Kontrollér samlingens URL og netværket.",
+      "rowKeyRequired": "En sag mangler sin nøgle.",
+      "rowTitleRequired": "En sag mangler sin titel.",
+      "rowTitleTooLong": "En sags titel er for lang.",
+      "rowStateRequired": "En sag mangler sin tilstand.",
+      "rowWorkItemTypeRequired": "En sag mangler sin sagstype.",
       "workItemTypeInvalid": "En sagstype må ikke indeholde anførselstegn eller backslash. Ret listen under Indstillinger.",
       "workItemTypesRequired": "Vælg mindst én sagstype. En tom liste betyder ikke alle typer.",
-      "defaultDeadlineDaysInvalid": "Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline."
+      "defaultDeadlineDaysInvalid": "Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline.",
+      "excludedWaiting": "Du venter på den, og ventende sager er slået fra."
     },
     "system": {
       "unsupportedScheme": "Kun http- og https-links kan åbnes."

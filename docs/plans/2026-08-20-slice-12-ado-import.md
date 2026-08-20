@@ -323,11 +323,25 @@ med de 23 mappede `/api`-ruter), E2E **35** (uændret), Vitest **198** (uændret
 De 21 Core-tests er **9** `AdoDeadlineTests` og **12** nye i `AdoSettingsTests` (om `BrowseUrl`).
 De 37 Api-tests er **36** `AdoTaskSourceTests` og **1** `AdoTaskSourceRegistrationTests`.
 
-## Task 4: Endpointsene
+## Task 4: Endpointsene — kørt
 
 Spejlet efter `JiraEndpoints`. **Udtræk rollebeslutningen som `JiraStatusRoles` blev udtrukket** — ét
 sted, kaldt fra forhåndsvisning og import, frem for den samme regel to gange. Skive 11 målte, at to
 kaldesteder er to steder reglen kan glemmes, og at kun det ene havde en test.
+
+**Reglen blev `AdoStateRoles.IsWaiting(state, settings)`, og den har ingen vagt-gren.** Verificeret
+frem for antaget: `AdoSettings` har `WaitingStates` + `IncludeWaiting` og ingen `DutyStates`/`OnDuty`,
+kontrakten erklærer syv ADO-indstillinger og ingen af dem er en vagt, og hverken Måling 0 eller
+`AdoTaskSource` nævner en. En vagt-gren ville derfor være en indstilling brugeren aldrig fik tilbudt —
+og uopnåelig, hvilket er værre end fraværende. Reglen svarer en `bool` frem for en to-værdi-enum:
+Jiras enum tjener sig hjem på tre roller, to ville være en bool med ekstra trin.
+
+**Der var to regler at udtrække, ikke én.** Planen nævnte kun rollebeslutningen, men typefiltret fra
+beslutning B har præcis samme form: `AdoTaskSource` gør listen til et `IN (...)`-led *før* kaldet,
+mens importen skal spørge om **én** rækkes type *efter* at klienten sendte den tilbage — to former
+der ikke kan dele kodevej. Den bor derfor i `AdoWorkItemTypes` (`Effective` + `Allows`), og
+`AdoTaskSource.AssignedQuery` blev lagt om til at bruge `Effective`, så query-teksten og
+rækkefiltret ikke kan skride fra hinanden.
 
 **Læs `ExternalTask.StatusChangedAt` frem for at kalde `FetchStatusChangedAtAsync`.** ADO bærer
 `Microsoft.VSTS.Common.StateChangeDate` med i samme svar, så `WaitingSince` er gratis; metoden er kun
@@ -335,13 +349,70 @@ fallback for en kilde uden feltet, og Jira er den. Et kald pr. række ville kost
 behøver — og `The_state_change_date_arrives_with_the_page_and_costs_no_extra_call` påstår at siden
 ikke kostede nogen.
 
-**Fem nye fejlkoder findes allerede, lagt på i Task 3** — `ado.notConfigured`, `ado.projectRequired`,
-`ado.refused`, `ado.unreachable` og `ado.workItemTypeInvalid` — med nøgler i begge sprogfiler.
-`ado.excludedWaiting` mangler stadig og hører her.
+~~`ITaskSource` siger: læs feltet først og kald metoden når det er `null`.~~ — **fallbacket tages
+ikke, og det er målt.** `AdoTaskSource.FetchStatusChangedAtAsync` læser **samme felt gennem samme
+parse** som `Map` gør, så for denne kilde kan den kun svare `null` en gang mere — mod én spildt
+rundtur pr. række med et ulæseligt tidsstempel. Målt ved at lægge `?? await
+FetchStatusChangedAtAsync(...)` ind: `An_unreadable_state_change_date_is_not_chased_with_a_second_call`
+faldt med `Assert.Empty() Failure: Collection was not empty / Collection: [17162]`, og `WaitingSince`
+var stadig `null`. Fallbacket hører til en kilde **uden** feltet.
+
+~~**Fem nye fejlkoder findes allerede** … `ado.excludedWaiting` mangler stadig og hører her.~~ —
+**for lidt: der manglede seks.** `ado.excludedWaiting` *plus* rækkevalideringens fem —
+`ado.rowKeyRequired`, `ado.rowTitleRequired`, `ado.rowTitleTooLong`, `ado.rowStateRequired` og
+`ado.rowWorkItemTypeRequired`. De fire første er Jiras modstykker; den femte har **ingen** Jira-modpart,
+fordi Jiras import ikke har et filter at anvende igen: en række uden type ville ellers falde ud af
+importen som "ikke en type du bad om", hvilket ligner en tabt sag frem for en afvist request.
+`ErrorCodes` har nu **37** koder, og `ErrorCodeTranslationTests` siger tallet selv i sin fejlbesked.
 
 `excluded` bærer en fejlkode frontenden oversætter. **Hver ny kode skal have en `errors.<kode>`-nøgle i
 begge sprogfiler**, ellers fejler `ErrorCodeTranslationTests` — og den fanger det paritetstesten
-strukturelt ikke kan: en nøgle der mangler i **begge** filer.
+strukturelt ikke kan: en nøgle der mangler i **begge** filer. Set fejle: `errors.ado.excludedWaiting`
+fjernet fra **begge** filer giver
+`1 of 37 error code(s) have no message under "errors" in src/Todo.Web/public/i18n/da.json` i begge
+teori-tilfælde.
+
+**`POST /api/ado/test` bruger `NotConfigured`, ikke `NotReady` — og det er den ene rute hvor Jiras form
+passede.** `TestAsync` kalder `_apis/connectionData` på samlingsniveau og rører aldrig `ProjectOf`, så
+en afvisning for tomt projekt ville sende brugeren efter et felt requesten ikke bruger — og bryde den
+naturlige opsætningsrækkefølge, hvor man prøver tokenet *før* man ved om projektnavnet er stavet rigtigt.
+De tre andre ruter kræver projektet, fordi ADO afgrænser en WIQL i **stien**.
+
+**Forhåndsvisningen tjekker *ikke* typelisten, importen gør.** Kilden afviser en tom typeliste før sin
+første request og har sin egen test for det, så en vagt i forhåndsvisningen kunne **ikke ses fejle**:
+med eller uden den går ingen WIQL ud, og svaret bærer samme kode. Importen taler aldrig med ADO og har
+intet andet sted at afvise fra — derfor `NoWorkItemTypes` kun der.
+
+**`url ?? throw` fælder ingenting, og det er målt.** Byttet til `?? string.Empty` består alle 283
+Api-tests, fordi `NotReady` allerede har fastslået både samling og projekt, som er præcis hvad
+`BrowseUrl` kræver. Grenen er altså uopnåelig; `throw`'et står som nedskrevet invariant efter Jiras
+præcedens, og der er **ingen** test for det — en påstand der ikke kan fejle ville være værre end ingen.
+
+**`/api/tasks`' `externalUrl` havde ingen ejer i planen, og Task 4 tog den.** `ToContract` beregnede
+kun Jiras URL, så en importeret ADO-opgave ville have haft `externalUrl: null` og en "Åbn sagen"-gren
+der aldrig renderes — backend-arbejde, som ingen af Task 5's frontend-opgaver kunne have lavet.
+`ToContract` tager nu `AdoSettings` med, og `task.SourceId` afgør formen i en `switch` **uden**
+fallthrough: en ADO-nøgle er et bart tal, så "42" findes i hvert af de tre systemer. Målt ved at
+fjerne ADO-grenen igen: `Importing_writes_the_rows_as_tasks_with_the_derived_deadline` faldt med
+`Assert.Equal() Failure: Strings differ / Actual: null`.
+
+**To mutationer kunne ikke skrives, og det er selve designet.** "Importens deadline udledt af
+klientens række" er umulig: `AdoImportRow` **har** intet deadline-felt. Det målbare substitut er
+`AdoDeadline.For(...)` → `clock.Today`, som fælder både
+`Importing_writes_the_rows_as_tasks_with_the_derived_deadline` (`Expected: 23-08-2026 / Actual:
+20-08-2026`) og `Zero_days_imports_a_task_without_a_deadline`. Og **døgnvinduet** — forhåndsvis i dag,
+importér i morgen — kan ikke måles med ét fast ur pr. testklasse; hvad der *er* målt, er at importen
+udleder fra `IClock` og respekterer `0`.
+
+**Testtal efter Task 4:** Core **164** (+21), Api **283** (+27, **helt grøn** — `ContractDriftTests`
+lukkede med de fire ruter, set fejle ved at fjerne `app.MapAdo()`: `Assert.Equal() Failure: Sets
+differ`), E2E **35** (uændret), Vitest **198** (uændret).
+De 21 Core-tests er **10** `AdoStateRolesTests` og **11** `AdoWorkItemTypesTests`.
+De 27 Api-tests er alle `AdoEndpointsTests`. `ErrorCodeTranslationTests` voksede **ikke** — den er en
+`[Theory]` over de to sprogfiler, så seks nye koder kan ikke flytte tallet.
+Klokken er fastfrosset i `AdoEndpointsTests` (`FixedClock(FakeAdo.Today)`), hvad `JiraEndpointsTests`
+ikke havde brug for: hver deadline her er regnestykke på *i dag*, så en datopåstand ville ellers
+påstå om den dag suiten tilfældigvis kører.
 
 ## Task 5: Frontenden
 
@@ -364,6 +435,15 @@ klienten.
 **Noten er HTML, ikke markdown, indtil konverteren findes** — se Task 3. Skærmen skal altså regne med
 at `note` kan indeholde `<div>` og `<br>`; noteeditoren viser dem som tekst.
 
+**De betingede felter Task 4 efterlader, så vagterne kan finde dem.** `AdoPreviewRow`s nullable felter
+er `note`, `deadline`, `requester`, `waitingSince` og `excluded`; `url`, `state`, `workItemType`,
+`isWaiting` og `alreadyImported` er altid der. Skærmen får derfor mindst disse grene at måle:
+`deadline` (kan være `null` når dagantallet er `0`), `requester`, `note`, `waitingSince`, `excluded`
+(= `ado.excludedWaiting`), `alreadyImported`, og `isWaiting` — plus `workItemType`, som er **ny mod
+Jira** og *ikke* en gren, fordi den altid er udfyldt. Der er **ingen** vagt-mærkat: `isDuty` har ingen
+ADO-modpart. Bemærk at `deadline`-grenen er den ene ingen Jira-skærm har, fordi Jiras deadline kom fra
+sagen og ADO's er appens eget regnestykke — den er værd at vise som *foreslået*, ikke som hentet.
+
 **To wire-fixtures beskriver nu en form serveren ikke sender:** `settings-store.spec.ts` linje 67 og
 `settings.spec.ts` linje 65 har `adoWorkItemTypes: []`, men svaret bærer altid mindst de tre
 standardtyper — en tom liste kan ikke opstå. Ret begge til `['Bug', 'User Story', 'Task']` i Task 5.
@@ -376,6 +456,18 @@ Og `settings-store.spec.ts` linje 361 påstår
 Én rejse hele vejen: konfigurér, forhåndsvis, importér, og find opgaven i listen. Opsnap ADO-kaldene
 med `page.RouteAsync`, og **`/api/system/open-link` skal fortsat opsnappes og afbrydes** — afbrydelsen
 gælder den enkelte test, ikke filen.
+
+**Playwright kan ikke bruge `FakeAdo`** — den lever i hostens proces — så `**/api/ado/preview`,
+`**/api/ado/test` og `**/api/ado/states` skal svares af en rutehandler. Og skive 11's lektion ét
+niveau dybere gælder ordret: **kroppen skal bære felterne**, ellers er grenene umålte. Her er
+`workItemType` og `isWaiting` de to der ikke findes i Jiras svar, og et fraværende `deadline` er en
+tredje tilstand at svare i. `alreadyImported`-grenen kan derimod nås **uden** en rutehandler, fordi
+importen er ægte: importér, forhåndsvis igen.
+
+**Én ny `TaskItemBuilder`-krog mangler.** `FromRetro` og `FromJira` findes; en ADO-opgave i
+opgavelisten med et rigtigt `externalUrl` kræver `FromAdo` **plus** en gemt `ado.baseUrl` *og*
+`ado.project` — to ting mod Jiras én, fordi `AdoSettings.BrowseUrl` kræver begge. Task 4 lagde
+`externalUrl` for ADO på `/api/tasks` og målte det gennem importen; en builder-vej findes ikke endnu.
 
 **Byg før E2E.** `Todo.E2E.csproj` har intet build-trin, og hosten servérer bare `wwwroot`.
 

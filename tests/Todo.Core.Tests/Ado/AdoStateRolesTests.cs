@@ -1,0 +1,83 @@
+using Todo.Core.Ado;
+
+namespace Todo.Core.Tests.Ado;
+
+/// <summary>
+/// A pure function of a state name and a list, so it belongs here for the reason JiraStatusRolesTests
+/// does - and it is the one thing in task 4 that can be wrong without anybody seeing it. A row that
+/// should have been waiting simply arrives Open, lands in a deadline section, and looks like work.
+/// </summary>
+public class AdoStateRolesTests
+{
+    private static AdoSettings With(string[] waitingStates, bool includeWaiting = false) =>
+        new(
+            BaseUrl: "https://ado.example.invalid/Some%20Collection",
+            Project: "Saas",
+            Token: "a-token",
+            WaitingStates: waitingStates,
+            IncludeWaiting: includeWaiting,
+            WorkItemTypes: AdoDefaults.WorkItemTypes,
+            DefaultDeadlineDays: AdoDefaults.DeadlineDays);
+
+    [Fact]
+    public void A_state_in_the_list_is_waiting()
+    {
+        Assert.True(AdoStateRoles.IsWaiting("Blocked", With(["Blocked", "PO Review"])));
+    }
+
+    [Fact]
+    public void A_state_outside_the_list_is_not_waiting()
+    {
+        Assert.False(AdoStateRoles.IsWaiting("Active", With(["Blocked", "PO Review"])));
+    }
+
+    /// <summary>
+    /// Ordinal, and the reason is measured rather than stylistic: this instance spells one idea two
+    /// ways - a Test Suite says "In Progress" where a Bug says "Active" - so near-duplicate state names
+    /// are the normal case here, and OrdinalIgnoreCase would fold two states Azure DevOps keeps apart
+    /// into one where nobody could see it happen. The write path refuses the same fold, which is why
+    /// the settings lists do not go through SettingList.Write.
+    /// </summary>
+    [Theory]
+    [InlineData("blocked")]
+    [InlineData("BLOCKED")]
+    public void A_state_that_differs_only_in_case_is_not_the_waiting_state(string listed)
+    {
+        Assert.False(AdoStateRoles.IsWaiting("Blocked", With([listed])));
+    }
+
+    /// <summary>
+    /// The safe reading of an empty list, and it has to be this way round: read as "everything waits"
+    /// an unconfigured app would park every imported work item in "Venter på", where nothing is worked
+    /// on. Same direction SettingList.Read reads a corrupt value.
+    /// </summary>
+    [Fact]
+    public void An_empty_list_makes_nothing_waiting()
+    {
+        Assert.False(AdoStateRoles.IsWaiting("Blocked", With([])));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_state_that_is_not_there_is_not_waiting(string? state)
+    {
+        Assert.False(AdoStateRoles.IsWaiting(state, With(["Blocked", ""])));
+    }
+
+    /// <summary>
+    /// The pair does two different things, and this is the assertion that keeps them apart. The list is
+    /// a <em>mapping</em> - which states mean waiting - while IncludeWaiting is a <em>switch</em> saying
+    /// whether those rows may come along anyway. Folding the switch into this rule would make a waiting
+    /// row arrive Open the moment the user turned waiting off, which is the opposite of what they asked
+    /// for: they asked not to see it, not to be handed it as something to do.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_switch_does_not_decide_what_waiting_means(bool includeWaiting)
+    {
+        Assert.True(AdoStateRoles.IsWaiting("Blocked", With(["Blocked"], includeWaiting)));
+    }
+}

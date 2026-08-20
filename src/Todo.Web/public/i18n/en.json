@@ -190,9 +190,15 @@
       "projectRequired": "The project is missing. Fill it in under Settings.",
       "refused": "Azure DevOps rejected the token. Check the token under Settings.",
       "unreachable": "Azure DevOps could not be reached. Check the collection URL and the network.",
+      "rowKeyRequired": "A work item is missing its key.",
+      "rowTitleRequired": "A work item is missing its title.",
+      "rowTitleTooLong": "A work item title is too long.",
+      "rowStateRequired": "A work item is missing its state.",
+      "rowWorkItemTypeRequired": "A work item is missing its work item type.",
       "workItemTypeInvalid": "A work item type cannot contain a quotation mark or a backslash. Fix the list under Settings.",
       "workItemTypesRequired": "Pick at least one work item type. An empty list does not mean every type.",
-      "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline."
+      "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline.",
+      "excludedWaiting": "You are waiting for it, and waiting work items are turned off."
     },
     "system": {
       "unsupportedScheme": "Only http and https links can be opened."

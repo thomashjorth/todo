@@ -136,6 +136,7 @@ public static class TodoHost
         app.MapTasks();
         app.MapRetro();
         app.MapJira();
+        app.MapAdo();
         app.MapSettings();
         app.MapSystem();
 

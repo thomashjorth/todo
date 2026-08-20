@@ -273,16 +273,15 @@ public sealed class AdoTaskSource : ITaskSource
     /// Blanks are dropped and the rest trimmed before the emptiness check rather than after, so a list
     /// holding nothing but blanks behaves as an empty one. Same fault and same fix as the Jira duty
     /// list: <c>' '</c> would become <c>IN (' ')</c>, which is valid WIQL matching nothing - a silent
-    /// failure - and closing only half of it would leave the class looking closed. The trimming is here
-    /// rather than in SettingsEndpoints for the same reason it is there: a row stored before a
-    /// validation existed outlives it, and this is what builds the query.
+    /// failure - and closing only half of it would leave the class looking closed. That normalisation
+    /// moved to <see cref="AdoWorkItemTypes.Effective"/> in task 4, when the import endpoint turned out
+    /// to need the very same list to ask about one row's type - two call sites, one rule, the same
+    /// reason AdoDeadline is its own type. It stays outside SettingsEndpoints for the reason it always
+    /// did: a row stored before a validation existed outlives it, and this is what builds the query.
     /// </summary>
     private static string AssignedQuery(AdoSettings settings)
     {
-        var types = settings.WorkItemTypes
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name.Trim())
-            .ToList();
+        var types = AdoWorkItemTypes.Effective(settings);
 
         if (types.Count == 0)
         {

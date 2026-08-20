@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Todo.Core.Ado;
 using Todo.Core.Errors;
 using Todo.Core.Jira;
+using Todo.Host.Ado;
 using Todo.Host.Jira;
 using ContractBucket = Todo.Contracts.DeadlineBucket;
 using ContractStatus = Todo.Contracts.TodoStatus;
@@ -23,6 +25,7 @@ public static class TaskEndpoints
             TodoDbContext db,
             IClock clock,
             JiraSettingsReader reader,
+            AdoSettingsReader adoReader,
             bool includeCompleted = false,
             bool includeSomeday = false) =>
         {
@@ -45,12 +48,15 @@ public static class TaskEndpoints
                 .ToListAsync();
 
             // Once per request, outside the loop. The link is computed from the base URL rather than
-            // stored, and reading the settings per task would be one query per row of the list.
+            // stored, and reading the settings per task would be one query per row of the list. Two
+            // reads now rather than one, because the link's shape belongs to whichever system the task
+            // came from — see ToContract.
             var jira = await reader.ReadAsync();
+            var ado = await adoReader.ReadAsync();
 
             return new TodoTaskListResponse
             {
-                Items = [.. tasks.Select(t => ToContract(t, clock.Today, jira))],
+                Items = [.. tasks.Select(t => ToContract(t, clock.Today, jira, ado))],
             };
         })
         .WithName("listTasks")
@@ -58,7 +64,11 @@ public static class TaskEndpoints
         .Produces<TodoTaskListResponse>();
 
         app.MapPost("/api/tasks", async Task<Results<Created<TodoTask>, BadRequest<ApiError>>> (
-            CreateTodoTaskRequest request, TodoDbContext db, IClock clock, JiraSettingsReader reader) =>
+            CreateTodoTaskRequest request,
+            TodoDbContext db,
+            IClock clock,
+            JiraSettingsReader reader,
+            AdoSettingsReader adoReader) =>
         {
             if (ValidateTaskTitle(request.Title) is { } invalid)
             {
@@ -81,7 +91,8 @@ public static class TaskEndpoints
             await db.SaveChangesAsync();
 
             return TypedResults.Created(
-                $"/api/tasks/{task.Id}", ToContract(task, clock.Today, await reader.ReadAsync()));
+                $"/api/tasks/{task.Id}",
+                ToContract(task, clock.Today, await reader.ReadAsync(), await adoReader.ReadAsync()));
         })
         .WithName("createTask")
         .WithTags("Tasks");
@@ -91,7 +102,8 @@ public static class TaskEndpoints
             UpdateTodoTaskRequest request,
             TodoDbContext db,
             IClock clock,
-            JiraSettingsReader reader) =>
+            JiraSettingsReader reader,
+            AdoSettingsReader adoReader) =>
         {
             if (ValidateTaskTitle(request.Title) is { } invalid)
             {
@@ -124,7 +136,8 @@ public static class TaskEndpoints
 
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(ToContract(task, clock.Today, await reader.ReadAsync()));
+            return TypedResults.Ok(
+                ToContract(task, clock.Today, await reader.ReadAsync(), await adoReader.ReadAsync()));
         })
         .WithName("updateTask")
         .WithTags("Tasks");
@@ -249,7 +262,8 @@ public static class TaskEndpoints
         return null;
     }
 
-    private static TodoTask ToContract(TaskItem task, DateOnly today, JiraSettings jira) => new()
+    private static TodoTask ToContract(
+        TaskItem task, DateOnly today, JiraSettings jira, AdoSettings ado) => new()
     {
         Id = task.Id,
         SourceId = task.SourceId,
@@ -260,10 +274,16 @@ public static class TaskEndpoints
         Requester = task.Requester,
         // Computed, never stored, so it follows a base URL the user changes afterwards. Guarded by
         // the source: a retro card can carry a key that looks like an issue, and pointing at Jira
-        // for it would be a link to somebody else's issue or to nothing.
-        ExternalUrl = task.SourceId == JiraTaskSource.Id
-            ? jira.BrowseUrl(task.ExternalKey ?? string.Empty)
-            : null,
+        // for it would be a link to somebody else's issue or to nothing. That guard matters more now
+        // that there are two systems, because an Azure DevOps key is a bare number: task "42" exists
+        // in every one of them, so the source decides which URL shape is asked, and nothing falls
+        // through to a default.
+        ExternalUrl = task.SourceId switch
+        {
+            JiraTaskSource.Id => jira.BrowseUrl(task.ExternalKey ?? string.Empty),
+            AdoTaskSource.Id => ado.BrowseUrl(task.ExternalKey ?? string.Empty),
+            _ => null,
+        },
         Status = ToContract(task.Status),
         Bucket = ToContract(DeadlineBuckets.For(task.Deadline, task.DeferUntil, today)),
         WaitingOn = task.WaitingOn,
