@@ -6,9 +6,11 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Todo.Core.Ado;
+using Todo.Core.Autostart;
 using Todo.Core.Errors;
 using Todo.Core.Jira;
 using Todo.Core.Settings;
+using Todo.Core.Sources;
 
 namespace Todo.Host.Endpoints;
 
@@ -18,14 +20,14 @@ public static class SettingsEndpoints
 
     public static IEndpointRouteBuilder MapSettings(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/settings", async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado) =>
-            await ReadAllAsync(db, jira, ado))
+        app.MapGet("/api/settings", async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, IAutostart autostart) =>
+            await ReadAllAsync(db, jira, ado, autostart))
         .WithName("getSettings")
         .WithTags("Settings")
         .Produces<SettingsResponse>();
 
         app.MapPut("/api/settings", async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
-            SettingsRequest request, TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado) =>
+            SettingsRequest request, TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, IAutostart autostart) =>
         {
             // No language means "follow the system", which is a value in its own right and not English.
             if (request.Language is { } language && !SupportedLanguages.Contains(language))
@@ -122,7 +124,7 @@ public static class SettingsEndpoints
 
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, autostart));
         })
         .WithName("updateSettings")
         .WithTags("Settings");
@@ -132,7 +134,7 @@ public static class SettingsEndpoints
         app.MapPut("/api/settings/jira-token",
             async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
                 JiraTokenRequest request, TodoDbContext db, JiraSettingsReader jira,
-                AdoSettingsReader ado) =>
+                AdoSettingsReader ado, IAutostart autostart) =>
         {
             // NSwag puts [Required] on Token, but that is DataAnnotations, which System.Text.Json
             // does not enforce while deserialising - and it was generated with AllowEmptyStrings.
@@ -146,18 +148,18 @@ public static class SettingsEndpoints
             await StoreAsync(db, SettingKeys.JiraToken, request.Token.Trim());
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, autostart));
         })
         .WithName("setJiraToken")
         .WithTags("Settings");
 
         app.MapDelete("/api/settings/jira-token",
-            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado) =>
+            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, IAutostart autostart) =>
         {
             await StoreAsync(db, SettingKeys.JiraToken, null);
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, autostart));
         })
         .WithName("clearJiraToken")
         .WithTags("Settings");
@@ -168,7 +170,7 @@ public static class SettingsEndpoints
         app.MapPut("/api/settings/ado-token",
             async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
                 AdoTokenRequest request, TodoDbContext db, JiraSettingsReader jira,
-                AdoSettingsReader ado) =>
+                AdoSettingsReader ado, IAutostart autostart) =>
         {
             // The contract's [Required] is DataAnnotations, which System.Text.Json does not enforce
             // while deserialising, so this is the only actual validation.
@@ -181,20 +183,82 @@ public static class SettingsEndpoints
             await StoreAsync(db, SettingKeys.AdoToken, request.Token.Trim());
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, autostart));
         })
         .WithName("setAdoToken")
         .WithTags("Settings");
 
         app.MapDelete("/api/settings/ado-token",
-            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado) =>
+            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, IAutostart autostart) =>
         {
             await StoreAsync(db, SettingKeys.AdoToken, null);
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, autostart));
         })
         .WithName("clearAdoToken")
+        .WithTags("Settings");
+
+        // Two verbs rather than a body carrying a boolean, and its own route rather than a field on
+        // PUT /api/settings - the same reason the tokens have one: a full replacement reads an absent
+        // field as "clear", so saving a language would switch autostart off.
+        //
+        // Environment.ProcessPath rather than a path written down anywhere, and it is worth knowing
+        // what that means during development: under dotnet run it is the build output, so a switch
+        // turned on from a development build registers something in bin\. Harmless, and better than
+        // a constant that would be wrong for every user who moves the exe.
+        app.MapPut("/api/settings/autostart",
+            async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
+                IAutostart autostart,
+                TodoDbContext db,
+                JiraSettingsReader jira,
+                AdoSettingsReader ado) =>
+        {
+            if (Environment.ProcessPath is not { Length: > 0 } path)
+            {
+                return ApiErrors.BadRequest(
+                    ErrorCodes.AutostartFailed, "The running program has no path to register.");
+            }
+
+            try
+            {
+                autostart.Enable(path);
+            }
+            catch (SourceException e)
+            {
+                return ApiErrors.BadRequest(e.Code, e.Message);
+            }
+            catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+            {
+                // A locked-down or policy-managed registry. Caught rather than left to become a 500,
+                // because this is one the user can read and act on.
+                return ApiErrors.BadRequest(ErrorCodes.AutostartFailed, e.Message);
+            }
+
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, autostart));
+        })
+        .WithName("enableAutostart")
+        .WithTags("Settings");
+
+        app.MapDelete("/api/settings/autostart",
+            async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
+                IAutostart autostart,
+                TodoDbContext db,
+                JiraSettingsReader jira,
+                AdoSettingsReader ado) =>
+        {
+            try
+            {
+                autostart.Disable();
+            }
+            catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+            {
+                return ApiErrors.BadRequest(ErrorCodes.AutostartFailed, e.Message);
+            }
+
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, autostart));
+        })
+        .WithName("disableAutostart")
         .WithTags("Settings");
 
         return app;
@@ -205,7 +269,10 @@ public static class SettingsEndpoints
     /// one line to read when asking whether either token can get out.
     /// </summary>
     private static async Task<SettingsResponse> ReadAllAsync(
-        TodoDbContext db, JiraSettingsReader reader, AdoSettingsReader adoReader)
+        TodoDbContext db,
+        JiraSettingsReader reader,
+        AdoSettingsReader adoReader,
+        IAutostart autostart)
     {
         var jira = await reader.ReadAsync();
         var ado = await adoReader.ReadAsync();
@@ -231,6 +298,11 @@ public static class SettingsEndpoints
             AdoWorkItemTypes = [.. ado.WorkItemTypes],
             AdoDefaultDeadlineDays = ado.DefaultDeadlineDays,
             HasAdoToken = ado.Token is not null,
+            // Read from the registry every time rather than from a stored copy. It is the one
+            // setting whose truth lives outside this app: Windows reads that key at sign-in, and
+            // the user can remove the entry with another tool, so a value in the Settings table
+            // could only ever disagree with what will actually happen.
+            Autostart = autostart.IsEnabled(),
         };
     }
 

@@ -18,7 +18,8 @@ public class SettingsAccordionJourneyTests(BrowserFixture fixture) : BrowserTest
     /// </summary>
     private static readonly (string Section, string Heading)[] Groups =
     [
-        (SettingsScreen.LanguageSection, "Sprog"),
+        // "Generelt", not "Sprog", since slice 16 put autostart in this group.
+        (SettingsScreen.LanguageSection, "Generelt"),
         (SettingsScreen.DelegateSection, "Uddelegering"),
         (SettingsScreen.JiraSection, "Jira-import"),
         (SettingsScreen.AdoSection, "ADO-import"),

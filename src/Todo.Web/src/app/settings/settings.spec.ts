@@ -44,6 +44,7 @@ interface SettingsFixture {
   adoWorkItemTypes?: string[];
   adoDefaultDeadlineDays?: number;
   hasAdoToken?: boolean;
+  autostart?: boolean;
 }
 
 /**
@@ -74,6 +75,7 @@ function settingsJson(language: string | null, rest: SettingsFixture = {}): Blob
       adoWorkItemTypes: defaultTypes,
       adoDefaultDeadlineDays: 3,
       hasAdoToken: false,
+      autostart: false,
       ...rest,
     }),
   ]);
@@ -247,8 +249,10 @@ describe('Settings', () => {
     const headings = sections.map((s) => s.querySelector('h3')!);
     // The heading's own text, not the button's: the chevron is a text node inside it too, so the
     // label is read off the span that carries the words.
+    // "Generelt", not "Sprog": slice 16 put autostart in this group, so the heading no longer names
+    // the one control it holds - which is also why the language select gained a visible label.
     expect(headings.map((h) => h.querySelector('span')!.textContent!.trim())).toEqual([
-      'Sprog',
+      'Generelt',
       'Uddelegering',
       'Jira-import',
       'ADO-import',
@@ -1042,6 +1046,30 @@ describe('Settings', () => {
     expect(error.textContent).toContain('Tokenet må ikke være tomt.');
     expect(screen.element.querySelector('[data-testid="settings-error"]')).toBeNull();
     expect(field(screen.element, 'ado-token').value).toBe('   ');
+  });
+
+  // The general group's second control. Bound to the signal rather than to its own checked state,
+  // so the server's answer is what the tick ends up showing.
+  it('should turn autostart on from the general group', async () => {
+    const screen = await open(null, undefined, undefined, 'language');
+
+    const toggle = field(screen.element, 'autostart') as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+
+    const request = screen.http.expectOne('/api/settings/autostart');
+    expect(request.request.method).toBe('PUT');
+    request.flush(settingsJson(null, { autostart: true }));
+
+    const checked = await settled(screen, () => {
+      const found = field(screen.element, 'autostart') as HTMLInputElement;
+      expect(found.checked).toBe(true);
+      return found;
+    });
+
+    expect(checked.checked).toBe(true);
   });
 
   it('should name whoever the Azure DevOps token belongs to when the connection is tested', async () => {

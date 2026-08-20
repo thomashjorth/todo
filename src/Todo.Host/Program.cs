@@ -32,9 +32,21 @@ public static class Program
             .Features.Get<IServerAddressesFeature>()!
             .Addresses.First();
 
-        new PhotinoWindow()
-            .SetTitle("Mandalorian ToDo")
-            .SetIconFile(Path.Combine(AppContext.BaseDirectory, "icon.ico"))
+        var window = new PhotinoWindow().SetTitle("Mandalorian ToDo");
+
+        // Only when the file is really there. Until slice 16 the item group said
+        // CopyToOutputDirectory, which is build output and not publish output, so every published
+        // exe handed Photino a path to nothing - and what Photino does with a missing icon file is
+        // unmeasured to this day: the probe ran --headless, and headless never builds a window. A
+        // blank window is too expensive an answer to a question this cheap to stop asking.
+        var iconFile = Path.Combine(AppContext.BaseDirectory, "icon.ico");
+
+        if (File.Exists(iconFile))
+        {
+            window.SetIconFile(iconFile);
+        }
+
+        window
             .SetUseOsDefaultSize(false)
             // The app lives in a quarter-width column on a 1080p screen, not a wide window.
             .SetSize(new Size(480, 1000))

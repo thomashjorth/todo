@@ -20,14 +20,18 @@ outputtet. `Photino.Native.dll`, `WebView2Loader.dll` og `e_sqlite3.dll` ligger 
 var den antagelse der kunne have væltet hele formen, og den holdt.
 
 **2. Men det er 31 filer, ikke én.** Exe'en er **114.608.853 bytes** (109 MiB), og ved siden af den
-ligger `wwwroot\` med **24** filer, `web.config`, `Todo.Host.staticwebassets.endpoints.json` (55 kB)
-og **tre** `.pdb`. Samlet 111 MiB.
+ligger `wwwroot\` med **25** filer, `web.config`, `Todo.Host.staticwebassets.endpoints.json`
+(55.078 bytes) og **tre** `.pdb`. Samlet 115.622.764 bytes, altså 110 MiB.
+*(Task 1 målte tallene igen: 31 og 55.078 holdt, men `wwwroot` har **25** filer og ikke 24 —
+8 filer plus `.gitkeep` plus 16 komprimerede — så der ligger **seks** løse filer i roden, exe'en
+iberegnet, ikke syv.)*
 
-**3. Fire af de syv løse filer er fjernelige — målt, ikke antaget.** `web.config`, de tre `.pdb` og
+**3. Fem af de seks løse filer er fjernelige — målt, ikke antaget.** `web.config`, de tre `.pdb` og
 `staticwebassets.endpoints.json` blev slettet fra outputtet, hvorefter `/`, `/api/health` og
 `/scalar/` alle svarede **200**. `staticwebassets`-filen er ikke i spil, fordi appen bruger
 `UseStaticFiles()` og ikke `MapStaticAssets()`. Tilbage står **`wwwroot`**, som er det egentlige
-arbejde i beslutning A.
+arbejde i beslutning A. *(Task 1 slog dem fra med csproj-egenskaber og udgav igen: **11 filer**,
+exe 114.600.629 bytes. Egenskaberne og hvad hver af dem fjernede står i `Todo.Host.csproj`.)*
 
 **4. `icon.ico` bliver ikke udgivet.** `Todo.Host.csproj` har
 `<Content Include="..\Todo.Web\public\favicon.ico" Link="icon.ico" CopyToOutputDirectory="PreserveNewest" />`
@@ -36,6 +40,15 @@ udgivne app kalder derfor `SetIconFile(Path.Combine(AppContext.BaseDirectory, "i
 der ikke findes. Den crashede ikke headless, men **vinduesvejen er utestet** — headless springer
 `PhotinoWindow` over, så målingen siger intet om hvad Photino gør med en manglende ikonfil. Bemærk at
 `wwwroot\favicon.ico` **er** udgivet, så der findes en anden sti til samme fil.
+
+*(Task 1 målte, at `CopyToPublishDirectory` **ikke er nok**, og det er en fælde et niveau dybere.
+Med den alene er filen stadig ikke på disken: `-getItem:ResolvedFileToPublish` viser `icon.ico` i
+listen med `PublishSingleFile=false` og **væk** med `true`, fordi `_ComputeFilesToBundle` tager hver
+opløst fil der ikke bærer `ExcludeFromSingleFile` og giver den til bundleren — publish-output er
+altså ikke det samme som en fil på disken. Beviset er i exe'ens størrelse: med metadataen 114.600.629
+bytes, uden 114.608.855, en forskel på 8.226 mod ikonets 8.088. `wwwroot`-globben er markeret af
+Web-SDK'en, hvilket er grunden til at de filer aldrig blev slugt. Item-gruppen bærer nu alle tre
+stykker metadata, og `icon.ico` ligger i outputtet.)*
 
 **5. Den udgivne exe afhænger af sin arbejdsmappe, og det er skivens vigtigste fund.** Kørt fra
 repo-roden svarede `/` **404**, og vinduet ville have været blankt. Appens egen log sagde hvorfor:
@@ -54,10 +67,19 @@ hosten — og den rammer netop autostart, hvor arbejdsmappen sættes af den der 
 assembly-standarden. En udsendt exe bør bære et rigtigt nummer, og health-linjen viser det allerede
 for brugeren.
 
-**7. `wwwroot` indeholder tre udgaver af hver fil.** Angular-bygningen lægger `.br` og `.gz` ved
-siden af hver `.js`, `.css`, `.json`, `.html` og `.ico` — plus `.gitkeep` og
-`prerendered-routes.json`. Det er derfor 24 filer og ikke 8, og det er en beslutning i Task 2:
+**7. `wwwroot` indeholder tre udgaver af hver fil.** ~~Angular-bygningen lægger~~ **Publish** lægger
+`.br` og `.gz` ved siden af hver `.js`, `.css`, `.json`, `.html` og `.ico` — plus `.gitkeep` og
+`prerendered-routes.json`. Det er derfor 25 filer og ikke 9, og det er en beslutning i Task 2:
 embedder man alle tre, tredobler man nyttelasten for en app der servérer på loopback.
+
+*Task 1 målte kilden, og fundet var forkert om **hvem** der laver de komprimerede filer:
+`src\Todo.Host\wwwroot` indeholder **ingen** `.br` eller `.gz` — 8 filer plus `i18n\`, og det er alt
+Angular skriver. De 16 komprimerede kopier dannes af **static-web-assets-pipelinen under publish**.
+Konsekvensen for Task 2 er, at der ikke er noget at beslutte: `StaticWebAssetsEnabled=false`, som
+Task 1 satte for at fjerne endpoint-manifestet, fjerner dem i samme greb — 25 filer blev 9 — og
+`UseStaticFiles()` servérede dem alligevel aldrig. Verificeret bagefter: `/`, `main-*.js`,
+`styles-*.css` og `i18n/da.json` svarer alle 200. **Bemærk at egenskaben altså gør to ting**, og det
+var kun den ene planen bad om.*
 
 ### En fælde målingen selv faldt i, værd at kende
 
@@ -85,8 +107,14 @@ mappetræ med et manifest.
 smag: (a) `CopyToPublishDirectory` og lev med **én** løs fil ved siden af exe'en; (b) embed ikonet og
 skriv det til en midlertidig fil ved opstart, så `SetIconFile` har en sti; (c) drop `SetIconFile`
 helt og se om Photino-vinduet arver exe'ens egen `ApplicationIcon`-ressource — hvilket ville være
-gratis, hvis det virker. **Mål (c) først**; den er den eneste der giver én fil uden at skrive til
+gratis, hvis det virker. ~~**Mål (c) først**~~; den er den eneste der giver én fil uden at skrive til
 disk.
+
+*Task 1 tog **(a)** — plus `ExcludeFromSingleFile`, se fund 4 — og lod (c) stå **åben med vilje**:
+et vinduesikon kan ikke verificeres uden at et menneske ser på vinduet, og en agent der "målte" det
+ville gætte. Spørgsmålet hører til Task 2, når brugeren kan se vinduet. Samtidig er `SetIconFile`
+gjort betinget af at filen findes, så svaret ikke længere kan koste et blankt vindue — men bemærk hvad
+den betingelse **ikke** er: ingen test rører `PhotinoWindow`, så den er en sikring og ikke en vagt.*
 
 **Størrelsen bliver ikke mindre af det her.** 109 MiB er self-contained .NET plus ASP.NET Core.
 Trimming er den oplagte tanke og **skal ikke tages i denne skive**: EF Core-migreringer,
@@ -131,24 +159,72 @@ dens `AppContext.BaseDirectory` er testbinærens mappe, hvor der **ikke** ligger
 præcis derfor E2E-suiten i dag finder `src\Todo.Host\wwwroot`: arbejdsmappen. Så ændringen skal kunne
 bære **begge** tilfælde, og vagten skal se dem hver for sig.
 
+*Task 1: mekanismen fandtes i forvejen — `RunningHost` sender `--contentRoot RepoPaths.HostContentRoot`
+med i sine args, så testene navngiver roden selv. Men **kommandolinjen slår ikke automatisk en
+standard her**, og det er den ene ting der skal måles frem for gættes:
+`WebApplicationOptions.ContentRootPath` lægges **oven på** konfigurationen, så en ubetinget tildeling
+vinder over `--contentRoot`. Målt ved netop den mutation:
+`An_explicit_content_root_still_wins` faldt med `Expected: "C:\privat-git\todo\src\Todo.Host"`,
+`Actual: "…\tests\Todo.Api.Tests\bin\Debug\…"`, og hele E2E-suiten ville være fulgt efter. Derfor
+spørger `TodoHost.DefaultContentRoot` **først**, om nogen har navngivet en rod — kommandolinje og de
+to env-præfikser, altså de samme tre kilder hosten selv læser — og svarer `null`, hvis nogen har.*
+
+*Og fundet planen ikke havde: **`dotnet run` er også en af de kaldere.** `scripts\run-app.ps1` starter
+appen med `dotnet run -c Release`, hvis arbejdsmappe er **projektmappen** — det er derfor `Todo.cmd`
+virker i dag. Med den nye standard bliver roden `bin\Release\net10.0`, som **ikke** har noget
+`wwwroot` (målt: ingen af de tre byggeoutputmapper har et), og vinduet ville have været blankt for
+brugeren. Målt på et Debug-run fra repo-roden: uden argumentet svarede `/` **404** med
+`The WebRootPath was not found: …\bin\Debug\net10.0\wwwroot`; med `--contentRoot src\Todo.Host`
+svarede `/`, `main-*.js` og `i18n/da.json` alle **200**. `run-app.ps1` navngiver derfor roden nu, på
+samme måde som testene. En udgivet exe har `wwwroot` ved siden af sig og behøver ingenting.*
+
 **Vagten er ikke en unittest.** En påstand om at appen finder sit `wwwroot` kan kun måles på en
 udgivet exe, og en publish tager omkring 40 sekunder. Den hører derfor i `scripts\publish.ps1`
 (Task 3), ikke i `dotnet test`.
 
+*Det gælder **den** påstand, men ikke de to andre, og Task 1 skrev dem som `HostContentRootTests`:
+at `Build` uden argumenter får `AppContext.BaseDirectory`, og at `--contentRoot` stadig vinder. Den
+første har en fælde værd at kende: under `dotnet test` **er** processens arbejdsmappe testbinærens
+mappe, så de to kandidatsvar peger på samme mappe, og en normaliserende sammenligning kan ikke fejle.
+Det der skiller dem, er stavemåden — `AppContext.BaseDirectory` ender på en separator,
+`Directory.GetCurrentDirectory()` ikke — så påstanden sammenligner strengen som den står. Målt begge
+veje med rettelsen fjernet: den eksakte fejlede på `…\net10.0\` mod `…\net10.0`, den normaliserende
+bestod.*
+
 **Versionen.** Sæt `<Version>` i csproj'en, og lad `/api/health` bære den. Der findes allerede en test
 på health-svaret — find den og udvid den frem for at lægge en ny ved siden af.
+
+*Task 1 valgte **1.16.0**: major 1, fordi appen har været i brug siden skive 1, og minor er skiven der
+udsendte bygningen. `/api/health` svarer nu `{"status":"ok","version":"1.16.0.0"}` — fire led, fordi
+den læser `Assembly.GetName().Version`. `HealthEndpointTests` påstår **ikke** tallet, som ellers skal
+rettes hver skive, men at det ikke er `1.0.0.0` (assembly-standarden, altså "ingen valgte et") og at
+det er assemblyens eget. Set fejle ved at kommentere `<Version>` ud:
+`Assert.NotEqual() Failure: Strings are equal / Expected: Not "1.0.0.0"`. Kontrakten er **ikke**
+rørt: `version` er allerede et krævet felt på `HealthResponse`, og `example: 1.0.0.0` er et eksempel
+på formen — en ændring der ville koste en hel `generate-api.ps1`-kørsel for en dokumentationsstreng.*
 
 **De fire suppressioner.** `<IsTransformWebConfigDisabled>`, `<DebugType>none</DebugType>` eller
 tilsvarende, og den egenskab der slår static-web-assets-manifestet fra. **Verificér hver af dem ved
 at udgive igen og tælle filerne** — en egenskab der ikke gør noget, ser ud som en der gør.
 
+*Task 1: **fire egenskaber, og de tre `.pdb` krævede to af dem.** `<DebugType>none</DebugType>` gælder
+kun projektets eget symbolfil; `Todo.Core.pdb` og `Todo.Contracts.pdb` følger med som *related files*
+til en projektreference og krævede `<AllowedReferenceRelatedFileExtensions>none</…>`. Begge står under
+`Condition="'$(Configuration)' == 'Release'"`, så en Debug-bygning stadig kan fejlsøges — og
+`dotnet test` bygger Debug. **Prisen er større end den ser ud**, fordi `run-app.ps1` kører
+`dotnet run -c Release`: brugerens daglige app har derfor heller ingen symboler, og et stacktrace
+mister sine linjenumre. Det er et valg, ikke oprydning. `<StaticWebAssetsEnabled>false</…>` fjernede
+manifestet **og** de 16 komprimerede kopier, se fund 7. 31 filer blev 11 — de 5 løse plus 16 `.br`/`.gz`
+væk, `icon.ico` til.*
+
 ## Task 2: `wwwroot` ind i exe'en
 
 `GenerateEmbeddedFilesManifest` + `ManifestEmbeddedFileProvider` som webroot.
 
-**Afgør hvad der skal med.** De tre udgaver af hver fil er målt: embedder man `.br` og `.gz`, bærer
-exe'en tre kopier af alt, og appen servérer på loopback hvor komprimering ikke køber noget. Forslag:
-kun de ukomprimerede, plus en note om hvorfor. `.gitkeep` og `prerendered-routes.json` skal ikke med.
+**Afgør hvad der skal med.** ~~De tre udgaver af hver fil er målt~~ — *og beslutningen er væk efter
+Task 1: kilden har aldrig haft `.br`/`.gz`, publish lavede dem, og `StaticWebAssetsEnabled=false`
+fjernede dem. Der er **9** filer at forholde sig til, ikke 25.* `.gitkeep` og
+`prerendered-routes.json` skal ikke med.
 
 **Fælden at måle:** `MapFallbackToFile("index.html")` slår op i webrootens provider, så den skal virke
 gennem manifestet og ikke kun gennem disken. Og `UseStaticFiles()` skal have samme provider. Et opslag
@@ -159,6 +235,31 @@ fund 5.
 `src\Todo.Host\wwwroot`, og bliver de filer nu embeddet, skal en glemt bygning kunne mærkes. I dag er
 den fælde kendt og skrevet i `CLAUDE.md`: E2E-suiten bygger ikke Angular. Med embedding bliver det
 værre, fordi filerne så er inde i en assembly der skal genbygges.
+
+### Kørt 2026-08-20 — resultat og en rettelse
+
+**To filer.** `Todo.Host.exe` på 115.121.405 bytes og `icon.ico` på 8.088. Frontenden kostede 520.776
+bytes i exe'en (114.600.629 → 115.121.405). Prøvet fra repo-roden, altså en fremmed mappe: `/`,
+`/api/health`, `/main-*.js`, `/i18n/en.json` og `/scalar/` svarede alle **200**, og `index.html` bar
+rigtig HTML frem for en fallback der ramte forbi.
+
+**Beslutningen om `.br`/`.gz` bortfaldt**, som Task 1 forudsagde: `StaticWebAssetsEnabled=false`
+fjernede dem, så der var ni filer at embedde, ikke femogtyve. `.gitkeep` og `prerendered-routes.json`
+er holdt ude.
+
+**Rettelse til planens antagelse om vagten.** Planen sagde at fælden var *"et opslag der falder
+tilbage på disken ville bestå i udvikling og fejle i den udgivne exe"*. Det er rigtigt, men planen
+sagde ikke hvor slemt: **hele E2E-suiten er blind for det.** Målt — `UseStaticFiles()` sat tilbage til
+sin standard, og **alle 44 rejser bestod**, fordi hver testhost peger sin indholdsrod på
+`src\Todo.Host`, hvor `wwwroot` ligger på disken. Vagten kan derfor ikke være en rejse; den skal være
+en indholdsrod testen selv laver og lader **tom**, hvilket er hvad `EmbeddedFrontendTests` gør.
+Konsekvensen for Task 3: `publish.ps1` er stadig værd at have, men den er **ikke længere den eneste**
+vagt på Task 2 — og det var den, indtil den her test blev skrevet.
+
+**Og et kaldested er uvagtet, målt frem for antaget.** Af de tre providere fælder kun to noget:
+`UseDefaultFiles()` sat tilbage til standarden består, fordi `MapFallbackToFile` allerede svarer `/`.
+Providereren står der alligevel — flyttes fallbacken en dag, er det den der servérer roden — men det
+er skrevet ved koden, så symmetrien ikke læses som tre målte steder.
 
 ## Task 3: `scripts\publish.ps1`, som beviser sit eget output
 
@@ -178,6 +279,40 @@ på det.
 
 **Kør prøven fra en anden mappe end exe'ens.** Ellers måler den ikke fund 5, som er hele grunden til
 at Task 1 findes.
+
+*Task 1's prøve, kommando for kommando, så scriptet kan skrives frem for genopfundet. Udgivelsen (fra
+repo-roden, én linje):*
+
+```
+dotnet publish src\Todo.Host\Todo.Host.csproj -c Release -r win-x64 --self-contained true
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o <midlertidig mappe>
+```
+
+*Prøven, kørt med **repo-roden** som arbejdsmappe — altså ikke exe'ens egen mappe:*
+
+```
+<mappe>\Todo.Host.exe --headless --urls http://127.0.0.1:<port> --Data:Path <midlertidig .db>
+curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:<port>/            # ventes 200
+```
+
+*`/api/health` svarer, før `/` gør, så pollingen skal hænge på health og ikke på roden. Målt syv ruter
+og alle **200**: `/`, `/main-*.js`, `/styles-*.css`, `/i18n/da.json`, `/api/health`, `/scalar/` og
+`/openapi/contract.yaml`. Kroppen var `{"status":"ok","version":"1.16.0.0"}`, og loggen sagde
+`Content root path: <mappe>` **uden** nogen `WebRootPath was not found`. Før rettelsen svarede samme
+prøve fra samme mappe `/` = **404** med `/api/health` og `/scalar/` = 200 — så en prøve der kun kalder
+health og scalar kan **ikke** fange fund 5; roden skal med.*
+
+*Og oprydningen, med det ene PID fundet på porten:*
+
+```
+Get-NetTCPConnection -LocalPort <port> -State Listen   →   Stop-Process -Id <det ene PID>
+```
+
+*Målt tre gange her, og hver gang stod brugerens egen app ved siden af — PID 57664 fra
+`src\Todo.Host\bin\Release\net10.0`. Bemærk at netop den proces **låser** `bin\Release\net10.0`, så et
+`dotnet run -c Release` fejler med `MSB3021 … locked by: "Todo.Host (57664)"` mens appen er åben. Et
+publish-script rører ikke den mappe (RID-mappen er `bin\Release\net10.0\win-x64`), men et script der
+gerne ville bygge Release "rent" først, ville støde på det.*
 
 ## Task 4: autostart-indstillingen
 
@@ -206,6 +341,51 @@ backend kan ikke opsnappes væk.
 `README` skal sige at WebView2-runtime er en forudsætning, og hvordan man udgiver. `CLAUDE.md` skal
 have fund 5 (indholdsroden), fund 4 (`CopyToPublishDirectory`) og tidszonefælden fra målingen.
 Designdokumentets afsnit 9 skal markere skiven færdig.
+
+*Task 1 fandt tre lektioner mere, som hører samme sted, og de står indtil videre kun her:
+(1) `CopyToPublishDirectory` er ikke nok under `PublishSingleFile` — uden `ExcludeFromSingleFile`
+havner filen **inde** i exe'en, og `File.Exists` siger nej på en fil der er "udgivet".
+(2) `dotnet run`s arbejdsmappe er **projektmappen**, ikke byggeoutputtet, så en standard baseret på
+`AppContext.BaseDirectory` brækker udviklingsvejen og ikke den udgivne — modsat af hvad man venter;
+`run-app.ps1` navngiver derfor roden.
+(3) Brugerens app kører fra `bin\Release\net10.0` og **låser** mappen, så `dotnet run -c Release`
+fejler med `MSB3021` mens vinduet er åbent. Ingen af de tre kan gættes af den næste der møder dem.*
+
+### Kørt 2026-08-20 — Task 4 og 5
+
+**To ruter, og feltet kun på svaret.** `PUT`/`DELETE /api/settings/autostart`, og `autostart` er
+`required` på `SettingsResponse` men findes **ikke** på `SettingsRequest`. Vagten på netop det er
+`Saving_every_other_setting_leaves_autostart_alone`: en fuld erstatning af alt andet må ikke slå den
+fra.
+
+**Gruppen heder nu "Generelt".** Autostart hører hos sproget — dine egne først — men overskriften
+"Sprog" navngav én kontrol, og gruppen har to nu. Konsekvensen var større end navnet: sprogvælgerens
+mærkat var `sr-only` med begrundelsen *"gruppen har præcis én kontrol, så en synlig mærkat ville skrive
+ordet to gange"*, og den begrundelse holdt op med at gælde i samme øjeblik. Mærkaten er synlig nu.
+To tests pinner overskriften og måtte rettes: `settings.spec.ts`' gruppetest og
+`SettingsAccordionJourneyTests.Groups`.
+
+**Den ene E2E-rejse fandt en fejl ingen Vitest kunne se, og det er opgavens vigtigste resultat.**
+Browseren sætter selv fluebenet ved et klik, og `[checked]` genanvendes **kun når signalet skifter** —
+så da registret afviste, gik signalet `false` → `false`, bindingen havde intet at gøre, og **fluebenet
+stod til mens intet var registreret**. Præcis den tilstand kontraktens beskrivelse advarer mod.
+Komponenten skriver nu elementet tilbage fra signalet efter rundturen. **Bemærk hvad der ikke er
+rettet:** `jira-on-duty` og `ado-include-waiting` har samme mønster, og de er urørte — de fejler kun
+hvis serveren afviser, hvilket ingen af dem har en kodet grund til i dag, hvor et låst register er den
+*sandsynlige* sag for autostart.
+
+**`UnsupportedAutostart` er utestet med vilje.** Den findes fordi registry-API'erne er annoteret
+Windows-only mens målrammen er `net10.0`, så registreringen skal spørge `OperatingSystem.IsWindows()`
+først — og den anden gren skal være noget der *siger* det frem for at lade som om. Den er uopnåelig på
+den maskine appen sendes til, og en test der påstod noget om den ville måle sin egen opsætning.
+
+**Kontrastvagten voksede ikke.** Gruppen åbnes allerede af rejsen, så kontaktens mærkat måles
+automatisk — verificeret ved at male den `text-gray-400 dark:text-gray-600` og se én fejl i hvert
+tema, ikke ved at antage det.
+
+**Fejlkoden `autostart.failed` dækker begge retninger og hver årsag.** Brugeren kan kun gøre én ting
+ved et låst register, en politik eller en manglende nøgle — se på maskinen — så en kode pr. årsag ville
+love en forskel appen ikke kan se.
 
 ## Hvad skiven ikke gør
 
