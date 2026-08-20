@@ -236,6 +236,31 @@ fund 5.
 den fælde kendt og skrevet i `CLAUDE.md`: E2E-suiten bygger ikke Angular. Med embedding bliver det
 værre, fordi filerne så er inde i en assembly der skal genbygges.
 
+### Kørt 2026-08-20 — resultat og en rettelse
+
+**To filer.** `Todo.Host.exe` på 115.121.405 bytes og `icon.ico` på 8.088. Frontenden kostede 520.776
+bytes i exe'en (114.600.629 → 115.121.405). Prøvet fra repo-roden, altså en fremmed mappe: `/`,
+`/api/health`, `/main-*.js`, `/i18n/en.json` og `/scalar/` svarede alle **200**, og `index.html` bar
+rigtig HTML frem for en fallback der ramte forbi.
+
+**Beslutningen om `.br`/`.gz` bortfaldt**, som Task 1 forudsagde: `StaticWebAssetsEnabled=false`
+fjernede dem, så der var ni filer at embedde, ikke femogtyve. `.gitkeep` og `prerendered-routes.json`
+er holdt ude.
+
+**Rettelse til planens antagelse om vagten.** Planen sagde at fælden var *"et opslag der falder
+tilbage på disken ville bestå i udvikling og fejle i den udgivne exe"*. Det er rigtigt, men planen
+sagde ikke hvor slemt: **hele E2E-suiten er blind for det.** Målt — `UseStaticFiles()` sat tilbage til
+sin standard, og **alle 44 rejser bestod**, fordi hver testhost peger sin indholdsrod på
+`src\Todo.Host`, hvor `wwwroot` ligger på disken. Vagten kan derfor ikke være en rejse; den skal være
+en indholdsrod testen selv laver og lader **tom**, hvilket er hvad `EmbeddedFrontendTests` gør.
+Konsekvensen for Task 3: `publish.ps1` er stadig værd at have, men den er **ikke længere den eneste**
+vagt på Task 2 — og det var den, indtil den her test blev skrevet.
+
+**Og et kaldested er uvagtet, målt frem for antaget.** Af de tre providere fælder kun to noget:
+`UseDefaultFiles()` sat tilbage til standarden består, fordi `MapFallbackToFile` allerede svarer `/`.
+Providereren står der alligevel — flyttes fallbacken en dag, er det den der servérer roden — men det
+er skrevet ved koden, så symmetrien ikke læses som tre målte steder.
+
 ## Task 3: `scripts\publish.ps1`, som beviser sit eget output
 
 Scriptet udgiver og **prøver derefter exe'en**: starter den headless på en fri port med

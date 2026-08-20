@@ -44,6 +44,36 @@
          Web SDK, which is why those files were never swallowed. -->
     <Content Include="..\Todo.Web\public\favicon.ico" Link="icon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
+  <PropertyGroup>
+    <!-- The Angular build goes into the assembly rather than into a folder beside the exe. Slice 16
+         chose one file, and wwwroot was the nine that were left after the five in Task 1.
+
+         It also removes a difference nobody was testing. Until now the published exe read its
+         frontend off disk relative to a content root, which is precisely the mechanism that made
+         finding 5 a 404: the tests served from src\Todo.Host\wwwroot, the exe from its own folder,
+         and only one of those two paths was ever exercised. Embedded, both serve the same bytes the
+         same way, so an E2E run measures what the exe does.
+
+         The cost, said out loud: a changed Angular file is now an input to the C# build. Angular has
+         to be built before the host, and the host has to be rebuilt after. build-web.ps1 then
+         dotnet test is that order, which is what Check.cmd already does, and MSBuild tracks
+         EmbeddedResource timestamps so an incremental build notices. What it does not fix is the old
+         trap: E2E still does not build Angular itself. -->
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- .gitkeep keeps the folder in git before a build has happened and is not content.
+         prerendered-routes.json is a note the Angular builder leaves for a prerendering step this
+         app does not have; nothing requests it. Both would be dead weight inside the assembly.
+
+         Update rather than Include for the CopyToPublishDirectory metadata: the Web SDK already has
+         these files as Content, and a second Include would carry them twice. Never, because they
+         are inside the exe now - left on, publish would write the same nine files beside it and the
+         count would not have moved. -->
+    <EmbeddedResource Include="wwwroot\**"
+                      Exclude="wwwroot\.gitkeep;wwwroot\prerendered-routes.json" />
+    <Content Update="wwwroot\**" CopyToPublishDirectory="Never" />
+  </ItemGroup>
   <ItemGroup>
     <!-- Kontrakten følger med ind i assemblyen, fordi dokumentationssiden servérer den selv.
          Den ligger ikke i noget build-output, og RepoPaths finder den kun ved at gå op til
@@ -53,6 +83,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

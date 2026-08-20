@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
 using Todo.Core.Ado;
 using Todo.Core.Jira;
@@ -126,8 +127,21 @@ public static class TodoHost
             .DisableAgent()
             .WithOpenApiRoutePattern(ContractRoute));
 
-        app.UseDefaultFiles();
-        app.UseStaticFiles();
+        // All three read the frontend out of the assembly rather than off disk, and all three have
+        // to be told: each one carries its own file provider, and one left on the default would
+        // read the content root instead. That is not a hypothetical - a lookup that quietly falls
+        // back to disk passes in development, where src\Todo.Host\wwwroot exists, and fails in the
+        // published exe, where nothing does. Same shape as finding 5, one layer in.
+        //
+        // Two of the three are guarded by EmbeddedFrontendTests; the third is not. Putting
+        // UseDefaultFiles back on the default fells nothing, because MapFallbackToFile already
+        // answers "/". It keeps the provider anyway - the day the fallback moves or goes, this is
+        // what serves the root - but nothing would catch it going wrong, which is worth knowing
+        // rather than reading the symmetry as three tested call sites.
+        var frontend = new ManifestEmbeddedFileProvider(typeof(TodoHost).Assembly, "wwwroot");
+
+        app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = frontend });
+        app.UseStaticFiles(new StaticFileOptions { FileProvider = frontend });
 
         app.MapGet("/api/health", () => new HealthResponse
         {
@@ -145,7 +159,7 @@ public static class TodoHost
         app.MapSettings();
         app.MapSystem();
 
-        app.MapFallbackToFile("index.html");
+        app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = frontend });
 
         return app;
     }

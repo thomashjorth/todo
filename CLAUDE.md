@@ -789,7 +789,19 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 16's Task 1 (pakningsfejlene): **164** Todo.Core.Tests, **292** Todo.Api.Tests,
+Efter skive 16's Task 2 (`wwwroot` ind i exe'en): **164** Todo.Core.Tests, **294** Todo.Api.Tests,
+**44** Todo.E2E, **250** Vitest. Opgaven lagde **2** Api-tests til (292 → 294), begge
+`EmbeddedFrontendTests`, og rørte ikke de tre andre tal. Fordelingen siger noget vigtigt: **de 44 E2E
+er uændrede og var grønne både før og efter**, fordi de kører mod den samme host — men de kan ikke se
+forskellen. Målt: sættes `UseStaticFiles()` tilbage til sin standard, består **alle 44**, fordi hver
+testhost peger sin indholdsrod på `src\Todo.Host`, hvor der ligger et rigtigt `wwwroot` på disken. Hele
+rejsesuiten var altså blind for at embedding'en blev rullet tilbage, og det eneste der ville have
+mærket det, var en udgivet exe. Vagten er derfor en indholdsrod testen selv laver og lader **tom** —
+så assemblyen er det eneste sted bytes kan komme fra. **To** af de tre kaldesteder er dækket;
+`UseDefaultFiles` er det ikke, fordi `MapFallbackToFile` allerede svarer `/`, og det står skrevet ved
+koden frem for at symmetrien læses som tre målte steder.
+
+Før den, efter skive 16's Task 1 (pakningsfejlene): **164** Todo.Core.Tests, **292** Todo.Api.Tests,
 **44** Todo.E2E, **250** Vitest. Opgaven lagde **2** Api-tests til (290 → 292) og rørte ikke de tre
 andre tal. Begge er `HostContentRootTests`, og de er et par frem for én af samme grund som vagterne
 nedenfor: den ene siger at standarden er exe'ens mappe, den anden at `--contentRoot` stadig vinder, og
