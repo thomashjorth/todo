@@ -1031,6 +1031,121 @@ export class SettingsClient {
         }
         return _observableOf(null as any);
     }
+
+    /**
+     * Stores the Azure DevOps personal access token the import authenticates with.
+     * @return The token was stored.
+     */
+    setAdoToken(body: AdoTokenRequest): Observable<SettingsResponse> {
+        let url_ = this.baseUrl + "/api/settings/ado-token";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processSetAdoToken(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processSetAdoToken(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<SettingsResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<SettingsResponse>;
+        }));
+    }
+
+    protected processSetAdoToken(response: HttpResponseBase): Observable<SettingsResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = SettingsResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The token was empty.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Forgets the stored Azure DevOps token.
+     * @return The token was removed.
+     */
+    clearAdoToken(): Observable<SettingsResponse> {
+        let url_ = this.baseUrl + "/api/settings/ado-token";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processClearAdoToken(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processClearAdoToken(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<SettingsResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<SettingsResponse>;
+        }));
+    }
+
+    protected processClearAdoToken(response: HttpResponseBase): Observable<SettingsResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = SettingsResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
 }
 
 @Injectable({
@@ -1269,6 +1384,260 @@ export class JiraClient {
             let result200: any = null;
             let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
             result200 = JiraImportResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The request is not valid.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
+@Injectable({
+    providedIn: 'root'
+})
+export class AdoClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * Asks Azure DevOps who the stored token belongs to.
+     * @return The name Azure DevOps reports for the token's owner.
+     */
+    testAdoConnection(): Observable<AdoConnectionResponse> {
+        let url_ = this.baseUrl + "/api/ado/test";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processTestAdoConnection(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processTestAdoConnection(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AdoConnectionResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AdoConnectionResponse>;
+        }));
+    }
+
+    protected processTestAdoConnection(response: HttpResponseBase): Observable<AdoConnectionResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AdoConnectionResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("Azure DevOps could not be reached, or the token was rejected.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Lists the state names the configured project uses.
+     * @return The state names, so the waiting list can be picked rather than typed.
+     */
+    listAdoStates(): Observable<AdoStatesResponse> {
+        let url_ = this.baseUrl + "/api/ado/states";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processListAdoStates(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processListAdoStates(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AdoStatesResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AdoStatesResponse>;
+        }));
+    }
+
+    protected processListAdoStates(response: HttpResponseBase): Observable<AdoStatesResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AdoStatesResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("Azure DevOps could not be reached, or the token was rejected.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Reads the user's assigned work items without storing anything.
+     * @return The rows the import would create.
+     */
+    previewAdo(): Observable<AdoPreviewResponse> {
+        let url_ = this.baseUrl + "/api/ado/preview";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processPreviewAdo(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processPreviewAdo(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AdoPreviewResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AdoPreviewResponse>;
+        }));
+    }
+
+    protected processPreviewAdo(response: HttpResponseBase): Observable<AdoPreviewResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AdoPreviewResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("Azure DevOps could not be reached, or the token was rejected.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Creates a task for every Azure DevOps row that is not imported already.
+     * @return How many rows were created and how many were already there.
+     */
+    importAdo(body: AdoImportRequest): Observable<AdoImportResponse> {
+        let url_ = this.baseUrl + "/api/ado/import";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processImportAdo(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processImportAdo(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AdoImportResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AdoImportResponse>;
+        }));
+    }
+
+    protected processImportAdo(response: HttpResponseBase): Observable<AdoImportResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AdoImportResponse.fromJS(resultData200);
             return _observableOf(result200);
             }));
         } else if (status === 400) {
@@ -2608,6 +2977,389 @@ export interface IJiraImportResponse {
     skipped: number;
 }
 
+export class AdoConnectionResponse implements IAdoConnectionResponse {
+    displayName!: string;
+
+    constructor(data?: IAdoConnectionResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.displayName = _data["displayName"];
+        }
+    }
+
+    static fromJS(data: any): AdoConnectionResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoConnectionResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["displayName"] = this.displayName;
+        return data;
+    }
+}
+
+export interface IAdoConnectionResponse {
+    displayName: string;
+}
+
+export class AdoStatesResponse implements IAdoStatesResponse {
+    names!: string[];
+
+    constructor(data?: IAdoStatesResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.names = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["names"])) {
+                this.names = [] as any;
+                for (let item of _data["names"])
+                    this.names!.push(item);
+            }
+        }
+    }
+
+    static fromJS(data: any): AdoStatesResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoStatesResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.names)) {
+            data["names"] = [];
+            for (let item of this.names)
+                data["names"].push(item);
+        }
+        return data;
+    }
+}
+
+export interface IAdoStatesResponse {
+    names: string[];
+}
+
+export class AdoPreviewRow implements IAdoPreviewRow {
+    key!: string;
+    title!: string;
+    /** Where Azure DevOps shows this work item. Built by the app rather than taken from the server, whose own URLs address the project by GUID and are not humanly navigable. Always present: a preview cannot happen without a configured collection, so this is required rather than nullable — a nullable field would add an @if branch, and a branch is unmeasured until a fixture renders it. */
+    url!: string;
+    /** The work item description, converted to CommonMark. Which field it comes from depends on the work item type: a Bug carries Microsoft.VSTS.TCM.ReproSteps, a User Story System.Description. Nullable because a type may carry neither. */
+    note?: string | undefined;
+    /** The deadline the import would set, derived by the server from today plus adoDefaultDeadlineDays. Azure DevOps has no due date field of its own, so the app proposes one. Nullable because adoDefaultDeadlineDays 0 means no deadline. The client shows this value; it does not send it back, and the import derives it again. */
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    /** The work item state, shown so the user can see why a row is waiting. */
+    state!: string;
+    /** The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter. */
+    workItemType!: string;
+    /** Whether the state is in the user's waiting list. */
+    isWaiting!: boolean;
+    /** Microsoft.VSTS.Common.StateChangeDate, which arrives with the work item itself — no second call per row, unlike Jira, whose equivalent required the changelog. */
+    waitingSince?: string | undefined;
+    alreadyImported!: boolean;
+    /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
+    excluded?: string | undefined;
+
+    constructor(data?: IAdoPreviewRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.title = _data["title"];
+            this.url = _data["url"];
+            this.note = _data["note"];
+            this.deadline = _data["deadline"];
+            this.requester = _data["requester"];
+            this.state = _data["state"];
+            this.workItemType = _data["workItemType"];
+            this.isWaiting = _data["isWaiting"];
+            this.waitingSince = _data["waitingSince"];
+            this.alreadyImported = _data["alreadyImported"];
+            this.excluded = _data["excluded"];
+        }
+    }
+
+    static fromJS(data: any): AdoPreviewRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoPreviewRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["title"] = this.title;
+        data["url"] = this.url;
+        data["note"] = this.note;
+        data["deadline"] = this.deadline;
+        data["requester"] = this.requester;
+        data["state"] = this.state;
+        data["workItemType"] = this.workItemType;
+        data["isWaiting"] = this.isWaiting;
+        data["waitingSince"] = this.waitingSince;
+        data["alreadyImported"] = this.alreadyImported;
+        data["excluded"] = this.excluded;
+        return data;
+    }
+}
+
+export interface IAdoPreviewRow {
+    key: string;
+    title: string;
+    /** Where Azure DevOps shows this work item. Built by the app rather than taken from the server, whose own URLs address the project by GUID and are not humanly navigable. Always present: a preview cannot happen without a configured collection, so this is required rather than nullable — a nullable field would add an @if branch, and a branch is unmeasured until a fixture renders it. */
+    url: string;
+    /** The work item description, converted to CommonMark. Which field it comes from depends on the work item type: a Bug carries Microsoft.VSTS.TCM.ReproSteps, a User Story System.Description. Nullable because a type may carry neither. */
+    note?: string | undefined;
+    /** The deadline the import would set, derived by the server from today plus adoDefaultDeadlineDays. Azure DevOps has no due date field of its own, so the app proposes one. Nullable because adoDefaultDeadlineDays 0 means no deadline. The client shows this value; it does not send it back, and the import derives it again. */
+    deadline?: string | undefined;
+    requester?: string | undefined;
+    /** The work item state, shown so the user can see why a row is waiting. */
+    state: string;
+    /** The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter. */
+    workItemType: string;
+    /** Whether the state is in the user's waiting list. */
+    isWaiting: boolean;
+    /** Microsoft.VSTS.Common.StateChangeDate, which arrives with the work item itself — no second call per row, unlike Jira, whose equivalent required the changelog. */
+    waitingSince?: string | undefined;
+    alreadyImported: boolean;
+    /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
+    excluded?: string | undefined;
+}
+
+export class AdoPreviewResponse implements IAdoPreviewResponse {
+    rows!: AdoPreviewRow[];
+    /** What Azure DevOps reported as the total, so a truncated page is visible. */
+    total!: number;
+
+    constructor(data?: IAdoPreviewResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(AdoPreviewRow.fromJS(item));
+            }
+            this.total = _data["total"];
+        }
+    }
+
+    static fromJS(data: any): AdoPreviewResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoPreviewResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        data["total"] = this.total;
+        return data;
+    }
+}
+
+export interface IAdoPreviewResponse {
+    rows: AdoPreviewRow[];
+    /** What Azure DevOps reported as the total, so a truncated page is visible. */
+    total: number;
+}
+
+export class AdoImportRow implements IAdoImportRow {
+    key!: string;
+    title!: string;
+    note?: string | undefined;
+    requester?: string | undefined;
+    /** The work item state. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire. The row carries no deadline either, for the same reason: the deadline is derived from the clock and adoDefaultDeadlineDays. The fact can be sent; the decision cannot. */
+    state!: string;
+    /** The work item type, so the server can apply the adoWorkItemTypes filter again rather than trusting that the client did. */
+    workItemType!: string;
+    waitingSince?: string | undefined;
+
+    constructor(data?: IAdoImportRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.title = _data["title"];
+            this.note = _data["note"];
+            this.requester = _data["requester"];
+            this.state = _data["state"];
+            this.workItemType = _data["workItemType"];
+            this.waitingSince = _data["waitingSince"];
+        }
+    }
+
+    static fromJS(data: any): AdoImportRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoImportRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["title"] = this.title;
+        data["note"] = this.note;
+        data["requester"] = this.requester;
+        data["state"] = this.state;
+        data["workItemType"] = this.workItemType;
+        data["waitingSince"] = this.waitingSince;
+        return data;
+    }
+}
+
+export interface IAdoImportRow {
+    key: string;
+    title: string;
+    note?: string | undefined;
+    requester?: string | undefined;
+    /** The work item state. The server decides whether that means waiting, by looking it up in the user's waiting list — the client must not send that decision, because the setting lives on the server and a required boolean cannot be enforced on the wire. The row carries no deadline either, for the same reason: the deadline is derived from the clock and adoDefaultDeadlineDays. The fact can be sent; the decision cannot. */
+    state: string;
+    /** The work item type, so the server can apply the adoWorkItemTypes filter again rather than trusting that the client did. */
+    workItemType: string;
+    waitingSince?: string | undefined;
+}
+
+export class AdoImportRequest implements IAdoImportRequest {
+    rows!: AdoImportRow[];
+
+    constructor(data?: IAdoImportRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(AdoImportRow.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): AdoImportRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoImportRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IAdoImportRequest {
+    rows: AdoImportRow[];
+}
+
+export class AdoImportResponse implements IAdoImportResponse {
+    imported!: number;
+    skipped!: number;
+
+    constructor(data?: IAdoImportResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.imported = _data["imported"];
+            this.skipped = _data["skipped"];
+        }
+    }
+
+    static fromJS(data: any): AdoImportResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoImportResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["imported"] = this.imported;
+        data["skipped"] = this.skipped;
+        return data;
+    }
+}
+
+export interface IAdoImportResponse {
+    imported: number;
+    skipped: number;
+}
+
 export class SettingsRequest implements ISettingsRequest {
     language?: string | undefined;
     /** People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states. */
@@ -2620,6 +3372,17 @@ export class SettingsRequest implements ISettingsRequest {
     jiraDutyStatuses?: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
     jiraOnDuty?: boolean;
+    /** The Azure DevOps collection URL, which may contain a space in its name. */
+    adoBaseUrl?: string | undefined;
+    adoProject?: string | undefined;
+    /** States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart. */
+    adoWaitingStates?: string[];
+    /** Whether rows in a waiting state are imported anyway. Off by default. */
+    adoIncludeWaiting?: boolean;
+    /** The work item types to import, so test artefacts stay out. An empty list means every type — which does not contradict the project key that may not be empty, because the default here is populated, so emptying it is a deliberate act rather than the state reached by doing nothing. */
+    adoWorkItemTypes?: string[];
+    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. */
+    adoDefaultDeadlineDays?: number;
 
     constructor(data?: ISettingsRequest) {
         if (data) {
@@ -2652,6 +3415,20 @@ export class SettingsRequest implements ISettingsRequest {
                     this.jiraDutyStatuses!.push(item);
             }
             this.jiraOnDuty = _data["jiraOnDuty"];
+            this.adoBaseUrl = _data["adoBaseUrl"];
+            this.adoProject = _data["adoProject"];
+            if (Array.isArray(_data["adoWaitingStates"])) {
+                this.adoWaitingStates = [] as any;
+                for (let item of _data["adoWaitingStates"])
+                    this.adoWaitingStates!.push(item);
+            }
+            this.adoIncludeWaiting = _data["adoIncludeWaiting"];
+            if (Array.isArray(_data["adoWorkItemTypes"])) {
+                this.adoWorkItemTypes = [] as any;
+                for (let item of _data["adoWorkItemTypes"])
+                    this.adoWorkItemTypes!.push(item);
+            }
+            this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"];
         }
     }
 
@@ -2684,6 +3461,20 @@ export class SettingsRequest implements ISettingsRequest {
                 data["jiraDutyStatuses"].push(item);
         }
         data["jiraOnDuty"] = this.jiraOnDuty;
+        data["adoBaseUrl"] = this.adoBaseUrl;
+        data["adoProject"] = this.adoProject;
+        if (Array.isArray(this.adoWaitingStates)) {
+            data["adoWaitingStates"] = [];
+            for (let item of this.adoWaitingStates)
+                data["adoWaitingStates"].push(item);
+        }
+        data["adoIncludeWaiting"] = this.adoIncludeWaiting;
+        if (Array.isArray(this.adoWorkItemTypes)) {
+            data["adoWorkItemTypes"] = [];
+            for (let item of this.adoWorkItemTypes)
+                data["adoWorkItemTypes"].push(item);
+        }
+        data["adoDefaultDeadlineDays"] = this.adoDefaultDeadlineDays;
         return data;
     }
 }
@@ -2700,6 +3491,17 @@ export interface ISettingsRequest {
     jiraDutyStatuses?: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
     jiraOnDuty?: boolean;
+    /** The Azure DevOps collection URL, which may contain a space in its name. */
+    adoBaseUrl?: string | undefined;
+    adoProject?: string | undefined;
+    /** States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart. */
+    adoWaitingStates?: string[];
+    /** Whether rows in a waiting state are imported anyway. Off by default. */
+    adoIncludeWaiting?: boolean;
+    /** The work item types to import, so test artefacts stay out. An empty list means every type — which does not contradict the project key that may not be empty, because the default here is populated, so emptying it is a deliberate act rather than the state reached by doing nothing. */
+    adoWorkItemTypes?: string[];
+    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. */
+    adoDefaultDeadlineDays?: number;
 }
 
 export class SettingsResponse implements ISettingsResponse {
@@ -2716,6 +3518,19 @@ export class SettingsResponse implements ISettingsResponse {
     jiraOnDuty!: boolean;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
     hasJiraToken!: boolean;
+    /** The Azure DevOps collection URL, which may contain a space in its name. */
+    adoBaseUrl?: string | undefined;
+    adoProject?: string | undefined;
+    /** States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart. */
+    adoWaitingStates!: string[];
+    /** Whether rows in a waiting state are imported anyway. Off by default. */
+    adoIncludeWaiting!: boolean;
+    /** The work item types to import, so test artefacts stay out. An empty list means every type — which does not contradict the project key that may not be empty, because the default here is populated, so emptying it is a deliberate act rather than the state reached by doing nothing. */
+    adoWorkItemTypes!: string[];
+    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. */
+    adoDefaultDeadlineDays!: number;
+    /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
+    hasAdoToken!: boolean;
 
     constructor(data?: ISettingsResponse) {
         if (data) {
@@ -2728,6 +3543,8 @@ export class SettingsResponse implements ISettingsResponse {
             this.delegates = [];
             this.jiraWaitingStatuses = [];
             this.jiraDutyStatuses = [];
+            this.adoWaitingStates = [];
+            this.adoWorkItemTypes = [];
         }
     }
 
@@ -2754,6 +3571,21 @@ export class SettingsResponse implements ISettingsResponse {
             }
             this.jiraOnDuty = _data["jiraOnDuty"];
             this.hasJiraToken = _data["hasJiraToken"];
+            this.adoBaseUrl = _data["adoBaseUrl"];
+            this.adoProject = _data["adoProject"];
+            if (Array.isArray(_data["adoWaitingStates"])) {
+                this.adoWaitingStates = [] as any;
+                for (let item of _data["adoWaitingStates"])
+                    this.adoWaitingStates!.push(item);
+            }
+            this.adoIncludeWaiting = _data["adoIncludeWaiting"];
+            if (Array.isArray(_data["adoWorkItemTypes"])) {
+                this.adoWorkItemTypes = [] as any;
+                for (let item of _data["adoWorkItemTypes"])
+                    this.adoWorkItemTypes!.push(item);
+            }
+            this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"];
+            this.hasAdoToken = _data["hasAdoToken"];
         }
     }
 
@@ -2787,6 +3619,21 @@ export class SettingsResponse implements ISettingsResponse {
         }
         data["jiraOnDuty"] = this.jiraOnDuty;
         data["hasJiraToken"] = this.hasJiraToken;
+        data["adoBaseUrl"] = this.adoBaseUrl;
+        data["adoProject"] = this.adoProject;
+        if (Array.isArray(this.adoWaitingStates)) {
+            data["adoWaitingStates"] = [];
+            for (let item of this.adoWaitingStates)
+                data["adoWaitingStates"].push(item);
+        }
+        data["adoIncludeWaiting"] = this.adoIncludeWaiting;
+        if (Array.isArray(this.adoWorkItemTypes)) {
+            data["adoWorkItemTypes"] = [];
+            for (let item of this.adoWorkItemTypes)
+                data["adoWorkItemTypes"].push(item);
+        }
+        data["adoDefaultDeadlineDays"] = this.adoDefaultDeadlineDays;
+        data["hasAdoToken"] = this.hasAdoToken;
         return data;
     }
 }
@@ -2805,6 +3652,19 @@ export interface ISettingsResponse {
     jiraOnDuty: boolean;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
     hasJiraToken: boolean;
+    /** The Azure DevOps collection URL, which may contain a space in its name. */
+    adoBaseUrl?: string | undefined;
+    adoProject?: string | undefined;
+    /** States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart. */
+    adoWaitingStates: string[];
+    /** Whether rows in a waiting state are imported anyway. Off by default. */
+    adoIncludeWaiting: boolean;
+    /** The work item types to import, so test artefacts stay out. An empty list means every type — which does not contradict the project key that may not be empty, because the default here is populated, so emptying it is a deliberate act rather than the state reached by doing nothing. */
+    adoWorkItemTypes: string[];
+    /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. */
+    adoDefaultDeadlineDays: number;
+    /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
+    hasAdoToken: boolean;
 }
 
 export class JiraTokenRequest implements IJiraTokenRequest {
@@ -2840,6 +3700,42 @@ export class JiraTokenRequest implements IJiraTokenRequest {
 }
 
 export interface IJiraTokenRequest {
+    token: string;
+}
+
+export class AdoTokenRequest implements IAdoTokenRequest {
+    token!: string;
+
+    constructor(data?: IAdoTokenRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.token = _data["token"];
+        }
+    }
+
+    static fromJS(data: any): AdoTokenRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoTokenRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["token"] = this.token;
+        return data;
+    }
+}
+
+export interface IAdoTokenRequest {
     token: string;
 }
 

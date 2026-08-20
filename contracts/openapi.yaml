@@ -364,6 +364,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SettingsResponse'
+  /api/settings/ado-token:
+    put:
+      operationId: setAdoToken
+      tags:
+        - Settings
+      summary: Stores the Azure DevOps personal access token the import authenticates with.
+      description: >-
+        A route of its own rather than a field on PUT /api/settings, because that is a full
+        replacement which reads an absent field as "clear": a client saving anything else on
+        the settings page would wipe the token, and the token can never be sent back to the
+        client to be echoed. SettingsResponse carries only hasAdoToken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdoTokenRequest'
+      responses:
+        '200':
+          description: The token was stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '400':
+          description: The token was empty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      operationId: clearAdoToken
+      tags:
+        - Settings
+      summary: Forgets the stored Azure DevOps token.
+      responses:
+        '200':
+          description: The token was removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
   /api/jira/test:
     post:
       operationId: testJiraConnection
@@ -445,6 +487,100 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JiraImportResponse'
+        '400':
+          description: The request is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/ado/test:
+    post:
+      operationId: testAdoConnection
+      tags:
+        - Ado
+      summary: Asks Azure DevOps who the stored token belongs to.
+      description: >-
+        A POST rather than a GET because this is an action the user asks for and expects to
+        re-run, not a resource to read. The distinction is action against resource, not
+        whether the call reaches the network: /api/ado/states is a GET even though it too
+        contacts the server, because a list of state names is exactly a cacheable resource.
+      responses:
+        '200':
+          description: The name Azure DevOps reports for the token's owner.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdoConnectionResponse'
+        '400':
+          description: Azure DevOps could not be reached, or the token was rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/ado/states:
+    get:
+      operationId: listAdoStates
+      tags:
+        - Ado
+      summary: Lists the state names the configured project uses.
+      description: >-
+        A GET because a list of names is a resource rather than an action, and may be served
+        from a cache. State names differ per work item type — Test Suite uses In Progress
+        where Bug and User Story use Active — so the waiting list is picked rather than typed.
+      responses:
+        '200':
+          description: The state names, so the waiting list can be picked rather than typed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdoStatesResponse'
+        '400':
+          description: Azure DevOps could not be reached, or the token was rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/ado/preview:
+    post:
+      operationId: previewAdo
+      tags:
+        - Ado
+      summary: Reads the user's assigned work items without storing anything.
+      description: >-
+        A POST for the same reason as /api/ado/test: previewing is an action the user asks
+        for and expects to repeat, not a cacheable resource.
+      responses:
+        '200':
+          description: The rows the import would create.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdoPreviewResponse'
+        '400':
+          description: Azure DevOps could not be reached, or the token was rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/ado/import:
+    post:
+      operationId: importAdo
+      tags:
+        - Ado
+      summary: Creates a task for every Azure DevOps row that is not imported already.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdoImportRequest'
+      responses:
+        '200':
+          description: How many rows were created and how many were already there.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdoImportResponse'
         '400':
           description: The request is not valid.
           content:
@@ -801,6 +937,150 @@ components:
         skipped:
           type: integer
           format: int32
+    AdoConnectionResponse:
+      type: object
+      additionalProperties: false
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+    AdoStatesResponse:
+      type: object
+      additionalProperties: false
+      required: [names]
+      properties:
+        names:
+          type: array
+          items:
+            type: string
+    AdoPreviewRow:
+      type: object
+      additionalProperties: false
+      required: [key, title, url, state, workItemType, isWaiting, alreadyImported]
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+          description: >-
+            Where Azure DevOps shows this work item. Built by the app rather than taken from the
+            server, whose own URLs address the project by GUID and are not humanly navigable.
+            Always present: a preview cannot happen without a configured collection, so this is
+            required rather than nullable — a nullable field would add an @if branch, and a
+            branch is unmeasured until a fixture renders it.
+        note:
+          type: string
+          nullable: true
+          description: >-
+            The work item description, converted to CommonMark. Which field it comes from depends
+            on the work item type: a Bug carries Microsoft.VSTS.TCM.ReproSteps, a User Story
+            System.Description. Nullable because a type may carry neither.
+        deadline:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The deadline the import would set, derived by the server from today plus
+            adoDefaultDeadlineDays. Azure DevOps has no due date field of its own, so the app
+            proposes one. Nullable because adoDefaultDeadlineDays 0 means no deadline. The client
+            shows this value; it does not send it back, and the import derives it again.
+        requester:
+          type: string
+          nullable: true
+        state:
+          type: string
+          description: The work item state, shown so the user can see why a row is waiting.
+        workItemType:
+          type: string
+          description: >-
+            The work item type, shown because state names differ per type and because the type
+            decides whether the row passes the adoWorkItemTypes filter.
+        isWaiting:
+          type: boolean
+          description: Whether the state is in the user's waiting list.
+        waitingSince:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Microsoft.VSTS.Common.StateChangeDate, which arrives with the work item itself — no
+            second call per row, unlike Jira, whose equivalent required the changelog.
+        alreadyImported:
+          type: boolean
+        excluded:
+          type: string
+          nullable: true
+          example: ado.excludedWaiting
+          description: >-
+            Why import will skip this row, as an error code the frontend translates.
+            Null means it will be imported.
+    AdoPreviewResponse:
+      type: object
+      additionalProperties: false
+      required: [rows, total]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdoPreviewRow'
+        total:
+          type: integer
+          format: int32
+          description: What Azure DevOps reported as the total, so a truncated page is visible.
+    AdoImportRow:
+      type: object
+      additionalProperties: false
+      required: [key, title, state, workItemType]
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        note:
+          type: string
+          nullable: true
+        requester:
+          type: string
+          nullable: true
+        state:
+          type: string
+          description: >-
+            The work item state. The server decides whether that means waiting, by looking it
+            up in the user's waiting list — the client must not send that decision, because the
+            setting lives on the server and a required boolean cannot be enforced on the wire.
+            The row carries no deadline either, for the same reason: the deadline is derived
+            from the clock and adoDefaultDeadlineDays. The fact can be sent; the decision cannot.
+        workItemType:
+          type: string
+          description: >-
+            The work item type, so the server can apply the adoWorkItemTypes filter again
+            rather than trusting that the client did.
+        waitingSince:
+          type: string
+          format: date-time
+          nullable: true
+    AdoImportRequest:
+      type: object
+      additionalProperties: false
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdoImportRow'
+    AdoImportResponse:
+      type: object
+      additionalProperties: false
+      required: [imported, skipped]
+      properties:
+        imported:
+          type: integer
+          format: int32
+        skipped:
+          type: integer
+          format: int32
     SettingsRequest:
       type: object
       additionalProperties: false
@@ -842,6 +1122,39 @@ components:
           description: >-
             Whether the user currently holds the 2nd level support duty. Off by default. Separate
             from the list so the list survives going off duty.
+        adoBaseUrl:
+          type: string
+          nullable: true
+          description: The Azure DevOps collection URL, which may contain a space in its name.
+        adoProject:
+          type: string
+          nullable: true
+        adoWaitingStates:
+          type: array
+          items:
+            type: string
+          description: >-
+            States that mean "waiting for somebody else". Compared ordinally: two states that
+            differ only in case are two states the system keeps apart.
+        adoIncludeWaiting:
+          type: boolean
+          description: Whether rows in a waiting state are imported anyway. Off by default.
+        adoWorkItemTypes:
+          type: array
+          items:
+            type: string
+          description: >-
+            The work item types to import, so test artefacts stay out. An empty list means every
+            type — which does not contradict the project key that may not be empty, because the
+            default here is populated, so emptying it is a deliberate act rather than the state
+            reached by doing nothing.
+        adoDefaultDeadlineDays:
+          type: integer
+          format: int32
+          description: >-
+            How many days ahead the import sets a deadline, because Azure DevOps has no due date
+            field of its own. 0 means no deadline. Not nullable: a nullable field would add an
+            @if branch in the frontend, and 0 reads as "off" for a number of days.
     SettingsResponse:
       type: object
       additionalProperties: false
@@ -852,6 +1165,11 @@ components:
         - jiraDutyStatuses
         - jiraOnDuty
         - hasJiraToken
+        - adoWaitingStates
+        - adoIncludeWaiting
+        - adoWorkItemTypes
+        - adoDefaultDeadlineDays
+        - hasAdoToken
       properties:
         language:
           type: string
@@ -895,7 +1213,52 @@ components:
           description: >-
             Whether a token is stored. The token itself is never returned; it is written
             through PUT /api/settings/jira-token and cleared through DELETE.
+        adoBaseUrl:
+          type: string
+          nullable: true
+          description: The Azure DevOps collection URL, which may contain a space in its name.
+        adoProject:
+          type: string
+          nullable: true
+        adoWaitingStates:
+          type: array
+          items:
+            type: string
+          description: >-
+            States that mean "waiting for somebody else". Compared ordinally: two states that
+            differ only in case are two states the system keeps apart.
+        adoIncludeWaiting:
+          type: boolean
+          description: Whether rows in a waiting state are imported anyway. Off by default.
+        adoWorkItemTypes:
+          type: array
+          items:
+            type: string
+          description: >-
+            The work item types to import, so test artefacts stay out. An empty list means every
+            type — which does not contradict the project key that may not be empty, because the
+            default here is populated, so emptying it is a deliberate act rather than the state
+            reached by doing nothing.
+        adoDefaultDeadlineDays:
+          type: integer
+          format: int32
+          description: >-
+            How many days ahead the import sets a deadline, because Azure DevOps has no due date
+            field of its own. 0 means no deadline. Not nullable: a nullable field would add an
+            @if branch in the frontend, and 0 reads as "off" for a number of days.
+        hasAdoToken:
+          type: boolean
+          description: >-
+            Whether a token is stored. The token itself is never returned; it is written
+            through PUT /api/settings/ado-token and cleared through DELETE.
     JiraTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+    AdoTokenRequest:
       type: object
       additionalProperties: false
       required: [token]

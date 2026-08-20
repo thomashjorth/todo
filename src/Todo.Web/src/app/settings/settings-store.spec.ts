@@ -22,7 +22,7 @@ function configure(system: string): { store: SettingsStore; http: HttpTestingCon
 }
 
 /**
- * Every field of the settings response, because the contract makes six of them non-optional and
+ * Every field of the settings response, because the contract makes eleven of them non-optional and
  * a fixture that leaves one out would hand the store an undefined the types say cannot happen.
  * The type checker cannot catch that here — this shape is not `ISettingsResponse` — so a field
  * added to the contract has to be added by hand.
@@ -39,6 +39,13 @@ interface SettingsJson {
   jiraDutyStatuses?: string[];
   jiraOnDuty?: boolean;
   hasJiraToken?: boolean;
+  adoBaseUrl?: string | null;
+  adoProject?: string | null;
+  adoWaitingStates?: string[];
+  adoIncludeWaiting?: boolean;
+  adoWorkItemTypes?: string[];
+  adoDefaultDeadlineDays?: number;
+  hasAdoToken?: boolean;
 }
 
 function settingsJson(overrides: SettingsJson = {}): Blob {
@@ -53,6 +60,13 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       jiraDutyStatuses: [],
       jiraOnDuty: false,
       hasJiraToken: false,
+      adoBaseUrl: null,
+      adoProject: null,
+      adoWaitingStates: [],
+      adoIncludeWaiting: false,
+      adoWorkItemTypes: [],
+      adoDefaultDeadlineDays: 3,
+      hasAdoToken: false,
       ...overrides,
     }),
   ]);

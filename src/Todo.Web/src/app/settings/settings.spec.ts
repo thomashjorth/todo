@@ -37,6 +37,13 @@ interface SettingsFixture {
   jiraDutyStatuses?: string[];
   jiraOnDuty?: boolean;
   hasJiraToken?: boolean;
+  adoBaseUrl?: string | null;
+  adoProject?: string | null;
+  adoWaitingStates?: string[];
+  adoIncludeWaiting?: boolean;
+  adoWorkItemTypes?: string[];
+  adoDefaultDeadlineDays?: number;
+  hasAdoToken?: boolean;
 }
 
 function settingsJson(language: string | null, rest: SettingsFixture = {}): Blob {
@@ -51,6 +58,13 @@ function settingsJson(language: string | null, rest: SettingsFixture = {}): Blob
       jiraDutyStatuses: [],
       jiraOnDuty: false,
       hasJiraToken: false,
+      adoBaseUrl: null,
+      adoProject: null,
+      adoWaitingStates: [],
+      adoIncludeWaiting: false,
+      adoWorkItemTypes: [],
+      adoDefaultDeadlineDays: 3,
+      hasAdoToken: false,
       ...rest,
     }),
   ]);
