@@ -2610,6 +2610,8 @@ export interface IJiraImportResponse {
 
 export class SettingsRequest implements ISettingsRequest {
     language?: string | undefined;
+    /** People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states. */
+    delegates?: string[];
     jiraBaseUrl?: string | undefined;
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses?: string[];
@@ -2631,6 +2633,11 @@ export class SettingsRequest implements ISettingsRequest {
     init(_data?: any) {
         if (_data) {
             this.language = _data["language"];
+            if (Array.isArray(_data["delegates"])) {
+                this.delegates = [] as any;
+                for (let item of _data["delegates"])
+                    this.delegates!.push(item);
+            }
             this.jiraBaseUrl = _data["jiraBaseUrl"];
             this.jiraProjectKey = _data["jiraProjectKey"];
             if (Array.isArray(_data["jiraWaitingStatuses"])) {
@@ -2658,6 +2665,11 @@ export class SettingsRequest implements ISettingsRequest {
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
         data["language"] = this.language;
+        if (Array.isArray(this.delegates)) {
+            data["delegates"] = [];
+            for (let item of this.delegates)
+                data["delegates"].push(item);
+        }
         data["jiraBaseUrl"] = this.jiraBaseUrl;
         data["jiraProjectKey"] = this.jiraProjectKey;
         if (Array.isArray(this.jiraWaitingStatuses)) {
@@ -2678,6 +2690,8 @@ export class SettingsRequest implements ISettingsRequest {
 
 export interface ISettingsRequest {
     language?: string | undefined;
+    /** People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states. */
+    delegates?: string[];
     jiraBaseUrl?: string | undefined;
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses?: string[];
@@ -2690,6 +2704,8 @@ export interface ISettingsRequest {
 
 export class SettingsResponse implements ISettingsResponse {
     language?: string | undefined;
+    /** People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states. */
+    delegates!: string[];
     jiraBaseUrl?: string | undefined;
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses!: string[];
@@ -2709,6 +2725,7 @@ export class SettingsResponse implements ISettingsResponse {
             }
         }
         if (!data) {
+            this.delegates = [];
             this.jiraWaitingStatuses = [];
             this.jiraDutyStatuses = [];
         }
@@ -2717,6 +2734,11 @@ export class SettingsResponse implements ISettingsResponse {
     init(_data?: any) {
         if (_data) {
             this.language = _data["language"];
+            if (Array.isArray(_data["delegates"])) {
+                this.delegates = [] as any;
+                for (let item of _data["delegates"])
+                    this.delegates!.push(item);
+            }
             this.jiraBaseUrl = _data["jiraBaseUrl"];
             this.jiraProjectKey = _data["jiraProjectKey"];
             if (Array.isArray(_data["jiraWaitingStatuses"])) {
@@ -2745,6 +2767,11 @@ export class SettingsResponse implements ISettingsResponse {
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
         data["language"] = this.language;
+        if (Array.isArray(this.delegates)) {
+            data["delegates"] = [];
+            for (let item of this.delegates)
+                data["delegates"].push(item);
+        }
         data["jiraBaseUrl"] = this.jiraBaseUrl;
         data["jiraProjectKey"] = this.jiraProjectKey;
         if (Array.isArray(this.jiraWaitingStatuses)) {
@@ -2766,6 +2793,8 @@ export class SettingsResponse implements ISettingsResponse {
 
 export interface ISettingsResponse {
     language?: string | undefined;
+    /** People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states. */
+    delegates: string[];
     jiraBaseUrl?: string | undefined;
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses: string[];

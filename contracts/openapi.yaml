@@ -809,6 +809,14 @@ components:
           type: string
           nullable: true
           example: da
+        delegates:
+          type: array
+          items:
+            type: string
+          description: >-
+            People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A
+            suggestion list, not a closed set: the who field stays free text, because waiting on
+            somebody unlisted — or on nobody at all — are both valid states.
         jiraBaseUrl:
           type: string
           nullable: true
@@ -837,12 +845,26 @@ components:
     SettingsResponse:
       type: object
       additionalProperties: false
-      required: [jiraWaitingStatuses, jiraIncludeWaiting, jiraDutyStatuses, jiraOnDuty, hasJiraToken]
+      required:
+        - delegates
+        - jiraWaitingStatuses
+        - jiraIncludeWaiting
+        - jiraDutyStatuses
+        - jiraOnDuty
+        - hasJiraToken
       properties:
         language:
           type: string
           nullable: true
           example: da
+        delegates:
+          type: array
+          items:
+            type: string
+          description: >-
+            People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A
+            suggestion list, not a closed set: the who field stays free text, because waiting on
+            somebody unlisted — or on nobody at all — are both valid states.
         jiraBaseUrl:
           type: string
           nullable: true

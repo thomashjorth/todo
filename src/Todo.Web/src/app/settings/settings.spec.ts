@@ -23,8 +23,13 @@ function settled<T>(screen: Screen, read: () => T): Promise<T> {
   });
 }
 
-/** The Jira half of the settings response, which the server always answers with in full. */
-interface JiraFixture {
+/**
+ * Everything the settings response carries besides the language, which the server always answers
+ * with in full. Not `ISettingsResponse`: this is the wire body handed to `flush(...)`, so the type
+ * checker never sees it, and a field the contract makes required has to be added here by hand.
+ */
+interface SettingsFixture {
+  delegates?: string[];
   jiraBaseUrl?: string | null;
   jiraProjectKey?: string | null;
   jiraWaitingStatuses?: string[];
@@ -34,10 +39,11 @@ interface JiraFixture {
   hasJiraToken?: boolean;
 }
 
-function settingsJson(language: string | null, jira: JiraFixture = {}): Blob {
+function settingsJson(language: string | null, rest: SettingsFixture = {}): Blob {
   return new Blob([
     JSON.stringify({
       language,
+      delegates: [],
       jiraBaseUrl: null,
       jiraProjectKey: null,
       jiraWaitingStatuses: [],
@@ -45,7 +51,7 @@ function settingsJson(language: string | null, jira: JiraFixture = {}): Blob {
       jiraDutyStatuses: [],
       jiraOnDuty: false,
       hasJiraToken: false,
-      ...jira,
+      ...rest,
     }),
   ]);
 }
@@ -61,12 +67,12 @@ function press(element: HTMLElement, testid: string): void {
 async function open(
   stored: string | null,
   aliases: string[] = [],
-  jira: JiraFixture = {},
+  rest: SettingsFixture = {},
 ): Promise<Screen> {
   const http = TestBed.inject(HttpTestingController);
 
   const started = TestBed.inject(SettingsStore).start();
-  http.expectOne('/api/settings').flush(settingsJson(stored, jira));
+  http.expectOne('/api/settings').flush(settingsJson(stored, rest));
   await started;
 
   const fixture = TestBed.createComponent(Settings);
