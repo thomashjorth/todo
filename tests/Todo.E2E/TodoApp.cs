@@ -255,8 +255,12 @@ public sealed class TodoApp
             }
 
             // Placeholder colour lives on ::placeholder, so the walk above cannot see it —
-            // and it is text the user reads every time the app opens.
-            if (el instanceof HTMLInputElement && el.placeholder) {
+            // and it is text the user reads every time the app opens. A <textarea> paints one
+            // too: the condition named only HTMLInputElement until this line, so a
+            // `<textarea placeholder="…">` was never measured. None exists today, which means
+            // this half of the condition is unproven rather than proven harmless.
+            if ((el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
+              && el.placeholder) {
               const ph = getComputedStyle(el, '::placeholder');
               check(el, ph, channels(ph.color), 'placeholder', el.placeholder);
             }

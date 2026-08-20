@@ -41,8 +41,11 @@ derfor have været en indstilling brugeren aldrig fik tilbudt — og uopnåelig,
 fraværende. Reglen svarer en `bool`: Jiras enum tjener sig hjem på **tre** roller, to ville være en bool
 med ekstra trin.
 
-**Testtal nu:** Core **164**, Api **286**, E2E **44**, Vitest **250** — alle grønne. Fordelingen pr.
+**Testtal nu:** Core **164**, Api **290**, E2E **44**, Vitest **250** — alle grønne. Fordelingen pr.
 opgave står i `CLAUDE.md`s Testtal-afsnit.
+
+**Kør `Check.cmd`** frem for de tre kommandoer i hånden: rækkefølgen er bærende, fordi E2E-suiten
+ikke bygger Angular.
 
 Skive 12 selv sluttede på 164/283/43/239. De tre Api og tre Vitest ovenover kom af
 **`Test forbindelse`-rettelsen** (2026-08-20): fejllinjen stod i bunden af sin sektion, over hundrede
@@ -93,6 +96,7 @@ vagt-statusserne. Testtal efter: Core **103**, Api **191**, E2E **35**, Vitest *
 huller er skrevet ned i designet: `settings-error` bærer **hver** Jira-indstillings fejl og står nu
 ved sproggruppen (og **ingen** test påstår hvilken gruppe den bor i), og der findes ingen
 formateringsvagt — leverancen efterlod fire prettier-afvigelser, som først blev fundet i hånden.
+(Begge huller er lukket siden: fejllinjen af foldningen, formateringsvagten 2026-08-20.)
 **ADO-mentions er målt 2026-08-20, og antagelsen holder.** `CONTAINS WORDS` på `System.History`
 virker, så **skive 12 er ikke længere blokeret**. Elleve ting blev afgjort — se designdokumentets
 afsnit 10. De fire der ændrer designet: `comments` er **preview-only** på denne server, så `updates`
@@ -119,6 +123,23 @@ uddelegeringsafsnittet ovenfor skrev ned, og det er nu lukket: `SettingsStore.ji
 `PUT /api/settings` validerer kun fire ting — sprog, delegerede, ADO-sagstyper og ADO-dagantal — og **intet**
 Jira-felt, så Jira-gruppens eneste kodede afvisning kommer fra tokenruten. Testtal efter: Core **164**,
 Api **286**, E2E **44**, Vitest **250**.
+
+**Uden for skiverne: en formateringsvagt og en linjeskiftsvagt** (2026-08-20). Prettier havde ligget i
+repoet siden skive 1 uden at nogen kunne køre den: `.prettierrc` satte ikke `endOfLine`, så standarden
+`lf` gjorde hver fil i denne CRLF-arbejdskopi til en "style issue". Målt: `--end-of-line crlf --check .`
+gav **28** filer, `--end-of-line auto` gav **10**, altså var 18 ren linjeskiftsstøj. Rettelsen er
+`"endOfLine": "auto"` (**ikke** `crlf`, som ville fejle på enhver LF-checkout og dermed på en
+CI-konfiguration vi ikke ejer), en `.prettierignore` med kun genereret kode, og de ni håndskrevne filer
+formateret. `FrontendFormattingTests` kører tjekket inde i `dotnet test` og har **to** påstande, fordi
+en kørsel på nul filer også giver exitkode 0: den anden bruger `--end-of-line cr --list-different .` som
+et scope-opslag — ingen fil i repoet har CR-alene, så alt prettier så kommer tilbage — og kræver at hver
+håndskreven `.ts`/`.html`/`.css` under `src/` er med, og at `todo-client.ts` ikke er.
+`LineEndingTests` lukker den anden halvdel: `git ls-files --eol` frem for `grep -cv $'\r$'`, som ikke
+kan fejle. **Og målingen der omskrev opgaven:** alle 255 tekstfiler er `i/lf` og kan ikke andet, fordi
+`* text=auto` normaliserer på vejen ind — de 40 `w/lf`-filer og den ene `w/mixed` var **udelukkende**
+arbejdskopiens tilstand, så rettelsen var `git checkout -- .` og der var **ingenting at committe**.
+Konsekvensen er værd at kende: en frisk checkout, CI iberegnet, kan ikke fejle den vagt. Testtal efter:
+Core **164**, Api **290**, E2E **44**, Vitest **250**.
 
 ## Tilbage
 

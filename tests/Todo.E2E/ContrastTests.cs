@@ -9,8 +9,15 @@ using IClock = Todo.Core.Time.IClock;
 namespace Todo.E2E;
 
 /// <summary>
-/// WCAG AA over all four screens, in both colour schemes. The measurement runs in the browser
-/// because only it knows which background a given piece of text ended up on.
+/// WCAG AA over all five screens, in both colour schemes — <c>app.routes.ts</c> has exactly five
+/// routes: the task list, the retro import, the Jira import, the Azure DevOps import and the
+/// settings. The measurement runs in the browser because only it knows which background a given
+/// piece of text ended up on.
+///
+/// The three theories below number the screens in the order this class reaches them: the first
+/// covers the task list, the retro import and the settings, so the Jira import is the fourth and
+/// the Azure DevOps import the fifth. The expanded detail panel and the folded settings page are
+/// states rather than screens; they cost snapshots, not routes.
 /// </summary>
 public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
 {

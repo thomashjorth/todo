@@ -13,6 +13,23 @@ Todo.cmd
 Bygger Angular hvis kilderne er nyere end `wwwroot`, og starter vinduet. Tag `--headless`
 med for at køre uden vindue.
 
+## Tjek alt
+
+```
+Check.cmd
+```
+
+Kører de tre trin i den rækkefølge de skal køres i — Angular-bygning, `dotnet test Todo.sln`,
+Vitest — og stopper på det første der fejler med navnet på trinnet og kommandoen der kører det
+alene. **Rækkefølgen er bærende:** E2E-suiten bygger ikke Angular, så uden bygningen først tester
+Playwright den forrige udgave af frontenden, uden at noget ser forkert ud. Prettier-vagten og
+linjeskiftsvagten kører inde i `dotnet test` og behøver derfor ikke et trin for sig — verificeret,
+ikke antaget: `FrontendFormattingTests` kalder prettier, `LineEndingTests` kalder `git ls-files`,
+og begge ligger i `Todo.Api.Tests`. `scripts\check.ps1` er scriptet; `Check.cmd` findes for at
+slippe for at huske `-ExecutionPolicy Bypass`.
+
+Trinnene hver for sig, når man kun skal have det ene:
+
 ```
 powershell -ExecutionPolicy Bypass -File scripts\generate-api.ps1   # efter en kontraktændring
 powershell -ExecutionPolicy Bypass -File scripts\build-web.ps1      # efter en Angular-ændring
@@ -59,16 +76,29 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   `Get-NetTCPConnection -LocalPort <port> -State Listen` → `Stop-Process -Id` på det ene PID.
   Brugeren har ofte appen åben, og under Swagger-linket kørte der to processer på én gang —
   brugerens vindue og en probe. Et `Stop-Process -Name Todo.Host` ville have lukket begge.
-- **Kør ikke prettier på hele repoet.** Arbejdskopien er CRLF og prettier skriver LF, så en
-  fuld kørsel omskriver 3810 linjer genereret klientkode og begraver den rigtige diff. Kør den
-  kun på filer du selv har rørt, navngivet eksplicit. **Og `--check` alene er ubrugelig her:**
-  `.prettierrc` sætter ikke `endOfLine`, så standarden `lf` gør **hver** fil i repoet til en
-  "style issue", og et rigtigt fund drukner i støjen. Den brugbare form er
-  `.\node_modules\.bin\prettier.cmd --end-of-line crlf --check <filer>` fra `src\Todo.Web`, og
-  den er værd at køre: **uddelegeringsleverancen efterlod fire rigtige afvigelser i tre filer**
-  — en `<p>` der blev for lang, da `settings.html` fik et indrykningsniveau mere, en tom linje
-  før et `</section>`, og to ombrudte kald — som ingen test kan se, fordi der ikke findes en
-  formateringsvagt.
+- **Prettier er nu en vagt, og `--check .` på hele repoet er den rigtige kommando.** Det var den
+  ikke før: `.prettierrc` satte ikke `endOfLine`, så standarden `lf` gjorde **hver** fil i denne
+  CRLF-arbejdskopi til en "style issue", en fuld kørsel omskrev 3810 linjer genereret klientkode,
+  og rådet var derfor at navngive filer eksplicit. Målt før vagten blev skrevet:
+  `--end-of-line crlf --check .` gav **28** filer, `--end-of-line auto` gav **10** — altså var
+  **18 af de 28 ren linjeskiftsstøj**, og ti filer havde ægte afvigelser. Rettelsen er
+  `"endOfLine": "auto"` i `.prettierrc`, som bevarer filens eksisterende linjeskift og gør tjekket
+  linjeskifts-agnostisk. **`auto` frem for `crlf`, fordi vagten skal være portabel:** CI kører på
+  `windows-latest`, men `crlf` ville fejle på enhver LF-checkout, og en vagt der afhænger af
+  `core.autocrlf`, fejler af den forkerte grund. Kommandoen er
+  `.\node_modules\.bin\prettier.cmd --check .` fra `src\Todo.Web`, og
+  `FrontendFormattingTests` kører den inde i `dotnet test`. Uden vagten kostede det to gange:
+  **uddelegeringsleverancen efterlod fire rigtige afvigelser i tre filer** — en `<p>` der blev for
+  lang, da `settings.html` fik et indrykningsniveau mere, en tom linje før et `</section>`, og to
+  ombrudte kald — og **accordion-leverancen tolv kommentarlinjer over 100 tegn**.
+- **`.prettierignore` holder kun genereret kode ude, og listen er opgjort — ikke gættet.**
+  `src/app/api/todo-client.ts` (skrevet af `scripts\generate-api.ps1`), `package-lock.json`
+  (skrevet af npm) og `dist/` + `.angular/` (byggeoutput, som `.gitignore` også dækker; navngivet
+  alligevel, så vagten ikke afhænger af at prettier bliver ved med at læse `.gitignore` som
+  standard). **`src/app/api/api-error-message.ts` ligger i samme mappe og er håndskrevet** — den
+  skal blive i tjekkets rækkevidde, og vagten påstår netop det. Og bemærk hvad der **ikke** fanger
+  en formateret generator-fil: `GeneratedCodeFreshnessTests` hasher `contracts/openapi.yaml`, ikke
+  generatorens output, så den er **grøn** mens `todo-client.ts` er omformateret. Målt.
 - **Brug ikke `sed -i` på en fil i dette repo — brug `Edit`.** `sed` skriver **LF** i en
   CRLF-arbejdskopi, og `git diff` viser derefter **ingen ændring**, fordi autocrlf normaliserer på
   vejen ind. Filen på disken *er* ændret, men Git siger nej, så en midlertidig ændring man tror er
@@ -168,10 +198,34 @@ CR'erne, når mønsteret prøves, så `\r$` er sandt uanset hvad der står i fil
 "nul LF-only-linjer" — kan derfor **ikke fejle**, og den er den vagt afsnittet ovenfor beder om. Den
 holdbare måling er `tr -dc '\r' < fil | wc -c` op mod `tr -dc '\n' < fil | wc -c`: er de ens, er filen
 CRLF; er CR nul, er den LF. **Sådan slap begge planfiler igennem** — `docs/plans/2026-08-19-*.md` var
-ren LF gennem hele leverancen, og hver `grep`-verificering undervejs sagde at de var i orden. (Det
-koster i praksis kun ryddelighed her, fordi `core.autocrlf=true` og `* text=auto` normaliserer på
-vejen ind, så en omlægning til CRLF giver **tom** `git diff` — men `git status` viser en falsk `M`
-fra stat-cachen bagefter; `git update-index --refresh` rydder den.)
+ren LF gennem hele leverancen, og hver `grep`-verificering undervejs sagde at de var i orden.
+
+**Og fra formateringsvagten behøver ingen hånd-verificere det mere:** `LineEndingTests` i
+`Todo.Api.Tests` er den vagt. Den bygger på `git ls-files --eol`, som rapporterer både indeks
+(`i/`) og arbejdstræ (`w/`) som **Git** har beregnet dem — den ene kilde en teksttilstand ikke kan
+snyde. To påstande: ingen fil er `mixed`, og hver tekstfils linjeskift i arbejdstræet er hvad Git
+selv ville skrive. Forventningen er **ikke** udledt af `core.autocrlf`, men spurgt Git:
+`git cat-file --filters` kører indeks-blobben gennem samme smudge-filter som en checkout, én probe
+pr. `attr/`-mængde — for attributterne afgør det, og `*.cmd text eol=crlf` pinner de to filer til
+CRLF selv på en maskine hvor alt andet er LF.
+
+**Og her er den måling der omskriver resten af afsnittet: skaden var arbejdstræ-lokal, og der var
+ingenting at committe.** Alle 255 tekstfiler er `i/lf` og har altid været det — `* text=auto` gør,
+at Git normaliserer på vejen ind, og CRLF kan **ikke** committes. De 40 `w/lf`-filer og den ene
+`w/mixed` var altså udelukkende arbejdskopiens tilstand, og rettelsen er **`git checkout -- .`**,
+ikke en commit. Konsekvensen for vagten er værd at sige højt: **en frisk checkout, CI iberegnet,
+kan ikke fejle den** — det er arbejdstræet tools skriver i, og en beskidt lokal kopi er det eneste
+sted fejlen nogensinde har vist sig.
+
+**`git update-index --refresh` rydder *ikke* det falske `M`** — det stod her, og det er forkert.
+Målt: efter en LF→CRLF-omlægning svarer den `<fil>: needs update` for hver fil og exitkode **1**,
+og `git status` bliver ved at vise ` M`. Grunden er at indekset cacher filens **størrelse på
+disken**, som ændrer sig med linjeskiftene, så kun en indholdssammenligning kan rydde den — og
+`git diff` er derfor **tom** mens `git status` siger `M`. `git checkout -- .` rydder begge, fordi
+den skriver filen igen og cacher den nye stat. **Bemærk fælden i den rækkefølge:** `git checkout --`
+kaster også enhver ucommittet ændring i filen væk. Ligger der en formatering du ikke har committet,
+er den tabt uden en advarsel — mødt i formateringsleverancen, hvor `main.ts` gik tilbage til den
+uformaterede udgave midt i en vagt-mutation.
 
 **Pladsholderfarven ligger på `::placeholder`**, ikke på elementet, så en DOM-gennemgang der kun
 læser `style.color` er blind for den — `getComputedStyle(el, '::placeholder')` skal spørges
@@ -185,9 +239,14 @@ der mangler.
 udenom, og det er derfor `alias-input` har stået uden klassen gennem hele suitens levetid uden at
 fejle. Kravet følger altså attributten: giver du et felt en pladsholder, skal klassen med i samme
 ombæring. Målt i uddelegeringsleverancen, hvor `waitingOn`-feltet bevidst ingen pladsholder fik og
-derfor ingen farveflade tilføjede. **Og betingelsen har et hul mere:** den nævner kun
-`HTMLInputElement`, så en `<textarea placeholder="…">` måles **aldrig**. Ingen findes i dag; laves
-en, er dens pladsholder umålt.
+derfor ingen farveflade tilføjede. **Hullet om `<textarea>` er lukket, og det var et rigtigt hul.**
+Betingelsen nævnte kun `HTMLInputElement`, så en `<textarea placeholder="…">` blev **aldrig** målt;
+den er nu `(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) && el.placeholder`.
+Ingen `<textarea>` i appen har en pladsholder i dag, så udvidelsen finder ingenting — men den er
+**bevist** frem for skrevet ned som ubevist: en midlertidig `placeholder` på noteeditoren gav
+`textarea[note-editor] placeholder … 3,38:1` i lyst og `4,46:1` i mørkt tema, og med den gamle
+betingelse og **samme** pladsholder var vagten **grøn**. Prisen er kun, at grenen står umålt igen,
+så snart nogen fjerner den ene betingelse.
 
 **Bredde.** Appen bruges i en spalte på ~480 px, under Tailwinds `sm`-brydepunkt. De
 uprefixede klasser **er** den smalle udgave; `sm:`/`md:` bruges kun til at udvide.
@@ -730,7 +789,19 @@ forkerte grund.
 
 ## Testtal
 
-Efter foldningen af indstillingssiden: **164** Todo.Core.Tests, **286** Todo.Api.Tests, **44** Todo.E2E,
+Efter formaterings- og linjeskiftsvagterne: **164** Todo.Core.Tests, **290** Todo.Api.Tests,
+**44** Todo.E2E, **250** Vitest. Leverancen lagde **4** Api-tests til (286 → 290) og rørte ikke de tre
+andre tal. Fordelingen er hele historien: **to `FrontendFormattingTests`** og **to `LineEndingTests`**,
+og de er par frem for enkelttests af samme grund i begge tilfælde — den ene påstand er "værktøjet var
+tilfreds", den anden er "værktøjet så noget". Sådan bliver en kørsel på nul filer ikke et bestået.
+Ingen af de fire hører i Core: begge vagter er påstande om værktøjskæden, som
+`FrontendStrictnessTests`. **`ContrastTests` voksede *ikke*** af at tekstområders pladsholder nu måles —
+udvidelsen finder ingenting i dag, fordi ingen `<textarea>` i appen har en pladsholder, og den blev
+bevist med en midlertidig én frem for skrevet ned som ubevist. Og **Vitest stod stille** selvom ni
+frontend-filer blev formateret: formatering ændrer ingen adfærd, og et flyttet tal dér ville have
+betydet at prettier havde skrevet noget om.
+
+Før den, efter foldningen af indstillingssiden: **164** Todo.Core.Tests, **286** Todo.Api.Tests, **44** Todo.E2E,
 **250** Vitest. Leverancen lagde **1** E2E til (43 → 44) og **8** Vitest (242 → 250); Core og Api stod
 stille, fordi hele leverancen er skærmtilstand og ét signal i en store.
 **Den ene E2E er hele reglen**, `SettingsAccordionJourneyTests.Only_the_group_you_click_is_open_and_clicking_it_again_folds_it`:

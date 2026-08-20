@@ -1,0 +1,17 @@
+# Generated, never hand-edited: scripts\generate-api.ps1 writes it, so formatting it would
+# be undone by the next generator run and the guard would then be red on a file nobody
+# edits. Measured rather than assumed: GeneratedCodeFreshnessTests does NOT catch a
+# reformatted copy — it hashes contracts/openapi.yaml, not the generator's output, and it
+# stays green while this file is reformatted.
+# Note the neighbour that is deliberately absent: src/app/api/api-error-message.ts sits
+# in the same folder and is hand-written, so it stays in scope.
+src/app/api/todo-client.ts
+
+# npm writes this one. It happens to satisfy Prettier today, but the format is npm's to
+# change, and a red guard on a file we do not author is a guard nobody can fix.
+package-lock.json
+
+# Build output. Both are ignored by .gitignore as well, which Prettier reads by default —
+# named here so the guard does not depend on that default surviving a Prettier upgrade.
+dist/
+.angular/
