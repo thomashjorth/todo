@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
+import { SettingsStore } from '../settings/settings-store';
 import { Shortcut } from '../shortcuts/shortcut';
 import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { SystemStore } from '../system/system-store';
@@ -15,6 +16,9 @@ import { TaskStore } from './task-store';
 export class TaskList {
   protected readonly store = inject(TaskStore);
   protected readonly shortcuts = inject(ShortcutStore);
+  // Kun for den delte <datalist> nederst i skabelonen: signalet er aldrig null, og listen
+  // læses her frem for i hver række, fordi der er én liste og mange rækker.
+  protected readonly settings = inject(SettingsStore);
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly done = TodoStatus.Done;
   protected readonly expandedId = signal<number | null>(null);

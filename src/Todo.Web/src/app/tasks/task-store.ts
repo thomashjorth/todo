@@ -48,6 +48,17 @@ export class TaskStore {
   readonly showCompleted = signal(false);
   readonly showSomeday = signal(false);
 
+  /**
+   * The task whose who field should take the focus, set when a status change hands the task over
+   * and cleared once the field has it. It lives here rather than on the row, because the row that
+   * asks is not the row that answers: measured, the reload moves the task out of its deadline
+   * section and into the waiting one, so that &lt;li&gt; — and the component instance with it — is
+   * destroyed, and a fresh one renders the field. A flag held in the row was therefore always
+   * false by the time the field existed. Nothing reads this from a template, so writing it from an
+   * effect cannot fight change detection.
+   */
+  readonly askingWho = signal<number | null>(null);
+
   /** Only the newest load may write the list; see the check in `load`. */
   private loadSequence = 0;
 

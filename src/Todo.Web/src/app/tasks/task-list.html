@@ -181,3 +181,15 @@
     </section>
   }
 </div>
+
+<!-- Én delt liste, uden for hver @for-løkke, som alle rækkers hvem-felt peger på med
+     list="delegate-names". Forslagene er de samme for alle rækker, så mange identiske kopier
+     ville sige, at de kunne være forskellige — og et id pr. række ville være et duplikeret id,
+     som browseren ikke klager over: den vælger blot den første.
+     Ingen farveklasser: en <datalist> renderes ikke selv, og dens popup er browserens eget
+     chrome, som ContrastTests ikke kan måle. -->
+<datalist id="delegate-names">
+  @for (name of settings.delegates(); track name) {
+    <option data-testid="delegate-option" [value]="name"></option>
+  }
+</datalist>
