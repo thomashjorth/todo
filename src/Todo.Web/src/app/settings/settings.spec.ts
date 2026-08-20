@@ -163,6 +163,126 @@ describe('Settings', () => {
     expect(select(screen.element).value).toBe('system');
   });
 
+  // The four groups, and the order they are in: your own settings first, the sources last, because
+  // the sources are set up once while the language and the delegates are what you touch.
+  it('should hold the settings in four equal groups', async () => {
+    const { element } = await open(null);
+
+    const sections = [...element.querySelectorAll('section')];
+    expect(sections.map((s) => s.getAttribute('data-testid'))).toEqual([
+      'language-settings',
+      'delegate-settings',
+      'jira-settings',
+      'retro-settings',
+    ]);
+
+    const headings = sections.map((s) => s.querySelector('h3')!);
+    expect(headings.map((h) => h.textContent!.trim())).toEqual([
+      'Sprog',
+      'Uddelegering',
+      'Jira-import',
+      'Retro-import',
+    ]);
+
+    // Equal groups look equal: one class list for all four, rather than three structures with
+    // three levels, which is what the page had.
+    expect([...new Set(headings.map((h) => h.className))]).toHaveLength(1);
+
+    // The two status lists stay a level down: they are subsections of Jira, not groups beside it.
+    // The board question is the same — it belongs to the retro import, and only to it.
+    expect(sections[2].querySelectorAll('h4')).toHaveLength(2);
+    expect(sections[3].querySelector('h4')!.textContent!.trim()).toBe('Hvem er du på boardet?');
+    expect(element.querySelectorAll('h3')).toHaveLength(4);
+  });
+
+  it('should say that delegating is bookkeeping only, and that nobody is on the list yet', async () => {
+    const { element } = await open(null);
+
+    // The one part of this that is a claim about what a user expects rather than about the code:
+    // without the words, delegating reads as though the other person was told.
+    const hint = element.querySelector('[data-testid="delegates-hint"]')!;
+    expect(hint.textContent).toContain('ikke sendt en besked til den anden');
+    expect(hint.textContent).toContain('skifter ikke assignee i Jira');
+
+    expect(element.querySelector('[data-testid="delegates-empty"]')!.textContent).toContain(
+      'Ingen på listen endnu',
+    );
+    expect(element.querySelectorAll('[data-testid="delegate-row"]')).toHaveLength(0);
+  });
+
+  it('should list the delegates with a labelled button for each', async () => {
+    const screen = await open(null, [], { delegates: ['Mette Kirkegaard', 'Flemming'] });
+
+    const rows = screen.element.querySelectorAll('[data-testid="delegate-row"]');
+    expect(rows).toHaveLength(2);
+    expect(screen.element.querySelector('[data-testid="delegates-empty"]')).toBeNull();
+
+    const remove = rows[1].querySelector<HTMLButtonElement>('[data-testid="remove-delegate"]')!;
+    expect(remove.getAttribute('aria-label')).toBe('Fjern Flemming');
+
+    remove.click();
+
+    const saved = screen.http.expectOne('/api/settings');
+    expect(saved.request.method).toBe('PUT');
+    expect(JSON.parse(saved.request.body)).toEqual({ delegates: ['Mette Kirkegaard'] });
+    saved.flush(settingsJson(null, { delegates: ['Mette Kirkegaard'] }));
+  });
+
+  it('should add a delegate on Enter, and send nothing for a blank or repeated name', async () => {
+    const screen = await open(null, [], { delegates: ['Mette Kirkegaard'] });
+
+    const input = field(screen.element, 'delegate-input');
+    input.value = '  Flemming  ';
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+
+    const saved = screen.http.expectOne('/api/settings');
+    expect(JSON.parse(saved.request.body)).toEqual({
+      delegates: ['Mette Kirkegaard', 'Flemming'],
+    });
+    expect(input.value).toBe('');
+    saved.flush(settingsJson(null, { delegates: ['Mette Kirkegaard', 'Flemming'] }));
+
+    await settled(screen, () =>
+      expect(screen.element.querySelectorAll('[data-testid="delegate-row"]')).toHaveLength(2),
+    );
+
+    for (const value of ['   ', 'Flemming']) {
+      input.value = value;
+      input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+    }
+
+    screen.http.verify();
+    expect(input.value).toBe('Flemming');
+  });
+
+  // The repeat check on screen is exact, so a name differing only in case reaches the server — and
+  // the reason has to land beside the list, not up beside the language select.
+  it('should show the reason the server refused a delegate, in the delegate group', async () => {
+    const screen = await open(null, [], { delegates: ['Mette'] });
+
+    const input = field(screen.element, 'delegate-input');
+    input.value = 'mette';
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+
+    screen.http.expectOne('/api/settings').flush(
+      new Blob([
+        JSON.stringify({ code: 'settings.duplicateDelegate', message: 'Duplicate delegate.' }),
+      ]),
+      { status: 400, statusText: 'Bad Request' },
+    );
+
+    const error = await settled(screen, () => {
+      const found = screen.element.querySelector(
+        '[data-testid="delegate-settings"] [data-testid="delegates-error"]',
+      );
+      expect(found).not.toBeNull();
+      return found!;
+    });
+
+    expect(error.textContent).toContain('Den samme person står på listen mere end én gang.');
+    expect(screen.element.querySelector('[data-testid="settings-error"]')).toBeNull();
+  });
+
   it('should list the aliases with a labelled button for each', async () => {
     const screen = await open(null, ['TH', 'Thomas Hjorth']);
 
