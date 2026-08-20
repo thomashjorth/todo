@@ -78,4 +78,82 @@ public class AdoSettingsTests
     {
         Assert.True(With("https://ado.example.invalid", project: project).IsConfigured);
     }
+
+    /// <summary>
+    /// The browse URL task 2 refused to guess. Its prefix is measured - the user's own project page is
+    /// <c>{collection}/{project}/_queries</c> - and its tail, <c>_workitems/edit/{id}</c>, is Azure
+    /// DevOps' documented work item route rather than something anyone has clicked from here. A wrong
+    /// tail shows up as a page that does not open; a wrong prefix would show up as the wrong project.
+    /// </summary>
+    [Fact]
+    public void A_browse_url_puts_the_collection_and_the_project_before_the_work_item()
+    {
+        Assert.Equal(
+            "https://ado.example.invalid/Some%20Collection/Saas/_workitems/edit/15664",
+            With("https://ado.example.invalid/Some%20Collection").BrowseUrl("15664"));
+    }
+
+    /// <summary>
+    /// The asymmetry that is easy to get backwards, and the reason this has a test of its own. The base
+    /// URL is a URL the user pasted and already carries <c>%20</c>, so escaping it again would give
+    /// <c>%2520</c>; the project is a name the user typed, so it has to be escaped here or a project
+    /// with a space in it would break the path. Measured against the same record: one string, two
+    /// rules.
+    /// </summary>
+    [Fact]
+    public void The_project_name_is_escaped_while_the_pasted_url_is_left_alone()
+    {
+        Assert.Equal(
+            "https://ado.example.invalid/Some%20Collection/Some%20Project/_workitems/edit/15664",
+            With("https://ado.example.invalid/Some%20Collection", project: "Some Project")
+                .BrowseUrl("15664"));
+    }
+
+    /// <summary>
+    /// One of the two layers of trailing-slash trimming, the other being SettingsEndpoints on the way
+    /// in. Both on purpose - the endpoint owns what is stored, this owns what is emitted - and this is
+    /// the one whose absence a user would see, as a double slash in a link that does not open.
+    /// </summary>
+    [Fact]
+    public void A_trailing_slash_on_the_collection_url_does_not_double_up()
+    {
+        Assert.Equal(
+            "https://ado.example.invalid/Some%20Collection/Saas/_workitems/edit/15664",
+            With("https://ado.example.invalid/Some%20Collection/").BrowseUrl("15664"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Without_a_collection_url_there_is_no_browse_url(string? baseUrl)
+    {
+        Assert.Null(With(baseUrl).BrowseUrl("15664"));
+    }
+
+    /// <summary>
+    /// Unlike Jira, whose browse URL needs only the base URL, this one needs the project too - it is a
+    /// path segment. A caller that had checked IsConfigured would therefore still be able to get null
+    /// here, which is exactly why the project is its own refusal upstream.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Without_a_project_there_is_no_browse_url(string? project)
+    {
+        Assert.Null(
+            With("https://ado.example.invalid/Some%20Collection", project: project)
+                .BrowseUrl("15664"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Without_a_work_item_id_there_is_no_browse_url(string? externalKey)
+    {
+        Assert.Null(
+            With("https://ado.example.invalid/Some%20Collection").BrowseUrl(externalKey!));
+    }
 }

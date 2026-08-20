@@ -186,6 +186,11 @@
       "excludedWaiting": "You are waiting for it, and waiting issues are turned off."
     },
     "ado": {
+      "notConfigured": "Azure DevOps is not set up. Fill in the collection URL and the token under Settings.",
+      "projectRequired": "The project is missing. Fill it in under Settings.",
+      "refused": "Azure DevOps rejected the token. Check the token under Settings.",
+      "unreachable": "Azure DevOps could not be reached. Check the collection URL and the network.",
+      "workItemTypeInvalid": "A work item type cannot contain a quotation mark or a backslash. Fix the list under Settings.",
       "workItemTypesRequired": "Pick at least one work item type. Clearing the list uses the default types.",
       "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline."
     },

@@ -56,5 +56,28 @@ public static class ErrorCodes
     /// </summary>
     public const string AdoDefaultDeadlineDaysInvalid = "ado.defaultDeadlineDaysInvalid";
 
+    /// <summary>
+    /// The collection URL or the token is missing, which is what <c>AdoSettings.IsConfigured</c> asks.
+    /// </summary>
+    public const string AdoNotConfigured = "ado.notConfigured";
+
+    /// <summary>
+    /// The project is blank. Deliberately its own refusal rather than part of
+    /// <see cref="AdoNotConfigured"/>, even though Azure DevOps puts the project in the path: slice 11
+    /// measured that folding a missing project into "not configured" tells the user the whole thing is
+    /// unset when one field is blank. Its counterpart is <see cref="JiraProjectKeyRequired"/>.
+    /// </summary>
+    public const string AdoProjectRequired = "ado.projectRequired";
+
+    public const string AdoRefused = "ado.refused";
+    public const string AdoUnreachable = "ado.unreachable";
+
+    /// <summary>
+    /// A work item type name carrying a quotation mark or a backslash. Those two characters are what
+    /// WIQL's string literals turn on, and a type name goes into one - the same blocklist, and the
+    /// same reason for refusing rather than escaping, as <see cref="JiraStatusNameInvalid"/>.
+    /// </summary>
+    public const string AdoWorkItemTypeInvalid = "ado.workItemTypeInvalid";
+
     public const string SystemUnsupportedScheme = "system.unsupportedScheme";
 }

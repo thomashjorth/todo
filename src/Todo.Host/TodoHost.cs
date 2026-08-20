@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Scalar.AspNetCore;
 using Todo.Core.Ado;
 using Todo.Core.Jira;
+using Todo.Host.Ado;
 using Todo.Host.Endpoints;
 using Todo.Host.Jira;
 using Todo.Host.Links;
@@ -60,6 +61,11 @@ public static class TodoHost
         // No BaseAddress. The Jira it talks to is a runtime setting the user can change, which is
         // also why the scoped JiraSettingsReader is a constructor dependency of the source.
         builder.Services.AddHttpClient<JiraTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
+
+        // Its own typed client rather than a shared one, for the same reason the two sources are two
+        // types: the timeout is a property of one external system's habits, and an Azure DevOps that
+        // has stopped answering must not be told apart from a Jira that has.
+        builder.Services.AddHttpClient<AdoTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
 
         builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
 

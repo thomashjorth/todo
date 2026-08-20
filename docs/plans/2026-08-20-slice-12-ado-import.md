@@ -247,27 +247,97 @@ egentlige spørgsmål, og svaret skal komme af at bygge den — ikke af at antag
 forhånd. Konvergerer de to, er en fælles abstraktion en oprydning bagefter med to eksempler at
 retfærdiggøre den.
 
-## Task 3: `AdoTaskSource` og `FakeAdo`
+## Task 3: `AdoTaskSource` og `FakeAdo` — kørt
 
 `ITaskSource`'s anden implementation. **Det er her abstraktionen prøves**, og rapporten skal sige
 hvad der **ikke** passede — det er skivens vigtigste output, ikke koden.
 
 `FakeAdo` på **`127.0.0.1`**, som `FakeJira`. `NoRealInstanceTests` forbyder `edora.dk` i enhver
-kildefil, og den vagt er grøn i dag — hold den grøn.
+kildefil, og den vagt er grøn i dag — hold den grøn. **Verificeret ved at bryde den**: et
+`// tfs.edora.dk` i både `AdoTaskSource.cs` og `FakeAdo.cs` fælder den og navngiver begge filer, så
+den scanner faktisk det nye.
 
 **Basic auth med tomt brugernavn**, `base64(":" + PAT)`. Ikke Bearer; det er Jiras form.
 
-**Byg URL'en som streng, ikke med `UriBuilder`.** Målt i skive 11: den af-escaper `%20` tilbage til et
-mellemrum mens `%3D` bliver stående — og her er `%20` **i samlingsnavnet**, så fælden er ikke teoretisk.
+~~**Byg URL'en som streng, ikke med `UriBuilder`.** Målt i skive 11: den af-escaper `%20` tilbage til
+et mellemrum mens `%3D` bliver stående — og her er `%20` **i samlingsnavnet**, så fælden er ikke
+teoretisk.~~ — **forkert begrundelse, målt tre gange i Task 3.** URL'en *skal* bygges som streng, men
+ikke af den grund. Målt på net10.0 ved at mutere `AdoTaskSource.UriFor` og køre suiten:
+`UriBuilder` **bevarer** `%20` i både sti og query, og en ombygning med den giver **36 grønne**;
+en interpolation af `Uri`-objektet af-escaper godt nok (`Uri.ToString()` giver `/Fake Collection`),
+men `new Uri(...)` re-escaper mellemrummet på vejen ind igen, så også den giver **36 grønne**. En
+**sti** heler altså sig selv. Det der *kan* måles, er **dobbelt** escaping —
+`Fake%2520Collection` — og det er præcis hvad `The_space_in_the_collection_name_stays_escaped_on_the_wire`
+blev set fælde. Skive 11's måling gjaldt en **query string** (JQL'en), og den overføres ikke til en
+sti. Læs ikke fælden som større end den er, og lad alligevel strengbygningen stå: batch-kaldet
+*har* en query string, og der heler ingenting sig selv.
 
 Vagter der skal ses fejle: at samlingen og projektet er i URL'en, at tomt projekt afvises **før**
-kaldet, at Basic og ikke Bearer sendes, og at paginering læses helt igennem.
+kaldet, at Basic og ikke Bearer sendes, og at paginering læses helt igennem. **Alle fire er set
+fejle**, plus elleve mutationer mere — se leverancerapporten. To fund er værd at have her:
+
+- **Kun ét kald pagineres, og det er ikke det man tror.** WIQL pagineres ikke; **hydreringen** gør,
+  fordi `?ids=` er kappet ved 200. At måle at hver chunk læses kræver derfor **mere end 200 sager**
+  i `FakeAdo` — at gøre kildens chunk-størrelse til en testkrog ville have målt krogen. `FakeAdo`
+  har derfor en `filler`-parameter, og vagten kører med 250.
+- **Rækkefølgen skal genskabes.** WIQL bærer `ORDER BY`; batch-svaret lover ikke at komme i den
+  rækkefølge man spurgte. Jira havde ikke problemet, fordi dets `/search` returnerede sagerne selv.
+
+**Tre ting Task 3 skal måles på igen, som kun brugeren kan gøre** (afsnittet "Måling 0" er
+opskriften; disse tre er nye og blev *ikke* dækket 2026-08-20):
+
+- **0e — én rigtig beskrivelse.** 0b printede med vilje kun feltnavne, så ingen har set hvordan
+  instansens rigtige HTML ser ud. Derfor er HTML → markdown **udskudt** (se nedenfor), og derfor
+  mangler konverteren et rigtigt eksempel at bygges mod.
+- **0f — hvilken form har `System.CreatedBy`?** Et objekt med `displayName`, eller den ældre streng
+  `Navn <adresse>`? Ukendt. `AdoTaskSource` læser **begge** frem for at gætte, og begge er dækket af
+  en test — men den ene af dem er forkert, og målingen siger hvilken.
+- **0g — bærer `_apis/wit/workitemtypes` en `states`-liste?** 0d spurgte kun om `name` og
+  `referenceName`. Indtil det er målt, hentes tilstandsnavnene **af brugerens egne sager** (0c's
+  målte form), hvilket koster, at en tilstand ingen af dine sager står i lige nu ikke kan vælges.
+
+**HTML → markdown er udskudt, med begrundelse.** Kontrakten siger at `note` er "converted to
+CommonMark"; det er **endnu ikke sandt** — `AdoTaskSource` giver ADO's HTML videre uændret. Tre
+grunde: der findes **ingen målt prøve** af instansens rigtige rich text (0b printede kun feltnavne,
+med vilje), skive 13 skal have **samme** konverter til kommentar-HTML, så én konverter bygget mod to
+målte prøver slår to bygget mod nul, og `CLAUDE.md` kræver at en markup-konverter måles på det
+**renderede** resultat gennem appens egen `marked` — altså frontend-arbejde, som er Task 5/6. Indtil
+da renderer `marked` inline-HTML igennem, så noten er læselig frem for maltrakteret. **Den skal
+lukkes før skiven vises brugeren**, og kontraktens sætning skal enten indfries eller rettes.
+
+**`AdoDeadline` er beslutning A's regel, og den bor i Core.** `AdoDeadline.For(today, days)` svarer
+`null` ved `0` og ellers `today.AddDays(days)`. To kaldesteder kan ikke dele kodevej — kilden udleder
+den mens den læser sagerne, importen udleder den igen fra rækker klienten sendte uden deadline — så
+den er sit eget sted af præcis den grund `JiraStatusRoles` blev udtrukket.
+
+**`ExternalTask` fik to felter, og det er skivens svar på om abstraktionen var Jira-formet.**
+`ItemType` (Jira svarer `null`) og `StatusChangedAt` (Jira svarer `null`, fordi DC 10.3.24 ikke har
+feltet). `FetchStatusChangedAtAsync` blev **beholdt** som fallback frem for at blive en no-op: ADO
+implementerer den som et rigtigt enkeltopslag, så et kald med kun en nøgle får et rigtigt svar, men
+ingen behøver at bruge den, fordi feltet ligger på rækken. **Task 4 skal læse feltet først og kun
+kalde metoden når det er `null`.**
+
+**Testtal efter Task 3:** Core **143** (+21), Api **256** (+37, med `ContractDriftTests` fortsat rød
+på de fire `/api/ado/*` og intet andet — verificeret ved at sammenligne kontraktens 27 operationer
+med de 23 mappede `/api`-ruter), E2E **35** (uændret), Vitest **198** (uændret).
+De 21 Core-tests er **9** `AdoDeadlineTests` og **12** nye i `AdoSettingsTests` (om `BrowseUrl`).
+De 37 Api-tests er **36** `AdoTaskSourceTests` og **1** `AdoTaskSourceRegistrationTests`.
 
 ## Task 4: Endpointsene
 
 Spejlet efter `JiraEndpoints`. **Udtræk rollebeslutningen som `JiraStatusRoles` blev udtrukket** — ét
 sted, kaldt fra forhåndsvisning og import, frem for den samme regel to gange. Skive 11 målte, at to
 kaldesteder er to steder reglen kan glemmes, og at kun det ene havde en test.
+
+**Læs `ExternalTask.StatusChangedAt` frem for at kalde `FetchStatusChangedAtAsync`.** ADO bærer
+`Microsoft.VSTS.Common.StateChangeDate` med i samme svar, så `WaitingSince` er gratis; metoden er kun
+fallback for en kilde uden feltet, og Jira er den. Et kald pr. række ville koste en rundtur ADO ikke
+behøver — og `The_state_change_date_arrives_with_the_page_and_costs_no_extra_call` påstår at siden
+ikke kostede nogen.
+
+**Fem nye fejlkoder findes allerede, lagt på i Task 3** — `ado.notConfigured`, `ado.projectRequired`,
+`ado.refused`, `ado.unreachable` og `ado.workItemTypeInvalid` — med nøgler i begge sprogfiler.
+`ado.excludedWaiting` mangler stadig og hører her.
 
 `excluded` bærer en fejlkode frontenden oversætter. **Hver ny kode skal have en `errors.<kode>`-nøgle i
 begge sprogfiler**, ellers fejler `ErrorCodeTranslationTests` — og den fanger det paritetstesten
@@ -290,6 +360,9 @@ nøglen, binder serveren til 3; sendes `0`, gemmes `0`. Bemærk også at
 `new SettingsRequest({...})`-konstruktøren **ikke** anvender sin `= 3`-default når den får et
 data-objekt — den kopierer kun nøglerne der er der — så defaulten kommer fra serveren, ikke fra
 klienten.
+
+**Noten er HTML, ikke markdown, indtil konverteren findes** — se Task 3. Skærmen skal altså regne med
+at `note` kan indeholde `<div>` og `<br>`; noteeditoren viser dem som tekst.
 
 **To wire-fixtures beskriver nu en form serveren ikke sender:** `settings-store.spec.ts` linje 67 og
 `settings.spec.ts` linje 65 har `adoWorkItemTypes: []`, men svaret bærer altid mindst de tre
@@ -316,9 +389,13 @@ kan læses ud af koden bagefter.
 **Feltnavnene.** Måling 0b er den eneste vej. Jiras `duedate` gav null i hver deadline uden at en test
 faldt, fordi testen for en sag *uden* deadline bestod.
 
-**Samlingsnavnets mellemrum.** `%20` gennem en strengbygget URL, en `HttpClient` og en falsk server på
-loopback — tre steder det kan af-escapes. Læg et mellemrum i `FakeAdo`s samlingsnavn, så fælden er
-dækket frem for undgået.
+~~**Samlingsnavnets mellemrum.** `%20` gennem en strengbygget URL, en `HttpClient` og en falsk server
+på loopback — tre steder det kan af-escapes.~~ — **målt i Task 3: ingen af de tre af-escaper en
+sti.** `Uri` re-escaper et bogstaveligt mellemrum ved konstruktion, så både `UriBuilder` og en
+interpolation af `Uri`-objektet giver 36 grønne. Mellemrummet ligger i `FakeAdo`s samlingsnavn *og* i
+dets projektnavn alligevel, fordi de to escapes ad forskellige veje — samlingen er en **URL** brugeren
+har indsat og er escaped i forvejen, projektet er et **navn** appen selv skal escape — og fordi
+**dobbelt** escaping (`%2520`) er den ene fejl der kan måles. Se Task 3.
 
 **Fem håndskrevne wire-fixtures uden compiler over sig**, og ADO gør dem til syv. Det er stedet en
 fremtidig skive taber et felt; hullet er dokumenteret i `CLAUDE.md`, ikke lukket.

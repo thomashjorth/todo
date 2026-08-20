@@ -51,4 +51,35 @@ public sealed record AdoSettings(
     /// check belongs to the task that makes the call.
     /// </summary>
     public bool IsConfigured => BaseUri is not null && !string.IsNullOrWhiteSpace(Token);
+
+    /// <summary>
+    /// Where Azure DevOps shows one work item, computed rather than stored. Built by the app because
+    /// the URLs the server hands back address the project by GUID and are not humanly navigable -
+    /// measured 2026-08-20, see the design document's section 10.
+    ///
+    /// What the shape rests on, said out loud because half of it is measured and half is not. The
+    /// <c>{collection}/{project}/</c> prefix is measured: the user's own project URL is
+    /// <c>.../Edora%20Software/Saas/_queries</c>, so a project-scoped page hangs off exactly that.
+    /// The <c>_workitems/edit/{id}</c> tail is Azure DevOps' documented work item route and was
+    /// <em>not</em> measured against the instance - clicking the link once settles it, and a wrong
+    /// tail shows up as a page that does not open rather than as a wrong task.
+    ///
+    /// The two halves are escaped differently on purpose, and getting that backwards is the trap. The
+    /// base URL is a <em>URL</em> the user pasted, so it already carries <c>%20</c> for the space in
+    /// the collection name and must be left alone; the project is a <em>name</em> the user typed, so
+    /// it has to be escaped here. Escaping the base URL would give <c>%2520</c>, and not escaping the
+    /// project would break on any project name with a space in it.
+    ///
+    /// The trailing slash is trimmed here as well as on the way in through PUT /api/settings, and
+    /// that is two layers on purpose - the same split JiraSettings.BrowseUrl documents: the endpoint
+    /// owns what gets stored, this owns what gets emitted, and this is the only one whose absence a
+    /// user would see.
+    /// </summary>
+    public string? BrowseUrl(string externalKey) =>
+        string.IsNullOrWhiteSpace(BaseUrl)
+        || string.IsNullOrWhiteSpace(Project)
+        || string.IsNullOrWhiteSpace(externalKey)
+            ? null
+            : $"{BaseUrl!.TrimEnd('/')}/{Uri.EscapeDataString(Project!.Trim())}"
+                + $"/_workitems/edit/{Uri.EscapeDataString(externalKey.Trim())}";
 }

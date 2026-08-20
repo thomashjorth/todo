@@ -186,6 +186,11 @@
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra."
     },
     "ado": {
+      "notConfigured": "Azure DevOps er ikke sat op. Udfyld samlingens URL og token under Indstillinger.",
+      "projectRequired": "Projektet mangler. Udfyld det under Indstillinger.",
+      "refused": "Azure DevOps afviste tokenet. Kontrollér tokenet under Indstillinger.",
+      "unreachable": "Azure DevOps kunne ikke nås. Kontrollér samlingens URL og netværket.",
+      "workItemTypeInvalid": "En sagstype må ikke indeholde anførselstegn eller backslash. Ret listen under Indstillinger.",
       "workItemTypesRequired": "Vælg mindst én sagstype. Rydder du listen, bruges standardtyperne.",
       "defaultDeadlineDaysInvalid": "Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline."
     },

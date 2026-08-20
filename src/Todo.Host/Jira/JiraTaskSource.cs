@@ -270,7 +270,14 @@ public sealed partial class JiraTaskSource : ITaskSource
         Note: WikiMarkup.ToCommonMark(issue.Fields?.Description),
         Deadline: Deadline(issue.Fields?.DueDate),
         Requester: Blank(issue.Fields?.Reporter?.DisplayName),
-        StatusName: issue.Fields?.Status?.Name ?? string.Empty);
+        StatusName: issue.Fields?.Status?.Name ?? string.Empty,
+        // Both added in slice 12 and both null here, deliberately. The issue type is not asked for in
+        // Fields above, and nothing in slice 11 or since has needed it, so saying nothing beats
+        // inventing something. The status change date is the one Jira DC 10.3.24 does not return at
+        // all - that is why FetchStatusChangedAtAsync exists - so a value here would be a guess where
+        // null is the truth, and it is what makes the caller fall back to the changelog call.
+        ItemType: null,
+        StatusChangedAt: null);
 
     /// <summary>
     /// Jira writes a due date as <c>2026-08-20</c>. Parsed invariantly on purpose: under da-DK the
