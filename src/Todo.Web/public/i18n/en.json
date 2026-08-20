@@ -158,7 +158,8 @@
     },
     "settings": {
       "unknownLanguage": "That language is not supported.",
-      "emptyToken": "The token cannot be blank."
+      "emptyToken": "The token cannot be blank.",
+      "duplicateDelegate": "The same person is listed more than once."
     },
     "jira": {
       "notConfigured": "Jira is not set up. Fill in the base URL, project key and token under Settings.",

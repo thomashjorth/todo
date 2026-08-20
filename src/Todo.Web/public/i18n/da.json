@@ -158,7 +158,8 @@
     },
     "settings": {
       "unknownLanguage": "Sproget understøttes ikke.",
-      "emptyToken": "Tokenet må ikke være tomt."
+      "emptyToken": "Tokenet må ikke være tomt.",
+      "duplicateDelegate": "Den samme person står på listen mere end én gang."
     },
     "jira": {
       "notConfigured": "Jira er ikke sat op. Udfyld basisURL, projektnøgle og token under Indstillinger.",
