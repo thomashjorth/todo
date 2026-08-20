@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoService } from '@jsverse/transloco';
 import { API_BASE_URL } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
+import { SettingsStore } from '../settings/settings-store';
 import { TaskList } from './task-list';
 
 const items = [
@@ -48,6 +49,24 @@ const waiting = {
   createdAt: '2026-08-13T18:25:56.60+00:00',
   subTasks: [],
 };
+
+// The people the user hands tasks to. Seeded straight into the signal rather than flushed from
+// /api/settings: measured, nothing on this screen calls SettingsStore.start(), so no settings
+// request is ever made here and an expectOne for one would fail.
+const delegates = ['Bo Jensen', 'Camilla Vind'];
+
+// items[0] after the server answered the move: the who field is rendered from the reloaded task,
+// and waitingSince is the server's to set.
+const handedOver = [
+  {
+    ...items[0],
+    status: 'waitingFor',
+    waitingOn: null,
+    waitingSince: '2026-08-20T09:00:00+00:00',
+    waitingDays: 0,
+  },
+  items[1],
+];
 
 const parked = {
   ...waiting,
@@ -719,6 +738,124 @@ describe('TaskList', () => {
 
     const request = http.expectOne(`/api/tasks/${waiting.id}`);
     expect(JSON.parse(request.request.body).waitingOn).toBe('Anna');
+  });
+
+  // Uddelegering er en genvej til Venter på + hvem: vælgeren spørger, og feltet skal være det
+  // næste man står i. Uden denne påstand ville brugeren skulle finde feltet selv.
+  it('should put the cursor in the who field when a task is handed over', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const select = row.querySelector<HTMLSelectElement>('[data-testid="task-detail"] select')!;
+    select.value = 'waitingFor';
+    select.dispatchEvent(new Event('change'));
+
+    // Feltet findes ikke endnu: @if hænger på opgavens status, som først skifter når PUT'en er
+    // svaret og listen genindlæst. Uden dette led ville et fokus, der kun virker fordi feltet
+    // tilfældigvis stod der i forvejen, se ud som om det virkede.
+    expect(row.querySelector('[data-testid="waiting-on-input"]')).toBeNull();
+
+    const put = await vi.waitFor(() => http.expectOne(`/api/tasks/${items[0].id}`));
+    put.flush(new Blob([JSON.stringify(handedOver[0])]));
+    const reload = await vi.waitFor(() =>
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+    );
+    reload.flush(new Blob([JSON.stringify({ items: handedOver })]));
+
+    const input = await shown(fixture, '[data-testid="waiting-on-input"]');
+    expect(document.activeElement).toBe(input);
+  });
+
+  // Det er valget der flytter fokus, ikke feltets tilstedeværelse. Uden denne påstand ville et
+  // ubetinget focus() bestå alt — målt — og enhver udvidelse af en ventende række ville rive
+  // fokus væk fra rækkeknappen man netop trykkede på.
+  it('should leave the focus alone when a waiting row is merely expanded', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [waiting] })]));
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+
+    const button = section.querySelector<HTMLButtonElement>('button')!;
+    button.focus();
+    button.click();
+    fixture.detectChanges();
+
+    expect(section.querySelector('[data-testid="waiting-on-input"]')).not.toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  // Forslag, ikke krav. Denne og den næste er de to tilstande et strengt valg ville gøre
+  // uopnåelige, og de findes begge i dag.
+  it('should still let a task wait for nobody in particular', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    TestBed.inject(SettingsStore).delegates.set(delegates);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [waiting] })]));
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+    section.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const input = section.querySelector<HTMLInputElement>('[data-testid="waiting-on-input"]')!;
+    input.value = '';
+    input.dispatchEvent(new Event('blur'));
+
+    const body = JSON.parse(http.expectOne(`/api/tasks/${waiting.id}`).request.body);
+    expect(body.waitingOn).toBeUndefined();
+    expect(body.status).toBe('waitingFor');
+  });
+
+  it('should save a name that is not on the list, because the list only suggests', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    TestBed.inject(SettingsStore).delegates.set(delegates);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [waiting] })]));
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+    section.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const input = section.querySelector<HTMLInputElement>('[data-testid="waiting-on-input"]')!;
+    input.value = 'Supporten hos leverandøren';
+    input.dispatchEvent(new Event('blur'));
+
+    expect(JSON.parse(http.expectOne(`/api/tasks/${waiting.id}`).request.body).waitingOn).toBe(
+      'Supporten hos leverandøren',
+    );
+  });
+
+  // Én liste for alle rækker: et id pr. række ville være et duplikeret id, som browseren ikke
+  // klager over — den vælger blot den første.
+  it('should offer the delegates as suggestions from a single shared list', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(SettingsStore).delegates.set(delegates);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [...items, waiting] })]));
+    const section = await shown(fixture, '[data-testid="waiting-section"]');
+    section.querySelector('button')!.click();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const lists = element.querySelectorAll('datalist');
+    expect(lists).toHaveLength(1);
+    // Et tomt id på begge sider ville ellers gøre påstanden nedenfor sand om ingenting.
+    expect(lists[0].id).not.toBe('');
+    expect(
+      section
+        .querySelector<HTMLInputElement>('[data-testid="waiting-on-input"]')!
+        .getAttribute('list'),
+    ).toBe(lists[0].id);
+    expect([...lists[0].querySelectorAll('option')].map((o) => o.value)).toEqual(delegates);
   });
 
   it('should hide a parked task until the someday toggle is on', async () => {

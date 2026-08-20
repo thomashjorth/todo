@@ -67,8 +67,30 @@ Det eksisterende `waitingOn`-tekstfelt bliver derfor ved at være et tekstfelt. 
 ## Beslutning 5: vælgeren spørger, feltet svarer
 
 **Vælger du "Venter på" i statusvælgeren, får hvem-feltet fokus.** Ikke en dialog, ikke en ny skærm —
-feltet findes allerede i detaljepanelet, og det bliver det næste du står i. Det er samme konvention som
-Alt-genvejene fra skive 8: en handling flytter fokusringen, fordi Windows gør det.
+det er samme konvention som Alt-genvejene fra skive 8: en handling flytter fokusringen, fordi Windows
+gør det.
+
+> **Rettet efter kørslen, 2026-08-20.** Sætningen "feltet findes allerede i detaljepanelet, og det
+> bliver det næste du står i" var **for optimistisk, og på to måder** — den beskrev en simpel
+> `focus()` på et element der stod klar, og det gør det ikke.
+>
+> **Feltet findes først efter en serverrundtur.** `@if` hænger på den **genindlæste** opgaves status,
+> og statussen skifter først når `PUT`'en er svaret og listen hentet igen. Målt: lige efter
+> `(change)` findes `waiting-on-input` ikke i DOM'en.
+>
+> **Og rækken destrueres undervejs.** Genindlæsningen flytter opgaven ud af sin deadline-sektion og
+> ind i "Venter på"-sektionen — to forskellige `@for`-blokke — så `<li>`'en og komponentinstansen med
+> den forsvinder, og en frisk renderer feltet. Et flag holdt i rækken var derfor **altid falsk**, når
+> feltet endelig fandtes.
+>
+> Intentionen bor derfor i `TaskStore.askingWho` (`signal<number | null>`) frem for i rækken: rækken
+> der spørger, er ikke rækken der svarer. Ingen skabelon læser signalet, så en skrivning fra en effekt
+> kan ikke slås med change detection. **Det er ny UI-intention i datastoren**, og den hører skrevet
+> ned med begrundelsen — en store der holder "hvem skal have fokus" ser ellers ud som et lag der er
+> lækket, frem for som det ene sted der overlever at rækken bliver bygget om.
+>
+> Konsekvensen for en E2E-rejse: vent på feltet frem for at antage det, og **opløs locatoren igen**
+> bagefter — den skal pege på `waiting-section`, ikke på den `<li>` der blev klikket.
 
 **Forslagene hænger på feltet som en `<datalist>`.** Ét HTML-element, tastaturtilgængeligt gratis, og
 appen bruger i forvejen native kontroller — sprogvælgeren er et `<select>`, og `<body>` har
@@ -102,8 +124,25 @@ siden pænere og betydningen sløret.
 **`<h4>`-niveauet inde i Jira-gruppen bliver.** De to statuslister er underafsnit af Jira, ikke
 ligestillede grupper.
 
-**Hver gruppe beholder sin egen fejllinje** — `settings-error`, `jira-error`, `alias-error`. Det er
-allerede rigtigt: en fejl i tokenet hører ikke ved sproget.
+**Hver gruppe beholder sin egen fejllinje** — `settings-error`, `jira-error`, `alias-error`.
+
+> **Rettet efter kørslen, 2026-08-20. Kendt hul.** "Det er allerede rigtigt: en fejl i tokenet hører
+> ikke ved sproget" er **falsk**, og netop tokenet er modeksemplet. Målt: `settings-error` er
+> `SettingsStore.error`, og den skrives af `setToken`, `clearToken` **og** hver `save(…)` — altså også
+> basisURL'en, projektnøglen, de to statuslister og de to kontakter. Alle de fejl lander i den linje,
+> og linjen står nu inde i **sprog**gruppen, ved siden af sprogvælgeren. Grupperingen gjorde det
+> tydeligere frem for at rette det: før lå linjen løst under sidetitlen, hvor den ikke hørte til noget.
+>
+> Kun uddelegeringen fik sin egen (`delegatesError`, samme opdeling som `RetroStore` har for
+> aliaserne), og det var med vilje: én linje vist to steder ville trykke hver afvisning to gange.
+>
+> **Hvad der ikke er sandt om hullet:** at det ikke kunne flyttes uden at brække en test. De to
+> påstande om `settings-error` i `settings.spec.ts` (`should keep a refused token in the field so it
+> can be corrected` og `toBeNull`-linjen i uddelegeringens fejltest) slår begge op på **testid alene**
+> og er ikke afgrænset til en gruppe — så en flytning til Jira-gruppen ville lade dem stå grønne.
+> Hullet er altså åbent fordi ingen har flyttet linjen, ikke fordi noget holder den fast. En rettelse
+> er enten en `jira`-egen fejlsignal ved siden af `error`, eller at `settings-error` flyttes ned i
+> Jira-gruppen og sproget får sin egen.
 
 **Ingen `data-testid` ændres.** Hver E2E- og Vitest-påstand hænger på dem, så en omstrukturering der
 omdøber dem, ville se ud som en fejl i tests frem for i markup.
@@ -122,9 +161,34 @@ Fem, og den tredje er den vigtigste.
 5. Den nye gruppes farver måles i **begge** temaer, inklusive **tom liste** og **liste med rækker** —
    to `@if`-grene, og en gren er umålt indtil fixturet har noget i den tilstand og rejsen åbner den.
 
-## Testtal før leverancen
+Alle fem er leveret, og der kom **en sjette** til som designet ikke havde: **rejsen hele vejen**, hvor
+navnet lægges på listen i indstillingerne og findes igen på opgaven **efter en genindlæsning**. Den er
+den eneste vagt der måler de to halvdele sammen — indstillingen og opgavelisten er ellers to skærme
+med hver sin store, og hver af de fem ovenfor måler kun sin egen side af snittet.
 
-Core **90**, Api **187**, E2E **34**, Vitest **186** — alle grønne på `main` (`e6be619`).
+Og de tre nye farvegrene blev **tre**, ikke to: ved siden af den tomme liste og rækkerne blev
+uddelegeringens **egen røde linje** (`delegates-error`) målt, fordi den kan provokeres gennem feltet
+med et navn der kun afviger i versalitet — serveren afviser det, og det er samme greb som
+aliaslistens.
+
+## Testtal
+
+Før leverancen: Core **90**, Api **187**, E2E **34**, Vitest **186** — alle grønne på `main` (`e6be619`).
+Efter: Core **103**, Api **191**, E2E **35**, Vitest **198**. Fordelingen står i `CLAUDE.md`s
+testtalsafsnit.
+
+## Hvad der bevidst ikke blev gjort
+
+Skrevet ned her, så det ikke ser ud som huller nogen glemte:
+
+- **Ingen besked til den anden.** Ingen mail, ingen notifikation. Uddelegering er bogføring for din
+  egen skyld, og appen har hverken en udgående kanal eller en adresse på nogen.
+- **Ingen tilbageskrivning til Jira.** En uddelegeret Jira-sag skifter **ikke** assignee i Jira.
+  Beslutning 2, og UI'et siger det med ord (`settings.delegates.hint`), fordi ordet "uddelegere"
+  inviterer til at tro noget andet.
+- **`UserAlias` blev ikke genbrugt.** Aliaserne betyder "hvad der er **mit**" i retro-importen; de
+  delegerede er andre mennesker. At lægge dem i samme tabel ville være en betydningsfejl forklædt som
+  sparsommelighed — samme klasse som at blande `WaitingOn` og `Requester`.
 
 ## Hvad der bliver utestet, og det skal stå her
 
@@ -134,3 +198,10 @@ Core **90**, Api **187**, E2E **34**, Vitest **186** — alle grønne på `main`
   *føles* hurtigere kan ingen test sige.
 - **At uddelegering ikke rører Jira.** Der er ingen adfærd at vagte — fraværet af et kald kan påstås
   (`Assert.Empty` på en opsnappet rute), og det er værd at gøre, hvis nogen senere tror det modsatte.
+  **Stadig ikke gjort efter leverancen.**
+- **Formateringen.** Der findes **ingen** vagt på prettier, og leverancen efterlod fire afvigelser i
+  tre filer, som først blev fundet i sidste opgave ved at køre `--check` i hånden med
+  `--end-of-line crlf`. En vagt ville koste en test og lukke hullet permanent; den blev ikke skrevet
+  her, fordi den ikke er om uddelegering.
+- **Om `settings-error` står ved den rigtige gruppe.** Se det kendte hul under beslutning 6: ingen test
+  påstår hvilken gruppe linjen bor i, så en flytning — rigtig eller forkert — er usynlig for suiten.

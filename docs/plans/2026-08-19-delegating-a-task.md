@@ -86,10 +86,33 @@ compiler over sig.
 (`settingsJson`/`JiraFixture`). De er **uafhængige** — sidste leverance troede den ene dækkede begge
 og tog fejl. Læg `delegates` i **begge**.
 
-Bemærk hvorfor typetjekkeren ikke altid ser dem: `SettingsJson` er bevidst sin egen form frem for
-`Partial<ISettingsResponse>`, fordi wiren staver et fraværende sprog `null` og ikke `undefined`. Den
-der **føres ind i en genereret type**, fælder compileren; den der bruges som **rå svarkrop** til
-`flush(...)` gør ikke. Kør typetjekkeren og lad den sige hvilken.
+> **Rettet efter kørslen, 2026-08-19. Leveret i `6d37597`.** **Typetjekkeren fælder ingen af dem** —
+> `Spec_project_passes_the_type_checker` bestod, **før** fixturene blev rørt.
+>
+> Reglen er rigtig: en form der føres ind i en **genereret type** fælder compileren; en der bruges som
+> **rå svarkrop** til `flush(...)` gør ikke. Men **begge** settings-fixtures er af den anden slags —
+> de bygger `new Blob([JSON.stringify({...})])`. Så spørgsmålet "hvilken fil falder" svarer
+> **ingen**, og rettelsen var nødvendig **udelukkende** af den tavse grund: et `undefined` der lander
+> i et `string[]`-signal i Task 3 og 4, hvor intet klager.
+>
+> Det er tredje gang i tre leverancer, at jeg har taget fejl om denne mekanik. Den rigtige model er:
+> **det er `jira-store.spec.ts`' forhåndsvisningsrække der er compiler-synlig**, fordi den føres ind i
+> `new JiraPreviewRow(...)`. Settings-fixturene er det ikke, og har aldrig været det.
+>
+> Tre fejl mere i denne task:
+>
+> - **"Vælg en form der matcher de øvrige flow-sekvenser" har ingen referent** — der findes **ingen**
+>   ombrudt flow-sekvens i filen. Præcedensen er `HealthResponse`s **blok-sekvens**, og den blev fulgt.
+>   Længste linje er uændret 102 (præeksisterende); mine 101 var altså ikke filens længste.
+> - **Doc-kommentaren i `settings-store.spec.ts` sagde "five of them non-optional".** Med `delegates`
+>   er det seks. Et plan-trin der kun lægger feltet til, efterlader en falsk kommentar.
+> - **`settings.spec.ts`' override-interface hed `JiraFixture`** og var dokumenteret som "the Jira half
+>   of the settings response" — og `delegates` er **emphatically ikke** Jira. Omdøbt til
+>   `SettingsFixture`. Det er præcis den betydningssløring designets beslutning 3 advarer imod.
+>
+> **Og til Task 5:** hverken `ContrastTests` eller E2E stubber `/api/settings` — de kører mod den
+> **rigtige** backend. Den nye gruppes farvegrene kræver derfor **rigtige gemte delegerede** via et
+> `PUT` i rejsen, ikke en rutehandler.
 
 **Step 4: Kør og commit**
 
@@ -151,6 +174,29 @@ public static class SettingList
 
 `Write` trimmer, dropper blanke, og deduper **versalufølsomt** — samme regel som
 `RetroEndpoints`' aliasliste. Lad `JiraSettingsReader` bruge `Read`, så der kun er ét sted.
+
+> **Rettet efter kørslen, 2026-08-19. Leveret i `603301e`.** Fem fejl, og de to første forhindrede
+> agenten frem for at finde bagefter.
+>
+> 1. **`{{value}}` i oversættelsen ville nå brugeren urenderet.** Prompten foreslog
+>    `"{{value}} står på listen mere end én gang."`, men `api-error-message.ts` kalder
+>    `transloco.translate(key)` **uden params**. Naboen `errors.retro.duplicateAlias` har netop derfor
+>    **ingen** interpolation. Teksten er nu `"Den samme person står på listen mere end én gang."`
+> 2. **`SettingList.Write` må *ikke* overtage Jiras `StatusList`**, og "udtræk før du tilføjer" ville
+>    naturligt føre derhen. Målt: `JiraStatusRoles.For` sammenligner statusnavne **ordinalt** med en
+>    eksplicit begrundelse — en versalufølsom sammenligning ville flette to statusser Jira holder
+>    adskilt. En versalufølsom dedup på **skrivevejen** ville gøre netop det. **Kun læsningen er samme
+>    regel; skrivereglerne er to forskellige regler der ser ens ud.** `StatusList` er bevaret med
+>    begrundelsen i sin doc-kommentar.
+> 3. **Oversættelsen hører i Task 2, ikke Task 3.** Planen sagde Task 3; en kode uden en besked lader
+>    `ErrorCodeTranslationTests` stå **rød** mellem to opgaver. Vagten blev set fejle først:
+>    *"1 of 24 error code(s) have no message under \"errors\" … (add errors.settings.duplicateDelegate
+>    to en.json)"*.
+> 4. **Mutation 1 fældede tre tests, ikke én** — `Trim()` er også det der gør `"   "` blank.
+> 5. **Mutation 3 fældede syv.** Koblingen er bekræftet: et `delegates`-felt der **aldrig blev sat i
+>    requesten**, vælter to **sprog**tests, fordi `PUT` skriver rækken uanset.
+>
+> Endeligt: Core **103** (+13), Api **191** (+4), Vitest 186 uændret.
 
 Core-tests på begge: korrupt JSON, tom liste, blanke navne, dubletter der kun afviger i versalitet.
 

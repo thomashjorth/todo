@@ -198,6 +198,15 @@
       </select>
     </label>
     @if (task().status === waitingFor) {
+      <!-- Uddelegering er en genvej til Venter på + hvem, så vælgeren ovenfor spørger og det her
+           felt svarer: det får fokus, når status flytter hertil.
+           Forslag, ikke krav — feltet bliver et tekstfelt, fordi "venter på ingen" og "venter på
+           en der ikke står på listen" begge er gyldige tilstande i dag.
+           Listen bor i task-list.html: den er den samme for alle rækker, og et id pr. række ville
+           give dubletter i dokumentet, hvor browseren tavst vælger den første.
+           Prisen: <datalist>s popup kan ContrastTests ikke måle, fordi den er browserens eget
+           chrome og ikke DOM. Samme handel som sprogvælgeren, der er et native <select>; <body>
+           har scheme-light-dark netop for at de følger farvetemaet. -->
       <label class="block">
         <span class="block text-xs text-gray-500 dark:text-gray-400">{{
           'tasks.waitingOn' | transloco
@@ -206,6 +215,7 @@
           #waitingOn
           data-testid="waiting-on-input"
           type="text"
+          list="delegate-names"
           class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500 dark:text-gray-100"
           [value]="task().waitingOn ?? ''"
           (blur)="save({ waitingOn: text(waitingOn.value) })"

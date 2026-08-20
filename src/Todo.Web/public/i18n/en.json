@@ -110,13 +110,25 @@
       "da": "Danish",
       "en": "English"
     },
+    "groups": {
+      "language": "Language",
+      "delegates": "Delegating",
+      "jira": "Jira import",
+      "retro": "Retro import"
+    },
+    "delegates": {
+      "hint": "Delegating is bookkeeping only: nobody is told, and a Jira issue does not change assignee in Jira.",
+      "empty": "Nobody on the list yet. Add the people you hand tasks to.",
+      "add": "Add a person",
+      "addPlaceholder": "A colleague's name",
+      "remove": "Remove {{name}}"
+    },
     "aliases": {
       "heading": "Who are you on the board?",
       "add": "Add a name",
       "remove": "Remove {{alias}}"
     },
     "jira": {
-      "heading": "Jira",
       "baseUrl": "Base URL",
       "baseUrlPlaceholder": "https://jira.example.com",
       "projectKey": "Project key",
@@ -158,7 +170,8 @@
     },
     "settings": {
       "unknownLanguage": "That language is not supported.",
-      "emptyToken": "The token cannot be blank."
+      "emptyToken": "The token cannot be blank.",
+      "duplicateDelegate": "The same person is listed more than once."
     },
     "jira": {
       "notConfigured": "Jira is not set up. Fill in the base URL, project key and token under Settings.",

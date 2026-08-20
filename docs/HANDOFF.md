@@ -1,6 +1,6 @@
 # Hvor projektet står
 
-Sidst opdateret: 2026-08-19
+Sidst opdateret: 2026-08-20
 
 Konventioner og maskinens fælder: `CLAUDE.md` i roden — den indlæses automatisk.
 Design, datamodel og beslutninger: `docs/plans/2026-08-13-todo-app-design.md`.
@@ -56,6 +56,26 @@ indlæsning — slås begge kontakter hurtigt efter hinanden, kunne "Måske"-sek
 Fundet fordi `ContrastTests` flakkede (7–9 s frem for 2 s), ikke fordi nogen ledte efter det.
 `load()` har nu en sekvenstæller, og regressionstesten
 `should not let a slow earlier load overwrite a newer list` blev set fejle først.
+
+**Uden for skiverne: uddelegering af en opgave** (2026-08-20, design i
+`docs/plans/2026-08-19-delegating-a-task-design.md`, plan i `2026-08-19-delegating-a-task.md`).
+**Uddelegering er en genvej til en tilstand der findes** — `WaitingFor` + `WaitingOn` — så der er
+**ingen `Delegated`-status**, intet nyt felt på `TaskItem` og **ingen migrering**. Nyt er én
+indstilling, `delegates` (JSON i `Setting`), en delt listehjælper `SettingList` udtrukket fra
+`JiraSettingsReader`, en uddelegeringsgruppe på indstillingssiden, **indstillingssiden delt i fire
+ligestillede grupper** (Sprog, Uddelegering, Jira-import, Retro-import), og en delt
+`<datalist id="delegate-names">` der giver forslag på `waitingOn`-feltet, som statusvælgeren giver
+fokus når en opgave flytter til "Venter på". **Listen er forslag, ikke et krav:** feltet bliver et
+tekstfelt, fordi "venter på ingen" og "venter på en der ikke står på listen" begge er gyldige
+tilstande. **Ingen besked til den anden og ingen tilbageskrivning til Jira** — en uddelegeret
+Jira-sag skifter ikke assignee, og UI'et siger det med ord. **Den fik bevidst ikke et skivenummer**
+— ingen ny datamodel, ingen migrering, ingen ny skærm — af samme grund som Swagger-linket og
+vagt-statusserne. Testtal efter: Core **103**, Api **191**, E2E **35**, Vitest **198**. To kendte
+huller er skrevet ned i designet: `settings-error` bærer **hver** Jira-indstillings fejl og står nu
+ved sproggruppen (og **ingen** test påstår hvilken gruppe den bor i), og der findes ingen
+formateringsvagt — leverancen efterlod fire prettier-afvigelser, som først blev fundet i hånden.
+**ADO-mentions er fortsat ikke verificeret**, og målingen under "Åbne spørgsmål" bør køres, før
+skive 12 planlægges.
 
 ## Tilbage
 

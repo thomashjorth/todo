@@ -22,7 +22,7 @@ function configure(system: string): { store: SettingsStore; http: HttpTestingCon
 }
 
 /**
- * Every field of the settings response, because the contract makes five of them non-optional and
+ * Every field of the settings response, because the contract makes six of them non-optional and
  * a fixture that leaves one out would hand the store an undefined the types say cannot happen.
  * The type checker cannot catch that here — this shape is not `ISettingsResponse` — so a field
  * added to the contract has to be added by hand.
@@ -31,6 +31,7 @@ function configure(system: string): { store: SettingsStore; http: HttpTestingCon
  */
 interface SettingsJson {
   language?: string | null;
+  delegates?: string[];
   jiraBaseUrl?: string | null;
   jiraProjectKey?: string | null;
   jiraWaitingStatuses?: string[];
@@ -44,6 +45,7 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
   return new Blob([
     JSON.stringify({
       language: null,
+      delegates: [],
       jiraBaseUrl: null,
       jiraProjectKey: null,
       jiraWaitingStatuses: [],
@@ -174,11 +176,12 @@ describe('SettingsStore', () => {
 
   it('should keep every setting in the request so saving one does not clear another', async () => {
     // The backend reads an absent field as "clear". SettingsStore.save must therefore carry all
-    // seven fields, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil to this.
-    // The duty pair is in here rather than in a test of its own: two tests each asserting half of
-    // the request would both pass while the other half was dropped.
+    // eight fields, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil to this.
+    // The duty pair and the delegates are in here rather than in tests of their own: two tests each
+    // asserting half of the request would both pass while the other half was dropped.
     const { store, http } = configure('da-DK');
 
+    store.delegates.set(['Mette Kirkegaard']);
     store.jiraBaseUrl.set('https://jira.test');
     store.jiraProjectKey.set('SAAS');
     store.jiraWaitingStatuses.set(['Afventer general']);
@@ -192,6 +195,7 @@ describe('SettingsStore', () => {
     expect(request.request.method).toBe('PUT');
     expect(JSON.parse(request.request.body)).toEqual({
       language: 'en',
+      delegates: ['Mette Kirkegaard'],
       jiraBaseUrl: 'https://jira.test',
       jiraProjectKey: 'SAAS',
       jiraWaitingStatuses: ['Afventer general'],
@@ -202,6 +206,7 @@ describe('SettingsStore', () => {
     request.flush(
       settingsJson({
         language: 'en',
+        delegates: ['Mette Kirkegaard'],
         jiraBaseUrl: 'https://jira.test',
         jiraProjectKey: 'SAAS',
         jiraWaitingStatuses: ['Afventer general'],
@@ -213,8 +218,52 @@ describe('SettingsStore', () => {
     await saved;
 
     expect(store.jiraProjectKey()).toBe('SAAS');
+    expect(store.delegates()).toEqual(['Mette Kirkegaard']);
     expect(store.jiraDutyStatuses()).toEqual(['Afventer general', 'Afventer 2nd level']);
     expect(store.jiraOnDuty()).toBe(true);
+  });
+
+  it('should send the whole delegate list and take the server list back', async () => {
+    const { store, http } = configure('da-DK');
+    store.delegates.set(['Mette Kirkegaard']);
+
+    const saved = store.saveDelegates(['Mette Kirkegaard', 'Flemming']);
+
+    const request = http.expectOne('/api/settings');
+    expect(request.request.method).toBe('PUT');
+    expect(JSON.parse(request.request.body)).toEqual({
+      delegates: ['Mette Kirkegaard', 'Flemming'],
+    });
+    // The server trims and dedupes, so the reply is the authority on what the list now is — here
+    // it answers with a spelling the request did not carry.
+    request.flush(settingsJson({ delegates: ['Mette Kirkegaard', 'Flemming Sørensen'] }));
+    await saved;
+
+    expect(store.delegates()).toEqual(['Mette Kirkegaard', 'Flemming Sørensen']);
+    expect(store.delegatesError()).toBeNull();
+  });
+
+  // Two lines on the page, so two signals: one shown beside the language select and one beside the
+  // delegate list. Sharing `error` would print a refused name in both places at once.
+  it('should say why a delegate was refused without touching the settings error', async () => {
+    const { store, http } = configure('da-DK');
+    store.delegates.set(['Mette']);
+
+    const saved = store.saveDelegates(['Mette', 'mette']);
+    http.expectOne('/api/settings').flush(
+      new Blob([
+        JSON.stringify({
+          code: 'settings.duplicateDelegate',
+          message: 'Duplicate delegate.',
+        }),
+      ]),
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await saved;
+
+    expect(store.delegatesError()).toBe('Den samme person står på listen mere end én gang.');
+    expect(store.error()).toBeNull();
+    expect(store.delegates()).toEqual(['Mette']);
   });
 
   // The same guard from the other side: a language chosen through the select must not take the

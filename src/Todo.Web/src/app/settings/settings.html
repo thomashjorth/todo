@@ -2,34 +2,109 @@
   {{ 'settings.heading' | transloco }}
 </h2>
 
-<label
-  for="settings-language"
-  class="mt-4 block text-sm font-medium text-gray-900 dark:text-gray-100"
-  >{{ 'settings.language' | transloco }}</label
->
-<select
-  #language
-  id="settings-language"
-  data-testid="language-select"
-  class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
-  (change)="choose(language.value)"
->
-  @for (option of options; track option) {
-    <option [value]="option" [selected]="option === choice()">
-      {{ languageKey(option) | transloco }}
-    </option>
-  }
-</select>
+<!-- Fire ligestillede grupper, hver en <section> med en <h3> med samme klasser: dine egne
+     indstillinger først, kilderne sidst, fordi kilderne sættes op én gang, mens sproget og
+     uddelegeringen er det man rører. Hver gruppe bærer sin egen fejllinje — en fejl i tokenet
+     hører ikke ved sproget. -->
+<section data-testid="language-settings">
+  <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
+    {{ 'settings.groups.language' | transloco }}
+  </h3>
 
-@if (settings.error(); as message) {
-  <p data-testid="settings-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
-    {{ message }}
+  <!-- Mærkaten er skjult for øjet, ikke for hjælpemidler: overskriften siger allerede Sprog, og
+       gruppen har præcis én kontrol, så en synlig mærkat ville skrive ordet to gange. -->
+  <label for="settings-language" class="sr-only text-gray-900 dark:text-gray-100">{{
+    'settings.language' | transloco
+  }}</label>
+  <select
+    #language
+    id="settings-language"
+    data-testid="language-select"
+    class="mt-2 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+    (change)="choose(language.value)"
+  >
+    @for (option of options; track option) {
+      <option [value]="option" [selected]="option === choice()">
+        {{ languageKey(option) | transloco }}
+      </option>
+    }
+  </select>
+
+  @if (settings.error(); as message) {
+    <p
+      data-testid="settings-error"
+      role="alert"
+      class="mt-2 text-sm text-red-700 dark:text-red-300"
+    >
+      {{ message }}
+    </p>
+  }
+</section>
+
+<section data-testid="delegate-settings">
+  <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
+    {{ 'settings.groups.delegates' | transloco }}
+  </h3>
+
+  <!-- Ordene er den ene halvdel af det her: uddelegering er bogføring, og en bruger der tror der
+       blev sendt en besked, har handlet uden at vide at ingen fik det at vide. -->
+  <p data-testid="delegates-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+    {{ 'settings.delegates.hint' | transloco }}
   </p>
-}
+
+  @if (settings.delegates().length === 0) {
+    <p data-testid="delegates-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
+      {{ 'settings.delegates.empty' | transloco }}
+    </p>
+  } @else {
+    <ul class="mt-2 space-y-1">
+      @for (name of settings.delegates(); track name) {
+        <li data-testid="delegate-row" class="flex items-center gap-2">
+          <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+            name
+          }}</span>
+          <button
+            type="button"
+            data-testid="remove-delegate"
+            [attr.aria-label]="'settings.delegates.remove' | transloco: { name }"
+            class="shrink-0 text-xs text-red-700 dark:text-red-300"
+            (click)="removeDelegate(name)"
+          >
+            ✕
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  <label class="mt-2 block">
+    <span class="block text-xs text-gray-700 dark:text-gray-300">{{
+      'settings.delegates.add' | transloco
+    }}</span>
+    <input
+      #delegateInput
+      data-testid="delegate-input"
+      type="text"
+      [placeholder]="'settings.delegates.addPlaceholder' | transloco"
+      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+      (keyup.enter)="addDelegate(delegateInput)"
+    />
+  </label>
+
+  @if (settings.delegatesError(); as message) {
+    <p
+      data-testid="delegates-error"
+      role="alert"
+      class="mt-2 text-sm text-red-700 dark:text-red-300"
+    >
+      {{ message }}
+    </p>
+  }
+</section>
 
 <section data-testid="jira-settings">
   <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
-    {{ 'settings.jira.heading' | transloco }}
+    {{ 'settings.groups.jira' | transloco }}
   </h3>
 
   <label
@@ -246,44 +321,52 @@
   }
 </section>
 
-<h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
-  {{ 'settings.aliases.heading' | transloco }}
-</h3>
+<!-- Aliaserne hører her, ikke sammen med de delegerede: de betyder hvad der er *mit* i en
+     importeret CSV og findes kun fordi retro-importen findes. De delegerede er andre mennesker. -->
+<section data-testid="retro-settings">
+  <h3 class="mt-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
+    {{ 'settings.groups.retro' | transloco }}
+  </h3>
 
-<ul class="mt-2 space-y-1">
-  @for (alias of retro.aliases(); track alias) {
-    <li data-testid="alias-row" class="flex items-center gap-2">
-      <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
-        alias
-      }}</span>
-      <button
-        type="button"
-        data-testid="remove-alias"
-        [attr.aria-label]="'settings.aliases.remove' | transloco: { alias }"
-        class="shrink-0 text-xs text-red-700 dark:text-red-300"
-        (click)="removeAlias(alias)"
-      >
-        ✕
-      </button>
-    </li>
+  <h4 class="mt-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+    {{ 'settings.aliases.heading' | transloco }}
+  </h4>
+
+  <ul class="mt-2 space-y-1">
+    @for (alias of retro.aliases(); track alias) {
+      <li data-testid="alias-row" class="flex items-center gap-2">
+        <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+          alias
+        }}</span>
+        <button
+          type="button"
+          data-testid="remove-alias"
+          [attr.aria-label]="'settings.aliases.remove' | transloco: { alias }"
+          class="shrink-0 text-xs text-red-700 dark:text-red-300"
+          (click)="removeAlias(alias)"
+        >
+          ✕
+        </button>
+      </li>
+    }
+  </ul>
+
+  <label class="mt-2 block">
+    <span class="block text-xs text-gray-700 dark:text-gray-300">{{
+      'settings.aliases.add' | transloco
+    }}</span>
+    <input
+      #aliasInput
+      data-testid="alias-input"
+      type="text"
+      class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+      (keyup.enter)="addAlias(aliasInput)"
+    />
+  </label>
+
+  @if (retro.error(); as message) {
+    <p data-testid="alias-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+      {{ message }}
+    </p>
   }
-</ul>
-
-<label class="mt-2 block">
-  <span class="block text-xs text-gray-700 dark:text-gray-300">{{
-    'settings.aliases.add' | transloco
-  }}</span>
-  <input
-    #aliasInput
-    data-testid="alias-input"
-    type="text"
-    class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
-    (keyup.enter)="addAlias(aliasInput)"
-  />
-</label>
-
-@if (retro.error(); as message) {
-  <p data-testid="alias-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
-    {{ message }}
-  </p>
-}
+</section>

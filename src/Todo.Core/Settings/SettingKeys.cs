@@ -7,6 +7,8 @@ public static class SettingKeys
 {
     public const string Language = "language";
 
+    public const string Delegates = "delegates";
+
     public const string JiraBaseUrl = "jira.baseUrl";
     public const string JiraProjectKey = "jira.projectKey";
     public const string JiraToken = "jira.token";

@@ -23,6 +23,7 @@ public static class ErrorCodes
 
     public const string SettingsUnknownLanguage = "settings.unknownLanguage";
     public const string SettingsEmptyToken = "settings.emptyToken";
+    public const string SettingsDuplicateDelegate = "settings.duplicateDelegate";
 
     public const string JiraNotConfigured = "jira.notConfigured";
     public const string JiraProjectKeyRequired = "jira.projectKeyRequired";

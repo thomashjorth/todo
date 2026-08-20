@@ -53,6 +53,25 @@ export class Settings {
     void this.settings.choose(option === 'system' ? null : option);
   }
 
+  /**
+   * The same shape as addAlias, and the repeat check is deliberately exact: the server dedupes
+   * case-insensitively and answers 400, so a name that differs only in case is refused with a reason
+   * rather than dropped here in silence.
+   */
+  protected addDelegate(input: HTMLInputElement): void {
+    const name = input.value.trim();
+    if (!name || this.settings.delegates().includes(name)) {
+      return;
+    }
+
+    input.value = '';
+    void this.settings.saveDelegates([...this.settings.delegates(), name]);
+  }
+
+  protected removeDelegate(name: string): void {
+    void this.settings.saveDelegates(this.settings.delegates().filter((d) => d !== name));
+  }
+
   protected saveBaseUrl(value: string): void {
     void this.settings.save({ jiraBaseUrl: value });
   }

@@ -32,7 +32,20 @@ public static class SettingsEndpoints
                     ErrorCodes.SettingsUnknownLanguage, $"'{language}' is not a supported language.");
             }
 
+            // Rejected rather than folded, the same choice RetroEndpoints makes for aliases: a list
+            // where two names became one without anybody saying so is worse than an error. It has to
+            // run on the raw request, because SettingList.Write dedupes as well - after it there is
+            // no duplicate left to report.
+            if (DuplicateDelegate(request.Delegates) is { } duplicate)
+            {
+                return ApiErrors.BadRequest(
+                    ErrorCodes.SettingsDuplicateDelegate, $"'{duplicate}' is listed more than once.");
+            }
+
             await StoreAsync(db, SettingKeys.Language, request.Language);
+
+            // An absent list clears the row, like every other field on this full replacement.
+            await StoreAsync(db, SettingKeys.Delegates, SettingList.Write(request.Delegates ?? []));
 
             // A full replacement, so every field here is written from the request - and the token
             // is deliberately not one of them. It lives behind /api/settings/jira-token precisely
@@ -111,6 +124,7 @@ public static class SettingsEndpoints
         return new SettingsResponse
         {
             Language = await ReadAsync(db, SettingKeys.Language),
+            Delegates = [.. SettingList.Read(await ReadAsync(db, SettingKeys.Delegates))],
             JiraBaseUrl = jira.BaseUrl,
             JiraProjectKey = jira.ProjectKey,
             JiraWaitingStatuses = [.. jira.WaitingStatuses],
@@ -131,8 +145,41 @@ public static class SettingsEndpoints
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>
+    /// The first name that appears twice, or null. Case-insensitive and trimmed, so it sees the same
+    /// duplicates SettingList.Write would silently fold - which is the whole point of asking before
+    /// the write rather than after it. Blanks are skipped rather than reported: two empty rows in the
+    /// editor are not a name listed twice, and the writer drops them anyway.
+    /// </summary>
+    private static string? DuplicateDelegate(IEnumerable<string?>? names)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in names ?? [])
+        {
+            var value = name?.Trim();
+
+            if (string.IsNullOrEmpty(value))
+            {
+                continue;
+            }
+
+            if (!seen.Add(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// A status list is one row of JSON, and an empty list is no row at all. Shared by the waiting
     /// list and the duty list, which are two lists with one storage shape.
+    ///
+    /// Deliberately not SettingList.Write, close as the two look: that one trims and dedupes
+    /// case-insensitively, and JiraStatusRoles compares status names <em>ordinally</em> on purpose,
+    /// because a case-insensitive fold would merge two statuses Jira keeps apart. The trimming lives
+    /// in JqlFor instead, where it protects the query and has tests of its own.
     /// </summary>
     private static string? StatusList(ICollection<string>? names)
     {

@@ -46,6 +46,13 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string MyAction = "Skriv referatet fra retroen";
 
     /// <summary>
+    /// Somebody tasks are handed to. Deliberately not <see cref="Me"/> and not <see cref="Requester"/>:
+    /// a delegate is a third meaning — who you are waiting on — and a name shared with the alias list
+    /// would let a row from one list stand in for the other.
+    /// </summary>
+    private const string DelegateName = "Flemming Overgaard";
+
+    /// <summary>
     /// Everything @tailwindcss/typography gives a colour of its own: a heading, body text, a link,
     /// inline code, a fenced block, bullets, a quote and a table. The plugin brings a whole colour
     /// system with it plus the prose-invert swap, so an element left out of this note is a colour
@@ -321,6 +328,26 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
 
         var settings = await App.GoToSettings();
         await Assertions.Expect(settings.Heading).ToHaveTextAsync("Indstillinger");
+
+        // The delegate group's empty branch, which is the default state — so this snapshot is the
+        // one that measures it. Waited for by its text rather than by the element: a paragraph the
+        // localized string has not been interpolated into yet is invisible to the measurement.
+        await Assertions.Expect(settings.DelegatesEmpty).ToContainTextAsync("Ingen på listen endnu");
+        await Assertions.Expect(settings.DelegateRows).ToHaveCountAsync(0);
+        await Snapshot();
+
+        // The other half of that branch, and it cannot be staged: nothing in this suite stubs
+        // /api/settings, so a row exists only because the page saved a name through the real
+        // backend. The empty sentence is gone by then, which is why it is measured above.
+        await settings.AddDelegateAsync(DelegateName);
+        await Assertions.Expect(settings.DelegatesEmpty).ToHaveCountAsync(0);
+        await Snapshot();
+
+        // The list's own red line, a third branch. Provoked through the field a user types in: the
+        // screen drops a name it already holds only when it matches exactly, so a name differing
+        // only in case travels to the API and comes back rejected.
+        await settings.SubmitDelegateAsync(DelegateName.ToLowerInvariant());
+        await Assertions.Expect(settings.DelegatesError).ToContainTextAsync("mere end én gang");
         await Snapshot();
 
         // An alias is the only thing that makes alias-row and its remove button exist.

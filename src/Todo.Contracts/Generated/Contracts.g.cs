@@ -569,6 +569,12 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("language")]
         public string Language { get; set; }
 
+        /// <summary>
+        /// People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delegates")]
+        public System.Collections.Generic.ICollection<string> Delegates { get; set; }
+
         [System.Text.Json.Serialization.JsonPropertyName("jiraBaseUrl")]
         public string JiraBaseUrl { get; set; }
 
@@ -601,6 +607,13 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("language")]
         public string Language { get; set; }
+
+        /// <summary>
+        /// People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delegates")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> Delegates { get; set; } = new System.Collections.ObjectModel.Collection<string>();
 
         [System.Text.Json.Serialization.JsonPropertyName("jiraBaseUrl")]
         public string JiraBaseUrl { get; set; }

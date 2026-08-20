@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, WritableSignal, inject, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../api/api-error-message';
@@ -17,6 +17,7 @@ import { SYSTEM_LANGUAGE } from '../i18n/system-language';
  */
 export interface SettingsChanges {
   language?: string | null;
+  delegates?: readonly string[];
   jiraBaseUrl?: string | null;
   jiraProjectKey?: string | null;
   jiraWaitingStatuses?: readonly string[];
@@ -33,6 +34,16 @@ export class SettingsStore {
 
   /** The stored choice, where null means "follow the system" rather than "not read yet". */
   readonly language = signal<string | null>(null);
+
+  /**
+   * The people tasks are handed to, offered as suggestions when a task moves to WaitingFor. A
+   * suggestion list, not a closed set: the who field stays free text, because waiting on somebody
+   * unlisted — or on nobody at all — are both valid states. The server trims and dedupes on the way
+   * in and keeps the first spelling, so what comes back can differ from what was sent; nothing here
+   * normalises, because two places doing it would be two rules that look like one.
+   */
+  readonly delegates = signal<string[]>([]);
+
   readonly jiraBaseUrl = signal<string | null>(null);
   readonly jiraProjectKey = signal<string | null>(null);
   readonly jiraWaitingStatuses = signal<string[]>([]);
@@ -55,6 +66,13 @@ export class SettingsStore {
 
   readonly error = signal<string | null>(null);
 
+  /**
+   * The delegate list's own message, apart from `error` so the settings page can say it beside the
+   * list it is about — the same split RetroStore has for the aliases. One signal shown in two places
+   * would print every rejection twice.
+   */
+  readonly delegatesError = signal<string | null>(null);
+
   async start(): Promise<void> {
     try {
       this.read(await firstValueFrom(this.client.getSettings()));
@@ -65,7 +83,7 @@ export class SettingsStore {
     await this.apply();
   }
 
-  /** The language select's one path to the server, so it cannot forget the other six fields. */
+  /** The language select's one path to the server, so it cannot forget the other seven fields. */
   async choose(language: string | null): Promise<void> {
     await this.save({ language });
   }
@@ -73,13 +91,31 @@ export class SettingsStore {
   /**
    * PUT /api/settings is a full replacement and the backend reads an absent field as "clear", so
    * every field goes with every save — the same reason TaskStore.update builds a `current` object.
-   * A field whose value <em>is</em> the cleared one (no URL, no statuses, waiting off, off duty) is
-   * sent as absent, because that is how the wire spells cleared; language especially, which the API
-   * rejects as an empty string but accepts as missing.
+   * A field whose value <em>is</em> the cleared one (no URL, no statuses, no delegates, waiting
+   * off, off duty) is sent as absent, because that is how the wire spells cleared; language
+   * especially, which the API rejects as an empty string but accepts as missing.
    */
   async save(changes: SettingsChanges): Promise<void> {
+    await this.put(changes, this.error);
+  }
+
+  /**
+   * The whole list at once, as RetroStore.saveAliases takes the whole alias list: the caller has the
+   * rows on screen and knows which one it is adding or dropping. The reply is authoritative — the
+   * server trims and dedupes — so the signal is set from it rather than from the argument.
+   */
+  async saveDelegates(delegates: readonly string[]): Promise<void> {
+    await this.put({ delegates }, this.delegatesError);
+  }
+
+  /**
+   * Answers into whichever line the caller shows, because the two error signals are two places on
+   * the page rather than two kinds of failure.
+   */
+  private async put(changes: SettingsChanges, into: WritableSignal<string | null>): Promise<void> {
     const next: SettingsChanges = {
       language: this.language(),
+      delegates: this.delegates(),
       jiraBaseUrl: this.jiraBaseUrl(),
       jiraProjectKey: this.jiraProjectKey(),
       jiraWaitingStatuses: this.jiraWaitingStatuses(),
@@ -89,10 +125,12 @@ export class SettingsStore {
       ...changes,
     };
 
+    const delegates = [...(next.delegates ?? [])];
     const waiting = [...(next.jiraWaitingStatuses ?? [])];
     const duty = [...(next.jiraDutyStatuses ?? [])];
     const request = new SettingsRequest({
       language: blank(next.language),
+      delegates: delegates.length === 0 ? undefined : delegates,
       jiraBaseUrl: blank(next.jiraBaseUrl),
       jiraProjectKey: blank(next.jiraProjectKey),
       jiraWaitingStatuses: waiting.length === 0 ? undefined : waiting,
@@ -101,12 +139,12 @@ export class SettingsStore {
       jiraOnDuty: next.jiraOnDuty === true ? true : undefined,
     });
 
-    this.error.set(null);
+    into.set(null);
     try {
       this.read(await firstValueFrom(this.client.updateSettings(request)));
       await this.apply();
     } catch (error) {
-      this.error.set(apiErrorMessage(this.transloco, error));
+      into.set(apiErrorMessage(this.transloco, error));
     }
   }
 
@@ -137,6 +175,7 @@ export class SettingsStore {
   /** All four routes answer with the whole settings shape, so all four are read the same way. */
   private read(response: SettingsResponse): void {
     this.language.set(response.language ?? null);
+    this.delegates.set(response.delegates);
     this.jiraBaseUrl.set(response.jiraBaseUrl ?? null);
     this.jiraProjectKey.set(response.jiraProjectKey ?? null);
     this.jiraWaitingStatuses.set(response.jiraWaitingStatuses);

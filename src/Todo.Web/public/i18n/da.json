@@ -110,13 +110,25 @@
       "da": "Dansk",
       "en": "Engelsk"
     },
+    "groups": {
+      "language": "Sprog",
+      "delegates": "Uddelegering",
+      "jira": "Jira-import",
+      "retro": "Retro-import"
+    },
+    "delegates": {
+      "hint": "Uddelegering er kun bogføring: der bliver ikke sendt en besked til den anden, og en Jira-sag skifter ikke assignee i Jira.",
+      "empty": "Ingen på listen endnu. Tilføj dem du plejer at give opgaver videre til.",
+      "add": "Tilføj en person",
+      "addPlaceholder": "Navnet på en kollega",
+      "remove": "Fjern {{name}}"
+    },
     "aliases": {
       "heading": "Hvem er du på boardet?",
       "add": "Tilføj et navn",
       "remove": "Fjern {{alias}}"
     },
     "jira": {
-      "heading": "Jira",
       "baseUrl": "BasisURL",
       "baseUrlPlaceholder": "https://jira.eksempel.dk",
       "projectKey": "Projektnøgle",
@@ -158,7 +170,8 @@
     },
     "settings": {
       "unknownLanguage": "Sproget understøttes ikke.",
-      "emptyToken": "Tokenet må ikke være tomt."
+      "emptyToken": "Tokenet må ikke være tomt.",
+      "duplicateDelegate": "Den samme person står på listen mere end én gang."
     },
     "jira": {
       "notConfigured": "Jira er ikke sat op. Udfyld basisURL, projektnøgle og token under Indstillinger.",
