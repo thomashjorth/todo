@@ -866,4 +866,55 @@ describe('Settings', () => {
     // The Jira line is a different signal, so one connection cannot be shown as the other's.
     expect(screen.element.querySelector('[data-testid="jira-connection"]')).toBeNull();
   });
+
+  // A user reported that Test connection "said nothing". Two different bugs produce that, and these
+  // two tests are one each. First: the call succeeds but the server names nobody, which the screen
+  // used to render as the empty sentence "Forbundet som ." - visible, but saying nothing.
+  it('should say the server gave no name rather than showing an empty sentence', async () => {
+    const screen = await open(null);
+
+    press(screen.element, 'ado-test');
+    screen.http.expectOne('/api/ado/test').flush(new Blob([JSON.stringify({ displayName: '' })]));
+
+    const name = await settled(screen, () => {
+      const found = screen.element.querySelector('[data-testid="ado-connection"]');
+      expect(found).not.toBeNull();
+      return found!;
+    });
+
+    expect(name.textContent).toContain('Forbundet, men serveren oplyste ikke noget navn.');
+    expect(name.textContent).not.toContain('Forbundet som');
+  });
+
+  // And second: the call fails. The message was rendered at the foot of the section, over a hundred
+  // lines below the button in a 480px column, so a refused token looked like a dead button. This
+  // asserts the error is a sibling of the button's own row rather than merely present somewhere -
+  // "present somewhere" was already true while the bug existed.
+  // One test over both sections rather than one each: the fix was the same in both places, so a guard
+  // that covers one of two identical shapes is the thin spot this repo keeps rediscovering.
+  it.each([
+    ['jira', 'jira.refused'],
+    ['ado', 'ado.refused'],
+  ])('should put a failed %s connection beside the button that caused it', async (source, code) => {
+    const screen = await open(null);
+
+    press(screen.element, `${source}-test`);
+    screen.http
+      .expectOne(`/api/${source}/test`)
+      .flush(new Blob([JSON.stringify({ code, message: 'nej' })]), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
+
+    const error = await settled(screen, () => {
+      const found = screen.element.querySelector(`[data-testid="${source}-error"]`);
+      expect(found).not.toBeNull();
+      return found!;
+    });
+
+    const button = screen.element.querySelector(`[data-testid="${source}-test"]`)!;
+    // The button sits in a row div; the error is that row's next sibling. Measuring the relationship
+    // rather than a pixel distance, because a layout change should be free and a move should not.
+    expect(button.parentElement!.nextElementSibling).toBe(error);
+  });
 });

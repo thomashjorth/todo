@@ -136,6 +136,7 @@
   },
   "settings": {
     "heading": "Settings",
+    "connectedNoName": "Connected, but the server did not give a name.",
     "language": "Language",
     "languages": {
       "system": "Follow the system",

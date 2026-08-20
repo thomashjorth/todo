@@ -168,12 +168,22 @@ public sealed class FakeAdo : IAsyncDisposable
     private readonly WorkItemBody[] _items;
     private readonly long[] _order;
 
+    private readonly string? _providerDisplayName;
+    private readonly string? _customDisplayName;
+
     private WebApplication? _app;
 
-    private FakeAdo(bool rejectToken, int batchLimit, int filler)
+    private FakeAdo(
+        bool rejectToken,
+        int batchLimit,
+        int filler,
+        string? providerDisplayName,
+        string? customDisplayName)
     {
         _rejectToken = rejectToken;
         _batchLimit = batchLimit;
+        _providerDisplayName = providerDisplayName;
+        _customDisplayName = customDisplayName;
 
         // Filler work items exist for one reason: the source chunks at Azure DevOps' real cap of 200,
         // so the only honest way to measure that it reads every chunk is to have more than 200 of them.
@@ -249,8 +259,21 @@ public sealed class FakeAdo : IAsyncDisposable
     /// cross the source's real chunk size of 200 without turning that constant into a test hook, which
     /// would have measured the hook rather than the cap.
     /// </param>
+    /// <param name="providerDisplayName">
+    /// What an Active Directory backed server fills. Null and blank are both worth passing: a server
+    /// that fills neither name is why "Test connection" can succeed with nothing to show.
+    /// </param>
+    /// <param name="customDisplayName">
+    /// What a server fills for a user who renamed themselves. Azure DevOps' own UI prefers it, so the
+    /// source does too - and until a user reported the button saying nothing, this field was left out
+    /// of the fake on the grounds that no test could reach it.
+    /// </param>
     public static async Task<FakeAdo> StartAsync(
-        bool rejectToken = false, int batchLimit = 200, int filler = 0)
+        bool rejectToken = false,
+        int batchLimit = 200,
+        int filler = 0,
+        string? providerDisplayName = Owner,
+        string? customDisplayName = null)
     {
         var builder = WebApplication.CreateSlimBuilder();
 
@@ -260,7 +283,8 @@ public sealed class FakeAdo : IAsyncDisposable
         builder.Logging.ClearProviders();
 
         var app = builder.Build();
-        var fake = new FakeAdo(rejectToken, batchLimit, filler);
+        var fake = new FakeAdo(
+            rejectToken, batchLimit, filler, providerDisplayName, customDisplayName);
 
         fake.MapRoutes(app);
 
@@ -370,7 +394,8 @@ public sealed class FakeAdo : IAsyncDisposable
         // Collection level. The route parameter is what proves the collection segment is really in the
         // URL rather than the app having talked to the server's root.
         app.MapGet("/{collection}/_apis/connectionData", () => Results.Json(
-            new ConnectionDataBody(new IdentityBody(Owner)), Json));
+            new ConnectionDataBody(
+                new IdentityBody(_providerDisplayName, _customDisplayName)), Json));
 
         // Project level, because that is what scopes a WIQL - measured 2026-08-20. Both segments are
         // route parameters so a source that dropped one gets a 404 rather than an answer.
@@ -543,12 +568,12 @@ public sealed class FakeAdo : IAsyncDisposable
     private sealed record ConnectionDataBody(IdentityBody AuthenticatedUser);
 
     /// <summary>
-    /// Only <c>providerDisplayName</c>, which is what an Active Directory backed server fills. The
-    /// sibling <c>customDisplayName</c> exists on the real response and is deliberately left out:
-    /// nothing measured it, and reading a field no fixture serves would be a branch no test could
-    /// reach.
+    /// Both names the real response carries. <c>customDisplayName</c> was left out at first, on the
+    /// grounds that reading a field no fixture serves would be a branch no test could reach - which was
+    /// backwards: the fixture is this file, so leaving it out is what made the branch unreachable. A
+    /// user reporting that "Test connection" said nothing is what measured it.
     /// </summary>
-    private sealed record IdentityBody(string ProviderDisplayName);
+    private sealed record IdentityBody(string? ProviderDisplayName, string? CustomDisplayName);
 
     /// <summary>The identity shape a field carries, which is not the one connectionData uses.</summary>
     private sealed record CreatedByBody(string DisplayName, string UniqueName);

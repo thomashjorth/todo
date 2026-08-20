@@ -136,6 +136,7 @@
   },
   "settings": {
     "heading": "Indstillinger",
+    "connectedNoName": "Forbundet, men serveren oplyste ikke noget navn.",
     "language": "Sprog",
     "languages": {
       "system": "Følg systemet",

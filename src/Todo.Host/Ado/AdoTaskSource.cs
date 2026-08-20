@@ -143,10 +143,18 @@ public sealed class AdoTaskSource : ITaskSource
     /// <c>deploymentType: onPremises</c> on 2026-08-20 - so the endpoint answers, and this is what
     /// "Test connection" will verify the token against.
     ///
-    /// <c>providerDisplayName</c> is what an Active Directory backed server fills. The response also
-    /// carries <c>customDisplayName</c>, for a user who renamed themselves, and it is deliberately not
-    /// read: nothing measured which of the two this server fills, and a preference no fixture can serve
-    /// is a branch no test could reach. If it turns out empty in use, that is one measurement away.
+    /// <c>providerDisplayName</c> is what an Active Directory backed server fills;
+    /// <c>customDisplayName</c> is what it fills for a user who renamed themselves. Both are read, with
+    /// the custom one preferred, because that is the one Azure DevOps' own UI shows when it is set.
+    ///
+    /// This read one field until a user reported that "Test connection" said nothing. The reasoning for
+    /// reading one was wrong in two ways worth keeping: it claimed "a preference no fixture can serve is
+    /// a branch no test could reach", but <c>FakeAdo</c> can serve a body carrying either field or
+    /// neither - the branch was always reachable, and it now has three tests. And falling back to
+    /// <c>string.Empty</c> turned a missing name into a successful answer with nothing in it, which the
+    /// screen rendered as "Connected as ." - so the failure was invisible at both ends. An empty name
+    /// is still possible when a server fills neither field, and the screen now says that rather than
+    /// showing an empty sentence.
     /// </summary>
     public async Task<SourceIdentity> TestAsync(CancellationToken ct = default)
     {
@@ -154,7 +162,8 @@ public sealed class AdoTaskSource : ITaskSource
         var body = await SendAsync(settings, HttpMethod.Get, "_apis/connectionData", null, null, ct);
         var user = Read<ConnectionDataBody>(body)?.AuthenticatedUser;
 
-        return new SourceIdentity(Blank(user?.ProviderDisplayName) ?? string.Empty);
+        return new SourceIdentity(
+            Blank(user?.CustomDisplayName) ?? Blank(user?.ProviderDisplayName) ?? string.Empty);
     }
 
     /// <summary>
@@ -647,7 +656,7 @@ public sealed class AdoTaskSource : ITaskSource
 
     private sealed record ConnectionDataBody(IdentityBody? AuthenticatedUser);
 
-    private sealed record IdentityBody(string? ProviderDisplayName);
+    private sealed record IdentityBody(string? ProviderDisplayName, string? CustomDisplayName);
 
     private sealed record ErrorBody(string? Message);
 }

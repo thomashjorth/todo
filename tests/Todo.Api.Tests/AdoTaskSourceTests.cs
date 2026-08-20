@@ -25,6 +25,57 @@ public class AdoTaskSourceTests
     }
 
     /// <summary>
+    /// The three tests below exist because a user reported that "Test connection" said nothing. The
+    /// source read <c>providerDisplayName</c> only, on the reasoning that a preference between the two
+    /// names was "a branch no test could reach" - which had it backwards: the fake is the fixture, so
+    /// serving one field is what made the other unreachable.
+    ///
+    /// Custom wins, because that is the one Azure DevOps' own UI shows when a user has renamed
+    /// themselves. A server filling only the custom name is exactly the case that answered 200 with an
+    /// empty name before.
+    /// </summary>
+    [Fact]
+    public async Task A_renamed_user_is_answered_with_the_name_they_chose()
+    {
+        await using var ado = await FakeAdo.StartAsync(customDisplayName: "Thomas selv");
+
+        var identity = await ado.SourceFor().TestAsync();
+
+        Assert.Equal("Thomas selv", identity.DisplayName);
+    }
+
+    /// <summary>
+    /// The case that made the button silent: a server that fills the custom name and not the directory
+    /// one. Distinct values on purpose - were they equal, preferring either would pass.
+    /// </summary>
+    [Fact]
+    public async Task The_custom_name_is_read_when_the_directory_one_is_absent()
+    {
+        await using var ado = await FakeAdo.StartAsync(
+            providerDisplayName: null, customDisplayName: "Kun det egne");
+
+        var identity = await ado.SourceFor().TestAsync();
+
+        Assert.Equal("Kun det egne", identity.DisplayName);
+    }
+
+    /// <summary>
+    /// A server that fills neither still answers, and an empty name is what the screen has to say
+    /// something about - it renders "Connected, but the server did not give a name." rather than an
+    /// empty sentence. Blank rather than null, because <c>displayName</c> is required on the contract.
+    /// </summary>
+    [Fact]
+    public async Task A_server_that_names_nobody_answers_with_an_empty_name_rather_than_failing()
+    {
+        await using var ado = await FakeAdo.StartAsync(
+            providerDisplayName: "   ", customDisplayName: null);
+
+        var identity = await ado.SourceFor().TestAsync();
+
+        Assert.Equal(string.Empty, identity.DisplayName);
+    }
+
+    /// <summary>
     /// The PAT goes in as Basic auth with an <em>empty user name</em>, which is the form measured
     /// against the real instance on 2026-08-20: base64(":" + PAT) answers 200. Bearer is Jira's form
     /// and is equally plausible from the outside, so this pins which one - and it decodes the parameter
