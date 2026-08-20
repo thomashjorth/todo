@@ -175,6 +175,29 @@ public static class SettingList
 `Write` trimmer, dropper blanke, og deduper **versalufølsomt** — samme regel som
 `RetroEndpoints`' aliasliste. Lad `JiraSettingsReader` bruge `Read`, så der kun er ét sted.
 
+> **Rettet efter kørslen, 2026-08-19. Leveret i `603301e`.** Fem fejl, og de to første forhindrede
+> agenten frem for at finde bagefter.
+>
+> 1. **`{{value}}` i oversættelsen ville nå brugeren urenderet.** Prompten foreslog
+>    `"{{value}} står på listen mere end én gang."`, men `api-error-message.ts` kalder
+>    `transloco.translate(key)` **uden params**. Naboen `errors.retro.duplicateAlias` har netop derfor
+>    **ingen** interpolation. Teksten er nu `"Den samme person står på listen mere end én gang."`
+> 2. **`SettingList.Write` må *ikke* overtage Jiras `StatusList`**, og "udtræk før du tilføjer" ville
+>    naturligt føre derhen. Målt: `JiraStatusRoles.For` sammenligner statusnavne **ordinalt** med en
+>    eksplicit begrundelse — en versalufølsom sammenligning ville flette to statusser Jira holder
+>    adskilt. En versalufølsom dedup på **skrivevejen** ville gøre netop det. **Kun læsningen er samme
+>    regel; skrivereglerne er to forskellige regler der ser ens ud.** `StatusList` er bevaret med
+>    begrundelsen i sin doc-kommentar.
+> 3. **Oversættelsen hører i Task 2, ikke Task 3.** Planen sagde Task 3; en kode uden en besked lader
+>    `ErrorCodeTranslationTests` stå **rød** mellem to opgaver. Vagten blev set fejle først:
+>    *"1 of 24 error code(s) have no message under \"errors\" … (add errors.settings.duplicateDelegate
+>    to en.json)"*.
+> 4. **Mutation 1 fældede tre tests, ikke én** — `Trim()` er også det der gør `"   "` blank.
+> 5. **Mutation 3 fældede syv.** Koblingen er bekræftet: et `delegates`-felt der **aldrig blev sat i
+>    requesten**, vælter to **sprog**tests, fordi `PUT` skriver rækken uanset.
+>
+> Endeligt: Core **103** (+13), Api **191** (+4), Vitest 186 uændret.
+
 Core-tests på begge: korrupt JSON, tom liste, blanke navne, dubletter der kun afviger i versalitet.
 
 **Step 2: Nøglen og fejlkoden**
