@@ -194,17 +194,15 @@ describe('RetroStore', () => {
   it('should show the reason the server rejected an alias list', async () => {
     const saved = store.saveAliases(['Thomas', 'thomas']);
 
-    http
-      .expectOne('/api/retro/aliases')
-      .flush(
-        new Blob([
-          JSON.stringify({
-            code: 'retro.duplicateAlias',
-            message: "'thomas' is listed more than once.",
-          }),
-        ]),
-        { status: 400, statusText: 'Bad Request' },
-      );
+    http.expectOne('/api/retro/aliases').flush(
+      new Blob([
+        JSON.stringify({
+          code: 'retro.duplicateAlias',
+          message: "'thomas' is listed more than once.",
+        }),
+      ]),
+      { status: 400, statusText: 'Bad Request' },
+    );
     await saved;
 
     expect(store.error()).toBe('Det samme navn står på listen mere end én gang.');

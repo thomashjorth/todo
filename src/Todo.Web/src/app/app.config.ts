@@ -31,6 +31,6 @@ export const appConfig: ApplicationConfig = {
     }),
     { provide: API_BASE_URL, useValue: '' },
     // The stored language decides the first render, so Danish never flashes past on the way to English.
-    provideAppInitializer(() => inject(SettingsStore).start())
-  ]
+    provideAppInitializer(() => inject(SettingsStore).start()),
+  ],
 };
