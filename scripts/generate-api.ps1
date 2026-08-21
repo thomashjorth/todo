@@ -11,8 +11,8 @@ $hashOut = Join-Path $root 'src\Todo.Contracts\Generated\.source-hash'
 New-Item -ItemType Directory -Force -Path (Split-Path $csOut) | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path $tsOut) | Out-Null
 
-# dotnet tool restore reads the manifest from the current directory, so run from
-# the repo root — otherwise it silently restores whichever repo the shell sat in.
+# dotnet tool restore reads the manifest from the current directory, so run from the repo root -
+# otherwise it silently restores whichever repo the shell sat in.
 Set-Location $root
 
 dotnet tool restore

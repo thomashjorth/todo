@@ -1,8 +1,8 @@
 @echo off
-rem Dobbeltklik for at starte appen. Bygger Angular hvis den er foraeldet.
+rem Double-click to start the app. Builds Angular first if it is out of date.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\run-app.ps1" %*
 if errorlevel 1 (
     echo.
-    echo Todo stoppede med en fejl. Luk vinduet naar du har laest beskeden.
+    echo Todo stopped with an error. Close the window when you have read the message.
     pause >nul
 )

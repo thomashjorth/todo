@@ -15,8 +15,8 @@ $web = Join-Path $root 'src\Todo.Web'
 Set-Location $root
 
 $steps = @(
-    @{ Name = 'Angular-bygning'; Hint = 'scripts\build-web.ps1' }
-    @{ Name = '.NET-tests';      Hint = 'dotnet test Todo.sln' }
+    @{ Name = 'Angular build'; Hint = 'scripts\build-web.ps1' }
+    @{ Name = '.NET tests';    Hint = 'dotnet test Todo.sln' }
     @{ Name = 'Vitest';          Hint = 'npm.cmd run test --prefix src\Todo.Web -- --watch=false' }
 )
 
@@ -29,11 +29,13 @@ function Stop-OnFailure($index, $code) {
     if ($code -eq 0) { return }
 
     Write-Host ''
-    Write-Host ("{0} fejlede (exitkode {1})." -f $steps[$index].Name, $code) -ForegroundColor Red
-    # ASCII only in every user-facing string: PowerShell 5.1 decodes a .ps1 without a BOM as the
-    # ANSI codepage, so an "oe" would reach the user as mojibake. Same reason Todo.cmd writes
-    # "foraeldet".
-    Write-Host ("Koer trinnet alene for hele udskriften: {0}" -f $steps[$index].Hint) -ForegroundColor Red
+    Write-Host ("{0} failed (exit code {1})." -f $steps[$index].Name, $code) -ForegroundColor Red
+    # Every script here is written in English, which also settles an encoding problem it was written
+    # around before: PowerShell 5.1 decodes a .ps1 without a BOM as the ANSI codepage, so a Danish
+    # letter reaches the reader as mojibake. That is not theoretical - run-app.ps1 held Danish
+    # comments and printed "gAyr" for "gor" when read back. English is plain ASCII, so the question
+    # stops being one.
+    Write-Host ("Run the step on its own for the full output: {0}" -f $steps[$index].Hint) -ForegroundColor Red
     exit $code
 }
 
@@ -53,4 +55,4 @@ Start-Step 2
 Stop-OnFailure 2 $LASTEXITCODE
 
 Write-Host ''
-Write-Host 'Alt groent.' -ForegroundColor Green
+Write-Host 'All green.' -ForegroundColor Green

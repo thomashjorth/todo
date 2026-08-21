@@ -1,7 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <RootNamespace>Todo.Host</RootNamespace>
-    <OutputType>Exe</OutputType>
+    <!-- WinExe, not Exe. The app is a Photino window, and a console subsystem binary makes Windows
+         allocate a terminal beside it - measured on the published exe, whose PE subsystem field read
+         3 (console) and now reads 2 (GUI).
+
+         Nothing in the app writes to the console: Program.cs never mentions it, and the only stdout
+         is ASP.NET's logger. That output is not lost, it is just unattached - a parent that redirects
+         still gets every line, which is how scripts\publish.ps1 reads the probe's log and how
+         dotnet run shows logs during development. -->
+    <OutputType>WinExe</OutputType>
     <ApplicationIcon>..\Todo.Web\public\favicon.ico</ApplicationIcon>
     <!-- /api/health prints this, so it is the one place a user can read which build is running.
          Major 1 because the app has been in daily use since slice 1; minor is the slice that

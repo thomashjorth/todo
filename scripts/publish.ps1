@@ -7,9 +7,9 @@
 # was the process working directory and wwwroot was not in it. Nothing in dotnet test could see that,
 # and nothing in the publish output looked wrong.
 #
-# ASCII only in every user-facing string. PowerShell 5.1 decodes a .ps1 without a BOM as the ANSI
-# codepage, so an "oe" would reach the reader as mojibake - the same reason Todo.cmd writes
-# "foraeldet" and check.ps1 writes "Koer".
+# English throughout, like every script here. It also settles an encoding problem: PowerShell 5.1
+# decodes a .ps1 without a BOM as the ANSI codepage, so a Danish letter reaches the reader as
+# mojibake. English is plain ASCII, so the question does not come up.
 param(
     # Where the two files land: publish\ in the repository root, which .gitignore holds out for the
     # same reason it holds out bin and dist.
@@ -45,12 +45,28 @@ function Fail($message) {
 # of Todo.Host, so a stale wwwroot is baked into the exe rather than sitting beside it where the next
 # build would pick it up. Skipping this step ships the previous frontend inside a fresh exe.
 Write-Host ''
-Write-Host '[1/3] Angular-bygning' -ForegroundColor Cyan
+Write-Host '[1/3] Angular build' -ForegroundColor Cyan
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build-web.ps1')
-if ($LASTEXITCODE -ne 0) { Fail ("Angular-bygningen fejlede (exitkode {0})." -f $LASTEXITCODE) }
+if ($LASTEXITCODE -ne 0) { Fail ("The Angular build failed (exit code {0})." -f $LASTEXITCODE) }
 
 Write-Host ''
 Write-Host '[2/3] Publish' -ForegroundColor Cyan
+
+# Said plainly, because the raw failure is not: a running exe cannot be overwritten, and without
+# this the script dies on an UnauthorizedAccessException from Remove-Item that names the file but not
+# the reason. Measured by publishing while the app was open.
+#
+# The process is only reported, never stopped. It is the user's own window, and it may be holding
+# unsaved work - the same rule the probe below follows when it kills only the pid it started.
+$running = @(Get-Process -Name 'Todo.Host' -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -and $_.Path.StartsWith($OutputPath, [StringComparison]::OrdinalIgnoreCase) })
+
+if ($running.Count -gt 0) {
+    Write-Host ''
+    Write-Host 'The app is running from the folder this would overwrite:' -ForegroundColor Red
+    foreach ($p in $running) { Write-Host ("  pid {0}  {1}" -f $p.Id, $p.Path) -ForegroundColor Red }
+    Fail 'Close the app and run this again.'
+}
 
 if (Test-Path $OutputPath) { Remove-Item $OutputPath -Recurse -Force }
 
@@ -59,10 +75,10 @@ if (Test-Path $OutputPath) { Remove-Item $OutputPath -Recurse -Force }
 # folder, with it there is nothing loose but the icon.
 & dotnet publish $hostProject -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $OutputPath
-if ($LASTEXITCODE -ne 0) { Fail ("Publish fejlede (exitkode {0})." -f $LASTEXITCODE) }
+if ($LASTEXITCODE -ne 0) { Fail ("Publish failed (exit code {0})." -f $LASTEXITCODE) }
 
 $exe = Join-Path $OutputPath 'Todo.Host.exe'
-if (-not (Test-Path $exe)) { Fail ("Ingen exe i {0}." -f $OutputPath) }
+if (-not (Test-Path $exe)) { Fail ("No exe in {0}." -f $OutputPath) }
 
 # The shape of the output, and this is the one assertion here that dotnet test cannot make at all.
 # Slice 16 promised one exe; what it delivered is the exe plus an icon Photino needs as a path.
@@ -85,14 +101,14 @@ $missing = @($expected | Where-Object { $actual -notcontains $_ })
 
 if ($unexpected.Count -gt 0 -or $missing.Count -gt 0) {
     Write-Host ''
-    Write-Host 'Publish-outputtet har ikke den form skiven lovede:' -ForegroundColor Red
-    foreach ($file in $unexpected) { Write-Host ("  i overskud: {0}" -f $file) -ForegroundColor Red }
-    foreach ($file in $missing) { Write-Host ("  mangler:    {0}" -f $file) -ForegroundColor Red }
-    Fail ("Ventede praecis: {0}" -f ($expected -join ', '))
+    Write-Host 'The publish output is not the shape the slice promised:' -ForegroundColor Red
+    foreach ($file in $unexpected) { Write-Host ("  unexpected: {0}" -f $file) -ForegroundColor Red }
+    foreach ($file in $missing) { Write-Host ("  missing:    {0}" -f $file) -ForegroundColor Red }
+    Fail ("Expected exactly: {0}" -f ($expected -join ', '))
 }
 
 Write-Host ''
-Write-Host '[3/3] Proeve af den udgivne exe' -ForegroundColor Cyan
+Write-Host '[3/3] Probing the published exe' -ForegroundColor Cyan
 
 # A free port asked of the OS rather than a number picked here: the user usually has the app open,
 # and two probes could otherwise collide.
@@ -137,7 +153,7 @@ try {
         }
     }
 
-    if (-not $ready) { $failures += '/api/health svarede ikke 200 inden for 15 sekunder' }
+    if (-not $ready) { $failures += '/api/health did not answer 200 within 15 seconds' }
 
     if ($ready) {
         # The frontend and the documentation page. These three are the ones that read something the
@@ -145,27 +161,27 @@ try {
         # /scalar/ reads the embedded contract.
         $index = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/" -f $port) -UseBasicParsing -TimeoutSec 5
 
-        if ($index.StatusCode -ne 200) { $failures += ("/ svarede {0}" -f $index.StatusCode) }
+        if ($index.StatusCode -ne 200) { $failures += ("/ answered {0}" -f $index.StatusCode) }
 
         # Not merely a 200: MapFallbackToFile answers 200 with index.html for anything it does not
         # recognise, so a body check is what tells a served page from a served fallback.
-        if ($index.Content -notmatch '<app-root') { $failures += '/ svarede 200 uden app-root i kroppen' }
+        if ($index.Content -notmatch '<app-root') { $failures += '/ answered 200 without app-root in the body' }
 
         # The hashed bundle by the name index.html asks for, so a wrong or missing embed shows up
         # here rather than as a blank window later.
         $bundle = [regex]::Match($index.Content, 'src="(main-[^"]+\.js)"')
 
         if (-not $bundle.Success) {
-            $failures += 'Fandt ingen main-*.js i index.html'
+            $failures += 'Found no main-*.js in index.html'
         }
         else {
             foreach ($path in @($bundle.Groups[1].Value, 'i18n/da.json', 'scalar/')) {
                 try {
                     $asset = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/{1}" -f $port, $path) -UseBasicParsing -TimeoutSec 5
-                    if ($asset.StatusCode -ne 200) { $failures += ("/{0} svarede {1}" -f $path, $asset.StatusCode) }
+                    if ($asset.StatusCode -ne 200) { $failures += ("/{0} answered {1}" -f $path, $asset.StatusCode) }
                 }
                 catch {
-                    $failures += ("/{0} fejlede: {1}" -f $path, $_.Exception.Message)
+                    $failures += ("/{0} failed: {1}" -f $path, $_.Exception.Message)
                 }
             }
         }
@@ -191,10 +207,10 @@ finally {
 
 if ($failures.Count -gt 0) {
     Write-Host ''
-    Write-Host 'Den udgivne exe svarede ikke som den skal:' -ForegroundColor Red
+    Write-Host 'The published exe did not answer as it should:' -ForegroundColor Red
     foreach ($failure in $failures) { Write-Host ("  {0}" -f $failure) -ForegroundColor Red }
     Write-Host ''
-    Write-Host ("Exe'en ligger stadig i {0}, saa den kan undersoeges." -f $OutputPath) -ForegroundColor Red
+    Write-Host ("The exe is still in {0}, so it can be inspected." -f $OutputPath) -ForegroundColor Red
     exit 1
 }
 
@@ -202,7 +218,7 @@ $files = @(Get-ChildItem -Path $OutputPath -Recurse -File)
 $total = ($files | Measure-Object -Property Length -Sum).Sum
 
 Write-Host ''
-Write-Host ("Udgivet og proevet: {0} fil(er), {1:N1} MiB" -f $files.Count, ($total / 1MB)) -ForegroundColor Green
+Write-Host ("Published and probed: {0} file(s), {1:N1} MiB" -f $files.Count, ($total / 1MB)) -ForegroundColor Green
 foreach ($file in $files | Sort-Object Name) {
     Write-Host ("  {0,12:N0}  {1}" -f $file.Length, $file.Name)
 }
