@@ -59,25 +59,63 @@ export class TaskStore {
    */
   readonly askingWho = signal<number | null>(null);
 
+  /**
+   * What the search box holds. Filtering happens here rather than on the server: the list is one
+   * person's tasks and is already in memory, so a query costs nothing and the result is instant.
+   *
+   * The cost of that choice, said plainly: it can only find what has been loaded. Done and someday
+   * tasks are fetched only when their switch is on, so a search with both switches off does not
+   * reach them - the list removes what does not match, and it cannot remove what was never there.
+   */
+  readonly query = signal('');
+
   /** Only the newest load may write the list; see the check in `load`. */
   private loadSequence = 0;
+
+  /**
+   * The tasks the search leaves in. Every list below reads this rather than `tasks`, so one filter
+   * covers the deadline sections, the waiting list, the done list and someday alike - applied per
+   * section it would be five places to forget it.
+   *
+   * Title and note, matched as a plain case-insensitive substring. The note is raw markdown, so a
+   * search hits what was typed rather than what is rendered: `**deploy**` is found by `deploy` and
+   * also by `*`. Honest either way, and the alternative - rendering every note to text on every
+   * keystroke - buys nothing here.
+   */
+  private readonly matching = computed(() => {
+    const query = this.query().trim().toLowerCase();
+
+    if (query.length === 0) {
+      return this.tasks();
+    }
+
+    return this.tasks().filter(
+      (t) =>
+        t.title.toLowerCase().includes(query) || (t.note?.toLowerCase().includes(query) ?? false),
+    );
+  });
+
+  /** Whether a search is narrowing the list, so an empty screen can say which kind of empty. */
+  readonly searching = computed(() => this.query().trim().length > 0);
 
   // The server buckets by deadline whatever the status, so a task that is done, waiting or
   // parked would otherwise linger in the deadline section it had before.
   private readonly scheduledTasks = computed(() =>
-    this.tasks().filter((t) => t.status === TodoStatus.Open || t.status === TodoStatus.InProgress),
+    this.matching().filter(
+      (t) => t.status === TodoStatus.Open || t.status === TodoStatus.InProgress,
+    ),
   );
 
   readonly completedTasks = computed(() =>
-    this.tasks().filter((t) => t.status === TodoStatus.Done),
+    this.matching().filter((t) => t.status === TodoStatus.Done),
   );
 
   readonly waitingTasks = computed(() =>
-    this.tasks().filter((t) => t.status === TodoStatus.WaitingFor),
+    this.matching().filter((t) => t.status === TodoStatus.WaitingFor),
   );
 
   readonly somedayTasks = computed(() =>
-    this.tasks().filter((t) => t.status === TodoStatus.Someday),
+    this.matching().filter((t) => t.status === TodoStatus.Someday),
   );
 
   // The server orders the list and assigns the buckets; grouping preserves that order.

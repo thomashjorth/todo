@@ -8,6 +8,15 @@ public sealed class TaskListScreen(TodoApp app)
 
     public ILocator Rows => Page.GetByTestId("task-row");
 
+    /// <summary>The box that narrows the list to the tasks whose title or note holds the term.</summary>
+    public ILocator Search => Page.GetByTestId("task-search");
+
+    /// <summary>
+    /// The line a search that found nothing leaves behind. A different element from the empty-list
+    /// message on purpose: "no tasks" in front of a search would read as if the list had been lost.
+    /// </summary>
+    public ILocator NoMatches => Page.GetByTestId("no-matches");
+
     public ILocator Detail => Page.GetByTestId("task-detail");
 
     // Efter startdatoen er der to date-felter i panelet, så input[type=date] rammer dem begge.

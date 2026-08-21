@@ -16,6 +16,8 @@
     "newTask": "New task",
     "showCompleted": "Show done",
     "showSomeday": "Show someday",
+    "search": "Search title and note",
+    "noMatches": "No task matches the search.",
     "empty": "No tasks.",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",

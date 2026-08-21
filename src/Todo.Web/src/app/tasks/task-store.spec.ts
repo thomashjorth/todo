@@ -35,6 +35,23 @@ function subTask(title: string): TodoSubTask {
   return new TodoSubTask({ id: someSubTaskId, title, isDone: false });
 }
 
+/**
+ * A task with a title and note the search can be pointed at. Separate from `taskIn`, which names
+ * itself after its bucket: a search test needs to control both strings, and reusing that one would
+ * have every task matching the word "task".
+ */
+function taskWith(title: string, note?: string, status = TodoStatus.Open): TodoTask {
+  return new TodoTask({
+    id: nextId++,
+    sourceId: 'manual',
+    title,
+    note,
+    status,
+    bucket: DeadlineBucket.Today,
+    createdAt: '2026-08-13T18:25:56.60+00:00',
+    subTasks: [],
+  });
+}
 describe('TaskStore', () => {
   let store: TaskStore;
 
@@ -49,6 +66,93 @@ describe('TaskStore', () => {
     store = TestBed.inject(TaskStore);
   });
 
+  it('should keep only the tasks whose title contains the search term', () => {
+    store.tasks.set([taskWith('Deploy the release'), taskWith('Write the retro notes')]);
+
+    store.query.set('retro');
+
+    const section = store.sections()[0];
+    expect(section.tasks.map((t) => t.title)).toEqual(['Write the retro notes']);
+  });
+
+  // Lowercased on both sides rather than matched as typed: nobody searching for a task types its
+  // capitals back.
+  it('should match the title whatever the casing', () => {
+    store.tasks.set([taskWith('Deploy the Release')]);
+
+    store.query.set('RELEASE');
+
+    expect(store.sections()[0].tasks).toHaveLength(1);
+  });
+
+  it('should find a task by its note when the title says nothing', () => {
+    store.tasks.set([
+      taskWith('Tuesday', 'remember the certificate renewal'),
+      taskWith('Wednesday', 'nothing much'),
+    ]);
+
+    store.query.set('certificate');
+
+    expect(store.sections()[0].tasks.map((t) => t.title)).toEqual(['Tuesday']);
+  });
+
+  // A note is optional on the contract, so the filter has to survive its absence - without the
+  // guard on undefined this throws rather than simply not matching.
+  it('should not stumble on a task that has no note', () => {
+    store.tasks.set([taskWith('Deploy the release')]);
+
+    store.query.set('certificate');
+
+    expect(store.sections()).toHaveLength(0);
+  });
+
+  /**
+   * The one that matters most. The filter lives in a single computed that every list reads, and this
+   * is what says so: a filter applied per section would be five places to forget it, and four of
+   * them would keep showing what the search was meant to remove.
+   */
+  it('should narrow the waiting, done and someday lists too', () => {
+    store.tasks.set([
+      taskWith('Deploy the release', undefined, TodoStatus.WaitingFor),
+      taskWith('Waiting on something else', undefined, TodoStatus.WaitingFor),
+      taskWith('Deploy the old release', undefined, TodoStatus.Done),
+      taskWith('Done with something else', undefined, TodoStatus.Done),
+      taskWith('Deploy someday', undefined, TodoStatus.Someday),
+      taskWith('Someday something else', undefined, TodoStatus.Someday),
+    ]);
+
+    store.query.set('deploy');
+
+    expect(store.waitingTasks().map((t) => t.title)).toEqual(['Deploy the release']);
+    expect(store.completedTasks().map((t) => t.title)).toEqual(['Deploy the old release']);
+    expect(store.somedayTasks().map((t) => t.title)).toEqual(['Deploy someday']);
+  });
+
+  // Whitespace is not a search. Without the trim, a stray space would empty the whole list and look
+  // like the tasks were gone.
+  it('should show everything again when the search is cleared or only whitespace', () => {
+    store.tasks.set([taskWith('Deploy the release'), taskWith('Write the retro notes')]);
+
+    store.query.set('retro');
+    expect(store.sections()[0].tasks).toHaveLength(1);
+
+    store.query.set('   ');
+    expect(store.sections()[0].tasks).toHaveLength(2);
+    expect(store.searching()).toBe(false);
+
+    store.query.set('');
+    expect(store.sections()[0].tasks).toHaveLength(2);
+    expect(store.searching()).toBe(false);
+  });
+
+  // What the empty screen reads from to tell "no tasks" apart from "nothing matched".
+  it('should report that a search is on only while one narrows the list', () => {
+    expect(store.searching()).toBe(false);
+
+    store.query.set('retro');
+
+    expect(store.searching()).toBe(true);
+  });
   it('should order sections overdue, today, this week, later, no deadline, deferred', () => {
     store.tasks.set([
       taskIn(DeadlineBucket.Later),

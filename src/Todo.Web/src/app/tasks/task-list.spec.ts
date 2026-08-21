@@ -168,6 +168,47 @@ describe('TaskList', () => {
     expect(headings).toEqual(['Overskredet', 'Uden deadline']);
   });
 
+  // Typing in the box removes the rows that do not match. The store is unit-tested on the filter
+  // itself; what this adds is that the field is wired to it and that the list re-renders.
+  it('should remove the rows that do not match what is typed in the search box', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+
+    const element = await rendered(fixture);
+
+    const search = element.querySelector<HTMLInputElement>('[data-testid="task-search"]')!;
+    search.value = 'tandl';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const rows = element.querySelectorAll('[data-testid="task-row"]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('Ring til tandl');
+  });
+
+  // "No tasks" in front of a search that simply found nothing would read as if the list had been
+  // lost, so the two kinds of empty say different things.
+  it('should say nothing matched rather than that there are no tasks', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+
+    const element = await rendered(fixture);
+
+    const search = element.querySelector<HTMLInputElement>('[data-testid="task-search"]')!;
+    search.value = 'nothing that exists';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(element.querySelectorAll('[data-testid="task-row"]')).toHaveLength(0);
+
+    const message = element.querySelector('[data-testid="no-matches"]');
+    expect(message).not.toBeNull();
+    expect(message!.textContent).toContain('Ingen opgaver passer');
+  });
   it('should put a deferred task in its own last section and prefill its start date', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)

@@ -16,6 +16,8 @@
     "newTask": "Ny opgave",
     "showCompleted": "Vis færdige",
     "showSomeday": "Vis måske",
+    "search": "Søg i titel og note",
+    "noMatches": "Ingen opgaver passer på søgningen.",
     "empty": "Ingen opgaver.",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",

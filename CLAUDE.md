@@ -789,7 +789,22 @@ forkerte grund.
 
 ## Testtal
 
-Efter skive 16's Task 4 og 5 (autostart): **164** Todo.Core.Tests, **300** Todo.Api.Tests, **46**
+Efter søgefeltet på opgavelisten: **164** Todo.Core.Tests, **300** Todo.Api.Tests, **46** Todo.E2E,
+**263** Vitest. Leverancen lagde **9** Vitest til (254 → 263) og rørte ikke de tre andre tal — hele
+filtreringen er klientside, så der er hverken kontrakt, endpoint eller ren funktion i den.
+**Fordelingen er hele designet:** **7** i `task-store.spec.ts` om selve filtret og **2** i
+`task-list.spec.ts` om at feltet er bundet til det. Filtret bor i **ét** computed som alle fem lister
+læser, og den vigtigste test er den der siger netop det — `should narrow the waiting, done and someday
+lists too`. Set fejle ved at lade de tre statuslister læse `tasks()` igen: kun den ene faldt, og
+deadline-sektionerne var grønne, altså præcis den fejl et filter pr. sektion ville give.
+`ContrastTests` voksede **ikke** med en test, men med to `Snapshot()`-kald og en søgning inde i den
+teori der var der: søgefeltets **pladsholder** måles automatisk (målt fældet ved at fjerne
+`placeholder-gray-500`, 3,42:1 i begge temaer), mens `no-matches`-linjen er en `@if`-gren ingen rejse
+renderede — den koster en `FillAsync` og er set fældet ved `text-gray-400 dark:text-gray-600`
+(2,60:1 og 2,35:1). Naboen `tasks.empty` har samme klasser, og netop det ville have været argumentet
+for at springe den over.
+
+Før den, efter skive 16's Task 4 og 5 (autostart): **164** Todo.Core.Tests, **300** Todo.Api.Tests, **46**
 Todo.E2E, **254** Vitest. Opgaven lagde **6** Api-tests til (294 → 300, alle `AutostartEndpointsTests`),
 **2** E2E (44 → 46, `AutostartJourneyTests`) og **4** Vitest (250 → 254: tre i `settings-store.spec.ts`
 om ruten og den afviste registry, én i `settings.spec.ts` om kontakten). Core stod stille: autostart er

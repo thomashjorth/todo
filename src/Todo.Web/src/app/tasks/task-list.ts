@@ -78,6 +78,20 @@ export class TaskList {
     this.store.setShowSomeday(value).catch(() => {});
   }
 
+  /**
+   * No server call, so no `catch` and no await: the filter runs over the list already in memory.
+   * That is also why it is bound to `input` rather than `change` - the list narrows as you type.
+   *
+   * The expanded row is collapsed, because the row it points at may be the one the search just
+   * removed: the panel is keyed by id, so a filtered-out task would leave the detail area showing
+   * nothing while the id still said something was open.
+   */
+  protected searchFor(query: string): void {
+    this.expandedId.set(null);
+    this.editingNote.set(null);
+    this.store.query.set(query);
+  }
+
   protected remove(task: TodoTask): void {
     this.editingNote.set(null);
     this.expandedId.set(null);

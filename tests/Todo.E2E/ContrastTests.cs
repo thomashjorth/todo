@@ -399,6 +399,19 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             .ToHaveTextAsync("Startdatoen ligger efter deadline, så opgaven vises som overskredet.");
         await Snapshot();
 
+        // The search box narrows the list, and the line it leaves behind when nothing matches is a
+        // branch of its own: "no tasks" and "nothing matched" are two different sentences in the same
+        // place, and only one of them renders without a search. Typed here rather than trusted to
+        // look like its neighbour - the empty-list message beside it carries the same classes, and
+        // "same classes" is exactly the reasoning that leaves a branch unpainted.
+        await tasks.Search.FillAsync("ingenting der findes");
+        await Assertions.Expect(tasks.NoMatches)
+            .ToHaveTextAsync("Ingen opgaver passer på søgningen.");
+        await Snapshot();
+
+        await tasks.Search.FillAsync(string.Empty);
+        await Assertions.Expect(tasks.Rows.First).ToBeVisibleAsync();
+
         var import = await App.GoToImport();
         await Assertions.Expect(import.AnalyseButton).ToHaveTextAsync("Analysér");
         await Snapshot();
