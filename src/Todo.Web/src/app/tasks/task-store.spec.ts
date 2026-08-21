@@ -66,6 +66,55 @@ describe('TaskStore', () => {
     store = TestBed.inject(TaskStore);
   });
 
+  /**
+   * The rule the user asked for: what is under way is at the top of its own section. Both tasks are
+   * in the same bucket, and the one in progress is seeded second - so an unsorted section would put
+   * it last and this would fail.
+   */
+  it('should put an in-progress task first inside its section', () => {
+    store.tasks.set([
+      taskWith('Not started yet'),
+      taskWith('Under way', undefined, TodoStatus.InProgress),
+    ]);
+
+    expect(store.sections()[0].tasks.map((t) => t.title)).toEqual(['Under way', 'Not started yet']);
+  });
+
+  /**
+   * And the rest of the order survives it. The server sorts by deadline, so a comparison that did
+   * more than rank the status would throw that away - this is the assertion that says the sort is
+   * stable rather than merely putting the right task on top.
+   */
+  it('should leave the order the server sent alone apart from lifting what is in progress', () => {
+    store.tasks.set([
+      taskWith('First'),
+      taskWith('Second'),
+      taskWith('Under way', undefined, TodoStatus.InProgress),
+      taskWith('Third'),
+    ]);
+
+    expect(store.sections()[0].tasks.map((t) => t.title)).toEqual([
+      'Under way',
+      'First',
+      'Second',
+      'Third',
+    ]);
+  });
+
+  // Two of them keep their own order too, for the same reason.
+  it('should keep two in-progress tasks in the order they arrived', () => {
+    store.tasks.set([
+      taskWith('Waiting to start'),
+      taskWith('Started first', undefined, TodoStatus.InProgress),
+      taskWith('Started second', undefined, TodoStatus.InProgress),
+    ]);
+
+    expect(store.sections()[0].tasks.map((t) => t.title)).toEqual([
+      'Started first',
+      'Started second',
+      'Waiting to start',
+    ]);
+  });
   it('should keep only the tasks whose title contains the search term', () => {
     store.tasks.set([taskWith('Deploy the release'), taskWith('Write the retro notes')]);
 

@@ -791,7 +791,27 @@ forkerte grund.
 
 ## Testtal
 
-Efter søgefeltet på opgavelisten: **164** Todo.Core.Tests, **300** Todo.Api.Tests, **47** Todo.E2E,
+Efter at i-gang-opgaver løftes øverst i deres sektion: **164** Todo.Core.Tests, **300**
+Todo.Api.Tests, **47** Todo.E2E, **267** Vitest. Leverancen lagde **4** Vitest til (263 → 267) — tre i
+`task-store.spec.ts` om sorteringen og én i `task-list.spec.ts` om markøren — og rørte ikke de tre
+andre tal. `ContrastTests` voksede **ikke** med en test, men fixturet fik en `InProgress()`-opgave:
+uden den blev markøren aldrig malet, og dens blå var en farve ingen havde set på. Set fældet ved
+`text-gray-400 dark:text-gray-600` (2,60:1 og 2,35:1).
+**Sorteringen er en rang plus en stabil `sort`, ikke en sammenligning der også ser på deadline.**
+`Array.prototype.sort` er stabil per spec siden ES2019, så lige rangeringer beholder serverens
+rækkefølge — og det er netop den vagten hedder
+`should leave the order the server sent alone apart from lifting what is in progress`.
+**Og her lavede jeg først en test der ikke kunne fejle:** skærmtesten sådde i-gang-opgaven *først* i
+fixturet, så en usorteret sektion ville også have haft den øverst. Rettet til at så den **anden**, og
+derefter set fejle sammen med de tre andre da sorteringen blev fjernet.
+**Markørens placering uden for rækkeknappen er en regel, ikke en måling.** Flyttes den ind i knappen,
+består alle 47 E2E alligevel — ingen rejse matcher i dag en i-gang-opgaves række på navn — så
+konsekvensen er reel for "venter på"-linjen ved siden af og teoretisk her. Målt, og skrevet ved koden.
+**Bundlens advarselsloft gik fra 500 kB til 600.** Målt: 499,97 kB uden denne leverance, 500,37 med,
+altså krydsede den grænsen med 368 bytes fra 30 bytes under. Et loft en 400-bytes funktion kan krydse
+måler ingenting; fejlgrænsen står stadig på 1 MB.
+
+Før den, efter søgefeltet på opgavelisten: **164** Todo.Core.Tests, **300** Todo.Api.Tests, **47** Todo.E2E,
 **263** Vitest. Genvejen `Alt+K` lagde den ene E2E til (46 → 47),
 `Alt_K_focuses_the_search_field_and_typing_narrows_the_list`, og flyttede `BadgeCount` fra 8 til **9**.
 Bogstavet er `K` frem for et fra "Søg": `S` var taget af indstillingerne, og `Ctrl/Cmd+K` er den

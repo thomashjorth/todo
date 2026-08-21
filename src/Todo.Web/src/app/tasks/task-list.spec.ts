@@ -170,6 +170,44 @@ describe('TaskList', () => {
 
   // Typing in the box removes the rows that do not match. The store is unit-tested on the filter
   // itself; what this adds is that the field is wired to it and that the list re-renders.
+  /**
+   * Visible and on top, which is one requirement in two halves. The second item is the one in
+   * progress and it is in the later bucket, so it has to overtake its own section-mate - and the
+   * marker has to be somewhere a reader can see it.
+   */
+  it('should mark an in-progress task and lift it to the top of its section', async () => {
+    // The in-progress task is seeded *second*, and that ordering is the assertion's only teeth: put
+    // it first and an unsorted section would pass this test too.
+    const inProgress = [
+      items[1],
+      { ...items[1], id: 3, title: 'Under vejs', status: 'inProgress' },
+    ];
+
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: [items[0], ...inProgress] })]));
+
+    const element = await vi.waitFor(() => {
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      expect(host.querySelectorAll('[data-testid="task-row"]').length).toBe(3);
+      return host;
+    });
+
+    const marker = element.querySelector('[data-testid="in-progress"]');
+    expect(marker).not.toBeNull();
+    expect(marker!.textContent?.trim()).toBe('I gang');
+
+    // The last section is the one holding both, and the in-progress task comes first in it.
+    const sections = element.querySelectorAll('[data-testid="task-section"]');
+    const rows = sections[sections.length - 1].querySelectorAll('[data-testid="task-row"]');
+    expect(rows[0].textContent).toContain('Under vejs');
+
+    // Outside the row's button, so it stays out of the accessible name the E2E screen matches whole.
+    const button = rows[0].querySelector('button')!;
+    expect(button.textContent).not.toContain('I gang');
+  });
   it('should remove the rows that do not match what is typed in the search box', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)

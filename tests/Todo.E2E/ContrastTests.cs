@@ -27,6 +27,9 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string DueTodayTitle = "Send referatet";
     private const string WaitingTitle = "Svar revisoren";
     private const string CompletedTitle = "Ryd skrivebordet";
+
+    /// <summary>A task under way, so the row's in-progress marker is painted at all.</summary>
+    private const string InProgressTitle = "Skriv indstillingerne om";
     private const string SomedayTitle = "Læs om typografi";
     private const string ConflictTitle = "Bestil nyt pas";
 
@@ -298,6 +301,10 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
                 .WaitingFor(WaitingOn, Clock.UtcNow.AddDays(-DaysWaited)).Build(),
             new TaskItemBuilder(Clock).Titled(SomedayTitle).Someday().Build(),
             new TaskItemBuilder(Clock).Titled(CompletedTitle).Done().Build(),
+            // In progress, which puts a marker on the row in its own colour pair. Nothing else in
+            // this fixture is in that status, so without this task the marker is never painted and
+            // its blue is a colour no test has looked at.
+            new TaskItemBuilder(Clock).Titled(InProgressTitle).InProgress().DueToday().Build(),
             // A start date after the deadline is allowed, and the panel says so in amber. The
             // row itself lands in Overskredet, because Overdue beats Deferred — the hint lives
             // in the panel regardless, and a colour no test renders is a colour unmeasured.

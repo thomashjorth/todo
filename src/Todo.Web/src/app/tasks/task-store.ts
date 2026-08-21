@@ -26,6 +26,26 @@ export interface TaskSection {
   tasks: TodoTask[];
 }
 
+/**
+ * What is under way comes first inside its section, and everything else keeps the order the server
+ * sent - which is by deadline, and the reason a section is worth reading top to bottom at all.
+ *
+ * A rank plus a stable sort rather than a comparison that also looks at the deadline: sorting is
+ * stable per spec since ES2019, so equal ranks come out in their original order and the server's
+ * ordering survives untouched. Writing the deadline into the comparison would mean maintaining it in
+ * two places, and the two would drift.
+ *
+ * Only the deadline sections need it. The waiting, done and someday lists are grouped by status, so
+ * none of them can hold a task that is in progress.
+ */
+function inProgressFirst(tasks: TodoTask[]): TodoTask[] {
+  // filter already handed us a fresh array, so this sorts in place rather than copying again.
+  return tasks.sort(
+    (a, b) =>
+      Number(b.status === TodoStatus.InProgress) - Number(a.status === TodoStatus.InProgress),
+  );
+}
+
 export function subTaskProgress(task: TodoTask): string {
   return `${task.subTasks.filter((s) => s.isDone).length}/${task.subTasks.length}`;
 }
@@ -118,12 +138,13 @@ export class TaskStore {
     this.matching().filter((t) => t.status === TodoStatus.Someday),
   );
 
-  // The server orders the list and assigns the buckets; grouping preserves that order.
+  // The server orders the list and assigns the buckets; grouping preserves that order, and the
+  // only thing that reorders inside a section is the in-progress rule below.
   readonly sections = computed<TaskSection[]>(() =>
     bucketOrder
       .map((bucket) => ({
         bucket,
-        tasks: this.scheduledTasks().filter((t) => t.bucket === bucket),
+        tasks: inProgressFirst(this.scheduledTasks().filter((t) => t.bucket === bucket)),
       }))
       .filter((section) => section.tasks.length > 0),
   );

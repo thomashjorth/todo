@@ -37,6 +37,19 @@
         >
       }
     </button>
+    <!-- Uden for knappen af samme grund som linjen nedenfor: teksten ville ellers indgå i rækkens
+         tilgængelige navn, som E2E-skærmen matcher i sin helhed. Og ikke `aria-hidden` — en status
+         er ikke dekoration, så den skal også nå et hjælpemiddel; den ligger blot ved siden af
+         navnet frem for inde i det.
+         Bemærk at reglen er en regel og ikke en måling her: flyttes markøren ind i knappen,
+         består alle 47 E2E alligevel, fordi ingen rejse i dag matcher en *i gang*-opgaves række på
+         navn. Målt. Placeringen følger altså linjen nedenfor, hvor konsekvensen er reel. -->
+    @if (task().status === inProgress) {
+      <p data-testid="in-progress" class="text-xs font-medium text-blue-700 dark:text-blue-300">
+        {{ 'tasks.statuses.inProgress' | transloco }}
+      </p>
+    }
+
     <!-- Uden for knappen med vilje: teksten ville ellers indgå i rækkens tilgængelige navn,
          som E2E-skærmen matcher i sin helhed. -->
     @if (task().status === waitingFor) {

@@ -41,6 +41,7 @@ export class TaskRow {
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly done = TodoStatus.Done;
   protected readonly waitingFor = TodoStatus.WaitingFor;
+  protected readonly inProgress = TodoStatus.InProgress;
   protected readonly statusOptions = statusOptions;
   protected readonly progress = subTaskProgress;
 
