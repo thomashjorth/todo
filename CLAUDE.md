@@ -1,32 +1,40 @@
 # CLAUDE.md
 
 Personlig todo-app. Én Photino-proces: ASP.NET Core + Angular i ét vindue, SQLite i
-`%APPDATA%\TodoApp\`. Design og leveranceplan: `docs/plans/2026-08-13-todo-app-design.md`.
-Aktuel tilstand og næste skridt: `docs/HANDOFF.md`.
+`%APPDATA%\TodoApp\`.
 
-## Kør appen
+**Hvor tingene står:** design og leveranceplan i `docs/plans/2026-08-13-todo-app-design.md`; aktuel
+tilstand, næste skridt og de målinger kun brugeren kan lave i `docs/HANDOFF.md`; hvordan man bruger
+appen i `README.md`. Denne fil er konventioner og målte fælder — den er auto-indlæst i hver session,
+så alt der lægges her betales i hver samtale. **Skriv kun det ned der ikke kan udledes af koden**, og
+især ikke tal der forældes; se "Testtal" nederst for hvad det kostede sidst.
+
+## Tre kommandoer
 
 ```
-Todo.cmd
+Todo.cmd        starter appen
+Check.cmd       kører alt, i den rækkefølge der er bærende
+Publish.cmd     bygger exe'en til publish\ og prøver den bagefter
 ```
 
-Bygger Angular hvis kilderne er nyere end `wwwroot`, og starter vinduet. Tag `--headless`
+Alle tre findes for at slippe for at huske `-ExecutionPolicy Bypass`; scripterne bag dem ligger i
+`scripts\`. `Todo.cmd` bygger Angular hvis kilderne er nyere end `wwwroot`, og tager `--headless`
 med for at køre uden vindue.
 
-## Tjek alt
+`Publish.cmd` udgiver self-contained til `publish\` (gitignoreret) — **to filer**, exe'en og
+`icon.ico`, som Photino skal have som sti — og **prøver derefter exe'en**: headless på en fri port
+mod en midlertidig database, og 200 krævet på frontenden, health og dokumentationssiden. Den nægter
+at overskrive en exe der kører, og navngiver processen frem for at dræbe den. `-OutputPath <mappe>`
+når du vil installere et blivende sted.
 
-```
-Check.cmd
-```
+### Hvorfor `Check.cmd`s rækkefølge er bærende
 
-Kører de tre trin i den rækkefølge de skal køres i — Angular-bygning, `dotnet test Todo.sln`,
-Vitest — og stopper på det første der fejler med navnet på trinnet og kommandoen der kører det
-alene. **Rækkefølgen er bærende:** E2E-suiten bygger ikke Angular, så uden bygningen først tester
-Playwright den forrige udgave af frontenden, uden at noget ser forkert ud. Prettier-vagten og
-linjeskiftsvagten kører inde i `dotnet test` og behøver derfor ikke et trin for sig — verificeret,
-ikke antaget: `FrontendFormattingTests` kalder prettier, `LineEndingTests` kalder `git ls-files`,
-og begge ligger i `Todo.Api.Tests`. `scripts\check.ps1` er scriptet; `Check.cmd` findes for at
-slippe for at huske `-ExecutionPolicy Bypass`.
+Angular-bygning, `dotnet test Todo.sln`, Vitest — og stop på det første der fejler, med navnet på
+trinnet og kommandoen der kører det alene. **E2E-suiten bygger ikke Angular**, så uden bygningen
+først tester Playwright den forrige udgave af frontenden, uden at noget ser forkert ud. Prettier- og
+linjeskiftsvagten kører inde i `dotnet test` og behøver ikke et trin for sig — verificeret, ikke
+antaget: `FrontendFormattingTests` kalder prettier, `LineEndingTests` kalder `git ls-files`, og begge
+ligger i `Todo.Api.Tests`.
 
 Trinnene hver for sig, når man kun skal have det ene:
 
@@ -250,6 +258,17 @@ så snart nogen fjerner den ene betingelse.
 
 **Bredde.** Appen bruges i en spalte på ~480 px, under Tailwinds `sm`-brydepunkt. De
 uprefixede klasser **er** den smalle udgave; `sm:`/`md:` bruges kun til at udvide.
+
+**Bundlens advarselsloft er 600 kB, og tallet er valgt frem for arvet.** Det var 500, og en leverance
+på under en halv kilobyte krydsede det: målt 499,97 kB før og 500,37 efter, altså 368 bytes over fra
+30 bytes under. Et loft en 400-bytes funktion kan krydse måler ingenting og træner folk i at ignorere
+advarsler. Fejlgrænsen står stadig på 1 MB, så et rigtigt spring fanges.
+
+**En sortering inde i en sektion er en rang plus en stabil `sort`, ikke en sammenligning der også ser
+på deadline.** `Array.prototype.sort` er stabil per spec siden ES2019, så lige rangeringer beholder
+serverens rækkefølge — og serveren er den der sorterer efter deadline. Skriver man deadlinen ind i
+sammenligningen, vedligeholdes reglen to steder, og de to driver fra hinanden. Bruges i dag til at
+løfte i-gang-opgaver øverst.
 
 **Angular.** Signal-baserede stores ejer al HTTP. Komponenter injicerer aldrig en genereret
 klient og kalder aldrig `.subscribe()`. **Ikke NgRx** — bevidst fravalg.
@@ -574,10 +593,12 @@ forkerte grund.
 
 - **En vagt-test skal ses fejle.** Bryd det den beskytter, bekræft at den fejler på det rigtige
   trin, ret tilbage. En test ingen har set fejle, beviser ingenting.
-- **Pas på assertions der ikke *kan* fejle.** Tre gange her: en dedup-vagt der var uopnåelig fra
+- **Pas på assertions der ikke *kan* fejle.** Fire gange her: en dedup-vagt der var uopnåelig fra
   UI'et; "ingen reload" bevist ved at kigge efter engelsk tekst, som en reload også ville give;
-  og "navnet er ryddet" tjekket på et felt der ikke renderes i den tilstand. Spørg altid: hvad
-  ville få den her til at fejle?
+  "navnet er ryddet" tjekket på et felt der ikke renderes i den tilstand; og en sorteringstest hvor
+  fixturet sådde den opgave der skulle løftes **først**, så en usorteret liste ville have bestået
+  lige så godt. Den sidste er den nemmeste at lave og den sværeste at se: **rækkefølgen i fixturet er
+  assertionens tænder.** Spørg altid: hvad ville få den her til at fejle?
 - **`GetByRole(..., Name)` matcher på delstreng** medmindre `Exact = true`. En overskrift
   "Todoo" matchede "Todo" og gjorde en E2E-test meningsløs.
 - **`TaskListScreen.RowTitled` matcher rækkeknappens *fulde* tilgængelige navn.** Deadline,
@@ -814,266 +835,19 @@ forkerte grund.
 
 ## Testtal
 
-Efter at i-gang-opgaver løftes øverst i deres sektion: **164** Todo.Core.Tests, **300**
-Todo.Api.Tests, **47** Todo.E2E, **267** Vitest. Leverancen lagde **4** Vitest til (263 → 267) — tre i
-`task-store.spec.ts` om sorteringen og én i `task-list.spec.ts` om markøren — og rørte ikke de tre
-andre tal. `ContrastTests` voksede **ikke** med en test, men fixturet fik en `InProgress()`-opgave:
-uden den blev markøren aldrig malet, og dens blå var en farve ingen havde set på. Set fældet ved
-`text-gray-400 dark:text-gray-600` (2,60:1 og 2,35:1).
-**Sorteringen er en rang plus en stabil `sort`, ikke en sammenligning der også ser på deadline.**
-`Array.prototype.sort` er stabil per spec siden ES2019, så lige rangeringer beholder serverens
-rækkefølge — og det er netop den vagten hedder
-`should leave the order the server sent alone apart from lifting what is in progress`.
-**Og her lavede jeg først en test der ikke kunne fejle:** skærmtesten sådde i-gang-opgaven *først* i
-fixturet, så en usorteret sektion ville også have haft den øverst. Rettet til at så den **anden**, og
-derefter set fejle sammen med de tre andre da sorteringen blev fjernet.
-**Markørens placering uden for rækkeknappen er en regel, ikke en måling.** Flyttes den ind i knappen,
-består alle 47 E2E alligevel — ingen rejse matcher i dag en i-gang-opgaves række på navn — så
-konsekvensen er reel for "venter på"-linjen ved siden af og teoretisk her. Målt, og skrevet ved koden.
-**Bundlens advarselsloft gik fra 500 kB til 600.** Målt: 499,97 kB uden denne leverance, 500,37 med,
-altså krydsede den grænsen med 368 bytes fra 30 bytes under. Et loft en 400-bytes funktion kan krydse
-måler ingenting; fejlgrænsen står stadig på 1 MB.
+**164** Todo.Core.Tests, **300** Todo.Api.Tests, **47** Todo.E2E, **267** Vitest — alle grønne.
 
-Før den, efter søgefeltet på opgavelisten: **164** Todo.Core.Tests, **300** Todo.Api.Tests, **47** Todo.E2E,
-**263** Vitest. Genvejen `Alt+K` lagde den ene E2E til (46 → 47),
-`Alt_K_focuses_the_search_field_and_typing_narrows_the_list`, og flyttede `BadgeCount` fra 8 til **9**.
-Bogstavet er `K` frem for et fra "Søg": `S` var taget af indstillingerne, og `Ctrl/Cmd+K` er den
-genvej folk kommer med. Chrome på Windows binder intet `Alt+K`, og naboen `Ctrl+K` — adresselinjen —
-er et andet modifikatorsæt, samme argument som `Alt+J` mod `Ctrl+Shift+J`. Rejsen **skriver** efter
-tastetrykket frem for at kalde `Fill`, for et `Fill` ville have virket uanset om fokus flyttede.
-Kollisionsvagten er set fejle ved at give søgefeltet `n`: den navngav begge
-(`new-task-input=Alt+N, task-search=Alt+N`), og **tre** rejser faldt med, fordi last-writer-wins gjorde
-`Alt+N` til søgefeltets — samme udfald som skive 12's `nav-ado="j"`.
-Leverancen lagde desuden **9** Vitest til (254 → 263) og rørte ikke de to andre tal — hele
-filtreringen er klientside, så der er hverken kontrakt, endpoint eller ren funktion i den.
-**Fordelingen er hele designet:** **7** i `task-store.spec.ts` om selve filtret og **2** i
-`task-list.spec.ts` om at feltet er bundet til det. Filtret bor i **ét** computed som alle fem lister
-læser, og den vigtigste test er den der siger netop det — `should narrow the waiting, done and someday
-lists too`. Set fejle ved at lade de tre statuslister læse `tasks()` igen: kun den ene faldt, og
-deadline-sektionerne var grønne, altså præcis den fejl et filter pr. sektion ville give.
-`ContrastTests` voksede **ikke** med en test, men med to `Snapshot()`-kald og en søgning inde i den
-teori der var der: søgefeltets **pladsholder** måles automatisk (målt fældet ved at fjerne
-`placeholder-gray-500`, 3,42:1 i begge temaer), mens `no-matches`-linjen er en `@if`-gren ingen rejse
-renderede — den koster en `FillAsync` og er set fældet ved `text-gray-400 dark:text-gray-600`
-(2,60:1 og 2,35:1). Naboen `tasks.empty` har samme klasser, og netop det ville have været argumentet
-for at springe den over.
+Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
+eller duplikeret.** Det er hele reglen. Kør `Check.cmd` og sammenlign.
 
-Før den, efter skive 16's Task 4 og 5 (autostart): **164** Todo.Core.Tests, **300** Todo.Api.Tests, **46**
-Todo.E2E, **254** Vitest. Opgaven lagde **6** Api-tests til (294 → 300, alle `AutostartEndpointsTests`),
-**2** E2E (44 → 46, `AutostartJourneyTests`) og **4** Vitest (250 → 254: tre i `settings-store.spec.ts`
-om ruten og den afviste registry, én i `settings.spec.ts` om kontakten). Core stod stille: autostart er
-en side-effekt på maskinen, ikke en ren funktion.
-**Den ene E2E-rejse var værd hele opgaven** — den fandt en fejl ingen Vitest kunne se: browseren
-sætter selv fluebenet ved et klik, og `[checked]` genanvendes **kun når signalet skifter**, så på en
-maskine hvor registret afviser, blev signalet `false` → `false`, bindingen havde intet at gøre, og
-fluebenet stod til mens **intet** var registreret. Komponenten skriver nu elementet tilbage fra
-signalet efter rundturen. Samme mønster findes på de øvrige kontakter (`jira-on-duty`,
-`ado-include-waiting`) og er **ikke** rettet der — de fejler kun hvis serveren afviser, hvilket ingen
-af dem har en kodet grund til i dag, hvor et låst register er den *sandsynlige* sag for autostart.
-`ContrastTests` voksede **ikke**: gruppen åbnes allerede, så mærkaten måles automatisk — verificeret
-ved at male den `text-gray-400 dark:text-gray-600` og se én fejl i hvert tema.
+**Og de her fire tal er de eneste der står i prosa nogen steder.** Afsnittet var 265 linjer med et
+regnskab pr. leverance — hvor mange tests hver skive lagde til, og hvorfor fordelingen var som den
+var. Det blev fjernet 2026-08-21, og begrundelsen er værd at kende, fordi den gælder næste gang
+nogen får lyst til at føre regnskabet igen: **tallene drev fra virkeligheden tre gange** (`e6be619`,
+`50f0e61` og senest her, hvor `HANDOFF.md` stod på 290/44/250 mens sandheden var 300/47/267), de
+kostede omkring 7.000 tokens af hver session, og hver lektion der var værd at beholde er flyttet op
+i "Konventioner" eller "Testdisciplin", hvor den hører. Et regnskab ingen kan stole på er værre end
+intet regnskab.
 
-Før den, efter skive 16's Task 2 (`wwwroot` ind i exe'en): **164** Todo.Core.Tests, **294** Todo.Api.Tests,
-**44** Todo.E2E, **250** Vitest. Opgaven lagde **2** Api-tests til (292 → 294), begge
-`EmbeddedFrontendTests`, og rørte ikke de tre andre tal. Fordelingen siger noget vigtigt: **de 44 E2E
-er uændrede og var grønne både før og efter**, fordi de kører mod den samme host — men de kan ikke se
-forskellen. Målt: sættes `UseStaticFiles()` tilbage til sin standard, består **alle 44**, fordi hver
-testhost peger sin indholdsrod på `src\Todo.Host`, hvor der ligger et rigtigt `wwwroot` på disken. Hele
-rejsesuiten var altså blind for at embedding'en blev rullet tilbage, og det eneste der ville have
-mærket det, var en udgivet exe. Vagten er derfor en indholdsrod testen selv laver og lader **tom** —
-så assemblyen er det eneste sted bytes kan komme fra. **To** af de tre kaldesteder er dækket;
-`UseDefaultFiles` er det ikke, fordi `MapFallbackToFile` allerede svarer `/`, og det står skrevet ved
-koden frem for at symmetrien læses som tre målte steder.
-
-Før den, efter skive 16's Task 1 (pakningsfejlene): **164** Todo.Core.Tests, **292** Todo.Api.Tests,
-**44** Todo.E2E, **250** Vitest. Opgaven lagde **2** Api-tests til (290 → 292) og rørte ikke de tre
-andre tal. Begge er `HostContentRootTests`, og de er et par frem for én af samme grund som vagterne
-nedenfor: den ene siger at standarden er exe'ens mappe, den anden at `--contentRoot` stadig vinder, og
-en rettelse der kun holder den ene vej fælder præcis én af dem. **`HealthEndpointTests` voksede
-*ikke*** — versionspåstanden kom ind i den test der var der, som planen bad om. Ingen af dem hører i
-Core: begge er påstande om hostens opstart, ikke om en ren funktion.
-
-Før den, efter formaterings- og linjeskiftsvagterne: **164** Todo.Core.Tests, **290** Todo.Api.Tests,
-**44** Todo.E2E, **250** Vitest. Leverancen lagde **4** Api-tests til (286 → 290) og rørte ikke de tre
-andre tal. Fordelingen er hele historien: **to `FrontendFormattingTests`** og **to `LineEndingTests`**,
-og de er par frem for enkelttests af samme grund i begge tilfælde — den ene påstand er "værktøjet var
-tilfreds", den anden er "værktøjet så noget". Sådan bliver en kørsel på nul filer ikke et bestået.
-Ingen af de fire hører i Core: begge vagter er påstande om værktøjskæden, som
-`FrontendStrictnessTests`. **`ContrastTests` voksede *ikke*** af at tekstområders pladsholder nu måles —
-udvidelsen finder ingenting i dag, fordi ingen `<textarea>` i appen har en pladsholder, og den blev
-bevist med en midlertidig én frem for skrevet ned som ubevist. Og **Vitest stod stille** selvom ni
-frontend-filer blev formateret: formatering ændrer ingen adfærd, og et flyttet tal dér ville have
-betydet at prettier havde skrevet noget om.
-
-Før den, efter foldningen af indstillingssiden: **164** Todo.Core.Tests, **286** Todo.Api.Tests, **44** Todo.E2E,
-**250** Vitest. Leverancen lagde **1** E2E til (43 → 44) og **8** Vitest (242 → 250); Core og Api stod
-stille, fordi hele leverancen er skærmtilstand og ét signal i en store.
-**Den ene E2E er hele reglen**, `SettingsAccordionJourneyTests.Only_the_group_you_click_is_open_and_clicking_it_again_folds_it`:
-ankomst med fem lukkede grupper, de fem overskrifters **præcise** tilgængelige navne, én åben, en anden
-åben så den første lukkede, og et klik på den åbne så **ingen** er åben. Den ligger i browseren og ikke i
-Vitest af én grund: navneberegningen. Kun browseren afgør at chevronen siver ind i knappens navn.
-**De 8 Vitest er 7 i `settings.spec.ts`** — listerne et niveau ned inde i deres egen gruppe, ankomsten
-foldet, kun den åbne gruppe renderet med `role="region"` og `aria-labelledby`, den ene der lukker den
-anden, klikket der lukker sig selv, chevronens `aria-hidden`, og at en fejlet Jira-gemning står i
-Jira-gruppen — **og 1 i `settings-store.spec.ts`** om at `saveJira` svarer i `jiraError`.
-`ContrastTests` voksede **ikke** med en test: de tre nye flader — de fem overskrifter, chevronerne og
-`jira-settings-error` — kostede tre `OpenAsync`-kald, et klik på Gem token med et tomt felt og fire
-`Snapshot()`-kald inde i de teorier der allerede var der.
-**Bemærk at 242 og 286 ikke stod her før.** Blokken nedenfor sagde **283** og **239**, fordi `50f0e61`
-("Test forbindelse tav…") lagde 3 Api-tests og 3 Vitest til og rørte `CLAUDE.md` **uden** at rette
-testtallene — samme udfald som `e6be619` gjorde ved 185/186. Tallene her er **målt** med `dotnet test`
-og `npm run test` før arbejdet begyndte, ikke regnet videre på det forrige.
-
-Før den, efter skive 12 (ADO-import): **164** Todo.Core.Tests, **283** Todo.Api.Tests, **43** Todo.E2E,
-**239** Vitest. Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
-Skiven lagde **61** Core-tests til (103 → 164), **92** Api-tests (191 → 283), **8** E2E (35 → 43) og
-**41** Vitest (198 → 239). Fordelingen siger hvor arbejdet lå, og den er skæv med vilje: fire af de seks
-opgaver rørte **ingen** E2E overhovedet.
-**Alle 61 Core-tests ligger i fire klasser, og summen er målt frem for regnet:** `AdoSettingsTests`
-**31**, `AdoWorkItemTypesTests` **11**, `AdoStateRolesTests` **10**, `AdoDeadlineTests` **9**. Hver af de
-fire er en ren funktion af nogle indstillinger og én værdi, og det er grunden til at de hører i Core
-frem for hos endpointet, der kalder dem to gange — én gang i forhåndsvisningen og én gang i importen.
-**Alle 92 Api-tests ligger i fire klasser, også målt:** `AdoTaskSourceTests` **36**,
-`AdoSettingsEndpointsTests` **28**, `AdoEndpointsTests` **27**, `AdoTaskSourceRegistrationTests` **1**.
-Kildens tests tæller som Api frem for Core, fordi de måles mod en **falsk ADO på loopback**: URL'en,
-Basic-auth'en, WIQL-teksten, pagineringen af *hydreringen* og at rækkefølgen genskabes. Bemærk at
-kontraktens wire-format-tests og drift-testen **ikke** voksede — de fik nye påstande inde i de tests
-der var der. **`ErrorCodeTranslationTests` voksede heller *ikke*** — den er en `[Theory]` over de to
-sprog**filer**, så seks nye fejlkoder kan ikke flytte tallet; `ErrorCodes` har nu **37** koder, og
-vagten siger tallet selv i sin fejlbesked.
-**De 41 Vitest er alle skærmlogik** — 12 `ado-store.spec.ts`, 13 `ado-import.spec.ts`, 8 nye i
-`settings-store.spec.ts` og 8 nye i `settings.spec.ts` — fordi skærmen er alt hvad Task 5 var.
-**De 8 E2E er skivens sidste opgave alene**, og de fordeler sig i tre: **fire**
-`AdoImportJourneyTests` (den ukonfigurerede skærm, de to blokerede rækker med hver sin grund plus
-type- og deadline-linjerne, "Åbn sagen" fra forhåndsvisningen, og hele rejsen mod en ægte `FakeAdo`),
-**to** `KeyboardJourneyTests` (`Alt_A_follows_the_ado_link` og
-`Every_shortcut_letter_on_screen_is_its_own`, den første vagt nogensinde på `aria-keyshortcuts`), og
-**to** af `The_Ado_screens_meet_WCAG_AA`, som er en `[Theory]` over de to farvetemaer.
-`KeyboardJourneyTests`' to *konstanter* — `BadgeCount` 7 → 8 og `TrailToTheField` med `nav-ado` — måtte
-rettes allerede i Task 5, fordi en femte nav-link ellers gjorde `dotnet test` rødt mellem opgaverne;
-det var tal om nav'en, ikke nye tests, og de flyttede ikke tællingen.
-Forudsigelsen om at ADO-skærmen ville koste nye kontrastfejl **holdt ikke**: begge nye teori-tilfælde
-var grønne i første kørsel. Vagten er alligevel målt — `ado-type` sat til
-`text-gray-400 dark:text-gray-600` gav tre fejl pr. tema (2,60:1 og 2,35:1).
-
-Før den, efter uddelegeringen: **103** Todo.Core.Tests, **191** Todo.Api.Tests, **35** Todo.E2E, **198** Vitest.
-Et ændret tal efter en refaktorering betyder, at en test er tabt eller duplikeret.
-Leverancen lagde **13** Core-tests til (90 → 103), **4** Api-tests (187 → 191), **1** E2E (34 → 35) og
-**12** Vitest (186 → 198). Fordelingen er skæv med vilje, og den siger hvad leverancen egentlig var:
-**alle 13 Core-tests er `SettingListTests`** — syv `[Fact]` og to `[Theory]` med tre tilfælde hver — fordi
-listehjælperen er den ene rene funktion i leverancen og det ene sted noget kan gå galt uden at nogen kan
-se det (korrupt JSON, blanke navne, dubletter der kun afviger i versalitet).
-**Alle 4 Api-tests er `SettingsEndpointsTests`**: rundturen, at en tom liste fjerner rækken, at en dublet
-afvises frem for at foldes, og at en fraværende liste rydder den gemte. **`ErrorCodeTranslationTests`
-voksede *ikke*** — den er en `[Theory]` over de to sprog**filer**, altså to tilfælde uanset hvor mange
-fejlkoder der findes, så en ny kode kan **ikke** flytte tallet. (Task 2's egen rapport påstod "+2" der;
-det var forkert, og de 4 er alle fire nye `[Fact]`s.)
-**De 12 Vitest er alle skærmlogik**, fordi begge lister kun sammenlignes i browseren: to i
-`settings-store.spec.ts` om at hele listen sendes og serverens svar tages tilbage, fem i `settings.spec.ts`
-om de dengang fire grupper (de er **fem** fra skive 12, hvor ADO blev den femte) og uddelegeringsgruppens
-tre tilstande, og fem i `task-list.spec.ts` om fokus, om at et
-blot udvidet ventende felt **ikke** stjæler fokus, og om de to vagter der værner om noget der virker —
-"venter på ingen" og et navn der ikke står på listen.
-**Den ene E2E er hele rejsen**, `A_name_from_the_delegate_list_is_offered_and_saved_when_a_task_starts_waiting`:
-læg navnet på listen, se forslagene i den delte `<datalist>`, flyt opgaven til "Venter på", se fokus flytte,
-vælg navnet, og find det igen **efter en genindlæsning**. `ContrastTests` voksede **ikke** med en test: de
-tre nye grene — tom liste, liste med rækker, og listens egen røde linje — kostede en `AddDelegateAsync` og
-tre `Snapshot()`-kald inde i de to teorier der allerede var der.
-**Bemærk at 186 ikke stod her før.** Blokken nedenfor sagde **185**, fordi `e6be619` ("Sig det ved rækken
-når en sag ikke kunne åbnes") lagde én Vitest til og rørte `CLAUDE.md` **uden** at rette testtallene. Tallet
-her er målt, ikke regnet videre på det forrige.
-
-Før den, efter "Åbn sagen" fra forhåndsvisningen: **90** Todo.Core.Tests, **187** Todo.Api.Tests, **34** Todo.E2E,
-**185** Vitest (i praksis 186, se ovenfor).
-Den leverance lagde **én** Api-test til (186 → 187, `A_preview_row_carries_the_url_of_the_issue`), **én**
-E2E (33 → 34, at klikket beder skallen om sagen uden at importere den) og **to** Vitest (184 → 185 plus
-en omskrevet). Core stod stille: URL'en beregnes af `JiraSettings.BrowseUrl`, som var testet i forvejen.
-Før den, efter vagt-statusserne fra Jira: 90 Core, 186 Api, 33 E2E, 184 Vitest.
-
-Leverancen lagde **7** Core-tests til (83 → 90), **18** Api-tests (168 → 186), **1** E2E (32 → 33) og
-**6** Vitest (178 → 184). Fordelingen siger hvor arbejdet lå, og den er skæv med vilje.
-**Alle syv Core-tests er `JiraStatusRolesTests`** — reglen er en ren funktion af et statusnavn og to
-lister, så den hører i Core, og den er den ene ting i leverancen der kan gå galt uden at nogen kan
-se det: at vagt slår ventende, at samme status er ventende uden vagten, og at et navn der kun
-afviger i versalitet **ikke** er vagt.
-**De 18 Api-tests fordeler sig i tre bunker.** Otte i `JiraTaskSourceTests` om JQL'en, som måles mod
-den falske Jira på loopback: at leddet kommer med og kun med vagten, at en tom liste ikke giver
-`status IN ()`, at blanke navne trimmes eller falder ud, og at et anførselstegn afvises. Fem i
-`JiraEndpointsTests` om at en vagt-række ankommer `Open` frem for `WaitingFor`, og at den ikke koster
-et changelog-kald. Tre i `JiraSettingsEndpointsTests` om at listen og kontakten overlever en
-rundtur. Og **to** i `ErrorCodeTranslationTests`, som er en `[Theory]` over `da.json` og `en.json` —
-den er ikke om vagten, den er om det hul vagten faldt i: `jira.statusNameInvalid` stod uoversat i
-begge filer, og intet kunne fælde det.
-**Den ene E2E er hele rejsen**, `A_duty_issue_imports_into_the_deadline_sections_rather_than_among_the_waiting`:
-slå kontakten til, forhåndsvis, se mærkaten, importér, og find opgaven i "I dag" frem for i "Venter
-på". Det sidste led er det eneste der ville fange, at beslutningen blev omgjort — set fejle ved at
-mappe en vagt-række til `WaitingFor` i `JiraEndpoints`, hvorefter netop det led faldt og alle de
-foregående bestod. `ContrastTests` voksede **ikke** med en test: de to umålte grene kostede et
-`isDuty: true` i rutehandlerens krop og et klik på kontakten, inde i de fire teorier der allerede
-var der.
-**Vitest' seks er alle skærmlogik** — fire i `settings.spec.ts` om den anden statusvælger og
-kontakten, to i `jira-import.spec.ts` om mærkaten og markøren — fordi ingen af de to lister
-nogensinde sammenlignes i browseren: `isDuty` er serverens svar.
-
-Før den, efter skive 11 (Jira-import): 83 Core, 168 Api, 32 E2E, 178 Vitest.
-Skiven lagde **45** Core-tests til (38 → 83), **47** Api-tests (121 → 168), **7** E2E (25 → 32) og
-**35** Vitest (143 → 178). Fordelingen er værd at læse, for den siger hvor arbejdet lå:
-wiki-markup-konverteringen, `DeadlineBuckets` uberørt og `JiraSettings` er alle rene funktioner og
-hører i Core, mens `JiraTaskSource` måles mod en **falsk Jira på loopback** og derfor tæller som
-Api-tests sammen med de fire nye endpoints og kontraktens wire-format.
-**E2E stod stille gennem skivens første ni opgaver og flyttede sig først i den tiende**, som var
-vagterne alene: fire i `JiraImportJourneyTests` (den ukonfigurerede skærm, de to blokerede rækker med
-hver sin grund, at importen kun sender de valgte, og at linket beder `/api/system/open-link` om
-`…/browse/SAAS-1` fra en `BUTTON`), én `Alt_J_follows_the_jira_link` i `KeyboardJourneyTests`, og
-**to** af `The_Jira_screens_meet_WCAG_AA`, som er en `[Theory]` over de to farvetemaer. Den
-rækkefølge — funktionen i nio opgaver, vagterne i den tiende — er også grunden til at skiven
-efterlod elleve umålte `@if`-grene: en skærm bygget færdig uden en E2E-rejse ved siden af har ingen
-måde at vise, at dens betingede linjer aldrig blev renderet.
-Før skiven, efter typetjek-vagten på spec-projektet: 38 Core, 121 Api, 25 E2E, 143 Vitest.
-Den lagde **én** Api-test til (120 → 121), `Spec_project_passes_the_type_checker` i
-`FrontendStrictnessTests`. Den koster et par sekunder af `dotnet test`, fordi den starter en rigtig
-compiler. De øvrige tre tal står stille: vagten er en påstand om værktøjskæden og rørte ingen kode
-— den blev set fejle med det ægte brud, `` id: `${bucket}-1` `` i `task-store.spec.ts`, og
-diagnostikken `TS2322` stod i fejlbeskeden.
-Før den, efter model-mod-database-vagten: 38 Core, 120 Api, 25 E2E, 143 Vitest.
-Den lagde **én** Api-test til (119 → 120), `Every_column_the_model_expects_exists_in_the_database`
-i `LongIdMigrationTests`. Begge de to ældre kolonnepåstande blev beholdt: de fejler forskelligt, og
-før/efter-udgaven lokaliserer en ændring til migreringen frem for til modellen. De øvrige tre tal
-står stille: vagten er en påstand om skemaet og rørte hverken kontrakten, kernen eller frontenden.
-Før den, efter kolonnevagten på migreringen: 38 Core, 119 Api, 25 E2E, 143 Vitest.
-Kolonnevagten lagde **to** Api-tests til (117 → 119), begge i `LongIdMigrationTests`:
-`Every_column_of_every_table_survives_the_migration` og
-`Every_field_of_a_fully_populated_row_survives_the_migration`. Delt i to med vilje, fordi de
-fanger forskellige fejl og skal kunne ses fejle hver for sig — en ombytning i `SELECT`-listen
-fælder kun den anden. De øvrige tre tal står stille: vagten rørte hverken kontrakten, kernen
-eller frontenden.
-Før den, efter skive 10: 38 Core, 117 Api, 25 E2E, 143 Vitest.
-Skive 10 lagde **to** Api-tests til (115 → 117), begge i `LongIdMigrationTests`:
-`Guid_era_rows_survive_the_migration_to_long_ids`, som sår rigtige Guid-rækker gennem den forrige
-migrering og kræver dem intakte bagefter, og
-`Casting_a_Guid_to_an_integer_collapses_distinct_ids`, der fastholder selve `CAST`-sammenfaldet:
-holder begrundelsen for den håndskrevne migrering op med at gælde, får nogen det at vide. De øvrige
-tre tal står stille: skiven skiftede en type frem for at tilføje adfærd, og de 143 Vitest er de
-samme specs med tal frem for strenge i deres fixtures.
-Før den, efter hintet om en startdato efter deadline: 38 Core, 115 Api, 25 E2E, 143 Vitest.
-Hintet lagde **to** Vitest til (141 → 143): at panelet siger det, og at grænsen — en startdato
-*på* deadlinen — ikke er en konflikt. De øvrige tre tal står stille: hintet fik ingen ny logik
-bag kontrakten, og `ContrastTests` voksede med en fixture-opgave og en klik-og-vent frem for
-med en test.
-Efter skive 9: 38 Core, 115 Api, 25 E2E, 141 Vitest.
-Skive 9 lagde **fem** Core-tests til (33 → 38) — hele grænsefladen om startdatoen i
-`DeadlineBucketsTests`, inklusive at dagen en opgave begynder ikke er udskudt, og at Overskredet
-slår Udskudt — **fire** Api-tests (111 → 115), **én** E2E (24 → 25, `DeferUntilJourneyTests`) og
-**to** Vitest (139 → 141): sektionens plads sidst i `bucketOrder`, og regressionen på at
-`TaskStore.update` bærer `deferUntil` med.
-Før den, efter Swagger-linket: 33 Core, 111 Api, 24 E2E, 139 Vitest.
-Api gik fra 109 til 111 med de to `ContractDocumentTests`, og E2E fra 22 til 24 med de to
-`ApiDocsJourneyTests`. Vitest stod stille: linket fik ingen ny frontend-logik.
-Skive 8 lagde **otte** E2E-tests til (14 → 22) — mærkaterne, de seks genveje og AltGr — og **fem**
-Vitest-tests (134 → 139) på `ShortcutStore`.
-Vitest gik fra 133 til 134 i skive 7 — ikke af tilgængelighedsarbejdet, men af regressionstesten
-for `TaskStore`-fejlen, hvor to loads i luften på én gang kunne lade det ældste svar overskrive
-den nyeste liste. Og E2E gik fra 12 til 14 i samme skive, fordi kontrastvagtens dækning blev
-udvidet efter første gennemløb: den tomme liste er en skærmtilstand rejsen ikke kan nå, og den
-blev lagt til som en `[Theory]` over begge farvetemaer. Se 12 og 133 i ældre rapporter som
-forældede, ikke som tabte tests.
+Skal du vide hvad en bestemt leverance lagde til, så spørg Git — `git log --stat` og planfilerne i
+`docs/plans/` har det, og de forældes ikke.
