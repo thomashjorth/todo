@@ -30,7 +30,7 @@ public class NoRealInstanceTests
         [".cs", ".ts", ".html", ".json", ".yaml", ".yml", ".ps1", ".cmd"];
 
     private static readonly string[] SkippedDirectories =
-        ["node_modules", "bin", "obj", ".git", "wwwroot", "dist", ".angular"];
+        ["node_modules", "bin", "obj", ".git", "wwwroot", "dist", ".angular", "publish"];
 
     /// <summary>
     /// This file has to spell the hostnames out to look for them, so it would otherwise be its own

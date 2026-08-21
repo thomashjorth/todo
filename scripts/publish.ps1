@@ -11,9 +11,17 @@
 # codepage, so an "oe" would reach the reader as mojibake - the same reason Todo.cmd writes
 # "foraeldet" and check.ps1 writes "Koer".
 param(
-    # Where the two files land. Outside the repository by default: publish output is a build
-    # artifact, and dropping 110 MB into a working tree is how a stray file gets committed.
-    [string]$OutputPath = (Join-Path ([IO.Path]::GetTempPath()) 'TodoApp.publish')
+    # Where the two files land: publish\ in the repository root, which .gitignore holds out for the
+    # same reason it holds out bin and dist.
+    #
+    # This was %TEMP% first, to keep 110 MB out of the working tree - but a temp folder is the wrong
+    # home for something you launch: Windows may clear it, and autostart writes the exe's path into
+    # the registry, so an entry could end up pointing at a file that is gone. A known folder beats a
+    # disposable one, and the ignore rule does the job the temp folder was doing.
+    #
+    # Left as a parameter, because installing somewhere permanent is a different act from building:
+    # pass -OutputPath C:\Apps\MandalorianToDo when that is what you mean.
+    [string]$OutputPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'publish')
 )
 
 # Below the param block, not above it: param has to be the first executable statement in a script,

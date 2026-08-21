@@ -6,6 +6,9 @@ obj/
 node_modules/
 dist/
 .angular/
+# scripts\publish.ps1 writes the exe here. Build output, like bin and dist - and 110 MB of it, so a
+# stray add would be hard to undo.
+publish/
 src/Todo.Host/wwwroot/*
 !src/Todo.Host/wwwroot/.gitkeep
 tests/**/bin/
