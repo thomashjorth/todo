@@ -18,14 +18,18 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const int ColumnWidth = 480;
     private const string Title = "Send referatet";
     private const string CompletedTitle = "Ryd skrivebordet";
+
+    /// <summary>A second open task, so the search has something to leave out.</summary>
+    private const string OtherTitle = "Book mødelokalet";
     private const string SomedayTitle = "Læs om typografi";
 
     /// <summary>
-    /// Five in the nav, one in the new-task field and one per switch — every shortcut the app has.
-    /// Grew from six with the Jira import screen in slice 11, which added Alt+J to the nav, and to
-    /// eight with the Azure DevOps import screen in slice 12, which added Alt+A.
+    /// Five in the nav, one in the new-task field, one in the search field and one per switch —
+    /// every shortcut the app has. Grew from six with the Jira import screen in slice 11, which
+    /// added Alt+J to the nav, to eight with the Azure DevOps import screen in slice 12, which
+    /// added Alt+A, and to nine with the search field, which added Alt+K.
     /// </summary>
-    private const int BadgeCount = 8;
+    private const int BadgeCount = 9;
 
     /// <summary>
     /// The five nav links in app.html are the first focusable elements on the page, so the
@@ -116,6 +120,39 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await App.Page.Keyboard.PressAsync("Alt+n");
 
         Assert.Equal("new-task-input", await FocusedTestIdAsync());
+    }
+
+    /// <summary>
+    /// Same as Alt+N, and K rather than a letter from the Danish word: Ctrl/Cmd+K is the search
+    /// shortcut people arrive with, and S was already the settings link. Chrome on Windows binds no
+    /// Alt+K, and the near neighbour is Ctrl+K - the address bar - which is a different modifier set.
+    /// <para>
+    /// Typing after the press is what says the field really has focus rather than merely looking as
+    /// though it does: the list has to narrow without the mouse touching anything.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Alt_K_focuses_the_search_field_and_typing_narrows_the_list()
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(Title).DueToday().Build(),
+            new TaskItemBuilder(Clock).Titled(OtherTitle).DueToday().Build());
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+        var tasks = App.Tasks;
+
+        await Assertions.Expect(tasks.Rows).ToHaveCountAsync(2);
+
+        await App.Page.Keyboard.PressAsync("Alt+k");
+
+        Assert.Equal("task-search", await FocusedTestIdAsync());
+
+        // Typed rather than filled, because typing is what a focused field receives - a Fill would
+        // have worked whether the press moved focus or not.
+        await App.Page.Keyboard.TypeAsync("referat");
+
+        await Assertions.Expect(tasks.Rows).ToHaveCountAsync(1);
+        await Assertions.Expect(tasks.Rows.First).ToContainTextAsync(Title);
     }
 
     /// <summary>

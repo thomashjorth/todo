@@ -293,13 +293,15 @@ fokus, skulle brugeren trykke Alt+O og **derefter** Enter. Og et programmatisk `
 lige så meget som den handler. Direktivet har derfor
 `appShortcutAction="focus" | "activate"`, hvor `'activate'` kalder begge.
 
-**Bogstaverne er `Alt+O/I/J/A/S/N/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
+**Bogstaverne er `Alt+O/I/J/A/S/N/K/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
 piletasterne, som Chrome stjæler under udvikling. De er frie i Photino-vinduet, men en genvej der
 virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende. `J` kom til med
 Jira-importen i skive 11 og kolliderer ikke: Chrome på Windows binder intet `Alt+J`, og den nære
 nabo er DevTools-konsollen, som er `Ctrl+Shift+J` — et andet modifikatorsæt. (På macOS er den
 `Cmd+Option+J`, men appen er Windows-only.) `A` kom til med ADO-importen i skive 12 og kolliderer
 heller ikke: Chrome på Windows binder intet `Alt+A`, og de nære naboer er `Ctrl+A` og `Alt+D`,
+**`K` kom til med søgefeltet** og kolliderer heller ikke: `Ctrl+K` er Chromes adresselinje, altså et
+andet modifikatorsæt, og `Alt+K` er ubundet.
 altså andre taste- og modifikatorsæt. **Registret er last-writer-wins**, så bogstaverne skal
 blive ved at være globalt unikke; se designdokumentets afsnit 10.
 
@@ -789,8 +791,17 @@ forkerte grund.
 
 ## Testtal
 
-Efter søgefeltet på opgavelisten: **164** Todo.Core.Tests, **300** Todo.Api.Tests, **46** Todo.E2E,
-**263** Vitest. Leverancen lagde **9** Vitest til (254 → 263) og rørte ikke de tre andre tal — hele
+Efter søgefeltet på opgavelisten: **164** Todo.Core.Tests, **300** Todo.Api.Tests, **47** Todo.E2E,
+**263** Vitest. Genvejen `Alt+K` lagde den ene E2E til (46 → 47),
+`Alt_K_focuses_the_search_field_and_typing_narrows_the_list`, og flyttede `BadgeCount` fra 8 til **9**.
+Bogstavet er `K` frem for et fra "Søg": `S` var taget af indstillingerne, og `Ctrl/Cmd+K` er den
+genvej folk kommer med. Chrome på Windows binder intet `Alt+K`, og naboen `Ctrl+K` — adresselinjen —
+er et andet modifikatorsæt, samme argument som `Alt+J` mod `Ctrl+Shift+J`. Rejsen **skriver** efter
+tastetrykket frem for at kalde `Fill`, for et `Fill` ville have virket uanset om fokus flyttede.
+Kollisionsvagten er set fejle ved at give søgefeltet `n`: den navngav begge
+(`new-task-input=Alt+N, task-search=Alt+N`), og **tre** rejser faldt med, fordi last-writer-wins gjorde
+`Alt+N` til søgefeltets — samme udfald som skive 12's `nav-ado="j"`.
+Leverancen lagde desuden **9** Vitest til (254 → 263) og rørte ikke de to andre tal — hele
 filtreringen er klientside, så der er hverken kontrakt, endpoint eller ren funktion i den.
 **Fordelingen er hele designet:** **7** i `task-store.spec.ts` om selve filtret og **2** i
 `task-list.spec.ts` om at feltet er bundet til det. Filtret bor i **ét** computed som alle fem lister
