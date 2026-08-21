@@ -10,15 +10,16 @@ namespace Todo.Core.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Hverken EF eller SQLite kan konvertere en TEXT-primærnøgle til INTEGER: en CAST af
-            // en Guid-streng læser et ledende tal-præfiks og giver ellers 0. Målt på fem rigtige
-            // Guid'er blev fem distinkte værdier to, hvoraf tre var 0 — altså sammenfaldende
-            // primærnøgler. Derfor ommappes id'erne eksplicit her.
+            // Neither EF nor SQLite can convert a TEXT primary key to INTEGER: a CAST of a Guid
+            // string reads a leading numeric prefix and otherwise gives 0. Measured on five real
+            // Guids, five distinct values became two, of which three were 0 - colliding primary
+            // keys. So the ids are remapped explicitly here.
             //
-            // Fremmednøgler er slået til hele vejen: PRAGMA foreign_keys er en no-op inde i en
-            // transaktion, og EF pakker migreringen i én. Rækkefølgen er derfor bærende —
-            // forældre indsættes før børn, børn droppes før forældre, og indeksene oprettes til
-            // sidst, fordi et indeks følger sin tabel gennem RENAME og beholder sit navn.
+            // Foreign keys are enforced the whole way: PRAGMA foreign_keys is a no-op inside a
+            // transaction, and EF wraps the migration in one. The order is therefore load-bearing -
+            // parents are inserted before children, children are dropped before parents, and the
+            // indexes are created last, because an index follows its table through a RENAME and
+            // keeps its name.
             migrationBuilder.Sql("""
                 ALTER TABLE Tasks RENAME TO Tasks_old;
                 ALTER TABLE SubTasks RENAME TO SubTasks_old;
@@ -95,14 +96,14 @@ namespace Todo.Core.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Spejlbilledet af Up. SQLite har ingen uuid(), så id'erne bygges af randomblob —
-            // målt: 200 værdier, 200 distinkte, alle 36 tegn og gyldige version 4-UUID'er.
-            // Derfor bevarer en tilbagerulning *rækkerne*, men ikke *identiteterne*: hver
-            // opgave, underopgave og alias får et nyt Guid. Et link eller en gemt reference til
-            // et gammelt id peger ikke længere på noget.
+            // The mirror image of Up. SQLite has no uuid(), so the ids are built from randomblob -
+            // measured: 200 values, 200 distinct, all 36 characters and valid version 4 UUIDs.
+            // A rollback therefore preserves the *rows* but not the *identities*: every task,
+            // subtask and alias gets a new Guid. A link or a stored reference to an old id no
+            // longer points at anything.
             //
-            // Samme bærende rækkefølge som i Up, af samme grund: fremmednøgler er slået til,
-            // så forældre ind før børn, børn ud før forældre, og indeksene til sidst.
+            // The same load-bearing order as in Up, for the same reason: foreign keys are enforced,
+            // so parents in before children, children out before parents, and the indexes last.
             migrationBuilder.Sql("""
                 ALTER TABLE Tasks RENAME TO Tasks_old;
                 ALTER TABLE SubTasks RENAME TO SubTasks_old;

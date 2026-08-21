@@ -83,10 +83,10 @@
     <Content Update="wwwroot\**" CopyToPublishDirectory="Never" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Kontrakten følger med ind i assemblyen, fordi dokumentationssiden servérer den selv.
-         Den ligger ikke i noget build-output, og RepoPaths finder den kun ved at gå op til
-         Todo.sln, som ikke findes ved siden af en udgivet exe. Et fast LogicalName, så
-         ressourcenavnet ikke afhænger af mappelayoutet. -->
+    <!-- The contract travels inside the assembly, because the documentation page serves it itself.
+         It sits in no build output, and RepoPaths only finds it by walking up to Todo.sln, which
+         does not exist beside a published exe. A fixed LogicalName, so the resource name does not
+         depend on the folder layout. -->
     <EmbeddedResource Include="..\..\contracts\openapi.yaml" LogicalName="Todo.Host.openapi.yaml" />
   </ItemGroup>
   <ItemGroup>

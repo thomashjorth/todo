@@ -101,43 +101,45 @@ public static class TodoHost
             TodoDatabase.PrepareAsync(db, databasePath).GetAwaiter().GetResult();
         }
 
-        // Appen servérer to OpenAPI-dokumenter med hver sin rolle. /openapi/v1.json er afledt af
-        // koden og er dermed sandheden om hvad der faktisk er implementeret — ContractDriftTests
-        // læser netop den og holder den op mod kontrakten. Den må ikke fjernes.
+        // The app serves two OpenAPI documents, each with a role of its own. /openapi/v1.json is
+        // derived from the code and is therefore the truth about what is actually implemented -
+        // ContractDriftTests reads exactly this one and holds it up against the contract. It must
+        // not be removed.
         app.MapOpenApi();
 
-        // Kontrakten selv, som dokumentationssiden læser. Formen er den samme i de to dokumenter
-        // (15 operationer, 22 skemaer), men afledningen har ingen prosa: 0 af 15 operationer har
-        // en summary, og titlen bliver "Todo.Host | v1" — dannet af entry-assemblyens navn, så den
-        // hedder noget andet under en testkørsel. Kontrakten har 29 description-felter, og prosaen
-        // er lige præcis det man åbner en dokumentationsside for at læse.
-        // ExcludeFromDescription holder ruten ude af /openapi/v1.json. Uden den beskriver
-        // afledningen sig selv, og ContractDriftTests fejler med "GET /openapi/contract.yaml" i
-        // overskud — målt, ikke gættet. At ruten ligger uden for /api/ er ikke nok; ASP.NET Core
-        // tager hver minimal API med i dokumentet uanset præfiks.
+        // The contract itself, which the documentation page reads. The shape is the same in both
+        // documents (15 operations, 22 schemas), but the derivation has no prose: 0 of 15 operations
+        // carry a summary, and the title comes out as "Todo.Host | v1" - built from the entry
+        // assembly's name, so it reads differently under a test run. The contract has 29 description
+        // fields, and the prose is precisely what one opens a documentation page to read.
+        //
+        // ExcludeFromDescription keeps this route out of /openapi/v1.json. Without it the derivation
+        // describes itself, and ContractDriftTests fails with "GET /openapi/contract.yaml" in excess
+        // - measured, not guessed. Living outside /api/ is not enough; ASP.NET Core puts every
+        // minimal API in the document whatever the prefix.
         app.MapGet(ContractRoute, () => Results.Text(Contract.Value, "application/yaml", Encoding.UTF8))
             .ExcludeFromDescription();
 
-        // Dokumentationssiden ligger på /scalar/ — uden for /api/, så den ikke forveksles med
-        // appens eget API. Scalar 2.16 lægger sin JavaScript-bundle som embedded resource i sin
-        // egen assembly og servérer den fra /scalar/scalar.js, så siden virker uden netværk.
-        // Appen kan være offline; en CDN-hentet bundle ville give en tom side.
+        // The documentation page lives at /scalar/ - outside /api/, so it is not mistaken for the
+        // app's own API. Scalar 2.16 ships its JavaScript bundle as an embedded resource in its own
+        // assembly and serves it from /scalar/scalar.js, so the page works without a network. The
+        // app may be offline; a bundle fetched from a CDN would give an empty page.
         //
-        // Der er to steder Scalar ellers rækker udenfor, og de blev fundet på hver sin måde.
+        // There are two other places Scalar reaches outside, and each was found a different way.
         //
-        // DisableDefaultFonts: Inter og JetBrains Mono hentes fra fonts.scalar.com gennem
-        // @font-face i den serverede bundle. Uden netværk fejler de stille, og siden falder tilbage
-        // på systemfonten.
+        // DisableDefaultFonts: Inter and JetBrains Mono are fetched from fonts.scalar.com through
+        // @font-face in the served bundle. Without a network they fail silently and the page falls
+        // back to the system font.
         //
-        // DisableAgent: "Ask AI"-knappen slår op i Scalars registry, så siden henter
-        // api.scalar.com/vector/registry/curated og /vector/registry/search?query= efter render.
-        // De to kald kan man ikke se i HTML'en eller i bundlens tekst — de kommer fra JavaScript
-        // efter mount, og ApiDocsJourneyTests fandt dem ved at afvise alt der ikke var appens egen
-        // origin. Knappen ville ikke kunne virke her alligevel: den taler med Scalars tjeneste over
-        // netværket, og appen kan være offline.
+        // DisableAgent: the "Ask AI" button looks itself up in Scalar's registry, so the page fetches
+        // api.scalar.com/vector/registry/curated and /vector/registry/search?query= after render.
+        // Neither call is visible in the HTML or in the bundle's text - they come from JavaScript
+        // after mount, and ApiDocsJourneyTests found them by refusing everything that was not the
+        // app's own origin. The button could not work here anyway: it talks to Scalar's service over
+        // the network, and the app may be offline.
         //
-        // OpenApiRoutePattern peger siden på kontrakten frem for på /openapi/v1.json, som er
-        // Scalars standard. Mønstret har intet {documentName}-pladsholder, så det står som det er.
+        // OpenApiRoutePattern points the page at the contract rather than at /openapi/v1.json, which
+        // is Scalar's default. The pattern has no {documentName} placeholder, so it stands as it is.
         app.MapScalarApiReference(options => options
             .DisableDefaultFonts()
             .DisableAgent()
@@ -188,15 +190,20 @@ public static class TodoHost
     /// control - whoever starts it does, and autostart is exactly such a caller. Measured on the
     /// published exe: run from the repository root, <c>/</c> answered 404 and the log said
     /// <c>The WebRootPath was not found: C:\privat-git\todo\wwwroot</c>; run from its own folder the
-    /// same exe answered 200. wwwroot is published beside the exe, so the exe's folder is the one
-    /// answer that holds wherever the process is started from.
+    /// same exe answered 200.
+    /// <para>
+    /// That 404 can no longer happen, and saying so is the honest version: the same slice went on to
+    /// embed the frontend in the assembly, so static files do not come from the content root at all
+    /// any more. This stays because the content root is still where the host would look for
+    /// configuration beside the exe, and the exe's folder is the only answer that holds wherever the
+    /// process was started from - which autostart decides, not the app.
+    /// </para>
     /// <para>
     /// Returning <see langword="null"/> means "leave the default alone", and that is the point of
     /// asking first: <see cref="WebApplicationOptions.ContentRootPath"/> is applied on top of
     /// configuration, so setting it unconditionally would beat an explicit <c>--contentRoot</c>.
-    /// Every test host passes one, pointing at src\Todo.Host where wwwroot actually lives - the
-    /// test binary's own folder has none. The three sources probed here are the three the host
-    /// itself would read a content root from, in its own order of precedence.
+    /// Every test host passes one, pointing at src\Todo.Host. The three sources probed here are the
+    /// three the host itself would read a content root from, in its own order of precedence.
     /// </para>
     /// </remarks>
     private static string? DefaultContentRoot(string[] args)
