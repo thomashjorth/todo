@@ -28,12 +28,13 @@ export interface TaskSection {
 
 /**
  * What is under way comes first inside its section, and everything else keeps the order the server
- * sent - which is by deadline, and the reason a section is worth reading top to bottom at all.
+ * sent - which is by deadline and then by start date, and the reason a section is worth reading top
+ * to bottom at all.
  *
- * A rank plus a stable sort rather than a comparison that also looks at the deadline: sorting is
- * stable per spec since ES2019, so equal ranks come out in their original order and the server's
- * ordering survives untouched. Writing the deadline into the comparison would mean maintaining it in
- * two places, and the two would drift.
+ * A rank plus a stable sort rather than a comparison that also looks at the dates: sorting is stable
+ * per spec since ES2019, so equal ranks come out in their original order and the server's ordering
+ * survives untouched. Writing the dates into the comparison would mean maintaining the rule in two
+ * places, and the two would drift.
  *
  * Only the deadline sections need it. The waiting, done and someday lists are grouped by status, so
  * none of them can hold a task that is in progress.

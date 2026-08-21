@@ -428,6 +428,84 @@ public class TaskEndpointsTests : TaskApiTest
         Assert.Equal([soon.Id, later.Id, undated.Id], listed.Select(t => t.Id));
     }
 
+    /// <summary>
+    /// The start date breaks a tie between two tasks that fall due the same day. Both are deferred,
+    /// so they land in the same section and a reader sees them next to each other — and the one
+    /// that starts later is seeded first, so an order that ignored the start date would fail here.
+    /// </summary>
+    [Fact]
+    public async Task Tasks_due_the_same_day_are_ordered_by_their_start_date()
+    {
+        var sameDay = Today.AddDays(30);
+
+        var startsLate = await PostAsync(new CreateTodoTaskRequest
+        {
+            Title = "Starts late",
+            Deadline = sameDay,
+            DeferUntil = Today.AddDays(20),
+        });
+        var startsEarly = await PostAsync(new CreateTodoTaskRequest
+        {
+            Title = "Starts early",
+            Deadline = sameDay,
+            DeferUntil = Today.AddDays(10),
+        });
+
+        var listed = await ListAsync();
+
+        Assert.Equal([startsEarly.Id, startsLate.Id], listed.Select(t => t.Id));
+    }
+
+    /// <summary>
+    /// No start date sorts as a start date of forever ago: nothing has ever held the task back, so
+    /// it is the older commitment of the two. A start date of today rather than tomorrow keeps both
+    /// tasks out of the deferred bucket, so this is a tie inside one section and not across two.
+    /// </summary>
+    [Fact]
+    public async Task A_task_with_no_start_date_comes_before_one_that_was_held_back()
+    {
+        var sameDay = Today.AddDays(30);
+
+        var heldBack = await PostAsync(new CreateTodoTaskRequest
+        {
+            Title = "Was held back until today",
+            Deadline = sameDay,
+            DeferUntil = Today,
+        });
+        var neverHeldBack = await CreateAsync("Never held back", sameDay);
+
+        var listed = await ListAsync();
+
+        Assert.Equal(DeadlineBucket.Later, heldBack.Bucket);
+        Assert.Equal([neverHeldBack.Id, heldBack.Id], listed.Select(t => t.Id));
+    }
+
+    /// <summary>
+    /// The deadline outranks the start date, which is the half of the rule that a start-date-first
+    /// order would get wrong: the task seeded first starts sooner and is due much later, so reading
+    /// the start date before the deadline would leave it on top.
+    /// </summary>
+    [Fact]
+    public async Task The_deadline_outranks_the_start_date()
+    {
+        var startsSoonDueLate = await PostAsync(new CreateTodoTaskRequest
+        {
+            Title = "Starts tomorrow, due in a month",
+            Deadline = Today.AddDays(30),
+            DeferUntil = Today.AddDays(1),
+        });
+        var startsLateDueSoon = await PostAsync(new CreateTodoTaskRequest
+        {
+            Title = "Starts in a week, due in a week",
+            Deadline = Today.AddDays(7),
+            DeferUntil = Today.AddDays(7),
+        });
+
+        var listed = await ListAsync();
+
+        Assert.Equal([startsLateDueSoon.Id, startsSoonDueLate.Id], listed.Select(t => t.Id));
+    }
+
     /// <summary>A create with the whole body spelled out, for fields the shared helper omits.</summary>
     private async Task<TodoTask> PostAsync(object body)
     {

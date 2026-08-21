@@ -41,9 +41,20 @@ public static class TaskEndpoints
                 query = query.Where(t => t.Status != CoreStatus.Someday);
             }
 
+            // The order every section is read in, and the only place it is decided: the client
+            // groups by bucket and lifts what is in progress, but never re-sorts by date, so the
+            // rule cannot drift between two implementations of it.
+            //
+            // Most pressing first means the deadline outranks the start date: a promise with a date
+            // on it is what presses, and the start date only separates two tasks that fall due the
+            // same day. No start date sorts first among those, because nothing ever held that task
+            // back — it reads as a start date of forever ago rather than as a missing value.
+            // CreatedAt last, so the order is total and a reload cannot shuffle two equals.
             var tasks = await query
                 .OrderBy(t => t.Deadline == null)
                 .ThenBy(t => t.Deadline)
+                .ThenBy(t => t.DeferUntil != null)
+                .ThenBy(t => t.DeferUntil)
                 .ThenBy(t => t.CreatedAt)
                 .ToListAsync();
 

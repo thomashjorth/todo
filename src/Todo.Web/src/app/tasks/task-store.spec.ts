@@ -81,9 +81,9 @@ describe('TaskStore', () => {
   });
 
   /**
-   * And the rest of the order survives it. The server sorts by deadline, so a comparison that did
-   * more than rank the status would throw that away - this is the assertion that says the sort is
-   * stable rather than merely putting the right task on top.
+   * And the rest of the order survives it. The server sorts by deadline and then by start date, so
+   * a comparison that did more than rank the status would throw that away - this is the assertion
+   * that says the sort is stable rather than merely putting the right task on top.
    */
   it('should leave the order the server sent alone apart from lifting what is in progress', () => {
     store.tasks.set([
