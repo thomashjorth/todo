@@ -1,4 +1,13 @@
-<main class="mx-auto max-w-2xl p-4 sm:p-8">
+<!-- Loftet på 672 px er hele appens, så to spalter kan ikke lægges ind under det: xl:max-w-none
+     hæver det, og hver af de fire andre skærme sætter sit eget igen, så kun opgavelisten bliver
+     bred. Hele omlægningen står bag xl:, så den smalle udgave er uændret — det er derfor de 47
+     E2E på 480 px måler nøjagtigt det de målte før.
+     xl:h-screen er rammen de to spalter ruller indeni, og xl:min-h-0 på wrapperen nedenfor er den
+     ene klasse hele rulningen hænger på: wrapperens overflow er visible, så dens automatiske
+     minimumstørrelse er dens indhold, og den nægter at krympe. Målt ved at fjerne den —
+     The_columns_scroll_on_their_own siger da "The list column did not scroll inside itself: 0".
+     Spalterne inde i den behøver den ikke, fordi deres eget overflow-y-auto nulstiller det samme. -->
+<main class="mx-auto max-w-2xl p-4 sm:p-8 xl:flex xl:h-screen xl:max-w-none xl:flex-col">
   <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ 'app.title' | transloco }}</h1>
   <nav class="mt-2 flex flex-wrap gap-4">
     <a
@@ -93,7 +102,9 @@
       }
     </a>
   </nav>
-  <router-outlet />
+  <div class="xl:min-h-0 xl:flex-1">
+    <router-outlet />
+  </div>
   @if (status(); as s) {
     <p data-testid="health" class="mt-8 text-xs text-gray-500 dark:text-gray-400">
       {{ 'app.health' | transloco: { status: s.status, version: s.version } }}

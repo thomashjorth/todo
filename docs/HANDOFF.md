@@ -6,7 +6,7 @@ Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs d
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **164**, Api **300**, E2E **47**, Vitest **267** — alle grønne. `Check.cmd` kører
+**Testtal:** Core **164**, Api **303**, E2E **57**, Vitest **278** — alle grønne. `Check.cmd` kører
 dem i den rækkefølge der er bærende.
 
 ## Færdigt
@@ -25,8 +25,12 @@ rettet undervejs — de filer er detaljen, og de forældes ikke, så de er ikke 
 
 Uden for skiverne: app-ikon og `Todo.cmd`, feature-mapper, testdata-builders, `ApiTest`/`BrowserTest`,
 link til API-dokumentationen på health-linjen, Jiras vagt-statusser, uddelegering, accordion på
-indstillingssiden, formaterings- og linjeskiftsvagter, søgning i titel og note med `Alt+K`, og
-i-gang-opgaver løftet øverst i deres sektion.
+indstillingssiden, formaterings- og linjeskiftsvagter, søgning i titel og note med `Alt+K`, og mest
+presserende først inde i hver sektion: i-gang-opgaver løftet øverst af klienten, og under dem
+serverens rækkefølge — deadline, derefter startdato. Og **side by side fra `xl`** (≥ 1280 px
+vinduesbredde): listen i venstre spalte, detaljerne i højre, med auto-valg af den første opgave på
+skærmen — planen er `docs/plans/2026-08-21-side-by-side-design.md`, og de fem beslutninger står der
+med deres begrundelser.
 
 ## Næste skridt
 
@@ -58,7 +62,13 @@ Skive **15** er livscyklus og arkiv.
 
 ## Målinger kun du kan lave
 
-Skive 12 efterlod tre. De kræver din egen instans og dit eget token, så ingen agent kan køre dem.
+**Side by side i det rigtige vindue.** `xl:h-screen` er `100vh`, og Playwright på 1400 px måler et
+*browser*-viewport. Om `100vh` er vinduets klienthøjde i Photino/WebView2 — og om to spalter faktisk
+ser rigtige ud i et maksimeret vindue på din Full HD-skærm — kan ingen agent måle her. Start appen,
+maksimér, og se om højre spaltes rulning slutter ved vinduets kant frem for at stikke ud. Er den
+forkert, er det `xl:h-screen` i `app.html` der skal skiftes, ikke spalterne.
+
+De tre nedenfor er skive 12's. De kræver din egen instans og dit eget token, så ingen agent kan køre dem.
 Opskriften — variabler, kommandoer og fælderne — står i skive 12's plan under "Måling 0". **Læg aldrig
 tokenet i kommandolinjen**; sæt det i `$env:ADO_PAT` først og referér det.
 

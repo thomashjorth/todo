@@ -12,6 +12,11 @@ import { JiraStore } from './jira-store';
   selector: 'app-jira-import',
   imports: [DeadlineDate, RouterLink, TranslocoPipe],
   templateUrl: './jira-import.html',
+  // Skallens loft er hævet på xl, så to spalter har plads på opgavelisten. Den her skærm er
+  // ikke to spalter, og en formular strakt over 1440 px er ulæselig — så den sætter loftet igen.
+  host: {
+    class: 'block xl:max-w-2xl',
+  },
 })
 export class JiraImport {
   protected readonly store = inject(JiraStore);

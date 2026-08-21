@@ -86,9 +86,13 @@ byte for byte uændret — det er derfor de fire andre skærme og alle 47 E2E m�
 måler i dag. Prisen er, at de fire andre skærme bliver brede på en stor skærm og derfor får deres
 eget `xl:max-w-2xl`.
 
-**`min-h-0` er bærende, ikke pynt.** Et flex-barns `min-height` er `auto`, så det nægter at krympe
-under sit indhold, og en `overflow-y-auto` længere inde bliver aldrig aktiv. Uden den ruller siden
-som før, og fejlen ligner "rulningen virker ikke" frem for en manglende klasse.
+**`min-h-0` er bærende — men kun ét sted, og designet gættede forkert på hvor.** Reglen er, at et
+flex- eller gitterbarns `min-height` er `auto` og derfor nægter at krympe under sit indhold. Planen
+skrev derfor klassen på **både** wrapperen og de to spalter. Målt ved mutation: fjernes den fra
+spalterne fælder det **ingenting**, fordi et barn hvis `overflow` ikke er `visible` allerede har
+automatisk minimumstørrelse nul — `overflow-y-auto` gør arbejdet selv. Fjernes den fra wrapperen om
+`router-outlet`, hvor overflow *er* visible, siger `The_columns_scroll_on_their_own`
+*"The list column did not scroll inside itself: 0"*. De tre overflødige klasser er fjernet igen.
 
 Opgavelisten pakkes i et gitter:
 
@@ -130,6 +134,25 @@ Ny fil, `SideBySideJourneyTests`, på et 1280-viewport — `BrowserTest` tager a
 | Auto-valg ved indlæsning | `?? selectable[0]` → `?? undefined` |
 | Bortsøgt valg falder til den første synlige | samme led |
 | Spalterne ruller hver for sig | fjern `xl:min-h-0` |
+
+**Hvad mutationerne faktisk gav, kørt frem for forudsagt.** Viewporten blev 1400 og ikke 1280, så
+ingen påstand afhænger af om en scrollbar tæller med.
+
+- `?? this.store.tasks()[0]` i stedet for `selectable[0]` fældede **tre** rejser, ikke to:
+  auto-valget, det bortsøgte valg **og** "kun fuldførte efterlader hjælpeteksten" — for serverens
+  liste indeholder de fuldførte, så mutationen gør dem valgbare.
+- Uden `!wide()` på rækkens `[expanded]` fejlede **fem af seks**, fordi det dublerede
+  `data-testid="task-detail"` bryder strict mode for hver locator bygget på `Detail`. Vitest fældede
+  til gengæld **præcis én** — netop den der er skrevet til det.
+- Uden `xl:min-h-0` på spalterne fejlede **ingenting**. Se rettelsen i afsnit 4.
+- **Og den dyreste:** "klikket fravælger ikke" var **grøn** under sin egen mutation. En
+  Playwright-påstand om at ingenting ændrede sig kan ikke laves race-fri ved at polle — den første
+  poll der lykkes afslutter ventetiden, og lige efter klikket har Angular ikke re-renderet. En probe
+  viste feltet gå `2026-08-14` → `2026-08-16` **efter** at påstanden var bestået. Og den nære fælde
+  er værre: den første rettelse — klik, `FillAsync`, og påstå at redigeringen landede på den valgte
+  opgave — bestod af **samme** grund, fordi `save()` læste komponentens forældede `task()` og gemte
+  på den forrige opgave. Kun en **rundtur** imellem (slå "vis fuldførte" til og vent på rækken)
+  gør læsningen ærlig. Rejsen er set fejle med `But was: '2026-08-16'`.
 
 **Auto-valg-rejsens fixture er dens tænder.** Sås den opgave der skal vælges **først** i
 seed-rækkefølgen, ville en implementering der bare tager `tasks[0]` fra serverens svar bestå lige

@@ -19,6 +19,7 @@
     "search": "Search title and note",
     "noMatches": "No task matches the search.",
     "empty": "No tasks.",
+    "selectPrompt": "Pick a task to see its details.",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",
     "deferUntil": "Start date",

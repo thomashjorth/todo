@@ -14,14 +14,21 @@ namespace Todo.E2E;
 /// settings. The measurement runs in the browser because only it knows which background a given
 /// piece of text ended up on.
 ///
-/// The three theories below number the screens in the order this class reaches them: the first
-/// covers the task list, the retro import and the settings, so the Jira import is the fourth and
-/// the Azure DevOps import the fifth. The expanded detail panel and the folded settings page are
-/// states rather than screens; they cost snapshots, not routes.
+/// The theories below number the screens in the order this class reaches them: the first covers the
+/// task list, the retro import and the settings, so the Jira import is the fourth and the Azure
+/// DevOps import the fifth. The expanded detail panel, the folded settings page and the two-column
+/// layout are states rather than screens; they cost snapshots, not routes.
+///
+/// Everything except the two side-by-side theories opens the app at 480px, which is the whole reason
+/// those two exist: the wide layout puts the same text under different ancestors, and an opaque
+/// background stops the guard's walk up the tree.
 /// </summary>
 public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
     private const int ColumnWidth = 480;
+
+    /// <summary>Comfortably past the xl breakpoint, so no assertion turns on a scrollbar.</summary>
+    private const int WideWidth = 1400;
     private const int DaysWaited = 12;
     private const string OverdueTitle = "Betal regningen";
     private const string DueTodayTitle = "Send referatet";
@@ -927,6 +934,110 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(App.Health).ToContainTextAsync("API:");
         await Assertions.Expect(App.Page.GetByText(EmptyList, new() { Exact = true }))
             .ToBeVisibleAsync();
+
+        AssertNoFailures(await App.ContrastFailuresAsync(), scheme);
+    }
+
+    /// <summary>
+    /// Side by side, which no other measurement in this class can see: every one of them opens the
+    /// app at 480px, so the two-column layout was unmeasured colour for colour. It is a state of the
+    /// task list rather than a sixth route — count screens and the answer is still five.
+    /// <para>
+    /// What is genuinely new here is not a palette but a set of ancestors: the panel has left its
+    /// row and now sits in a column of its own, and an opaque background stops the guard's walk up
+    /// the tree, so every piece of text inside it is measured against a different parent than
+    /// before. The selected row's accent is deliberately not among the findings — it is a border,
+    /// and the guard measures text; a border only has to reach 3:1 as a graphical object.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task The_side_by_side_layout_meets_WCAG_AA(ColorScheme scheme)
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(OverdueTitle).Overdue()
+                .RequestedBy(Requester).Build(),
+            new TaskItemBuilder(Clock).Titled(DueTodayTitle).DueToday()
+                .WithNote(Note)
+                .WithSubTask(DoneSubTask, isDone: true)
+                .WithSubTask(OpenSubTask)
+                .Build(),
+            new TaskItemBuilder(Clock).Titled(WaitingTitle)
+                .WaitingFor(WaitingOn, Clock.UtcNow.AddDays(-DaysWaited)).Build(),
+            new TaskItemBuilder(Clock).Titled(SomedayTitle).Someday().Build(),
+            new TaskItemBuilder(Clock).Titled(CompletedTitle).Done().Build(),
+            new TaskItemBuilder(Clock).Titled(InProgressTitle).InProgress().DueToday().Build(),
+            new TaskItemBuilder(Clock).Titled(ConflictTitle).Overdue()
+                .DeferredUntil(Clock.Today.AddDays(3)).Build());
+
+        await OpenAppAsync(new() { Width = WideWidth, Height = 1000 }, scheme);
+
+        var failures = new List<string>();
+        var tasks = App.Tasks;
+
+        async Task Snapshot() => failures.AddRange(await App.ContrastFailuresAsync());
+
+        await Assertions.Expect(App.Health).ToContainTextAsync("API:");
+        await tasks.ShowCompleted.CheckAsync();
+        await tasks.ShowSomeday.CheckAsync();
+        await Assertions.Expect(tasks.CompletedRows).ToContainTextAsync(CompletedTitle);
+        await Assertions.Expect(tasks.SomedayRows).ToContainTextAsync(SomedayTitle);
+
+        // Nobody clicked: side by side the first task on screen is selected on arrival, and this is
+        // the state the app opens in. Waited for by the panel's own text, because the elements are
+        // in place before the localized strings are interpolated into them - and text that is not
+        // there yet is invisible to the measurement.
+        await Assertions.Expect(tasks.DetailColumn).ToBeVisibleAsync();
+        await Assertions.Expect(tasks.Detail).ToContainTextAsync("Underopgaver");
+        await Snapshot();
+
+        // The note and the subtasks belong to another task than the auto-selected one, so without
+        // this click the rendered markdown is never painted in the column.
+        await tasks.RowShowing(DueTodayTitle).ClickAsync();
+        await Assertions.Expect(tasks.SubTaskRows).ToHaveCountAsync(2);
+        await Assertions.Expect(tasks.NoteRendered.Locator("h2")).ToHaveTextAsync("Dagsorden");
+        await Assertions.Expect(tasks.NoteBullets).ToHaveTextAsync(["Lyd", "Lys"]);
+        await Snapshot();
+
+        // The waiting-on label and field only render for a task in that status, and the panel shows
+        // one task at a time whatever the width.
+        await tasks.RowShowing(WaitingTitle).ClickAsync();
+        await Assertions.Expect(tasks.WaitingOnInput).ToHaveValueAsync(WaitingOn);
+        await Snapshot();
+
+        // The start-date hint, in the column rather than in the row it used to hang under.
+        await tasks.RowShowing(ConflictTitle).ClickAsync();
+        await Assertions.Expect(tasks.DeferUntilConflict).ToBeVisibleAsync();
+        await Snapshot();
+
+        AssertNoFailures(failures, scheme);
+    }
+
+    /// <summary>
+    /// The prompt in the empty right-hand column, which auto-selection does not remove: a completed
+    /// task's row has no panel behind it, so with only completed tasks in view there is nothing to
+    /// select. Its own theory because the fixture has to hold nothing else — the layout above can
+    /// never reach this state once anything selectable exists.
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task The_side_by_side_prompt_meets_WCAG_AA(ColorScheme scheme)
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(CompletedTitle).Done().Build());
+
+        await OpenAppAsync(new() { Width = WideWidth, Height = 800 }, scheme);
+        var tasks = App.Tasks;
+
+        await Assertions.Expect(App.Health).ToContainTextAsync("API:");
+        await tasks.ShowCompleted.CheckAsync();
+
+        // The completed row is the teeth: without it the prompt would also show on an empty list,
+        // which is a different state and would leave "completed is not selectable" unmeasured.
+        await Assertions.Expect(tasks.CompletedRows).ToContainTextAsync(CompletedTitle);
+        await Assertions.Expect(tasks.DetailEmpty).ToContainTextAsync("Vælg en opgave");
 
         AssertNoFailures(await App.ContrastFailuresAsync(), scheme);
     }

@@ -259,16 +259,51 @@ så snart nogen fjerner den ene betingelse.
 **Bredde.** Appen bruges i en spalte på ~480 px, under Tailwinds `sm`-brydepunkt. De
 uprefixede klasser **er** den smalle udgave; `sm:`/`md:` bruges kun til at udvide.
 
+**Og fra `xl` er opgavelisten to spalter, hvor de andre fire skærme ikke er.** `app.html`s
+`max-w-2xl` er hele appens loft, så `xl:max-w-none` hæver det og de fire andre skærme sætter deres
+eget igen med en host-klasse. Hele omlægningen står bag `xl:`, og det er derfor de eksisterende E2E
+måler det samme som før — de kører alle sammen på 480.
+
+**Detaljepanelet renderes præcis ét sted, valgt af et signal frem for af CSS.** `hidden xl:block`
+ville lade begge kopier stå i DOM'en, så `data-testid="task-detail"` fandtes **to** gange på en smal
+skærm, og Playwright vælger tavst den første. `WideScreen.wide` driver derfor en `@if` på begge
+sider: højre spalte om sig selv, og rækken om sin `[expanded]`. Signalet frem for en klasse er hele
+begrundelsen for at klassen `WideScreen` findes — brydepunktet er `(min-width: 80rem)`, altså
+Tailwinds `xl` skrevet i rem, så tallet står ét sted. **jsdom 28.1.0 har ingen `matchMedia`** (målt),
+så servicen defaulter til smal, og en spec der vil have den brede sætter signalet selv.
+
+**`min-h-0` skal kun stå der hvor `overflow` er `visible`.** Et flex- eller gitterbarn hvis overflow
+*ikke* er visible har allerede automatisk minimumstørrelse nul, så `overflow-y-auto` gør arbejdet
+selv. Målt ved mutation: fjernes `xl:min-h-0` fra begge spalter i `task-list.html` fælder det
+**ingenting**; fjernes det fra wrapperen om `router-outlet` i `app.html`, siger
+`The_columns_scroll_on_their_own` *"The list column did not scroll inside itself: 0"*. Tre klasser
+stod der uden at gøre noget, og reglen læst forkert ville sætte dem tilbage.
+
+**Valget af opgave er en `computed`, ikke en effekt — og de tre regler er én regel.** `TaskList.selected`
+er `selectable.find(id) ?? (wide ? selectable[0] : undefined)`. Auto-valg ved indlæsning, at valget
+følger med når den valgte søges væk eller slettes, og at auto-valget kun gælder side by side, er
+**samme linje**. En effekt skulle kaldes fra `load`, `remove`, `searchFor`, `setShowCompleted`,
+`setShowSomeday` og statusskiftet — seks steder der kan drive fra hinanden. **Fuldførte er ikke
+valgbare**, fordi deres række er et almindeligt `<li>` uden panel, så den tomme tilstand
+(`tasks.selectPrompt`) findes selv med auto-valg.
+
 **Bundlens advarselsloft er 600 kB, og tallet er valgt frem for arvet.** Det var 500, og en leverance
 på under en halv kilobyte krydsede det: målt 499,97 kB før og 500,37 efter, altså 368 bytes over fra
 30 bytes under. Et loft en 400-bytes funktion kan krydse måler ingenting og træner folk i at ignorere
 advarsler. Fejlgrænsen står stadig på 1 MB, så et rigtigt spring fanges.
 
 **En sortering inde i en sektion er en rang plus en stabil `sort`, ikke en sammenligning der også ser
-på deadline.** `Array.prototype.sort` er stabil per spec siden ES2019, så lige rangeringer beholder
-serverens rækkefølge — og serveren er den der sorterer efter deadline. Skriver man deadlinen ind i
-sammenligningen, vedligeholdes reglen to steder, og de to driver fra hinanden. Bruges i dag til at
-løfte i-gang-opgaver øverst.
+på datoerne.** `Array.prototype.sort` er stabil per spec siden ES2019, så lige rangeringer beholder
+serverens rækkefølge — og serveren er den der sorterer. Skriver man datoerne ind i sammenligningen,
+vedligeholdes reglen to steder, og de to driver fra hinanden. Klienten bruger den kun til at løfte
+i-gang-opgaver øverst.
+
+**Serverens rækkefølge er deadline, derefter startdato — og deadline slår startdatoen.** Startdatoen
+skiller kun to opgaver der falder samme dag, og **ingen startdato sorterer først** blandt dem, fordi
+intet nogensinde har holdt opgaven tilbage: fraværet læses som "kunne startes for evigt siden", ikke
+som en manglende værdi. Brugerens valg 2026-08-21, og gættet uden begrundelsen falder den anden vej,
+fordi "start og deadline" nævnes i den rækkefølge. Vagten er
+`TaskEndpointsTests.The_deadline_outranks_the_start_date`, set fælde netop ombytningen.
 
 **Angular.** Signal-baserede stores ejer al HTTP. Komponenter injicerer aldrig en genereret
 klient og kalder aldrig `.subscribe()`. **Ikke NgRx** — bevidst fravalg.
@@ -599,6 +634,18 @@ forkerte grund.
   fixturet sådde den opgave der skulle løftes **først**, så en usorteret liste ville have bestået
   lige så godt. Den sidste er den nemmeste at lave og den sværeste at se: **rækkefølgen i fixturet er
   assertionens tænder.** Spørg altid: hvad ville få den her til at fejle?
+- **En Playwright-påstand om at *ingenting* ændrede sig kan ikke laves race-fri ved at polle.** Den
+  første poll der lykkes afslutter ventetiden, og lige efter et klik har Angular ikke re-renderet —
+  så den uændrede værdi *står der* at læse. Målt: `Clicking_the_selected_row_again_keeps_it_showing`
+  var **grøn** under den mutation der lægger den fravælgende toggle tilbage, og en probe viste
+  hvorfor: feltet gik `2026-08-14` → `2026-08-16` et øjeblik **efter** at påstanden var bestået.
+  Rettelsen er en rundtur imellem — her at slå "vis fuldførte" til og vente på rækken — så hver
+  render klikket udløste er sket, før der læses. **Og fælden er dobbelt:** en *handling* lige efter
+  klikket læser komponentens forældede tilstand, ikke DOM'ens. Et `FillAsync` på deadline-feltet
+  umiddelbart efter klikket gemte på den **forrige** valgte opgave, fordi `save()` læste
+  `this.task()` før inputtet var skiftet — så den omskrevne, "positive" påstand bestod af samme
+  grund som den negative. En rundtur løser begge; en anden formulering af påstanden løser ingen af
+  dem.
 - **`GetByRole(..., Name)` matcher på delstreng** medmindre `Exact = true`. En overskrift
   "Todoo" matchede "Todo" og gjorde en E2E-test meningsløs.
 - **`TaskListScreen.RowTitled` matcher rækkeknappens *fulde* tilgængelige navn.** Deadline,
@@ -731,6 +778,13 @@ forkerte grund.
   teorier (`Every_screen`, `The_Jira_screens`, `The_Ado_screens`), én pr. gruppenavn —
   `span text "Sprog" 2,60:1 needs 4,5`. Tælles skærme, er svaret stadig fem ruter; tælles **tilstande**,
   koster indstillingssiden nu fem snapshots.
+  **Og hele suiten kører på 480 px undtagen to teorier**, så alt bag `xl:` var farve for farve umålt,
+  indtil `The_side_by_side_layout_meets_WCAG_AA` og `The_side_by_side_prompt_meets_WCAG_AA` kom til.
+  Det nye der måles, er ikke en palette men et sæt **forældre**: panelet har forladt sin række, og en
+  uigennemsigtig flade stopper vagtens gang op gennem træet, så hver tekst i panelet måles mod en
+  anden forælder end før. Den valgte rækkes accent er med vilje **ikke** blandt fundene — den er en
+  kant, og vagten måler tekst; derfor er markeringen en kant og ikke en baggrund, for `text-gray-500`
+  er 4,63:1 på `gray-50` og har ikke plads til et trin mere.
 - **En gren bag et fremmedsystem er umålt, indtil kaldet opsnappes.** Skive 11 efterlod **elleve**
   `@if`-grene som ingen farve nogensinde blev renderet i, fordi hver af dem kræver et svar fra Jira;
   skive 12 efterlod **toogtyve** af samme slags bag ADO. `ContrastTests` svarer derfor selv på
@@ -835,7 +889,7 @@ forkerte grund.
 
 ## Testtal
 
-**164** Todo.Core.Tests, **300** Todo.Api.Tests, **47** Todo.E2E, **267** Vitest — alle grønne.
+**164** Todo.Core.Tests, **303** Todo.Api.Tests, **57** Todo.E2E, **278** Vitest — alle grønne.
 
 Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
 eller duplikeret.** Det er hele reglen. Kør `Check.cmd` og sammenlign.

@@ -1,0 +1,195 @@
+<label class="block">
+  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+    'tasks.deadline' | transloco
+  }}</span>
+  <input
+    #deadline
+    data-testid="deadline-input"
+    type="date"
+    class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
+    [value]="task().deadline ?? ''"
+    (blur)="save({ deadline: text(deadline.value) })"
+    (keyup.enter)="save({ deadline: text(deadline.value) })"
+  />
+</label>
+<label class="block">
+  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+    'tasks.deferUntil' | transloco
+  }}</span>
+  <input
+    #deferUntil
+    data-testid="defer-until-input"
+    type="date"
+    class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
+    [value]="task().deferUntil ?? ''"
+    (blur)="save({ deferUntil: text(deferUntil.value) })"
+    (keyup.enter)="save({ deferUntil: text(deferUntil.value) })"
+  />
+</label>
+<!-- En startdato efter deadline er tilladt med vilje — felterne gemmer hver for sig, så et
+     forbud ville afvise den halve redigering. Men Overskredet slår Udskudt, så startdatoen
+     gør ingenting, og uden denne linje ser feltet virksomt ud alligevel.
+     @let, ikke `as`, fordi @if ikke indsnævrer et signal-kald. Strengsammenligning:
+     yyyy-MM-dd sorterer leksikografisk, og new Date(streng) læser UTC-midnat og kan
+     vise dagen før. -->
+@let dueDate = task().deadline;
+@let startDate = task().deferUntil;
+@if (dueDate && startDate && startDate > dueDate) {
+  <p data-testid="defer-until-conflict" class="text-xs text-amber-700 dark:text-amber-300">
+    {{ 'tasks.deferUntilAfterDeadline' | transloco }}
+  </p>
+}
+<label class="block">
+  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+    'tasks.requester' | transloco
+  }}</span>
+  <input
+    #requester
+    type="text"
+    class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
+    [value]="task().requester ?? ''"
+    (blur)="save({ requester: text(requester.value) })"
+    (keyup.enter)="save({ requester: text(requester.value) })"
+  />
+</label>
+<div class="space-y-1">
+  <div class="flex items-center justify-between gap-2">
+    <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+      'tasks.note' | transloco
+    }}</span>
+    @if (!editingNote()) {
+      <button
+        type="button"
+        data-testid="note-edit"
+        class="shrink-0 text-xs text-blue-700 underline dark:text-blue-300"
+        (click)="noteEditStarted.emit()"
+      >
+        {{ 'tasks.editNote' | transloco }}
+      </button>
+    }
+  </div>
+  @if (editingNote()) {
+    <textarea
+      #note
+      data-testid="note-editor"
+      rows="6"
+      class="field-sizing-content max-h-96 w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
+      [value]="task().note ?? ''"
+      (blur)="stopEditingNote(note.value)"
+      (keydown.escape)="stopEditingNote(note.value)"
+    ></textarea>
+  } @else if (task().note?.trim()) {
+    <div
+      data-testid="note-rendered"
+      class="prose prose-sm dark:prose-invert max-w-none [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
+      [innerHTML]="rendered(task())"
+      (click)="clickNote($event)"
+    ></div>
+  } @else {
+    <p
+      data-testid="note-rendered"
+      class="text-sm text-gray-500 italic dark:text-gray-400"
+      (click)="clickNote($event)"
+    >
+      {{ 'tasks.noteEmpty' | transloco }}
+    </p>
+  }
+  @if (system.error(); as message) {
+    <p data-testid="note-link-error" role="alert" class="text-sm text-red-700 dark:text-red-300">
+      {{ message }}
+    </p>
+  }
+</div>
+<label class="block">
+  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+    'tasks.status' | transloco
+  }}</span>
+  <select
+    #status
+    class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
+    (change)="saveStatus(status.value)"
+  >
+    @for (option of statusOptions; track option) {
+      <option [value]="option" [selected]="option === task().status">
+        {{ statusKey(option) | transloco }}
+      </option>
+    }
+  </select>
+</label>
+@if (task().status === waitingFor) {
+  <!-- Uddelegering er en genvej til Venter på + hvem, så vælgeren ovenfor spørger og det her
+       felt svarer: det får fokus, når status flytter hertil.
+       Forslag, ikke krav — feltet bliver et tekstfelt, fordi "venter på ingen" og "venter på
+       en der ikke står på listen" begge er gyldige tilstande i dag.
+       Listen bor i task-list.html: den er den samme for alle rækker, og et id pr. række ville
+       give dubletter i dokumentet, hvor browseren tavst vælger den første.
+       Prisen: <datalist>s popup kan ContrastTests ikke måle, fordi den er browserens eget
+       chrome og ikke DOM. Samme handel som sprogvælgeren, der er et native <select>; <body>
+       har scheme-light-dark netop for at de følger farvetemaet. -->
+  <label class="block">
+    <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+      'tasks.waitingOn' | transloco
+    }}</span>
+    <input
+      #waitingOn
+      data-testid="waiting-on-input"
+      type="text"
+      list="delegate-names"
+      class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500 dark:text-gray-100"
+      [value]="task().waitingOn ?? ''"
+      (blur)="save({ waitingOn: text(waitingOn.value) })"
+      (keyup.enter)="save({ waitingOn: text(waitingOn.value) })"
+    />
+  </label>
+}
+<div class="space-y-1">
+  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
+    'tasks.subTasks' | transloco
+  }}</span>
+  @for (subTask of task().subTasks; track subTask.id) {
+    <div data-testid="subtask-row" class="flex items-start gap-2">
+      <input
+        #subTaskDone
+        type="checkbox"
+        class="mt-1 shrink-0"
+        [checked]="subTask.isDone"
+        (click)="$event.stopPropagation()"
+        (change)="setSubTaskDone(subTask, subTaskDone.checked)"
+      />
+      <span
+        class="min-w-0 flex-1 text-sm break-words"
+        [class]="
+          subTask.isDone
+            ? 'text-gray-500 line-through dark:text-gray-400'
+            : 'text-gray-900 dark:text-gray-100'
+        "
+        >{{ subTask.title }}</span
+      >
+      <button
+        type="button"
+        data-testid="delete-subtask"
+        [attr.aria-label]="'tasks.deleteSubTask' | transloco"
+        class="shrink-0 text-xs text-red-600 dark:text-red-400"
+        (click)="removeSubTask(subTask)"
+      >
+        ✕
+      </button>
+    </div>
+  }
+  <input
+    #newSubTask
+    data-testid="new-subtask-input"
+    type="text"
+    [placeholder]="'tasks.newSubTask' | transloco"
+    class="w-full rounded border border-gray-500 px-2 py-1 text-sm placeholder-gray-500 dark:border-gray-500 dark:placeholder-gray-400"
+    (keyup.enter)="createSubTask(newSubTask)"
+  />
+</div>
+<button
+  type="button"
+  data-testid="delete-task"
+  class="text-xs text-red-600 underline dark:text-red-400"
+  (click)="removed.emit()"
+>
+  {{ 'tasks.deleteTask' | transloco }}
+</button>

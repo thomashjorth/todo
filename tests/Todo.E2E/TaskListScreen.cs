@@ -17,7 +17,30 @@ public sealed class TaskListScreen(TodoApp app)
     /// </summary>
     public ILocator NoMatches => Page.GetByTestId("no-matches");
 
+    /// <summary>
+    /// The detail panel, wherever it is: inside its row in one column, in the right-hand column
+    /// side by side. Exactly one exists either way — the template renders it behind an
+    /// <c>@if</c> on the breakpoint rather than hiding one copy with CSS — so this locator needs
+    /// to know nothing about the layout, and neither does anything built on it.
+    /// </summary>
     public ILocator Detail => Page.GetByTestId("task-detail");
+
+    /// <summary>The right-hand column, which only exists above the <c>xl</c> breakpoint.</summary>
+    public ILocator DetailColumn => Page.GetByTestId("detail-column");
+
+    /// <summary>
+    /// The column the list itself is in. It exists at every width — only its scrolling is behind
+    /// the breakpoint — so a journey that measures the scroll has to be the one that sets a wide
+    /// viewport; finding this element proves nothing about the layout on its own.
+    /// </summary>
+    public ILocator TaskColumn => Page.GetByTestId("task-column");
+
+    /// <summary>
+    /// The prompt the right-hand column shows when nothing is selectable. Reachable even with
+    /// auto-selection on, because a completed task's row has no panel behind it: with only
+    /// completed tasks in view there is nothing to select.
+    /// </summary>
+    public ILocator DetailEmpty => Page.GetByTestId("detail-empty");
 
     // Efter startdatoen er der to date-felter i panelet, så input[type=date] rammer dem begge.
     public ILocator DeadlineInput => Detail.GetByTestId("deadline-input");
@@ -109,6 +132,13 @@ public sealed class TaskListScreen(TodoApp app)
     /// <summary>
     /// The detail under one named row. Only one row is expanded at a time, so waiting for this
     /// rather than <see cref="Detail"/> is what tells a click apart from the detail it replaced.
+    /// <para>
+    /// One column only, and that is the whole point of it: side by side the panel is not a
+    /// descendant of any row, so this never matches. A journey above the <c>xl</c> breakpoint wants
+    /// <see cref="Detail"/> or <see cref="DetailColumn"/> — and a wide test that reaches for this
+    /// one fails with "element not found", which reads like a missing panel rather than a locator
+    /// asking the wrong question.
+    /// </para>
     /// </summary>
     public ILocator DetailFor(string title) => RowFor(title).GetByTestId("task-detail");
 

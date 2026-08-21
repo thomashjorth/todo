@@ -10,6 +10,11 @@ import { RetroStore } from './retro-store';
   selector: 'app-retro-import',
   imports: [DeadlineDate, RouterLink, TranslocoPipe],
   templateUrl: './retro-import.html',
+  // Skallens loft er hævet på xl, så to spalter har plads på opgavelisten. Den her skærm er
+  // ikke to spalter, og en formular strakt over 1440 px er ulæselig — så den sætter loftet igen.
+  host: {
+    class: 'block xl:max-w-2xl',
+  },
 })
 export class RetroImport {
   protected readonly store = inject(RetroStore);

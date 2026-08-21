@@ -18,6 +18,11 @@ type SettingsSectionName = 'language' | 'delegate' | 'jira' | 'ado' | 'retro';
   selector: 'app-settings',
   imports: [SettingsSection, TranslocoPipe],
   templateUrl: './settings.html',
+  // Skallens loft er hævet på xl, så to spalter har plads på opgavelisten. Den her skærm er
+  // ikke to spalter, og en formular strakt over 1440 px er ulæselig — så den sætter loftet igen.
+  host: {
+    class: 'block xl:max-w-2xl',
+  },
 })
 export class Settings {
   protected readonly settings = inject(SettingsStore);

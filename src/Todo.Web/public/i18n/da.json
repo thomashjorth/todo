@@ -19,6 +19,7 @@
     "search": "Søg i titel og note",
     "noMatches": "Ingen opgaver passer på søgningen.",
     "empty": "Ingen opgaver.",
+    "selectPrompt": "Vælg en opgave for at se detaljerne.",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",
     "deferUntil": "Startdato",

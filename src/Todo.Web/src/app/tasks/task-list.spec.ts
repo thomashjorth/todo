@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoService } from '@jsverse/transloco';
 import { API_BASE_URL } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
+import { WideScreen } from '../layout/wide-screen';
 import { SettingsStore } from '../settings/settings-store';
 import { TaskList } from './task-list';
 
@@ -1003,5 +1004,199 @@ describe('TaskList', () => {
 
     http.verify();
     expect(input.value).toBe('   ');
+  });
+
+  /**
+   * Side by side is a different DOM, not a wider one: the panel moves out of its row and into a
+   * column of its own. Every test in here sets the signal before the component renders, because
+   * jsdom has no matchMedia and the service therefore starts out narrow - which is what all the
+   * tests above measure.
+   */
+  describe('side by side', () => {
+    beforeEach(() => {
+      TestBed.inject(WideScreen).wide.set(true);
+    });
+
+    /**
+     * Auto-selection, and the seeding order is the whole of the assertion's teeth: the two tasks
+     * are flushed with the *no deadline* one first, so an implementation that reached for the
+     * server's `items[0]` would answer "Ring til tandlægen" and fail. The expected answer is the
+     * first task in *visual* order, which is the overdue section's.
+     */
+    it('should show the first task on screen without anyone opening a row', async () => {
+      const fixture = TestBed.createComponent(TaskList);
+      TestBed.inject(HttpTestingController)
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items: [items[1], items[0]] })]));
+
+      // Waited for the panel rather than the column: the column renders as soon as the signal says
+      // wide, which is before the task list has arrived - the generated client decodes its response
+      // through a Blob, so it lands a microtask later. Waiting for the column alone measured the
+      // empty state and called it the wrong answer.
+      const detail = await shown(
+        fixture,
+        '[data-testid="detail-column"] [data-testid="task-detail"]',
+      );
+
+      expect(detail.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe(
+        '2026-08-10',
+      );
+    });
+
+    it('should say which row the panel belongs to', async () => {
+      const fixture = TestBed.createComponent(TaskList);
+      TestBed.inject(HttpTestingController)
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items })]));
+      const rows = (await rendered(fixture)).querySelectorAll('[data-testid="task-row"]');
+
+      // The accent, and on the auto-selected row rather than a clicked one, so it also covers that
+      // the mark and the panel agree about which task is showing.
+      expect(rows[0].querySelector('.border-blue-600')).not.toBeNull();
+      expect(rows[1].querySelector('.border-blue-600')).toBeNull();
+    });
+
+    /**
+     * Exactly one panel in the document. Without the `!wide()` term on the row's `expanded` input
+     * there would be two elements carrying `data-testid="task-detail"`, and a Playwright locator
+     * would silently pick the first - which is the reason the breakpoint is a signal at all.
+     */
+    it('should render the panel once, outside the row', async () => {
+      const fixture = TestBed.createComponent(TaskList);
+      TestBed.inject(HttpTestingController)
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items })]));
+      const element = await rendered(fixture);
+
+      element.querySelectorAll('[data-testid="task-row"]')[1].querySelector('button')!.click();
+      fixture.detectChanges();
+
+      expect(element.querySelectorAll('[data-testid="task-detail"]').length).toBe(1);
+      expect(
+        element
+          .querySelectorAll('[data-testid="task-row"]')[1]
+          .querySelector('[data-testid="task-detail"]'),
+      ).toBeNull();
+    });
+
+    it('should keep the selection when the selected row is clicked again', async () => {
+      const fixture = TestBed.createComponent(TaskList);
+      TestBed.inject(HttpTestingController)
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items })]));
+      const element = await rendered(fixture);
+      const second = element.querySelectorAll('[data-testid="task-row"]')[1];
+
+      second.querySelector('button')!.click();
+      fixture.detectChanges();
+      const column = element.querySelector('[data-testid="detail-column"]')!;
+      // Ring til tandlægen has no deadline, so an empty date field is how the panel names it apart
+      // from the auto-selected first task.
+      expect(column.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('');
+
+      second.querySelector('button')!.click();
+      fixture.detectChanges();
+
+      expect(column.querySelector('[data-testid="task-detail"]')).not.toBeNull();
+      expect(column.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('');
+    });
+
+    it('should move the panel to the first task left when the selected one is searched away', async () => {
+      const fixture = TestBed.createComponent(TaskList);
+      TestBed.inject(HttpTestingController)
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items })]));
+      const element = await rendered(fixture);
+
+      element.querySelectorAll('[data-testid="task-row"]')[1].querySelector('button')!.click();
+      fixture.detectChanges();
+      const column = element.querySelector('[data-testid="detail-column"]')!;
+      expect(column.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('');
+
+      const search = element.querySelector<HTMLInputElement>('[data-testid="task-search"]')!;
+      search.value = 'Betal';
+      search.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(column.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe(
+        '2026-08-10',
+      );
+    });
+
+    /**
+     * Completed tasks have no panel behind them - their row is a plain `<li>` - so they are not
+     * selectable, and with only completed tasks in view the column has nothing to show. The row
+     * assertion is the teeth: without it the prompt would also pass on an empty list, which is a
+     * different state reached a different way.
+     */
+    it('should ask for a pick when the only tasks in view are completed', async () => {
+      const finished = {
+        ...items[0],
+        id: 6,
+        title: 'Ryd op i skuret',
+        status: 'done',
+        completedAt: '2026-08-20T09:00:00+00:00',
+      };
+      const fixture = TestBed.createComponent(TaskList);
+      const http = TestBed.inject(HttpTestingController);
+      http
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items: [] })]));
+      // shown returns the element it matched, not the root, so the switch is what comes back here.
+      const showCompleted = await shown(fixture, '[data-testid="show-completed"]');
+
+      showCompleted.click();
+      http
+        .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items: [finished] })]));
+      const row = await shown(
+        fixture,
+        '[data-testid="completed-section"] [data-testid="task-row"]',
+      );
+      const element = fixture.nativeElement as HTMLElement;
+
+      expect(row.textContent).toContain('Ryd op i skuret');
+      expect(element.querySelector('[data-testid="task-detail"]')).toBeNull();
+      expect(element.querySelector('[data-testid="detail-empty"]')!.textContent!.trim()).toBe(
+        'Vælg en opgave for at se detaljerne.',
+      );
+    });
+  });
+
+  /**
+   * The narrow half of the two rules above, and it is a rule rather than an accident: nothing is
+   * auto-selected in one column, because an unfolded panel pushes the rest of the list some 300px
+   * down and an app that opens with task number one unfolded hides the others.
+   */
+  it('should open nothing by itself in one column', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+
+    const element = await rendered(fixture);
+
+    expect(element.querySelector('[data-testid="detail-column"]')).toBeNull();
+    expect(element.querySelector('[data-testid="task-detail"]')).toBeNull();
+  });
+
+  it('should fold the panel away in one column when the selected task is searched away', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+    const row = element.querySelectorAll('[data-testid="task-row"]')[0];
+
+    row.querySelector('button')!.click();
+    fixture.detectChanges();
+    expect(row.querySelector('[data-testid="task-detail"]')).not.toBeNull();
+
+    const search = element.querySelector<HTMLInputElement>('[data-testid="task-search"]')!;
+    search.value = 'tandl';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(element.querySelector('[data-testid="task-detail"]')).toBeNull();
   });
 });
