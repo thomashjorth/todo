@@ -254,6 +254,29 @@ uprefixede klasser **er** den smalle udgave; `sm:`/`md:` bruges kun til at udvid
 **Angular.** Signal-baserede stores ejer al HTTP. Komponenter injicerer aldrig en genereret
 klient og kalder aldrig `.subscribe()`. **Ikke NgRx** — bevidst fravalg.
 
+**Og ingen Angular forms — hverken de gamle eller signal forms. Afgjort af brugeren 2026-08-21, så
+det er en beslutning og ikke en forglemmelse.** Felterne er native inputs med `[value]`/`[checked]`
+plus `(input)`/`(change)`/`(blur)`, og signalerne bor i storene. `@angular/forms` er en afhængighed
+men **ubrugt**: der findes ikke et `FormsModule`, `ReactiveFormsModule`, `ngModel` eller
+`FormControl` nogen steder — målt med en søgning over hele `src`, ikke antaget.
+**Og signal forms er ikke eksperimentelle, hvad man ellers kunne tro:** i 22.1.1 eksporterer pakken
+`./signals` og `./signals/compat`, og `form`, `required`, `validate`, `validateAsync`, `validateHttp`
+og `validateTree` står **uden** `@experimental` — den ene markering i `signals.d.ts` sidder på en
+AI-værktøjsdel. Så argumentet mod dem er ikke modenhed.
+Argumentet er formen: appen gemmer **pr. felt** på blur/change og har ingen formular-submit, og
+**valideringen bor på serveren** med fejlkoder som `apiErrorMessage` oversætter. Signal forms er
+bygget om en formularmodel med submit, så et skifte ville røre 40+ felter på fem skærme og omkring 90
+testkald der sætter `.value` og udsender et event — for at flytte en validering serveren ejer.
+
+**Prisen for fravalget er målt og skal blive ved at stå her: det manuelle `[checked]`-mønster har
+givet én rigtig fejl og efterlader to latente.** `[checked]` genanvendes **kun når signalet skifter**,
+så da registret afviste autostart, gik signalet `false` → `false`, bindingen havde intet at gøre, og
+fluebenet stod til mens intet var registreret. Fundet af en E2E-rejse, ikke af nogen Vitest.
+`Settings.setAutostart` skriver derfor elementet tilbage fra signalet efter rundturen.
+**`jira-on-duty` og `ado-include-waiting` har samme mønster og er *ikke* rettet** — de fejler kun hvis
+serveren afviser, og ingen af dem har en kodet grund til det i dag, hvor et låst register er den
+sandsynlige sag. Rører du en af dem, så skriv elementet tilbage som autostart gør.
+
 **En store-metode der sætter et signal og derefter genindlæser, skal værne mod svar i forkert
 rækkefølge.** To genindlæsninger kan være i luften på én gang — `setShowCompleted` og
 `setShowSomeday` gjorde netop det, og ankom det ældste svar sidst, overskrev det den nyeste
