@@ -113,8 +113,21 @@
        uanset. Fjernes xl:overflow-y-auto igen, siger The_columns_scroll_on_their_own
        "The list column did not scroll inside itself: 0" — klassen bærer altså begge halvdele nu.
        overflow-x computerer til auto af sig selv (visible + auto er ikke en lovlig kombination),
-       men scrollWidth == clientWidth på begge skærme, så der kommer ingen vandret bjælke. -->
-  <div class="xl:flex-1 xl:overflow-y-auto">
+       men scrollWidth == clientWidth på begge skærme, så der kommer ingen vandret bjælke.
+       Og netop den auto-computering koster: en beholder med overflow auto klipper ved sin
+       padding-kant, og hvert w-full-felt på de fire skærme står flush mod den — så fokusringen,
+       som er outline-2 med outline-offset-2 og altså ligger 4 px uden for feltets kant, fik sit
+       venstre segment skåret af. xl:-mx-2 + xl:px-2 er ét par: den negative margin flytter
+       klippekanten 8 px længere ud til hver side, og padding'en lægger indholdskanten præcis
+       tilbage hvor den var, så ingen skærm flytter sig og de målte tal ovenfor står. De 8 px er
+       valgt frem for 4, så et ekstra trin offset ikke rammer kanten igen. Overhænget på 8 px
+       bliver inde i mains egen p-8, så der kommer ingen vandret rulning af det. Begge sider, ikke
+       kun venstre: de fire skærme er max-w-2xl og har luft til højre, men opgavelistens
+       detaljespalte går helt ud til wrapperens højre kant, og dens ring skal have plads her.
+       Den lodrette akse er med vilje urørt — et negativt my her ville æde afstanden til nav og
+       health-linjen, og et element hvis ring rammer over- eller underkanten findes kun mens man
+       ruller helt ud. -->
+  <div class="xl:-mx-2 xl:flex-1 xl:overflow-y-auto xl:px-2">
     <router-outlet />
   </div>
   @if (status(); as s) {

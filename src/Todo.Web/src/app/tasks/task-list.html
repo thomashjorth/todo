@@ -6,9 +6,16 @@
      minimumstørrelse er allerede nul, når dets overflow ikke er visible, så overflow-y-auto gør
      arbejdet selv. Klassen sad her først, og en mutation der fjernede den fældede ingenting — den
      bærende ligger på wrapperen om router-outlet i app.html, som nu klipper selv (xl:overflow-y-auto)
-     og derfor ikke behøver min-h-0 mere. -->
+     og derfor ikke behøver min-h-0 mere.
+     xl:pr-2 holder rullebjælken fri af teksten, og xl:-ml-2 + xl:pl-2 er et andet par med en anden
+     grund: spalten klipper ved sin padding-kant (overflow-y auto tvinger overflow-x til auto), og
+     felterne står flush mod den venstre, så fokusringens 4 px — outline-2 plus outline-offset-2 —
+     blev skåret. Den negative margin flytter kun klippekanten; padding'en lægger indholdskanten
+     tilbage, så sporet stadig er 30rem, indholdsbredden den samme som før, og afstanden til
+     panelet uændret 24 px. Samme rettelse står på wrapperen i app.html, som er den klippende
+     beholder for de fire andre skærme. -->
 <div class="xl:grid xl:h-full xl:grid-cols-[30rem_minmax(0,1fr)] xl:gap-6">
-  <div data-testid="task-column" class="xl:overflow-y-auto xl:pr-2">
+  <div data-testid="task-column" class="xl:-ml-2 xl:overflow-y-auto xl:pl-2 xl:pr-2">
     <div class="relative mt-4">
       <input
         #newTask
@@ -248,9 +255,13 @@
   <!-- @if og ikke hidden xl:block: hidden renderer stadig i DOM en, så data-testid="task-detail"
        ville findes to gange på en smal skærm, og Playwright vælger tavst den første. Det er hele
        grunden til at brydepunktet er et signal og ikke kun en klasse.
-       Ingen xl:-præfikser herinde: spalten findes kun når signalet er sandt. -->
+       Ingen xl:-præfikser herinde: spalten findes kun når signalet er sandt.
+       -mx-2 + px-2 er ringens plads, som i venstre spalte, men her i begge sider: panelets felter
+       er w-full og står flush mod både den venstre og den højre klippekant, så begge segmenter af
+       fokusringen blev skåret. Indholdskanten ligger uændret; venstre overhæng går ind i gap-6, og
+       højre ind i den padding wrapperen i app.html har fået af samme grund. -->
   @if (wide.wide()) {
-    <div data-testid="detail-column" class="overflow-y-auto">
+    <div data-testid="detail-column" class="-mx-2 overflow-y-auto px-2">
       @if (selected(); as task) {
         <app-task-detail
           [task]="task"
