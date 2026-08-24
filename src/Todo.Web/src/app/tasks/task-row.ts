@@ -1,8 +1,10 @@
-import { Component, inject, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
 import { pluralKey } from '../i18n/plural-key';
+import { Shortcut } from '../shortcuts/shortcut';
+import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { SystemStore } from '../system/system-store';
 import { TaskDetail } from './task-detail';
 import { TaskStore, subTaskProgress } from './task-store';
@@ -12,7 +14,7 @@ import { TaskStore, subTaskProgress } from './task-store';
   // et fremmed element ind i listen, så divide-y ikke længere rammer søskende-rækker.
   // data-testid er derfor en host-binding — TaskListScreen.Rows finder rækken på den.
   selector: 'li[appTaskRow]',
-  imports: [DeadlineDate, TaskDetail, TranslocoPipe],
+  imports: [DeadlineDate, Shortcut, TaskDetail, TranslocoPipe],
   templateUrl: './task-row.html',
   host: {
     'data-testid': 'task-row',
@@ -38,6 +40,9 @@ export class TaskRow {
 
   readonly editingNote = input(false);
 
+  /** The row's place among the nine numbered ones, or undefined from the tenth row on. */
+  readonly number = input<number | undefined>();
+
   readonly toggled = output<void>();
   readonly noteEditStarted = output<void>();
   readonly noteEditStopped = output<void>();
@@ -48,6 +53,11 @@ export class TaskRow {
   protected readonly waitingFor = TodoStatus.WaitingFor;
   protected readonly inProgress = TodoStatus.InProgress;
   protected readonly progress = subTaskProgress;
+  // Kun til mærkaten: den vises mens Alt holdes nede, som de otte andre på skærmen.
+  protected readonly shortcuts = inject(ShortcutStore);
+
+  // Direktivet tager en streng, og den tomme streng er dens "ingen genvej" - række ti og frem.
+  protected readonly shortcut = computed(() => this.number()?.toString() ?? '');
 
   private readonly store = inject(TaskStore);
   private readonly system = inject(SystemStore);

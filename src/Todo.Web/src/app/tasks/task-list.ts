@@ -53,6 +53,22 @@ export class TaskList {
   ]);
 
   /**
+   * The first nine selectable tasks, numbered as they appear on screen.
+   *
+   * Nine because there are nine digits worth having: Alt+0 is not a tenth row, it is a key nobody
+   * would guess. The completed section has no numbers and is skipped, which is a consequence of
+   * `selectableTasks` rather than a rule of its own - a completed row has no panel to select.
+   */
+  protected readonly numbers = computed(
+    () =>
+      new Map(
+        this.selectableTasks()
+          .slice(0, 9)
+          .map((task, i) => [task.id, i + 1]),
+      ),
+  );
+
+  /**
    * The task the detail panel is showing.
    *
    * A derivation rather than an effect, because the three rules it has to obey are the same rule

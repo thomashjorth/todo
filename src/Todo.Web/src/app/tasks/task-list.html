@@ -135,6 +135,7 @@
               <li
                 appTaskRow
                 [task]="task"
+                [number]="numbers().get(task.id)"
                 [expanded]="!wide.wide() && selected()?.id === task.id"
                 [selected]="wide.wide() && selected()?.id === task.id"
                 [editingNote]="editingNote() === task.id"
@@ -177,6 +178,7 @@
               <li
                 appTaskRow
                 [task]="task"
+                [number]="numbers().get(task.id)"
                 [expanded]="!wide.wide() && selected()?.id === task.id"
                 [selected]="wide.wide() && selected()?.id === task.id"
                 [editingNote]="editingNote() === task.id"
@@ -237,6 +239,7 @@
               <li
                 appTaskRow
                 [task]="task"
+                [number]="numbers().get(task.id)"
                 [expanded]="!wide.wide() && selected()?.id === task.id"
                 [selected]="wide.wide() && selected()?.id === task.id"
                 [editingNote]="editingNote() === task.id"

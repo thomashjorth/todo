@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { WideScreen } from '../layout/wide-screen';
 import { SettingsStore } from '../settings/settings-store';
+import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { TaskList } from './task-list';
 
 const items = [
@@ -78,6 +79,29 @@ const parked = {
   waitingSince: null,
   waitingDays: null,
 };
+
+/**
+ * Ti valgbare opgaver plus en fuldført. Rækkefølgen på skærmen er otte i sektionen, den ventende,
+ * den fuldførte og til sidst den parkerede - så den fuldførte står mellem "Venter på" og "Måske",
+ * hvor den er nummereringens tænder: uden en fuldført række i listen ville påstanden om at en
+ * fuldført ikke har et nummer bestå, fordi der slet ikke var en at måle.
+ */
+const numberedItems = [
+  ...Array.from({ length: 8 }, (_, i) => ({
+    ...items[1],
+    id: 101 + i,
+    title: `Opgave ${i + 1}`,
+  })),
+  { ...waiting, id: 109, title: 'Venter på Bo' },
+  {
+    ...items[1],
+    id: 110,
+    title: 'Ryd op i skuret',
+    status: 'done',
+    completedAt: '2026-08-20T09:00:00+00:00',
+  },
+  { ...parked, id: 111, title: 'Lær at spille harmonika' },
+];
 
 // No deadline at all: overdue beats deferred, so a past deadline would land it in another section.
 const deferredItems = [
@@ -1198,5 +1222,111 @@ describe('TaskList', () => {
     fixture.detectChanges();
 
     expect(element.querySelector('[data-testid="task-detail"]')).toBeNull();
+  });
+
+  // Begge kontakter slået til, så den fuldførte og den parkerede sektion er på skærmen.
+  async function everythingShown(
+    fixture: ComponentFixture<TaskList>,
+    http: HttpTestingController,
+  ): Promise<HTMLElement> {
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: numberedItems })]));
+    (await shown(fixture, '[data-testid="show-completed"]')).click();
+    fixture.detectChanges();
+    http
+      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: numberedItems })]));
+    (await shown(fixture, '[data-testid="show-someday"]')).click();
+    fixture.detectChanges();
+    http
+      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items: numberedItems })]));
+
+    return vi.waitFor(() => {
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.querySelectorAll('[data-testid="task-row"]').length).toBe(
+        numberedItems.length,
+      );
+      return element;
+    });
+  }
+
+  it('should number the first nine selectable rows and leave the rest without one', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const element = await everythingShown(fixture, TestBed.inject(HttpTestingController));
+
+    const labels = [...element.querySelectorAll('[data-testid="task-row"]')].map(
+      (row) => row.querySelector('button')?.getAttribute('aria-keyshortcuts') ?? null,
+    );
+
+    // Række ét til ni i skærmens rækkefølge, og den niende er den ventende: numrene krydser
+    // sektionsgrænsen frem for at begynde forfra i hver sektion.
+    expect(labels.slice(0, 9)).toEqual([
+      'Alt+1',
+      'Alt+2',
+      'Alt+3',
+      'Alt+4',
+      'Alt+5',
+      'Alt+6',
+      'Alt+7',
+      'Alt+8',
+      'Alt+9',
+    ]);
+
+    // Den tiende valgbare - den parkerede, som står efter den fuldførte blok - har ingen genvej.
+    const tenth = element.querySelector(
+      '[data-testid="someday-section"] [data-testid="task-row"] button',
+    )!;
+    expect(tenth.getAttribute('aria-keyshortcuts')).toBeNull();
+
+    // Og den fuldførte har intet panel at vælge, så der er slet ingen genvej i rækken.
+    const completedRow = element.querySelector(
+      '[data-testid="completed-section"] [data-testid="task-row"]',
+    )!;
+    expect(completedRow.querySelector('[aria-keyshortcuts]')).toBeNull();
+  });
+
+  /**
+   * En række beholder sin komponentinstans, når dens nummer skifter - `@for` sporer på id - så
+   * direktivets effekt er det eneste der flytter registreringen med. Påstanden er derfor både på
+   * attributten og på registret: den overtagne tast skal ramme den nye række, og den tast der ikke
+   * længere er på skærmen skal være væk.
+   */
+  it('should hand a number over to the row that takes its place', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const shortcuts = TestBed.inject(ShortcutStore);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .flush(new Blob([JSON.stringify({ items: numberedItems.slice(0, 3) })]));
+
+    const element = await vi.waitFor(() => {
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      expect(host.querySelectorAll('[data-testid="task-row"]').length).toBe(3);
+      return host;
+    });
+
+    const before = [...element.querySelectorAll('[data-testid="task-row"] button')].map((b) =>
+      b.getAttribute('aria-keyshortcuts'),
+    );
+    expect(before).toEqual(['Alt+1', 'Alt+2', 'Alt+3']);
+
+    // Søgningen efterlader den tredje række alene, så den overtager Alt+1.
+    const search = element.querySelector<HTMLInputElement>('[data-testid="task-search"]')!;
+    search.value = 'Opgave 3';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const row = element.querySelector('[data-testid="task-row"]')!;
+    expect(row.textContent).toContain('Opgave 3');
+    expect(row.querySelector('button')!.getAttribute('aria-keyshortcuts')).toBe('Alt+1');
+
+    // Registret fulgte med: Alt+1 rammer den nye ejer, og Alt+3 er afmeldt.
+    expect(shortcuts.activate('alt+3')).toBe(false);
+    expect(shortcuts.activate('alt+1')).toBe(true);
+    fixture.detectChanges();
+    expect(row.querySelector('[data-testid="task-detail"]')).not.toBeNull();
   });
 });
