@@ -104,7 +104,17 @@
       "one": "Importér {{count}} sag",
       "other": "Importér {{count}} sager"
     },
-    "receipt": "{{imported}} importeret, {{skipped}} sprunget over"
+    "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
+    "suggestsClosing": "Løst i Jira — luk opgaven her.",
+    "close": {
+      "one": "Luk {{count}} opgave",
+      "other": "Luk {{count}} opgaver"
+    },
+    "importAndClose": "Importér {{imported}} og luk {{closed}}",
+    "receiptClosed": {
+      "one": "{{count}} opgave lukket.",
+      "other": "{{count}} opgaver lukket."
+    }
   },
   "ado": {
     "heading": "ADO-import",
@@ -135,7 +145,17 @@
       "one": "Importér {{count}} sag",
       "other": "Importér {{count}} sager"
     },
-    "receipt": "{{imported}} importeret, {{skipped}} sprunget over"
+    "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
+    "suggestsClosing": "Løst i Azure DevOps — luk opgaven her.",
+    "close": {
+      "one": "Luk {{count}} opgave",
+      "other": "Luk {{count}} opgaver"
+    },
+    "importAndClose": "Importér {{imported}} og luk {{closed}}",
+    "receiptClosed": {
+      "one": "{{count}} opgave lukket.",
+      "other": "{{count}} opgaver lukket."
+    }
   },
   "settings": {
     "heading": "Indstillinger",
@@ -188,7 +208,9 @@
       "dutyStatuses": "Hvilke statusser betyder, at sagen venter på 2nd. level supporten?",
       "dutyStatusesHint": "Vagt slår ventende: står en status på begge lister, afgør kontakten nedenfor hvad den betyder.",
       "onDuty": "Jeg har vagten",
-      "onDutyHint": "2nd. level-sagerne kommer med i importen, også når de ikke er tildelt dig, og de lander som handlingsklare frem for ventende."
+      "onDutyHint": "2nd. level-sagerne kommer med i importen, også når de ikke er tildelt dig, og de lander som handlingsklare frem for ventende.",
+      "doneStatuses": "Færdig-statusser",
+      "doneStatusesHint": "Står en hentet sag i en af dem, foreslår importen at lukke opgaven her."
     },
     "ado": {
       "baseUrl": "Samlingens URL",
@@ -213,7 +235,9 @@
       "addWorkItemTypePlaceholder": "Fx Bug",
       "removeWorkItemType": "Fjern {{type}}",
       "deadlineDays": "Deadline om hvor mange dage?",
-      "deadlineDaysHint": "Azure DevOps har intet deadline-felt, så appen sætter en ved import. Nul betyder ingen deadline. Ændringen gælder kun sager du henter fremover."
+      "deadlineDaysHint": "Azure DevOps har intet deadline-felt, så appen sætter en ved import. Nul betyder ingen deadline. Ændringen gælder kun sager du henter fremover.",
+      "doneStates": "Færdig-tilstande",
+      "doneStatesHint": "Står en hentet sag i en af dem, foreslår importen at lukke opgaven her."
     }
   },
   "errors": {
@@ -249,7 +273,8 @@
       "rowTitleTooLong": "En sags titel er for lang.",
       "rowStatusRequired": "En sag mangler sin status.",
       "statusNameInvalid": "Et statusnavn må ikke indeholde anførselstegn eller backslash. Hent statusserne igen under Indstillinger.",
-      "excludedWaiting": "Du venter på den, og ventende sager er slået fra."
+      "excludedWaiting": "Du venter på den, og ventende sager er slået fra.",
+      "excludedDone": "Sagen er løst i Jira og er ikke hentet før, så den hentes ikke."
     },
     "ado": {
       "notConfigured": "Azure DevOps er ikke sat op. Udfyld samlingens URL og token under Indstillinger.",
@@ -264,7 +289,8 @@
       "workItemTypeInvalid": "En sagstype må ikke indeholde anførselstegn eller backslash. Ret listen under Indstillinger.",
       "workItemTypesRequired": "Vælg mindst én sagstype. En tom liste betyder ikke alle typer.",
       "defaultDeadlineDaysInvalid": "Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline.",
-      "excludedWaiting": "Du venter på den, og ventende sager er slået fra."
+      "excludedWaiting": "Du venter på den, og ventende sager er slået fra.",
+      "excludedDone": "Sagen er løst i Azure DevOps og er ikke hentet før, så den hentes ikke."
     },
     "autostart": {
       "failed": "Autostart kunne ikke ændres. Kontrollér om Windows tillader det på maskinen.",

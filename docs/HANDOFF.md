@@ -1,12 +1,12 @@
 # Hvor projektet står
 
-Sidst opdateret: 2026-08-21.
+Sidst opdateret: 2026-08-24.
 
 Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs den først.
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **164**, Api **303**, E2E **57**, Vitest **278** — alle grønne. `Check.cmd` kører
+**Testtal:** Core **174**, Api **316**, E2E **58**, Vitest **281** — alle grønne. `Check.cmd` kører
 dem i den rækkefølge der er bærende.
 
 ## Færdigt
@@ -30,7 +30,9 @@ presserende først inde i hver sektion: i-gang-opgaver løftet øverst af klient
 serverens rækkefølge — deadline, derefter startdato. Og **side by side fra `xl`** (≥ 1280 px
 vinduesbredde): listen i venstre spalte, detaljerne i højre, med auto-valg af den første opgave på
 skærmen — planen er `docs/plans/2026-08-21-side-by-side-design.md`, og de fem beslutninger står der
-med deres begrundelser.
+med deres begrundelser. Og **importens forslag om at lukke en løst sag**: står en hentet ADO- eller
+Jira-sag i en status du kalder færdig, mens opgaven stadig er åben her, tilbyder importen at lukke den
+— planen er `docs/plans/2026-08-24-import-closure-design.md`.
 
 ## Næste skridt
 
@@ -61,6 +63,13 @@ beskytter mod noget der ikke findes endnu, og en vagt på dem kunne ikke bringes
 Skive **15** er livscyklus og arkiv.
 
 ## Målinger kun du kan lave
+
+**Sætter din Jira en resolution, når en sag flyttes til en færdig-status?** Åbn en løst sag og se om
+resolutionsfeltet er udfyldt. Gør den det, forsvinder sagen ud af JQL'en, og `jira.doneStatuses`, den
+fjerde rolle og de tilhørende sprognøgler er en gren der er **død hos dig** — funktionen virker kun for
+ADO. Gør den det ikke, virker begge. Målingen ændrer ikke koden, men den ændrer hvad du kan forvente,
+og den er ikke lavet: skive 12's beslutning var at holde sig inden for det forespørgslerne allerede
+henter.
 
 **Side by side i det rigtige vindue.** `xl:h-screen` er `100vh`, og Playwright på 1400 px måler et
 *browser*-viewport. Om `100vh` er vinduets klienthøjde i Photino/WebView2 — og om to spalter faktisk

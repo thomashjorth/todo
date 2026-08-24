@@ -73,6 +73,20 @@ export class JiraImport {
     this.store.selectable().filter((row) => this.selectedKeys().has(row.key)),
   );
 
+  /** The same guard for the closures: the store decides which rows may be closed, not the checkbox. */
+  private readonly closableKeys = computed(
+    () => new Set(this.store.closable().map((row) => row.key)),
+  );
+
+  protected readonly selectedClosures = computed(() =>
+    this.store.closable().filter((row) => this.selectedKeys().has(row.key)),
+  );
+
+  /** What the button acts on, which is both lists: one control, one press, two kinds of work. */
+  protected readonly chosenCount = computed(
+    () => this.selectedRows().length + this.selectedClosures().length,
+  );
+
   /** An empty answer from Jira is an answer, not a failure. */
   protected readonly noneAssigned = computed(
     () => this.previewed() && this.store.rows().length === 0,
@@ -87,12 +101,23 @@ export class JiraImport {
     () => this.store.rows().filter((row) => row.excluded).length,
   );
 
+  /**
+   * A row that offers a closure is deliberately not counted here. It was imported before, but it is
+   * not one of the dead rows this sentence is about - it has something to do, and saying otherwise
+   * would tell the user the list is idle while a checkbox on it is ticked.
+   */
   protected readonly alreadyImportedCount = computed(
-    () => this.store.rows().filter((row) => !row.excluded && row.alreadyImported).length,
+    () =>
+      this.store
+        .rows()
+        .filter((row) => !row.excluded && row.alreadyImported && !row.suggestsClosing).length,
   );
 
   protected readonly nothingToSelect = computed(
-    () => this.store.rows().length > 0 && this.store.selectable().length === 0,
+    () =>
+      this.store.rows().length > 0 &&
+      this.store.selectable().length === 0 &&
+      this.store.closable().length === 0,
   );
 
   protected preview(): void {
@@ -123,7 +148,7 @@ export class JiraImport {
   }
 
   protected isBlocked(row: JiraPreviewRow): boolean {
-    return !this.selectableKeys().has(row.key);
+    return !this.selectableKeys().has(row.key) && !this.closableKeys().has(row.key);
   }
 
   /**
@@ -147,16 +172,27 @@ export class JiraImport {
   }
 
   protected async importSelected(): Promise<void> {
-    const result = await this.store.import(this.selectedRows());
+    const result = await this.store.import(this.selectedRows(), this.selectedClosures());
     if (!result) {
       return;
     }
+
+    // Two sentences rather than one with a third number in it: the closing half only happened if
+    // something was closed, and a receipt that always said "0 lukket" would train the eye to skip
+    // the line that matters on the day it is not zero.
+    const closed =
+      result.closed > 0
+        ? '. ' +
+          this.transloco.translate(pluralKey(result.closed, 'jira.receiptClosed'), {
+            count: result.closed,
+          })
+        : '';
 
     this.receipt.set(
       this.transloco.translate('jira.receipt', {
         imported: result.imported,
         skipped: result.skipped,
-      }),
+      }) + closed,
     );
     await this.reload();
   }
@@ -164,7 +200,11 @@ export class JiraImport {
   private async reload(): Promise<void> {
     await this.store.preview();
     this.previewed.set(this.store.error() === null);
-    this.selectedKeys.set(new Set(this.store.selectable().map((row) => row.key)));
+    // The union, so a suggested closure arrives ticked like everything else: it is a suggestion,
+    // and the user unticks what should not happen.
+    this.selectedKeys.set(
+      new Set([...this.store.selectable(), ...this.store.closable()].map((row) => row.key)),
+    );
   }
 }
 

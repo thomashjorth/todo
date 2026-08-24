@@ -15,8 +15,10 @@ namespace Todo.Core.Ado;
 /// would be unreachable, which is worse than absent. If one ever arrives, the branch order over in
 /// JiraStatusRoles is load-bearing and says why.
 ///
-/// It answers a bool rather than a two-valued enum. Jira's enum earns itself on three roles; two
-/// values would be a bool with extra steps, and the method name asks the same question either way.
+/// It answered a bool while there were two roles, on the note that Jira's enum earns itself on three.
+/// A third arrived — done — so this is <see cref="AdoStateRole"/> now, and the condition was met
+/// rather than worked around: a state can stand in the waiting list and the done list at once, and a
+/// bool per question could not say which of them wins.
 /// </summary>
 public static class AdoStateRoles
 {
@@ -38,8 +40,25 @@ public static class AdoStateRoles
     /// SettingsEndpoints trimmed on the way in, so a second trim would be dead code and a question
     /// nobody could answer - the same note JiraStatusRoles carries.
     /// </summary>
-    public static bool IsWaiting(string? state, AdoSettings settings) =>
-        state is { } name
-        && !string.IsNullOrWhiteSpace(name)
-        && settings.WaitingStates.Contains(name, StringComparer.Ordinal);
+    public static AdoStateRole For(string? state, AdoSettings settings)
+    {
+        if (state is not { } name || string.IsNullOrWhiteSpace(name))
+        {
+            return AdoStateRole.Actionable;
+        }
+
+        // Done first, and the order is load-bearing exactly as JiraStatusRoles.For's is. A state can
+        // stand in both lists, and a finished work item is not waiting for anybody — reverse these
+        // and a closed item keeps standing as waiting, which both hides the closure offer and leaves
+        // it labelled as work somebody still owes you. Guessing without the reason falls the other
+        // way, because waiting is the older rule.
+        if (settings.DoneStates.Contains(name, StringComparer.Ordinal))
+        {
+            return AdoStateRole.Done;
+        }
+
+        return settings.WaitingStates.Contains(name, StringComparer.Ordinal)
+            ? AdoStateRole.Waiting
+            : AdoStateRole.Actionable;
+    }
 }

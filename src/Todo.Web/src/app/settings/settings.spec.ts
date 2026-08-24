@@ -35,11 +35,13 @@ interface SettingsFixture {
   jiraWaitingStatuses?: string[];
   jiraIncludeWaiting?: boolean;
   jiraDutyStatuses?: string[];
+  jiraDoneStatuses?: string[];
   jiraOnDuty?: boolean;
   hasJiraToken?: boolean;
   adoBaseUrl?: string | null;
   adoProject?: string | null;
   adoWaitingStates?: string[];
+  adoDoneStates?: string[];
   adoIncludeWaiting?: boolean;
   adoWorkItemTypes?: string[];
   adoDefaultDeadlineDays?: number;
@@ -64,11 +66,13 @@ function settingsJson(language: string | null, rest: SettingsFixture = {}): Blob
       jiraWaitingStatuses: [],
       jiraIncludeWaiting: false,
       jiraDutyStatuses: [],
+      jiraDoneStatuses: [],
       jiraOnDuty: false,
       hasJiraToken: false,
       adoBaseUrl: null,
       adoProject: null,
       adoWaitingStates: [],
+      adoDoneStates: [],
       adoIncludeWaiting: false,
       // The three default types, because an empty list is a shape the server cannot send: the read
       // layer answers the defaults for an absent row, and PUT refuses an empty list.
@@ -269,14 +273,15 @@ describe('Settings', () => {
   it('should keep the lists a level down inside their own group', async () => {
     const screen = await open(null);
 
-    // Subsections of their source, not groups beside it. Two under Jira, and three under ADO — the
-    // waiting states, the type filter and the day count. There is deliberately no fourth: Azure
-    // DevOps has no duty pool, so it has no second list of names.
+    // Subsections of their source, not groups beside it. Three under Jira — the waiting statuses,
+    // the duty pool and the done statuses — and four under ADO: the waiting states, the done states,
+    // the type filter and the day count. There is deliberately no duty list under ADO, because Azure
+    // DevOps has no such pool.
     expand(screen, 'jira');
-    expect(screen.element.querySelectorAll('h4')).toHaveLength(2);
+    expect(screen.element.querySelectorAll('h4')).toHaveLength(3);
 
     expand(screen, 'ado');
-    expect(screen.element.querySelectorAll('h4')).toHaveLength(3);
+    expect(screen.element.querySelectorAll('h4')).toHaveLength(4);
 
     // The board question is the same — it belongs to the retro import, and only to it.
     expand(screen, 'retro');

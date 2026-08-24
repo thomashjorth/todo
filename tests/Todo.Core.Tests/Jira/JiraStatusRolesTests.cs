@@ -13,7 +13,10 @@ public class JiraStatusRolesTests
     private const string Pool = "Afventer general";
 
     private static JiraSettings With(
-        string[]? waiting = null, string[]? duty = null, bool onDuty = false) =>
+        string[]? waiting = null,
+        string[]? duty = null,
+        bool onDuty = false,
+        string[]? done = null) =>
         new(
             BaseUrl: "https://jira.example.invalid",
             ProjectKey: "SAAS",
@@ -21,7 +24,8 @@ public class JiraStatusRolesTests
             WaitingStatuses: waiting ?? [],
             IncludeWaiting: false,
             DutyStatuses: duty ?? [],
-            OnDuty: onDuty);
+            OnDuty: onDuty,
+            DoneStatuses: done ?? []);
 
     /// <summary>
     /// The overlap is the main case, not an edge case, and this pair — same fixture, opposite switch
@@ -86,6 +90,55 @@ public class JiraStatusRolesTests
     public void A_duty_status_that_differs_only_in_case_is_not_duty()
     {
         var role = JiraStatusRoles.For(Pool, With(duty: ["afventer general"], onDuty: true));
+
+        Assert.Equal(JiraStatusRole.Actionable, role);
+    }
+
+    [Fact]
+    public void A_status_in_the_done_list_is_done()
+    {
+        var role = JiraStatusRoles.For("Løst", With(done: ["Løst"]));
+
+        Assert.Equal(JiraStatusRole.Done, role);
+    }
+
+    /// <summary>
+    /// Done outranks both of the older rules, and this pair is the only thing that can catch the
+    /// branch being moved: every outcome here is a legal role, so a reversal compiles and reads fine.
+    /// It would simply leave a finished issue standing as waiting — or, with the rotation on, as the
+    /// pool's — which hides the closure offer behind a label saying somebody still owes you the work.
+    /// The duty half is the sharper of the two, because duty is itself a rule that wins.
+    /// </summary>
+    [Fact]
+    public void Done_outranks_waiting_when_a_status_is_in_both_lists()
+    {
+        var role = JiraStatusRoles.For("Løst", With(waiting: ["Løst"], done: ["Løst"]));
+
+        Assert.Equal(JiraStatusRole.Done, role);
+    }
+
+    [Fact]
+    public void Done_outranks_duty_even_while_the_rotation_is_on()
+    {
+        var role = JiraStatusRoles.For(Pool, With(duty: [Pool], onDuty: true, done: [Pool]));
+
+        Assert.Equal(JiraStatusRole.Done, role);
+    }
+
+    /// <summary>
+    /// An empty done list is a valid setting rather than a missing one — it means no suggestions.
+    /// </summary>
+    [Fact]
+    public void An_empty_done_list_makes_nothing_done()
+    {
+        Assert.Equal(JiraStatusRole.Actionable, JiraStatusRoles.For("Løst", With()));
+    }
+
+    /// <summary>Ordinal on this list too, for the reason the two above it are.</summary>
+    [Fact]
+    public void A_done_status_that_differs_only_in_case_is_not_done()
+    {
+        var role = JiraStatusRoles.For("Løst", With(done: ["løst"]));
 
         Assert.Equal(JiraStatusRole.Actionable, role);
     }

@@ -22,6 +22,8 @@ interface PreviewRowJson {
   isWaiting: boolean;
   waitingSince?: string;
   alreadyImported: boolean;
+  suggestsClosing: boolean;
+  doneAt?: string;
   excluded?: string;
 }
 
@@ -34,6 +36,7 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
     workItemType: 'Bug',
     isWaiting: false,
     alreadyImported: false,
+    suggestsClosing: false,
     ...overrides,
   };
 }

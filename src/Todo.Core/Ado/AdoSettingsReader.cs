@@ -24,6 +24,10 @@ public sealed class AdoSettingsReader(TodoDbContext db)
             // != "false" would read an absent row as on. Measured on the Jira pair, and measured again
             // here: it fells Waiting_work_items_are_excluded_until_asked_for.
             IncludeWaiting: Value(rows, SettingKeys.AdoIncludeWaiting) == "true",
+            // Plain SettingList.Read, unlike WorkItemTypes below: an absent or unreadable row reads
+            // as an empty list and an empty list means no suggestions, so there is no default to
+            // fall back to and nothing is lost by a corrupt row beyond the offer itself.
+            DoneStates: SettingList.Read(Value(rows, SettingKeys.AdoDoneStates)),
             WorkItemTypes: WorkItemTypes(Value(rows, SettingKeys.AdoWorkItemTypes)),
             DefaultDeadlineDays: DeadlineDays(Value(rows, SettingKeys.AdoDefaultDeadlineDays)));
     }

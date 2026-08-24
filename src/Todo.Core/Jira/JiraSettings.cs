@@ -16,7 +16,11 @@ public sealed record JiraSettings(
     // the list, and the list must survive a rotation ending. Deliberately not "an empty list means
     // off" for the same reason.
     IReadOnlyList<string> DutyStatuses,
-    bool OnDuty)
+    bool OnDuty,
+    // A third list, and the only one without a switch beside it. Waiting and duty both decide what
+    // comes back or what is imported, so each needs an opt-in; doneness only ever offers. An empty
+    // list is valid and means no suggestions.
+    IReadOnlyList<string> DoneStatuses)
 {
     /// <summary>
     /// The base URL as something that can actually be called, or null. One spelling shared with

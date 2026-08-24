@@ -10,7 +10,7 @@ public class JiraSettingsTests
 {
     private static JiraSettings With(string? baseUrl, string? token = "a-token") =>
         new(baseUrl, ProjectKey: "SAAS", token, WaitingStatuses: [], IncludeWaiting: false,
-            DutyStatuses: [], OnDuty: false);
+            DutyStatuses: [], OnDuty: false, DoneStatuses: []);
 
     [Fact]
     public void A_base_url_and_a_token_is_configured()

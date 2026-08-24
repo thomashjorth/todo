@@ -104,7 +104,17 @@
       "one": "Import {{count}} issue",
       "other": "Import {{count}} issues"
     },
-    "receipt": "{{imported}} imported, {{skipped}} skipped"
+    "receipt": "{{imported}} imported, {{skipped}} skipped",
+    "suggestsClosing": "Done in Jira — close the task here.",
+    "close": {
+      "one": "Close {{count}} task",
+      "other": "Close {{count}} tasks"
+    },
+    "importAndClose": "Import {{imported}} and close {{closed}}",
+    "receiptClosed": {
+      "one": "{{count}} task closed.",
+      "other": "{{count}} tasks closed."
+    }
   },
   "ado": {
     "heading": "ADO import",
@@ -135,7 +145,17 @@
       "one": "Import {{count}} work item",
       "other": "Import {{count}} work items"
     },
-    "receipt": "{{imported}} imported, {{skipped}} skipped"
+    "receipt": "{{imported}} imported, {{skipped}} skipped",
+    "suggestsClosing": "Done in Azure DevOps — close the task here.",
+    "close": {
+      "one": "Close {{count}} task",
+      "other": "Close {{count}} tasks"
+    },
+    "importAndClose": "Import {{imported}} and close {{closed}}",
+    "receiptClosed": {
+      "one": "{{count}} task closed.",
+      "other": "{{count}} tasks closed."
+    }
   },
   "settings": {
     "heading": "Settings",
@@ -188,7 +208,9 @@
       "dutyStatuses": "Which statuses mean the issue is waiting for 2nd level support?",
       "dutyStatusesHint": "Duty beats waiting: if a status is on both lists, the switch below decides what it means.",
       "onDuty": "I am on duty",
-      "onDutyHint": "The 2nd level support issues are included in the import, even when they are not assigned to you, and they arrive actionable rather than waiting."
+      "onDutyHint": "The 2nd level support issues are included in the import, even when they are not assigned to you, and they arrive actionable rather than waiting.",
+      "doneStatuses": "Done statuses",
+      "doneStatusesHint": "An imported issue in one of these makes the import offer to close the task."
     },
     "ado": {
       "baseUrl": "Collection URL",
@@ -213,7 +235,9 @@
       "addWorkItemTypePlaceholder": "For instance Bug",
       "removeWorkItemType": "Remove {{type}}",
       "deadlineDays": "A deadline how many days ahead?",
-      "deadlineDaysHint": "Azure DevOps has no due date field, so the app sets one at import. Zero means no deadline. The change only applies to work items you load from now on."
+      "deadlineDaysHint": "Azure DevOps has no due date field, so the app sets one at import. Zero means no deadline. The change only applies to work items you load from now on.",
+      "doneStates": "Done states",
+      "doneStatesHint": "An imported work item in one of these makes the import offer to close the task."
     }
   },
   "errors": {
@@ -249,7 +273,8 @@
       "rowTitleTooLong": "An issue title is too long.",
       "rowStatusRequired": "An issue is missing its status.",
       "statusNameInvalid": "A status name cannot contain a quotation mark or a backslash. Load the statuses again under Settings.",
-      "excludedWaiting": "You are waiting for it, and waiting issues are turned off."
+      "excludedWaiting": "You are waiting for it, and waiting issues are turned off.",
+      "excludedDone": "The issue is done in Jira and was never imported, so it stays out."
     },
     "ado": {
       "notConfigured": "Azure DevOps is not set up. Fill in the collection URL and the token under Settings.",
@@ -264,7 +289,8 @@
       "workItemTypeInvalid": "A work item type cannot contain a quotation mark or a backslash. Fix the list under Settings.",
       "workItemTypesRequired": "Pick at least one work item type. An empty list does not mean every type.",
       "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline.",
-      "excludedWaiting": "You are waiting for it, and waiting work items are turned off."
+      "excludedWaiting": "You are waiting for it, and waiting work items are turned off.",
+      "excludedDone": "The work item is done in Azure DevOps and was never imported, so it stays out."
     },
     "autostart": {
       "failed": "Autostart could not be changed. Check whether Windows allows it on this machine.",

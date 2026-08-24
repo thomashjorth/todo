@@ -25,6 +25,8 @@ interface PreviewRowJson {
   isWaiting: boolean;
   waitingSince?: string;
   alreadyImported: boolean;
+  suggestsClosing: boolean;
+  doneAt?: string;
   excluded?: string;
 }
 
@@ -40,6 +42,7 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
     deadline: '2026-08-23',
     isWaiting: false,
     alreadyImported: false,
+    suggestsClosing: false,
     ...overrides,
   };
 
@@ -474,5 +477,117 @@ describe('AdoImport', () => {
       screen.fixture.detectChanges();
       expect(checkboxes(screen.element)[0].disabled).toBe(true);
     });
+  });
+
+  /**
+   * A closure candidate is imported-before, and the old rule blocked every imported-before row. It has
+   * to be tickable again — and ticked on arrival, because it is a suggestion and the user unticks what
+   * should not happen. The blocked row beside it is the teeth: without it, "the checkbox is enabled"
+   * would also pass on a screen that stopped blocking anything at all.
+   */
+  it('should offer a finished work item for closing, ticked, beside a row that stays blocked', async () => {
+    const { element } = await preview({
+      total: 2,
+      rows: [
+        row({
+          key: '16901',
+          title: 'Ret regningen',
+          state: 'Resolved',
+          alreadyImported: true,
+          suggestsClosing: true,
+          doneAt: '2026-08-15T09:00:00Z',
+        }),
+        row({ key: '17170', title: 'Skriv testene', alreadyImported: true }),
+      ],
+    });
+
+    const [closing, seenBefore] = rows(element);
+    const [closingBox, seenBeforeBox] = checkboxes(element);
+
+    expect(closing.querySelector('[data-testid="ado-suggests-closing"]')!.textContent).toContain(
+      'Løst i Azure DevOps',
+    );
+    expect(closingBox.disabled).toBe(false);
+    expect(closingBox.checked).toBe(true);
+
+    // The label it took the place of, on the row that did not earn the offer.
+    expect(closing.querySelector('[data-testid="ado-already-imported"]')).toBeNull();
+    expect(seenBefore.querySelector('[data-testid="ado-suggests-closing"]')).toBeNull();
+    expect(seenBeforeBox.disabled).toBe(true);
+    expect(seenBeforeBox.checked).toBe(false);
+  });
+
+  /**
+   * One press, two lists. The row that would be imported and the row that would be closed go into
+   * separate arrays, because the server writes one and updates the other — and `doneAt` rides along
+   * as a fact, since the import deliberately never calls Azure DevOps.
+   */
+  it('should split one press into the rows it imports and the tasks it closes', async () => {
+    const screen = await preview({
+      total: 2,
+      rows: [
+        row({ key: '15664', title: 'Ret rapporten' }),
+        row({
+          key: '16901',
+          title: 'Ret regningen',
+          state: 'Resolved',
+          alreadyImported: true,
+          suggestsClosing: true,
+          doneAt: '2026-08-15T09:00:00Z',
+        }),
+      ],
+    });
+
+    // Both are ticked on arrival, so the button has to say it does two different things.
+    expect(importButton(screen.element).textContent).toContain('Importér 1 og luk 1');
+
+    importButton(screen.element).click();
+
+    const request = await vi.waitFor(() => screen.http.expectOne('/api/ado/import'));
+    const body = JSON.parse(request.request.body);
+
+    expect(body.rows.map((r: { key: string }) => r.key)).toEqual(['15664']);
+    expect(body.closures).toEqual([
+      { key: '16901', state: 'Resolved', doneAt: '2026-08-15T09:00:00Z' },
+    ]);
+
+    request.flush(new Blob([JSON.stringify({ imported: 1, skipped: 0, closed: 1 })]));
+    // Waited for rather than expected outright: the generated client decodes its response through
+    // a Blob, so the reload the import triggers is one microtask behind the flush above.
+    const reload = await vi.waitFor(() => screen.http.expectOne('/api/ado/preview'));
+    reload.flush(new Blob([JSON.stringify({ rows: [], total: 0 })]));
+
+    const receipt = await settled(screen, '[data-testid="ado-receipt"]');
+
+    // Two sentences, and the second only when something was closed: a receipt that always said
+    // "0 lukket" would train the eye to skip the line that matters on the day it is not zero.
+    expect(receipt.textContent).toContain('1 importeret, 0 sprunget over. 1 opgave lukket.');
+  });
+
+  /**
+   * A finished work item nobody imported is kept out with a reason of its own, rather than brought in
+   * as a task that is already over. The reason is an error code, translated through the same path a
+   * refusal takes.
+   */
+  it('should keep a finished work item nobody imported out, and say why', async () => {
+    const { element } = await preview({
+      total: 1,
+      rows: [
+        row({
+          key: '17170',
+          title: 'Luk den gamle sag',
+          state: 'Closed',
+          excluded: 'ado.excludedDone',
+        }),
+      ],
+    });
+
+    const [only] = rows(element);
+
+    expect(only.querySelector('[data-testid="ado-excluded"]')!.textContent).toContain(
+      'løst i Azure DevOps',
+    );
+    expect(checkboxes(element)[0].disabled).toBe(true);
+    expect(importButton(element).disabled).toBe(true);
   });
 });

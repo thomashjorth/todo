@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../api/api-error-message';
 import {
   AdoClient,
+  AdoClosureRow,
   AdoImportRequest,
   AdoImportResponse,
   AdoImportRow,
@@ -48,6 +49,14 @@ export class AdoStore {
   readonly selectable = computed(() =>
     this.rows().filter((row) => !row.excluded && !row.alreadyImported),
   );
+
+  /**
+   * The rows whose work is finished in the source while the local task is not. The server decides
+   * that - all three facts it rests on live there - so this is a filter on one boolean rather than a
+   * rule of its own. They are deliberately not part of `selectable`: those get written as new tasks,
+   * these close ones that already exist, and the import request keeps them in separate lists.
+   */
+  readonly closable = computed(() => this.rows().filter((row) => row.suggestsClosing));
 
   async testConnection(): Promise<void> {
     this.error.set(null);
@@ -106,8 +115,11 @@ export class AdoStore {
    * at all and the import derives it again. `state` and `workItemType` do go, because they are the
    * facts those two decisions are taken from.
    */
-  async import(rows: readonly AdoPreviewRow[]): Promise<AdoImportResponse | undefined> {
-    if (rows.length === 0) {
+  async import(
+    rows: readonly AdoPreviewRow[],
+    closures: readonly AdoPreviewRow[] = [],
+  ): Promise<AdoImportResponse | undefined> {
+    if (rows.length === 0 && closures.length === 0) {
       return undefined;
     }
 
@@ -129,6 +141,23 @@ export class AdoStore {
                   waitingSince: row.waitingSince,
                 }),
             ),
+            // The state travels for the same reason it does on an import row: the server looks it
+            // up in the done list and takes the decision again. doneAt is the fact the client saw -
+            // the import deliberately does not call Azure DevOps, so it cannot look it up.
+            // Omitted when there is nothing to close, so an import-only request is
+            // byte for byte the one this client has always sent - which is what the
+            // contract means by calling the field optional.
+            closures:
+              closures.length === 0
+                ? undefined
+                : closures.map(
+                    (row) =>
+                      new AdoClosureRow({
+                        key: row.key,
+                        state: row.state,
+                        doneAt: row.doneAt,
+                      }),
+                  ),
           }),
         ),
       );

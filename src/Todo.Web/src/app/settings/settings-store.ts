@@ -25,9 +25,11 @@ export interface SettingsChanges {
   jiraIncludeWaiting?: boolean;
   jiraDutyStatuses?: readonly string[];
   jiraOnDuty?: boolean;
+  jiraDoneStatuses?: readonly string[];
   adoBaseUrl?: string | null;
   adoProject?: string | null;
   adoWaitingStates?: readonly string[];
+  adoDoneStates?: readonly string[];
   adoIncludeWaiting?: boolean;
   adoWorkItemTypes?: readonly string[];
   adoDefaultDeadlineDays?: number;
@@ -78,6 +80,13 @@ export class SettingsStore {
   readonly jiraOnDuty = signal(false);
 
   /**
+   * The statuses that mean an issue is finished. No switch beside it, unlike the two lists above:
+   * doneness only ever offers to close a task you already have, so there is nothing to opt into,
+   * and an empty list simply means no suggestions.
+   */
+  readonly jiraDoneStatuses = signal<string[]>([]);
+
+  /**
    * Whether a token is stored. There is deliberately no signal for the token itself: it is
    * write-only, and one held here would sit in every template's scope and outlive the page.
    */
@@ -93,6 +102,9 @@ export class SettingsStore {
    * meaning is `Active` on a Bug and `In Progress` on a Test Suite.
    */
   readonly adoWaitingStates = signal<string[]>([]);
+
+  /** The counterpart of jiraDoneStatuses, and its own list: the two systems spell different words. */
+  readonly adoDoneStates = signal<string[]>([]);
   readonly adoIncludeWaiting = signal(false);
 
   /**
@@ -225,9 +237,11 @@ export class SettingsStore {
       jiraIncludeWaiting: this.jiraIncludeWaiting(),
       jiraDutyStatuses: this.jiraDutyStatuses(),
       jiraOnDuty: this.jiraOnDuty(),
+      jiraDoneStatuses: this.jiraDoneStatuses(),
       adoBaseUrl: this.adoBaseUrl(),
       adoProject: this.adoProject(),
       adoWaitingStates: this.adoWaitingStates(),
+      adoDoneStates: this.adoDoneStates(),
       adoIncludeWaiting: this.adoIncludeWaiting(),
       adoWorkItemTypes: this.adoWorkItemTypes(),
       adoDefaultDeadlineDays: this.adoDefaultDeadlineDays(),
@@ -238,6 +252,8 @@ export class SettingsStore {
     const waiting = [...(next.jiraWaitingStatuses ?? [])];
     const duty = [...(next.jiraDutyStatuses ?? [])];
     const states = [...(next.adoWaitingStates ?? [])];
+    const doneStatuses = [...(next.jiraDoneStatuses ?? [])];
+    const doneStates = [...(next.adoDoneStates ?? [])];
     const types = [...(next.adoWorkItemTypes ?? [])];
     const request = new SettingsRequest({
       language: blank(next.language),
@@ -248,9 +264,13 @@ export class SettingsStore {
       jiraIncludeWaiting: next.jiraIncludeWaiting === true ? true : undefined,
       jiraDutyStatuses: duty.length === 0 ? undefined : duty,
       jiraOnDuty: next.jiraOnDuty === true ? true : undefined,
+      // Empty is how the wire spells cleared, the same as the two lists above and unlike
+      // adoWorkItemTypes, where absent restores a default.
+      jiraDoneStatuses: doneStatuses.length === 0 ? undefined : doneStatuses,
       adoBaseUrl: blank(next.adoBaseUrl),
       adoProject: blank(next.adoProject),
       adoWaitingStates: states.length === 0 ? undefined : states,
+      adoDoneStates: doneStates.length === 0 ? undefined : doneStates,
       adoIncludeWaiting: next.adoIncludeWaiting === true ? true : undefined,
       // The one list where an empty one is not how the wire spells cleared: absent restores the
       // three default types, and a present empty list is refused with ado.workItemTypesRequired. So
@@ -352,11 +372,13 @@ export class SettingsStore {
     this.jiraWaitingStatuses.set(response.jiraWaitingStatuses);
     this.jiraIncludeWaiting.set(response.jiraIncludeWaiting);
     this.jiraDutyStatuses.set(response.jiraDutyStatuses);
+    this.jiraDoneStatuses.set(response.jiraDoneStatuses);
     this.jiraOnDuty.set(response.jiraOnDuty);
     this.hasJiraToken.set(response.hasJiraToken);
     this.adoBaseUrl.set(response.adoBaseUrl ?? null);
     this.adoProject.set(response.adoProject ?? null);
     this.adoWaitingStates.set(response.adoWaitingStates);
+    this.adoDoneStates.set(response.adoDoneStates);
     this.adoIncludeWaiting.set(response.adoIncludeWaiting);
     this.adoWorkItemTypes.set(response.adoWorkItemTypes);
     this.adoDefaultDeadlineDays.set(response.adoDefaultDeadlineDays);

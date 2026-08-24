@@ -2818,6 +2818,10 @@ export class JiraPreviewRow implements IJiraPreviewRow {
     isDuty!: boolean;
     waitingSince?: string | undefined;
     alreadyImported!: boolean;
+    /** Whether import should offer to close the local task, because all three of these hold: the key has been imported before, the status is in the user's done list, and the local task is not done yet. The server's decision rather than three facts for the client to combine — the lists live on the server, and the import takes the decision again. */
+    suggestsClosing!: boolean;
+    /** When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry. */
+    doneAt?: string | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
 
@@ -2843,6 +2847,8 @@ export class JiraPreviewRow implements IJiraPreviewRow {
             this.isDuty = _data["isDuty"];
             this.waitingSince = _data["waitingSince"];
             this.alreadyImported = _data["alreadyImported"];
+            this.suggestsClosing = _data["suggestsClosing"];
+            this.doneAt = _data["doneAt"];
             this.excluded = _data["excluded"];
         }
     }
@@ -2867,6 +2873,8 @@ export class JiraPreviewRow implements IJiraPreviewRow {
         data["isDuty"] = this.isDuty;
         data["waitingSince"] = this.waitingSince;
         data["alreadyImported"] = this.alreadyImported;
+        data["suggestsClosing"] = this.suggestsClosing;
+        data["doneAt"] = this.doneAt;
         data["excluded"] = this.excluded;
         return data;
     }
@@ -2889,6 +2897,10 @@ export interface IJiraPreviewRow {
     isDuty: boolean;
     waitingSince?: string | undefined;
     alreadyImported: boolean;
+    /** Whether import should offer to close the local task, because all three of these hold: the key has been imported before, the status is in the user's done list, and the local task is not done yet. The server's decision rather than three facts for the client to combine — the lists live on the server, and the import takes the decision again. */
+    suggestsClosing: boolean;
+    /** When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry. */
+    doneAt?: string | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
 }
@@ -3008,8 +3020,58 @@ export interface IJiraImportRow {
     waitingSince?: string | undefined;
 }
 
+export class JiraClosureRow implements IJiraClosureRow {
+    key!: string;
+    /** The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides whether that means done by looking it up in the user's done list, and takes the decision again rather than trusting a client that may have previewed under an older setting. */
+    status!: string;
+    /** What the local task's completion time becomes. A fact the client saw, carried the same way waitingSince is — the import deliberately does not call Jira, so it cannot look this up. */
+    doneAt?: string | undefined;
+
+    constructor(data?: IJiraClosureRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.status = _data["status"];
+            this.doneAt = _data["doneAt"];
+        }
+    }
+
+    static fromJS(data: any): JiraClosureRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraClosureRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["status"] = this.status;
+        data["doneAt"] = this.doneAt;
+        return data;
+    }
+}
+
+export interface IJiraClosureRow {
+    key: string;
+    /** The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides whether that means done by looking it up in the user's done list, and takes the decision again rather than trusting a client that may have previewed under an older setting. */
+    status: string;
+    /** What the local task's completion time becomes. A fact the client saw, carried the same way waitingSince is — the import deliberately does not call Jira, so it cannot look this up. */
+    doneAt?: string | undefined;
+}
+
 export class JiraImportRequest implements IJiraImportRequest {
     rows!: JiraImportRow[];
+    /** Tasks already imported whose issue is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent. */
+    closures?: JiraClosureRow[];
 
     constructor(data?: IJiraImportRequest) {
         if (data) {
@@ -3030,6 +3092,11 @@ export class JiraImportRequest implements IJiraImportRequest {
                 for (let item of _data["rows"])
                     this.rows!.push(JiraImportRow.fromJS(item));
             }
+            if (Array.isArray(_data["closures"])) {
+                this.closures = [] as any;
+                for (let item of _data["closures"])
+                    this.closures!.push(JiraClosureRow.fromJS(item));
+            }
         }
     }
 
@@ -3047,17 +3114,26 @@ export class JiraImportRequest implements IJiraImportRequest {
             for (let item of this.rows)
                 data["rows"].push(item ? item.toJSON() : undefined as any);
         }
+        if (Array.isArray(this.closures)) {
+            data["closures"] = [];
+            for (let item of this.closures)
+                data["closures"].push(item ? item.toJSON() : undefined as any);
+        }
         return data;
     }
 }
 
 export interface IJiraImportRequest {
     rows: JiraImportRow[];
+    /** Tasks already imported whose issue is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent. */
+    closures?: JiraClosureRow[];
 }
 
 export class JiraImportResponse implements IJiraImportResponse {
     imported!: number;
     skipped!: number;
+    /** How many local tasks were closed because their issue is done. */
+    closed!: number;
 
     constructor(data?: IJiraImportResponse) {
         if (data) {
@@ -3072,6 +3148,7 @@ export class JiraImportResponse implements IJiraImportResponse {
         if (_data) {
             this.imported = _data["imported"];
             this.skipped = _data["skipped"];
+            this.closed = _data["closed"];
         }
     }
 
@@ -3086,6 +3163,7 @@ export class JiraImportResponse implements IJiraImportResponse {
         data = typeof data === 'object' ? data : {};
         data["imported"] = this.imported;
         data["skipped"] = this.skipped;
+        data["closed"] = this.closed;
         return data;
     }
 }
@@ -3093,6 +3171,8 @@ export class JiraImportResponse implements IJiraImportResponse {
 export interface IJiraImportResponse {
     imported: number;
     skipped: number;
+    /** How many local tasks were closed because their issue is done. */
+    closed: number;
 }
 
 export class AdoConnectionResponse implements IAdoConnectionResponse {
@@ -3197,6 +3277,10 @@ export class AdoPreviewRow implements IAdoPreviewRow {
     /** Microsoft.VSTS.Common.StateChangeDate, which arrives with the work item itself — no second call per row, unlike Jira, whose equivalent required the changelog. */
     waitingSince?: string | undefined;
     alreadyImported!: boolean;
+    /** Whether import should offer to close the local task. See the field of the same name on JiraPreviewRow: the server's decision, taken on three facts, and taken again on import. */
+    suggestsClosing!: boolean;
+    /** Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is. */
+    doneAt?: string | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
 
@@ -3222,6 +3306,8 @@ export class AdoPreviewRow implements IAdoPreviewRow {
             this.isWaiting = _data["isWaiting"];
             this.waitingSince = _data["waitingSince"];
             this.alreadyImported = _data["alreadyImported"];
+            this.suggestsClosing = _data["suggestsClosing"];
+            this.doneAt = _data["doneAt"];
             this.excluded = _data["excluded"];
         }
     }
@@ -3246,6 +3332,8 @@ export class AdoPreviewRow implements IAdoPreviewRow {
         data["isWaiting"] = this.isWaiting;
         data["waitingSince"] = this.waitingSince;
         data["alreadyImported"] = this.alreadyImported;
+        data["suggestsClosing"] = this.suggestsClosing;
+        data["doneAt"] = this.doneAt;
         data["excluded"] = this.excluded;
         return data;
     }
@@ -3270,6 +3358,10 @@ export interface IAdoPreviewRow {
     /** Microsoft.VSTS.Common.StateChangeDate, which arrives with the work item itself — no second call per row, unlike Jira, whose equivalent required the changelog. */
     waitingSince?: string | undefined;
     alreadyImported: boolean;
+    /** Whether import should offer to close the local task. See the field of the same name on JiraPreviewRow: the server's decision, taken on three facts, and taken again on import. */
+    suggestsClosing: boolean;
+    /** Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is. */
+    doneAt?: string | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
 }
@@ -3391,8 +3483,58 @@ export interface IAdoImportRow {
     waitingSince?: string | undefined;
 }
 
+export class AdoClosureRow implements IAdoClosureRow {
+    key!: string;
+    /** The work item state. Sent for the same reason AdoImportRow sends it: the server looks it up in the user's done list and takes the decision again rather than trusting the client. */
+    state!: string;
+    /** What the local task's completion time becomes, carried the same way waitingSince is. The import deliberately does not call Azure DevOps, so it cannot look this up. */
+    doneAt?: string | undefined;
+
+    constructor(data?: IAdoClosureRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.state = _data["state"];
+            this.doneAt = _data["doneAt"];
+        }
+    }
+
+    static fromJS(data: any): AdoClosureRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoClosureRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["state"] = this.state;
+        data["doneAt"] = this.doneAt;
+        return data;
+    }
+}
+
+export interface IAdoClosureRow {
+    key: string;
+    /** The work item state. Sent for the same reason AdoImportRow sends it: the server looks it up in the user's done list and takes the decision again rather than trusting the client. */
+    state: string;
+    /** What the local task's completion time becomes, carried the same way waitingSince is. The import deliberately does not call Azure DevOps, so it cannot look this up. */
+    doneAt?: string | undefined;
+}
+
 export class AdoImportRequest implements IAdoImportRequest {
     rows!: AdoImportRow[];
+    /** Tasks already imported whose work item is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent. */
+    closures?: AdoClosureRow[];
 
     constructor(data?: IAdoImportRequest) {
         if (data) {
@@ -3413,6 +3555,11 @@ export class AdoImportRequest implements IAdoImportRequest {
                 for (let item of _data["rows"])
                     this.rows!.push(AdoImportRow.fromJS(item));
             }
+            if (Array.isArray(_data["closures"])) {
+                this.closures = [] as any;
+                for (let item of _data["closures"])
+                    this.closures!.push(AdoClosureRow.fromJS(item));
+            }
         }
     }
 
@@ -3430,17 +3577,26 @@ export class AdoImportRequest implements IAdoImportRequest {
             for (let item of this.rows)
                 data["rows"].push(item ? item.toJSON() : undefined as any);
         }
+        if (Array.isArray(this.closures)) {
+            data["closures"] = [];
+            for (let item of this.closures)
+                data["closures"].push(item ? item.toJSON() : undefined as any);
+        }
         return data;
     }
 }
 
 export interface IAdoImportRequest {
     rows: AdoImportRow[];
+    /** Tasks already imported whose work item is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent. */
+    closures?: AdoClosureRow[];
 }
 
 export class AdoImportResponse implements IAdoImportResponse {
     imported!: number;
     skipped!: number;
+    /** How many local tasks were closed because their work item is done. */
+    closed!: number;
 
     constructor(data?: IAdoImportResponse) {
         if (data) {
@@ -3455,6 +3611,7 @@ export class AdoImportResponse implements IAdoImportResponse {
         if (_data) {
             this.imported = _data["imported"];
             this.skipped = _data["skipped"];
+            this.closed = _data["closed"];
         }
     }
 
@@ -3469,6 +3626,7 @@ export class AdoImportResponse implements IAdoImportResponse {
         data = typeof data === 'object' ? data : {};
         data["imported"] = this.imported;
         data["skipped"] = this.skipped;
+        data["closed"] = this.closed;
         return data;
     }
 }
@@ -3476,6 +3634,8 @@ export class AdoImportResponse implements IAdoImportResponse {
 export interface IAdoImportResponse {
     imported: number;
     skipped: number;
+    /** How many local tasks were closed because their work item is done. */
+    closed: number;
 }
 
 export class SettingsRequest implements ISettingsRequest {
@@ -3486,6 +3646,8 @@ export class SettingsRequest implements ISettingsRequest {
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses?: string[];
     jiraIncludeWaiting?: boolean;
+    /** Statuses that mean the issue is finished. No switch beside it, unlike the waiting and duty pairs: doneness only ever offers to close a task you already have, so there is nothing to opt into. An empty list is valid and means no suggestions. */
+    jiraDoneStatuses?: string[];
     /** Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting. */
     jiraDutyStatuses?: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
@@ -3493,6 +3655,8 @@ export class SettingsRequest implements ISettingsRequest {
     /** The Azure DevOps collection URL, which may contain a space in its name. */
     adoBaseUrl?: string | undefined;
     adoProject?: string | undefined;
+    /** States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its own list rather than a shared one: the two systems spell different words. */
+    adoDoneStates?: string[];
     /** States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart. */
     adoWaitingStates?: string[];
     /** Whether rows in a waiting state are imported anyway. Off by default. */
@@ -3531,6 +3695,11 @@ The default is load-bearing here and only here. This is a full replacement, so a
                     this.jiraWaitingStatuses!.push(item);
             }
             this.jiraIncludeWaiting = _data["jiraIncludeWaiting"];
+            if (Array.isArray(_data["jiraDoneStatuses"])) {
+                this.jiraDoneStatuses = [] as any;
+                for (let item of _data["jiraDoneStatuses"])
+                    this.jiraDoneStatuses!.push(item);
+            }
             if (Array.isArray(_data["jiraDutyStatuses"])) {
                 this.jiraDutyStatuses = [] as any;
                 for (let item of _data["jiraDutyStatuses"])
@@ -3539,6 +3708,11 @@ The default is load-bearing here and only here. This is a full replacement, so a
             this.jiraOnDuty = _data["jiraOnDuty"];
             this.adoBaseUrl = _data["adoBaseUrl"];
             this.adoProject = _data["adoProject"];
+            if (Array.isArray(_data["adoDoneStates"])) {
+                this.adoDoneStates = [] as any;
+                for (let item of _data["adoDoneStates"])
+                    this.adoDoneStates!.push(item);
+            }
             if (Array.isArray(_data["adoWaitingStates"])) {
                 this.adoWaitingStates = [] as any;
                 for (let item of _data["adoWaitingStates"])
@@ -3577,6 +3751,11 @@ The default is load-bearing here and only here. This is a full replacement, so a
                 data["jiraWaitingStatuses"].push(item);
         }
         data["jiraIncludeWaiting"] = this.jiraIncludeWaiting;
+        if (Array.isArray(this.jiraDoneStatuses)) {
+            data["jiraDoneStatuses"] = [];
+            for (let item of this.jiraDoneStatuses)
+                data["jiraDoneStatuses"].push(item);
+        }
         if (Array.isArray(this.jiraDutyStatuses)) {
             data["jiraDutyStatuses"] = [];
             for (let item of this.jiraDutyStatuses)
@@ -3585,6 +3764,11 @@ The default is load-bearing here and only here. This is a full replacement, so a
         data["jiraOnDuty"] = this.jiraOnDuty;
         data["adoBaseUrl"] = this.adoBaseUrl;
         data["adoProject"] = this.adoProject;
+        if (Array.isArray(this.adoDoneStates)) {
+            data["adoDoneStates"] = [];
+            for (let item of this.adoDoneStates)
+                data["adoDoneStates"].push(item);
+        }
         if (Array.isArray(this.adoWaitingStates)) {
             data["adoWaitingStates"] = [];
             for (let item of this.adoWaitingStates)
@@ -3609,6 +3793,8 @@ export interface ISettingsRequest {
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses?: string[];
     jiraIncludeWaiting?: boolean;
+    /** Statuses that mean the issue is finished. No switch beside it, unlike the waiting and duty pairs: doneness only ever offers to close a task you already have, so there is nothing to opt into. An empty list is valid and means no suggestions. */
+    jiraDoneStatuses?: string[];
     /** Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting. */
     jiraDutyStatuses?: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
@@ -3616,6 +3802,8 @@ export interface ISettingsRequest {
     /** The Azure DevOps collection URL, which may contain a space in its name. */
     adoBaseUrl?: string | undefined;
     adoProject?: string | undefined;
+    /** States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its own list rather than a shared one: the two systems spell different words. */
+    adoDoneStates?: string[];
     /** States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart. */
     adoWaitingStates?: string[];
     /** Whether rows in a waiting state are imported anyway. Off by default. */
@@ -3635,6 +3823,8 @@ export class SettingsResponse implements ISettingsResponse {
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses!: string[];
     jiraIncludeWaiting!: boolean;
+    /** Statuses that mean the issue is finished. No switch beside it, unlike the waiting and duty pairs: doneness only ever offers to close a task you already have, so there is nothing to opt into. An empty list is valid and means no suggestions. */
+    jiraDoneStatuses!: string[];
     /** Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting. */
     jiraDutyStatuses!: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
@@ -3644,6 +3834,8 @@ export class SettingsResponse implements ISettingsResponse {
     /** The Azure DevOps collection URL, which may contain a space in its name. */
     adoBaseUrl?: string | undefined;
     adoProject?: string | undefined;
+    /** States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its own list rather than a shared one: the two systems spell different words. */
+    adoDoneStates!: string[];
     /** States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart. */
     adoWaitingStates!: string[];
     /** Whether rows in a waiting state are imported anyway. Off by default. */
@@ -3667,7 +3859,9 @@ export class SettingsResponse implements ISettingsResponse {
         if (!data) {
             this.delegates = [];
             this.jiraWaitingStatuses = [];
+            this.jiraDoneStatuses = [];
             this.jiraDutyStatuses = [];
+            this.adoDoneStates = [];
             this.adoWaitingStates = [];
             this.adoWorkItemTypes = [];
         }
@@ -3689,6 +3883,11 @@ export class SettingsResponse implements ISettingsResponse {
                     this.jiraWaitingStatuses!.push(item);
             }
             this.jiraIncludeWaiting = _data["jiraIncludeWaiting"];
+            if (Array.isArray(_data["jiraDoneStatuses"])) {
+                this.jiraDoneStatuses = [] as any;
+                for (let item of _data["jiraDoneStatuses"])
+                    this.jiraDoneStatuses!.push(item);
+            }
             if (Array.isArray(_data["jiraDutyStatuses"])) {
                 this.jiraDutyStatuses = [] as any;
                 for (let item of _data["jiraDutyStatuses"])
@@ -3698,6 +3897,11 @@ export class SettingsResponse implements ISettingsResponse {
             this.hasJiraToken = _data["hasJiraToken"];
             this.adoBaseUrl = _data["adoBaseUrl"];
             this.adoProject = _data["adoProject"];
+            if (Array.isArray(_data["adoDoneStates"])) {
+                this.adoDoneStates = [] as any;
+                for (let item of _data["adoDoneStates"])
+                    this.adoDoneStates!.push(item);
+            }
             if (Array.isArray(_data["adoWaitingStates"])) {
                 this.adoWaitingStates = [] as any;
                 for (let item of _data["adoWaitingStates"])
@@ -3738,6 +3942,11 @@ export class SettingsResponse implements ISettingsResponse {
                 data["jiraWaitingStatuses"].push(item);
         }
         data["jiraIncludeWaiting"] = this.jiraIncludeWaiting;
+        if (Array.isArray(this.jiraDoneStatuses)) {
+            data["jiraDoneStatuses"] = [];
+            for (let item of this.jiraDoneStatuses)
+                data["jiraDoneStatuses"].push(item);
+        }
         if (Array.isArray(this.jiraDutyStatuses)) {
             data["jiraDutyStatuses"] = [];
             for (let item of this.jiraDutyStatuses)
@@ -3747,6 +3956,11 @@ export class SettingsResponse implements ISettingsResponse {
         data["hasJiraToken"] = this.hasJiraToken;
         data["adoBaseUrl"] = this.adoBaseUrl;
         data["adoProject"] = this.adoProject;
+        if (Array.isArray(this.adoDoneStates)) {
+            data["adoDoneStates"] = [];
+            for (let item of this.adoDoneStates)
+                data["adoDoneStates"].push(item);
+        }
         if (Array.isArray(this.adoWaitingStates)) {
             data["adoWaitingStates"] = [];
             for (let item of this.adoWaitingStates)
@@ -3773,6 +3987,8 @@ export interface ISettingsResponse {
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses: string[];
     jiraIncludeWaiting: boolean;
+    /** Statuses that mean the issue is finished. No switch beside it, unlike the waiting and duty pairs: doneness only ever offers to close a task you already have, so there is nothing to opt into. An empty list is valid and means no suggestions. */
+    jiraDoneStatuses: string[];
     /** Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting. */
     jiraDutyStatuses: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
@@ -3782,6 +3998,8 @@ export interface ISettingsResponse {
     /** The Azure DevOps collection URL, which may contain a space in its name. */
     adoBaseUrl?: string | undefined;
     adoProject?: string | undefined;
+    /** States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its own list rather than a shared one: the two systems spell different words. */
+    adoDoneStates: string[];
     /** States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart. */
     adoWaitingStates: string[];
     /** Whether rows in a waiting state are imported anyway. Off by default. */

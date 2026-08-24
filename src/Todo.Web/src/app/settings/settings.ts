@@ -69,6 +69,11 @@ export class Settings {
     this.optionsFor(this.settings.jiraDutyStatuses()),
   );
 
+  /** The same fetched list a third time, for the statuses that mean the issue is finished. */
+  protected readonly doneStatusOptions = computed(() =>
+    this.optionsFor(this.settings.jiraDoneStatuses()),
+  );
+
   /**
    * The Azure DevOps states to pick from: what the server answered, plus anything already chosen it
    * did not mention. The second half matters more here than it does for Jira, because the list comes
@@ -77,9 +82,13 @@ export class Settings {
    */
   protected readonly stateOptions = computed(() => {
     const fetched = this.ado.states();
-    const chosen = this.settings.adoWaitingStates();
+    // Both chosen lists, deduplicated: one fetched answer serves both pickers, and a state the
+    // answer did not mention has to stay tickable whichever list put it there. A plain concat
+    // would show a state twice when it sits in both lists and in neither fetched answer.
+    const chosen = [...this.settings.adoWaitingStates(), ...this.settings.adoDoneStates()];
+    const extra = new Set(chosen.filter((name) => !fetched.includes(name)));
 
-    return [...fetched, ...chosen.filter((name) => !fetched.includes(name))];
+    return [...fetched, ...extra];
   });
 
   constructor() {
@@ -188,6 +197,21 @@ export class Settings {
     void this.settings.saveJira({ jiraOnDuty: onDuty });
   }
 
+  protected isDoneStatus(status: string): boolean {
+    return this.settings.jiraDoneStatuses().includes(status);
+  }
+
+  protected toggleDoneStatus(status: string, done: boolean): void {
+    const current = this.settings.jiraDoneStatuses();
+    if (done === current.includes(status)) {
+      return;
+    }
+
+    void this.settings.saveJira({
+      jiraDoneStatuses: done ? [...current, status] : current.filter((n) => n !== status),
+    });
+  }
+
   protected saveAdoBaseUrl(value: string): void {
     void this.settings.saveAdo({ adoBaseUrl: value });
   }
@@ -219,6 +243,21 @@ export class Settings {
 
     void this.settings.saveAdo({
       adoWaitingStates: waiting ? [...current, state] : current.filter((n) => n !== state),
+    });
+  }
+
+  protected isDoneState(state: string): boolean {
+    return this.settings.adoDoneStates().includes(state);
+  }
+
+  protected toggleDoneState(state: string, done: boolean): void {
+    const current = this.settings.adoDoneStates();
+    if (done === current.includes(state)) {
+      return;
+    }
+
+    void this.settings.saveAdo({
+      adoDoneStates: done ? [...current, state] : current.filter((n) => n !== state),
     });
   }
 

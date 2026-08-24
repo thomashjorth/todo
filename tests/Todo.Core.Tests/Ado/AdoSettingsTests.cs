@@ -10,7 +10,7 @@ namespace Todo.Core.Tests.Ado;
 public class AdoSettingsTests
 {
     private static AdoSettings With(string? baseUrl, string? token = "a-token", string? project = "Saas") =>
-        new(baseUrl, project, token, WaitingStates: [], IncludeWaiting: false,
+        new(baseUrl, project, token, WaitingStates: [], IncludeWaiting: false, DoneStates: [],
             WorkItemTypes: AdoDefaults.WorkItemTypes, DefaultDeadlineDays: AdoDefaults.DeadlineDays);
 
     [Fact]

@@ -17,6 +17,16 @@ public static class JiraStatusRoles
     /// </summary>
     public static JiraStatusRole For(string statusName, JiraSettings settings)
     {
+        // Done first, and this branch is as load-bearing as the duty one below. A status can sit in
+        // two lists, and a finished issue is not waiting for anybody — reverse these and a resolved
+        // issue keeps standing as "waiting for the pool", which both hides the closure offer behind
+        // the duty branch and leaves it labelled as work somebody still owes you. No switch guards
+        // it, unlike duty: an empty done list already means nothing matches.
+        if (settings.DoneStatuses.Contains(statusName, StringComparer.Ordinal))
+        {
+            return JiraStatusRole.Done;
+        }
+
         if (settings.OnDuty
             && settings.DutyStatuses.Contains(statusName, StringComparer.Ordinal))
         {

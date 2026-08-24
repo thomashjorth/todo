@@ -18,6 +18,13 @@ public sealed record AdoSettings(
     string? Token,
     IReadOnlyList<string> WaitingStates,
     bool IncludeWaiting,
+    // The states that mean the work item is finished. No switch beside it, unlike the waiting pair,
+    // and that is the difference between the two lists rather than an omission: waiting-ness decides
+    // whether a row is imported at all, so it needs an opt-in, while doneness only ever offers - an
+    // already-imported row gets a suggestion, a new one is kept out. An empty list is valid and means
+    // no suggestions, which is the opposite of WorkItemTypes above; the near trap is copying the
+    // wrong one of the two precedents.
+    IReadOnlyList<string> DoneStates,
     // Never empty. The reader turns both an absent row and an unreadable one into AdoDefaults, because
     // an empty type filter would either import test artefacts or import nothing, and neither is what
     // emptying a list means.

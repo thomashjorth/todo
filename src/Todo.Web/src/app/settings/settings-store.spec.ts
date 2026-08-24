@@ -37,11 +37,13 @@ interface SettingsJson {
   jiraWaitingStatuses?: string[];
   jiraIncludeWaiting?: boolean;
   jiraDutyStatuses?: string[];
+  jiraDoneStatuses?: string[];
   jiraOnDuty?: boolean;
   hasJiraToken?: boolean;
   adoBaseUrl?: string | null;
   adoProject?: string | null;
   adoWaitingStates?: string[];
+  adoDoneStates?: string[];
   adoIncludeWaiting?: boolean;
   adoWorkItemTypes?: string[];
   adoDefaultDeadlineDays?: number;
@@ -59,11 +61,13 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       jiraWaitingStatuses: [],
       jiraIncludeWaiting: false,
       jiraDutyStatuses: [],
+      jiraDoneStatuses: [],
       jiraOnDuty: false,
       hasJiraToken: false,
       adoBaseUrl: null,
       adoProject: null,
       adoWaitingStates: [],
+      adoDoneStates: [],
       adoIncludeWaiting: false,
       // Never empty on the wire: the read layer answers the three defaults for an absent row, and
       // PUT refuses an empty list rather than storing one, so `[]` is a shape the server cannot send.

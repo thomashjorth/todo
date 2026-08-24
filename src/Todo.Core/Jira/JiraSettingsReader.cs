@@ -26,7 +26,8 @@ public sealed class JiraSettingsReader(TodoDbContext db)
             IncludeWaiting: Value(rows, SettingKeys.JiraIncludeWaiting) == "true",
             DutyStatuses: SettingList.Read(Value(rows, SettingKeys.JiraDutyStatuses)),
             // Same asymmetry as IncludeWaiting above, for the same reason, and read the same way.
-            OnDuty: Value(rows, SettingKeys.JiraOnDuty) == "true");
+            OnDuty: Value(rows, SettingKeys.JiraOnDuty) == "true",
+            DoneStatuses: SettingList.Read(Value(rows, SettingKeys.JiraDoneStatuses)));
     }
 
     private static string? Value(Dictionary<string, string> rows, string key) =>

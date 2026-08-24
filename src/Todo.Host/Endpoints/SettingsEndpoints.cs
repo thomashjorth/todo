@@ -81,6 +81,8 @@ public static class SettingsEndpoints
             await StoreAsync(
                 db, SettingKeys.JiraWaitingStatuses, OrdinalNameList(request.JiraWaitingStatuses));
             await StoreAsync(db, SettingKeys.JiraDutyStatuses, OrdinalNameList(request.JiraDutyStatuses));
+            await StoreAsync(
+                db, SettingKeys.JiraDoneStatuses, OrdinalNameList(request.JiraDoneStatuses));
 
             // Stored only when on. Not tidiness - two tests in SettingsEndpointsTests assert about
             // the whole Settings table and go red on a "false" row left behind by a save that never
@@ -102,6 +104,7 @@ public static class SettingsEndpoints
             await StoreAsync(db, SettingKeys.AdoBaseUrl, BaseUrl(request.AdoBaseUrl));
             await StoreAsync(db, SettingKeys.AdoProject, Blank(request.AdoProject));
             await StoreAsync(db, SettingKeys.AdoWaitingStates, OrdinalNameList(request.AdoWaitingStates));
+            await StoreAsync(db, SettingKeys.AdoDoneStates, OrdinalNameList(request.AdoDoneStates));
             await StoreAsync(db, SettingKeys.AdoWorkItemTypes, OrdinalNameList(request.AdoWorkItemTypes));
 
             // Same asymmetry as the two Jira switches above, for the same reason, and read the same way
@@ -286,12 +289,14 @@ public static class SettingsEndpoints
             JiraWaitingStatuses = [.. jira.WaitingStatuses],
             JiraIncludeWaiting = jira.IncludeWaiting,
             JiraDutyStatuses = [.. jira.DutyStatuses],
+            JiraDoneStatuses = [.. jira.DoneStatuses],
             JiraOnDuty = jira.OnDuty,
             // The token itself is deliberately absent. Only whether there is one.
             HasJiraToken = jira.Token is not null,
             AdoBaseUrl = ado.BaseUrl,
             AdoProject = ado.Project,
             AdoWaitingStates = [.. ado.WaitingStates],
+            AdoDoneStates = [.. ado.DoneStates],
             AdoIncludeWaiting = ado.IncludeWaiting,
             // The effective list and the effective number, not the stored ones: the defaults live in
             // the reader, and the client has no second place to learn them from.

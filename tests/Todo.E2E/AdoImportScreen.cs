@@ -93,6 +93,13 @@ public sealed class AdoImportScreen(TodoApp app)
     public static ILocator AlreadyImportedIn(ILocator row) => row.GetByTestId("ado-already-imported");
 
     /// <summary>
+    /// The offer to close a task whose work item is finished. It takes the place of
+    /// <see cref="AlreadyImportedIn"/> rather than sitting beside it — a row that offers a closure was
+    /// necessarily imported before, so a template that put "imported earlier" first would swallow it.
+    /// </summary>
+    public static ILocator SuggestsClosingIn(ILocator row) => row.GetByTestId("ado-suggests-closing");
+
+    /// <summary>
     /// The button that opens a previewed work item in the system's browser. Scoped to the row, because
     /// every row has one — the contract makes <c>url</c> required, so no branch can leave it out. It is
     /// a &lt;button&gt; rather than an &lt;a href&gt;: the Photino window has neither an address bar

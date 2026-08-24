@@ -159,6 +159,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "isWaiting": true,
               "waitingSince": "2026-08-05T09:12:00Z",
               "alreadyImported": false,
+              "suggestsClosing": false,
               "excluded": "jira.excludedWaiting"
             },
             {
@@ -167,7 +168,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "url": "https://jira.test/browse/SAAS-3",
               "status": "I gang",
               "isWaiting": false,
-              "alreadyImported": true
+              "alreadyImported": true,
+              "suggestsClosing": false
             }
           ],
           "total": 2
@@ -194,7 +196,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "status": "I gang",
               "isWaiting": false,
               "isDuty": true,
-              "alreadyImported": false
+              "alreadyImported": false,
+              "suggestsClosing": false
             }
           ],
           "total": 1
@@ -230,6 +233,41 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// while the route handler looks like it covered the case. There is no <c>isDuty</c>: Azure DevOps
     /// has no duty pool, so the label has no counterpart here.
     /// </summary>
+    /// <summary>
+    /// The two branches the closure suggestion added, and neither can be reached from the answers
+    /// above: one needs a row that was imported before <em>and</em> stands in a done state, the other
+    /// needs a done state on a row that was not. Both are colours no fixture painted before.
+    /// </summary>
+    private const string DoneWorkItems = """
+        {
+          "rows": [
+            {
+              "key": "16901",
+              "title": "Ret regningen",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/16901",
+              "state": "Resolved",
+              "workItemType": "Bug",
+              "isWaiting": false,
+              "alreadyImported": true,
+              "suggestsClosing": true,
+              "doneAt": "2026-08-15T09:00:00Z"
+            },
+            {
+              "key": "17170",
+              "title": "Luk den gamle sag",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/17170",
+              "state": "Closed",
+              "workItemType": "Task",
+              "isWaiting": false,
+              "alreadyImported": false,
+              "suggestsClosing": false,
+              "excluded": "ado.excludedDone"
+            }
+          ],
+          "total": 2
+        }
+        """;
+
     private const string BlockedWorkItems = """
         {
           "rows": [
@@ -242,6 +280,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "isWaiting": true,
               "waitingSince": "2026-08-05T09:12:00Z",
               "alreadyImported": false,
+              "suggestsClosing": false,
               "excluded": "ado.excludedWaiting"
             },
             {
@@ -252,7 +291,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "state": "PO Review",
               "workItemType": "Task",
               "isWaiting": false,
-              "alreadyImported": true
+              "alreadyImported": true,
+              "suggestsClosing": false
             }
           ],
           "total": 2
@@ -276,7 +316,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "state": "Active",
               "workItemType": "Bug",
               "isWaiting": false,
-              "alreadyImported": false
+              "alreadyImported": false,
+              "suggestsClosing": false
             }
           ],
           "total": 1
@@ -898,6 +939,24 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             .ToHaveTextAsync($"Opgavestiller: {Requester}");
         await Assertions.Expect(AdoImportScreen.NoteIn(importable))
             .ToHaveTextAsync("Beskrivelsen følger med.");
+
+        // The closure offer and its neighbour, which are two branches nothing else on this screen can
+        // reach. The button carries a third label here — neither "Importér" nor a disabled count — so
+        // its enabled colours are measured under a third sentence as well.
+        preview = (200, DoneWorkItems);
+
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.Rows).ToHaveCountAsync(2);
+        await Assertions.Expect(AdoImportScreen.SuggestsClosingIn(ado.Row("Ret regningen")))
+            .ToHaveTextAsync("Løst i Azure DevOps — luk opgaven her.");
+        await Assertions.Expect(AdoImportScreen.ExcludedIn(ado.Row("Luk den gamle sag")))
+            .ToContainTextAsync("løst i Azure DevOps");
+        await Assertions.Expect(ado.ImportButton).ToHaveTextAsync("Luk 1 opgave");
+        await Snapshot();
+
+        preview = (200, OneImportableWorkItem);
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.Rows).ToHaveCountAsync(1);
 
         // The button that opens the work item before anyone imports it. No branch guards it — the
         // contract makes <c>url</c> required — so this colour is measured without a fixture state of

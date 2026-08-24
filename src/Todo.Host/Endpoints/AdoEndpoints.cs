@@ -109,7 +109,19 @@ public static class AdoEndpoints
                 {
                     // One rule, in Todo.Core, because this decision is taken twice - here and in the
                     // import below - and two places is two places it can be forgotten.
-                    var isWaiting = AdoStateRoles.IsWaiting(item.StatusName, settings);
+                    var role = AdoStateRoles.For(item.StatusName, settings);
+                    var isWaiting = role == AdoStateRole.Waiting;
+
+                    // Three facts, combined here rather than shipped separately: the lists live on the
+                    // server, so the decision is the server's, and the import takes it again. The
+                    // local status is what stops the offer once it has been accepted - without it the
+                    // same row would keep suggesting a closure it already got.
+                    var localStatus = imported.TryGetValue(item.Key, out var found)
+                        ? (CoreStatus?)found
+                        : null;
+                    var suggestsClosing = role == AdoStateRole.Done
+                        && localStatus is { } status
+                        && status != CoreStatus.Done;
 
                     rows.Add(new AdoPreviewRow
                     {
@@ -154,10 +166,21 @@ public static class AdoEndpoints
                         // answer null a second time - one wasted round trip for every row whose
                         // timestamp was unreadable. The fallback is for a source with no such field.
                         WaitingSince = isWaiting ? AsUtc(item.StatusChangedAt) : null,
-                        AlreadyImported = imported.Contains(item.Key),
-                        Excluded = isWaiting && !settings.IncludeWaiting
-                            ? ErrorCodes.AdoExcludedWaiting
-                            : null,
+                        AlreadyImported = localStatus is not null,
+                        SuggestsClosing = suggestsClosing,
+                        // Only for the rows that will use it, which is the same rule WaitingSince
+                        // follows one line up - and the reason this is its own field rather than a
+                        // loosened WaitingSince: that one is null for every row that is not waiting,
+                        // and a finished row never is.
+                        DoneAt = suggestsClosing ? AsUtc(item.StatusChangedAt) : null,
+                        // Done first, so a finished work item that was never imported is kept out
+                        // rather than brought in as a fresh open task. Shown rather than hidden, the
+                        // same choice the waiting rows make.
+                        Excluded = role == AdoStateRole.Done && localStatus is null
+                            ? ErrorCodes.AdoExcludedDone
+                            : isWaiting && !settings.IncludeWaiting
+                                ? ErrorCodes.AdoExcludedWaiting
+                                : null,
                     });
                 }
 
@@ -193,10 +216,23 @@ public static class AdoEndpoints
             }
 
             var rows = request.Rows ?? [];
+            var closures = request.Closures ?? [];
 
             foreach (var row in rows)
             {
                 if (ValidateRow(row) is { } invalid)
+                {
+                    return invalid;
+                }
+            }
+
+            // Validated in the same pass and before anything is written, so a bad closure cannot leave
+            // half an import behind. The codes are the row codes rather than new ones: it is the same
+            // two facts being refused, and a second pair would be two more translations for a sentence
+            // that already exists.
+            foreach (var closure in closures)
+            {
+                if (ValidateClosure(closure) is { } invalid)
                 {
                     return invalid;
                 }
@@ -226,7 +262,17 @@ public static class AdoEndpoints
                 // Re-derived here rather than taken from the body, which is why the row carries Azure
                 // DevOps' state name and not the decision: the list and the switch live on the server,
                 // so the settings as they stand now decide, even if the preview ran under older ones.
-                var isWaiting = AdoStateRoles.IsWaiting(row.State, settings);
+                var role = AdoStateRoles.For(row.State, settings);
+                var isWaiting = role == AdoStateRole.Waiting;
+
+                // A finished work item is never imported as a new task. The preview already marks it
+                // excluded, so reaching this needs a client that previewed under an older done list -
+                // which is exactly the case the rule is re-applied for.
+                if (role == AdoStateRole.Done)
+                {
+                    skipped++;
+                    continue;
+                }
 
                 if (isWaiting && !settings.IncludeWaiting)
                 {
@@ -234,7 +280,7 @@ public static class AdoEndpoints
                     continue;
                 }
 
-                if (!known.Add(row.Key))
+                if (!known.TryAdd(row.Key, CoreStatus.Open))
                 {
                     skipped++;
                     continue;
@@ -259,9 +305,16 @@ public static class AdoEndpoints
                 imported++;
             }
 
+            var closed = await CloseAsync(db, settings, clock, closures, () => skipped++);
+
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(new AdoImportResponse { Imported = imported, Skipped = skipped });
+            return TypedResults.Ok(new AdoImportResponse
+            {
+                Imported = imported,
+                Skipped = skipped,
+                Closed = closed,
+            });
         })
         .WithName("importAdo")
         .WithTags("Ado")
@@ -306,6 +359,80 @@ public static class AdoEndpoints
                 "At least one work item type is needed, or the import would take everything.")
             : null;
 
+    /// <summary>
+    /// The two facts a closure has to carry, refused with the row codes rather than codes of their
+    /// own: it is the same key and the same state name being demanded, so a second pair would be two
+    /// more translations for a sentence that already exists.
+    /// </summary>
+    private static BadRequest<ApiError>? ValidateClosure(AdoClosureRow closure)
+    {
+        if (string.IsNullOrWhiteSpace(closure.Key))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.AdoRowKeyRequired, "Every row needs a key.");
+        }
+
+        return string.IsNullOrWhiteSpace(closure.State)
+            ? ApiErrors.BadRequest(
+                ErrorCodes.AdoRowStateRequired, "Every row needs its Azure DevOps state name.")
+            : null;
+    }
+
+    /// <summary>
+    /// Closes the local tasks whose work item is finished, and answers how many.
+    ///
+    /// Every decision is taken again here rather than trusted: the done list lives on the server, the
+    /// task has to exist and belong to this source, and it must not already be done. A client that
+    /// previewed under an older list is the ordinary case, not the adversarial one.
+    ///
+    /// The completion time comes from the row because the import deliberately does not call Azure
+    /// DevOps - the same way <c>waitingSince</c> travels. It cannot come from
+    /// <c>PUT /api/tasks/{id}</c> either: that route sets <c>CompletedAt</c> to the clock's now on
+    /// every move into Done, so routing a closure through it would throw the source's timestamp away
+    /// silently. <c>clock.UtcNow</c> is only the fallback for a row whose timestamp was unreadable.
+    ///
+    /// <c>WaitingSince</c> is cleared for the same reason TaskEndpoints clears it: only the move into
+    /// waiting starts that clock, and a task that is finished is not waiting on anybody.
+    /// </summary>
+    private static async Task<int> CloseAsync(
+        TodoDbContext db,
+        AdoSettings settings,
+        IClock clock,
+        ICollection<AdoClosureRow> closures,
+        Action skip)
+    {
+        if (closures.Count == 0)
+        {
+            return 0;
+        }
+
+        var keys = closures.Select(closure => closure.Key).ToList();
+        var tasks = await db.Tasks
+            .Where(t => t.SourceId == AdoTaskSource.Id
+                && t.ExternalKey != null
+                && keys.Contains(t.ExternalKey))
+            .ToDictionaryAsync(t => t.ExternalKey!, t => t, StringComparer.Ordinal);
+
+        var closed = 0;
+
+        foreach (var closure in closures)
+        {
+            if (AdoStateRoles.For(closure.State, settings) != AdoStateRole.Done
+                || !tasks.TryGetValue(closure.Key, out var task)
+                || task.Status == CoreStatus.Done)
+            {
+                skip();
+                continue;
+            }
+
+            task.Status = CoreStatus.Done;
+            task.CompletedAt = closure.DoneAt?.UtcDateTime ?? clock.UtcNow;
+            task.WaitingSince = null;
+            closed++;
+        }
+
+        return closed;
+    }
+
     private static BadRequest<ApiError>? ValidateRow(AdoImportRow row)
     {
         if (string.IsNullOrWhiteSpace(row.Key))
@@ -346,16 +473,24 @@ public static class AdoEndpoints
     /// the same key - a work item id is a bare number, so the collision is likelier here than it was
     /// for Jira - and one counting as another would hide real work behind something unrelated.
     /// </summary>
-    private static async Task<HashSet<string>> ImportedKeysAsync(TodoDbContext db, List<string> keys)
+    /// <summary>
+    /// The keys already imported, each with the local task's status.
+    ///
+    /// The status is what turns a one-off suggestion into one that stops coming back: a closure is
+    /// only offered while the local task is <em>not</em> done, and a set of keys cannot say that. It
+    /// was a <c>HashSet&lt;string&gt;</c> until the closure suggestion needed the second half.
+    /// </summary>
+    private static async Task<Dictionary<string, CoreStatus>> ImportedKeysAsync(
+        TodoDbContext db, List<string> keys)
     {
         var found = await db.Tasks
             .Where(t => t.SourceId == AdoTaskSource.Id
                 && t.ExternalKey != null
                 && keys.Contains(t.ExternalKey))
-            .Select(t => t.ExternalKey!)
+            .Select(t => new { Key = t.ExternalKey!, t.Status })
             .ToListAsync();
 
-        return new HashSet<string>(found, StringComparer.Ordinal);
+        return found.ToDictionary(row => row.Key, row => row.Status, StringComparer.Ordinal);
     }
 
     // The source hands over UTC, because SQLite cannot sort a DateTimeOffset and one must never reach

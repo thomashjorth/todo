@@ -17,6 +17,7 @@ public class AdoWorkItemTypesTests
             Token: "a-token",
             WaitingStates: [],
             IncludeWaiting: false,
+            DoneStates: [],
             WorkItemTypes: workItemTypes,
             DefaultDeadlineDays: AdoDefaults.DeadlineDays);
 

@@ -47,7 +47,8 @@ public class AdoEndpointsTests : ApiTest
         string? project = FakeAdo.Project,
         string[]? waitingStates = null,
         string[]? workItemTypes = null,
-        int defaultDeadlineDays = AdoDefaults.DeadlineDays)
+        int defaultDeadlineDays = AdoDefaults.DeadlineDays,
+        string[]? doneStates = null)
     {
         var ado = await FakeAdo.StartAsync();
 
@@ -57,6 +58,7 @@ public class AdoEndpointsTests : ApiTest
             adoBaseUrl = ado.BaseUrl,
             adoProject = project,
             adoWaitingStates = waitingStates ?? ["Blocked"],
+            adoDoneStates = doneStates ?? [],
             adoIncludeWaiting = includeWaiting,
             adoWorkItemTypes = workItemTypes ?? [.. AdoDefaults.WorkItemTypes],
             adoDefaultDeadlineDays = defaultDeadlineDays,
@@ -528,6 +530,207 @@ public class AdoEndpointsTests : ApiTest
     /// One row as the client sends it: the key, the title, the state and the type, and deliberately no
     /// deadline and no isWaiting - the facts, not the decisions.
     /// </summary>
+    /// <summary>
+    /// A finished work item that was never imported is kept out rather than brought in as a fresh open
+    /// task - decision 5. Shown rather than hidden, the same choice the waiting rows make, so the row
+    /// is still on screen with a reason on it.
+    /// </summary>
+    [Fact]
+    public async Task A_done_work_item_that_was_never_imported_is_kept_out()
+    {
+        await using var ado = await ConfigureAsync(doneStates: ["Active"]);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "16901");
+
+        Assert.Equal(ErrorCodes.AdoExcludedDone, row.Excluded);
+        Assert.False(row.SuggestsClosing);
+        Assert.False(row.AlreadyImported);
+    }
+
+    /// <summary>
+    /// The whole point of the feature, walked through the real import rather than seeded: the work item
+    /// is imported while Active still means work, then the user calls Active finished, and the next
+    /// preview offers to close the task.
+    /// </summary>
+    [Fact]
+    public async Task A_done_work_item_that_was_imported_before_offers_to_close_the_task()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+        await SetDoneStatesAsync("Active");
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "16901");
+
+        Assert.True(row.SuggestsClosing);
+        Assert.True(row.AlreadyImported);
+
+        // Not excluded: the row has something to do, and an excluded row is one that has not.
+        Assert.Null(row.Excluded);
+
+        // Azure DevOps' own state change date, off the work item rather than fetched - and the exact
+        // value, because a near-enough assertion would also pass on the clock's now.
+        Assert.Equal(
+            new DateTimeOffset(2026, 8, 15, 9, 0, 0, TimeSpan.Zero), row.DoneAt);
+    }
+
+    /// <summary>
+    /// The offer stops once it has been taken. This is the whole reason the preview reads the local
+    /// <em>status</em> and not just the set of imported keys: with a key set the same row would suggest
+    /// a closure it already got, on every preview, forever.
+    /// </summary>
+    [Fact]
+    public async Task A_task_that_is_already_done_is_not_offered_again()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+        await SetDoneStatesAsync("Active");
+        await CloseAsync(Closure());
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "16901");
+
+        Assert.False(row.SuggestsClosing);
+        Assert.True(row.AlreadyImported);
+    }
+
+    /// <summary>
+    /// The completion time is the source's, not the clock's, and the fixture is what gives this teeth:
+    /// PUT /api/tasks/{id} sets CompletedAt to the clock's now on every move into Done, so a closure
+    /// routed through that path - or one that simply forgot the field - would answer 2026-08-20 here.
+    /// The work item changed state on 2026-08-15, five days earlier, and the assertion is on the exact
+    /// value.
+    /// </summary>
+    [Fact]
+    public async Task Closing_takes_the_completion_time_from_the_source()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+        await SetDoneStatesAsync("Active");
+
+        var result = await CloseAsync(Closure());
+
+        Assert.Equal(1, result.Closed);
+        Assert.Equal(0, result.Imported);
+
+        var task = Assert.Single((await Tasks(includeCompleted: true)).Items);
+
+        Assert.Equal(TodoStatus.Done, task.Status);
+        Assert.Equal(new DateTimeOffset(2026, 8, 15, 9, 0, 0, TimeSpan.Zero), task.CompletedAt);
+    }
+
+    /// <summary>
+    /// The rule is taken again on the way in. A client that previewed under an older done list is the
+    /// ordinary case rather than the adversarial one, and the settings as they stand now decide.
+    /// </summary>
+    [Fact]
+    public async Task A_closure_whose_state_is_not_in_the_done_list_is_skipped()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+
+        var result = await CloseAsync(Closure());
+
+        Assert.Equal(0, result.Closed);
+        Assert.Equal(1, result.Skipped);
+
+        var task = Assert.Single((await Tasks()).Items);
+
+        Assert.Equal(TodoStatus.Open, task.Status);
+    }
+
+    [Fact]
+    public async Task A_closure_for_a_work_item_that_was_never_imported_is_skipped()
+    {
+        await using var ado = await ConfigureAsync(doneStates: ["Active"]);
+
+        var result = await CloseAsync(Closure());
+
+        Assert.Equal(0, result.Closed);
+        Assert.Equal(1, result.Skipped);
+        Assert.Empty((await Tasks()).Items);
+    }
+
+    /// <summary>
+    /// The same two facts an import row is refused for, with the same two codes: a second pair would be
+    /// two more translations for a sentence that already exists.
+    /// </summary>
+    [Theory]
+    [InlineData(null, "Active", ErrorCodes.AdoRowKeyRequired)]
+    [InlineData("16901", null, ErrorCodes.AdoRowStateRequired)]
+    public async Task A_closure_without_its_two_facts_is_refused(string? key, string? state, string code)
+    {
+        await using var ado = await ConfigureAsync(doneStates: ["Active"]);
+
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/ado/import", new { rows = Array.Empty<object>(), closures = new[] { new { key, state } } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(code, (await response.Content.ReadFromJsonAsync<ApiError>())!.Code);
+    }
+
+    /// <summary>
+    /// A finished work item is never written as a new task, even when the client asks. The preview
+    /// already marks it excluded, so reaching this needs a client that previewed under an older done
+    /// list - which is exactly what the re-applied rule is for.
+    /// </summary>
+    [Fact]
+    public async Task A_done_work_item_is_not_imported_as_a_new_task()
+    {
+        await using var ado = await ConfigureAsync(doneStates: ["Active"]);
+
+        var result = await Import(UserStory());
+
+        Assert.Equal(0, result.Imported);
+        Assert.Equal(1, result.Skipped);
+        Assert.Empty((await Tasks()).Items);
+    }
+
+    /// <summary>Work item 16901, which is Active and therefore importable until Active means done.</summary>
+    private static object UserStory() => Row(
+        key: "16901",
+        title: "Som bruger vil jeg kunne filtrere",
+        state: "Active",
+        workItemType: "User Story");
+
+    private static object Closure(string key = "16901", string state = "Active")
+        => new { key, state, doneAt = "2026-08-15T09:00:00Z" };
+
+    /// <summary>
+    /// Upserts rather than overwrites, because an empty list is stored as no row at all - so the row
+    /// this sets does not exist until somebody picks a state.
+    /// </summary>
+    private async Task SetDoneStatesAsync(params string[] states)
+    {
+        using var scope = Host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+        var value = System.Text.Json.JsonSerializer.Serialize(states);
+        var row = await db.Settings.SingleOrDefaultAsync(s => s.Key == SettingKeys.AdoDoneStates);
+
+        if (row is null)
+        {
+            db.Settings.Add(new Setting { Key = SettingKeys.AdoDoneStates, Value = value });
+        }
+        else
+        {
+            row.Value = value;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<ImportBody> CloseAsync(object closure)
+    {
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/ado/import", new { rows = Array.Empty<object>(), closures = new[] { closure } });
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<ImportBody>())!;
+    }
+
     private static object Row(
         string key = "15664",
         string? title = "Kunden kan ikke logge ind",
@@ -579,8 +782,14 @@ public class AdoEndpointsTests : ApiTest
         return (await response.Content.ReadFromJsonAsync<ImportBody>())!;
     }
 
-    private async Task<TaskList> Tasks()
-        => (await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks"))!;
+    /// <summary>
+    /// The list defaults to hiding what is done, which is exactly what a closed task becomes - so a
+    /// closure assertion has to ask for them. Measured: without the flag the collection comes back
+    /// empty and the failure reads as if nothing had been written at all.
+    /// </summary>
+    private async Task<TaskList> Tasks(bool includeCompleted = false)
+        => (await Host.Client.GetFromJsonAsync<TaskList>(
+            $"/api/tasks?includeCompleted={includeCompleted.ToString().ToLowerInvariant()}"))!;
 
     private sealed record Connection(string DisplayName);
     private sealed record States(string[] Names);
@@ -588,8 +797,8 @@ public class AdoEndpointsTests : ApiTest
     private sealed record PreviewRow(
         string Key, string Title, string Url, string? Note, DateOnly? Deadline, string? Requester,
         string State, string WorkItemType, bool IsWaiting, DateTimeOffset? WaitingSince,
-        bool AlreadyImported, string? Excluded);
-    private sealed record ImportBody(int Imported, int Skipped);
+        bool AlreadyImported, bool SuggestsClosing, DateTimeOffset? DoneAt, string? Excluded);
+    private sealed record ImportBody(int Imported, int Skipped, int Closed);
     private sealed record TaskList(TaskBody[] Items);
 
     /// <remarks>
@@ -603,5 +812,8 @@ public class AdoEndpointsTests : ApiTest
         [property: JsonConverter(typeof(JsonStringEnumConverter<TodoStatus>))] TodoStatus Status,
         DateOnly? Deadline,
         string? WaitingOn,
-        string? ExternalUrl);
+        string? ExternalUrl,
+        // Read off the wire rather than out of the entity, because the whole question here is which
+        // timestamp survived the round trip: the source's, or the clock's now.
+        DateTimeOffset? CompletedAt);
 }

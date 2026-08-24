@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../api/api-error-message';
 import {
   JiraClient,
+  JiraClosureRow,
   JiraImportRequest,
   JiraImportResponse,
   JiraImportRow,
@@ -42,6 +43,14 @@ export class JiraStore {
   readonly selectable = computed(() =>
     this.rows().filter((row) => !row.excluded && !row.alreadyImported),
   );
+
+  /**
+   * The rows whose work is finished in the source while the local task is not. The server decides
+   * that - all three facts it rests on live there - so this is a filter on one boolean rather than a
+   * rule of its own. They are deliberately not part of `selectable`: those get written as new tasks,
+   * these close ones that already exist, and the import request keeps them in separate lists.
+   */
+  readonly closable = computed(() => this.rows().filter((row) => row.suggestsClosing));
 
   async testConnection(): Promise<void> {
     this.error.set(null);
@@ -95,8 +104,11 @@ export class JiraStore {
    * deliberately not sent: the server decides that by looking the status up in the user's waiting
    * list, which is a setting that lives on the server.
    */
-  async import(rows: readonly JiraPreviewRow[]): Promise<JiraImportResponse | undefined> {
-    if (rows.length === 0) {
+  async import(
+    rows: readonly JiraPreviewRow[],
+    closures: readonly JiraPreviewRow[] = [],
+  ): Promise<JiraImportResponse | undefined> {
+    if (rows.length === 0 && closures.length === 0) {
       return undefined;
     }
 
@@ -118,6 +130,22 @@ export class JiraStore {
                   waitingSince: row.waitingSince,
                 }),
             ),
+            // The status travels for the same reason it does on an import row: the server looks it
+            // up in the done list and takes the decision again. doneAt is the fact the client saw.
+            // Omitted when there is nothing to close, so an import-only request is
+            // byte for byte the one this client has always sent - which is what the
+            // contract means by calling the field optional.
+            closures:
+              closures.length === 0
+                ? undefined
+                : closures.map(
+                    (row) =>
+                      new JiraClosureRow({
+                        key: row.key,
+                        status: row.status,
+                        doneAt: row.doneAt,
+                      }),
+                  ),
           }),
         ),
       );

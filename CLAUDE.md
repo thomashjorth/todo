@@ -454,6 +454,31 @@ liste. Projektnøglen er derfor et **krav** med sin egen fejlkode (`jira.project
 et valgfrit filter der falder tilbage på alt. Samme klasse af fælde som et tomt filter i en
 databaseforespørgsel: fraværet af en afgrænsning er ikke en neutral standard.
 
+**Færdig slår begge, og rollen er en enum af netop den grund.** `JiraStatusRoles.For` svarer
+`Done → Duty → Waiting → Actionable`, og `AdoStateRoles.For` svarer `Done → Waiting → Actionable` —
+ADO's var en `bool` indtil færdighed kom til, og klassens egen dokumentation havde forudsagt skiftet
+ordret. En status kan stå i to lister, og noget skal afgøre hvad der vinder: en løst sag venter ikke
+på nogen, så byttes grenene om, står den som ventende, forslaget om at lukke skjules bag vagt-grenen,
+og rækken er mærket som arbejde nogen skylder dig. **Begge udfald er lovlige roller**, så en ombytning
+compilerer og læser rigtigt — kun `Done_outranks_waiting_when_a_state_is_in_both_lists` og dens tre
+søskende kan se den. Set fejle.
+
+**Færdig-listerne er tomme som gyldig tilstand, i modsætning til `adoWorkItemTypes`.** Tom betyder
+ingen forslag; tom sagstypeliste betyder derimod "gendan standarden", og importen afviser den. Den
+nære fælde er at kopiere den forkerte af de to præcedenser, når `ado.doneStates` eller
+`jira.doneStatuses` læses.
+
+**`PUT /api/tasks/{id}` overskriver `CompletedAt` med `clock.UtcNow`** på *enhver* overgang til
+Færdig (`TaskEndpoints.cs`). Derfor kan en lukning fra importen ikke gå den vej: kildens tidsstempel
+ville blive kastet væk tavst. Lukningen rider med på importens endpoint, hvor `waitingSince` allerede
+har præcedens for at komme fra klienten som et faktum. Vagten er
+`Closing_takes_the_completion_time_from_the_source`, og **fixturets fem dages afstand til testuret er
+dens tænder** — et tidsstempel tæt på nu ville bestå med den forkerte implementering.
+
+**Dedup'en bærer den lokale status, ikke bare nøglen.** `ImportedKeysAsync` svarer
+`Dictionary<string, TodoStatus>` i begge endpoints. Uden statussen kan forslaget om at lukke ikke
+holde op med at komme igen, når du har taget imod — samme række ville foreslå det samme for evigt.
+
 **Vagt slår ventende.** `JiraStatusRoles.For` spørger om vagten **først**: står et statusnavn i
 *begge* lister, og er kontakten slået til, er rollen `Duty` — ikke `Waiting`. Samme status betyder
 *venter på puljen* når du ikke har vagten, og *venter på dig* når du har den, så det er kontakten
@@ -889,7 +914,7 @@ forkerte grund.
 
 ## Testtal
 
-**164** Todo.Core.Tests, **303** Todo.Api.Tests, **57** Todo.E2E, **278** Vitest — alle grønne.
+**174** Todo.Core.Tests, **316** Todo.Api.Tests, **58** Todo.E2E, **281** Vitest — alle grønne.
 
 Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
 eller duplikeret.** Det er hele reglen. Kør `Check.cmd` og sammenlign.

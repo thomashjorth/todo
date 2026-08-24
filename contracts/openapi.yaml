@@ -874,7 +874,7 @@ components:
     JiraPreviewRow:
       type: object
       additionalProperties: false
-      required: [key, title, url, status, isWaiting, isDuty, alreadyImported]
+      required: [key, title, url, status, isWaiting, isDuty, alreadyImported, suggestsClosing]
       properties:
         key:
           type: string
@@ -915,6 +915,22 @@ components:
           nullable: true
         alreadyImported:
           type: boolean
+        suggestsClosing:
+          type: boolean
+          description: >-
+            Whether import should offer to close the local task, because all three of these hold: the
+            key has been imported before, the status is in the user's done list, and the local task is
+            not done yet. The server's decision rather than three facts for the client to combine —
+            the lists live on the server, and the import takes the decision again.
+        doneAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When the issue reached its current status, for a row that suggests closing. Its own field
+            rather than a loosened waitingSince, which means something else: a field that changes
+            meaning with another boolean is one a later reader misreads. Nullable because Jira's
+            changelog may hold no such entry.
         excluded:
           type: string
           nullable: true
@@ -964,6 +980,26 @@ components:
           type: string
           format: date-time
           nullable: true
+    JiraClosureRow:
+      type: object
+      additionalProperties: false
+      required: [key, status]
+      properties:
+        key:
+          type: string
+        status:
+          type: string
+          description: >-
+            The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides
+            whether that means done by looking it up in the user's done list, and takes the decision
+            again rather than trusting a client that may have previewed under an older setting.
+        doneAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            What the local task's completion time becomes. A fact the client saw, carried the same way
+            waitingSince is — the import deliberately does not call Jira, so it cannot look this up.
     JiraImportRequest:
       type: object
       additionalProperties: false
@@ -973,10 +1009,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/JiraImportRow'
+        closures:
+          type: array
+          items:
+            $ref: '#/components/schemas/JiraClosureRow'
+          description: >-
+            Tasks already imported whose issue is now done, to be closed locally. Optional rather than
+            required, so a client that only imports sends what it always sent.
     JiraImportResponse:
       type: object
       additionalProperties: false
-      required: [imported, skipped]
+      required: [imported, skipped, closed]
       properties:
         imported:
           type: integer
@@ -984,6 +1027,10 @@ components:
         skipped:
           type: integer
           format: int32
+        closed:
+          type: integer
+          format: int32
+          description: How many local tasks were closed because their issue is done.
     AdoConnectionResponse:
       type: object
       additionalProperties: false
@@ -1003,7 +1050,7 @@ components:
     AdoPreviewRow:
       type: object
       additionalProperties: false
-      required: [key, title, url, state, workItemType, isWaiting, alreadyImported]
+      required: [key, title, url, state, workItemType, isWaiting, alreadyImported, suggestsClosing]
       properties:
         key:
           type: string
@@ -1056,6 +1103,19 @@ components:
             second call per row, unlike Jira, whose equivalent required the changelog.
         alreadyImported:
           type: boolean
+        suggestsClosing:
+          type: boolean
+          description: >-
+            Whether import should offer to close the local task. See the field of the same name on
+            JiraPreviewRow: the server's decision, taken on three facts, and taken again on import.
+        doneAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field
+            rather than a loosened waitingSince, which the preview nulls for every row that is not
+            waiting — and a finished row never is.
         excluded:
           type: string
           nullable: true
@@ -1108,6 +1168,25 @@ components:
           type: string
           format: date-time
           nullable: true
+    AdoClosureRow:
+      type: object
+      additionalProperties: false
+      required: [key, state]
+      properties:
+        key:
+          type: string
+        state:
+          type: string
+          description: >-
+            The work item state. Sent for the same reason AdoImportRow sends it: the server looks it
+            up in the user's done list and takes the decision again rather than trusting the client.
+        doneAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            What the local task's completion time becomes, carried the same way waitingSince is. The
+            import deliberately does not call Azure DevOps, so it cannot look this up.
     AdoImportRequest:
       type: object
       additionalProperties: false
@@ -1117,10 +1196,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AdoImportRow'
+        closures:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdoClosureRow'
+          description: >-
+            Tasks already imported whose work item is now done, to be closed locally. Optional rather
+            than required, so a client that only imports sends what it always sent.
     AdoImportResponse:
       type: object
       additionalProperties: false
-      required: [imported, skipped]
+      required: [imported, skipped, closed]
       properties:
         imported:
           type: integer
@@ -1128,6 +1214,10 @@ components:
         skipped:
           type: integer
           format: int32
+        closed:
+          type: integer
+          format: int32
+          description: How many local tasks were closed because their work item is done.
     SettingsRequest:
       type: object
       additionalProperties: false
@@ -1156,6 +1246,14 @@ components:
             type: string
         jiraIncludeWaiting:
           type: boolean
+        jiraDoneStatuses:
+          type: array
+          items:
+            type: string
+          description: >-
+            Statuses that mean the issue is finished. No switch beside it, unlike the waiting and duty
+            pairs: doneness only ever offers to close a task you already have, so there is nothing to
+            opt into. An empty list is valid and means no suggestions.
         jiraDutyStatuses:
           type: array
           items:
@@ -1176,6 +1274,13 @@ components:
         adoProject:
           type: string
           nullable: true
+        adoDoneStates:
+          type: array
+          items:
+            type: string
+          description: >-
+            States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its
+            own list rather than a shared one: the two systems spell different words.
         adoWaitingStates:
           type: array
           items:
@@ -1226,8 +1331,10 @@ components:
         - jiraIncludeWaiting
         - jiraDutyStatuses
         - jiraOnDuty
+        - jiraDoneStatuses
         - hasJiraToken
         - adoWaitingStates
+        - adoDoneStates
         - adoIncludeWaiting
         - adoWorkItemTypes
         - adoDefaultDeadlineDays
@@ -1258,6 +1365,14 @@ components:
             type: string
         jiraIncludeWaiting:
           type: boolean
+        jiraDoneStatuses:
+          type: array
+          items:
+            type: string
+          description: >-
+            Statuses that mean the issue is finished. No switch beside it, unlike the waiting and duty
+            pairs: doneness only ever offers to close a task you already have, so there is nothing to
+            opt into. An empty list is valid and means no suggestions.
         jiraDutyStatuses:
           type: array
           items:
@@ -1283,6 +1398,13 @@ components:
         adoProject:
           type: string
           nullable: true
+        adoDoneStates:
+          type: array
+          items:
+            type: string
+          description: >-
+            States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its
+            own list rather than a shared one: the two systems spell different words.
         adoWaitingStates:
           type: array
           items:

@@ -484,6 +484,18 @@ namespace Todo.Contracts
         public bool AlreadyImported { get; set; }
 
         /// <summary>
+        /// Whether import should offer to close the local task, because all three of these hold: the key has been imported before, the status is in the user's done list, and the local task is not done yet. The server's decision rather than three facts for the client to combine — the lists live on the server, and the import takes the decision again.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("suggestsClosing")]
+        public bool SuggestsClosing { get; set; }
+
+        /// <summary>
+        /// When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("doneAt")]
+        public System.DateTimeOffset? DoneAt { get; set; }
+
+        /// <summary>
         /// Why import will skip this row, as an error code the frontend translates. Null means it will be imported.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("excluded")]
@@ -541,12 +553,41 @@ namespace Todo.Contracts
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraClosureRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        /// <summary>
+        /// The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides whether that means done by looking it up in the user's done list, and takes the decision again rather than trusting a client that may have previewed under an older setting.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Status { get; set; }
+
+        /// <summary>
+        /// What the local task's completion time becomes. A fact the client saw, carried the same way waitingSince is — the import deliberately does not call Jira, so it cannot look this up.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("doneAt")]
+        public System.DateTimeOffset? DoneAt { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class JiraImportRequest
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("rows")]
         [System.ComponentModel.DataAnnotations.Required]
         public System.Collections.Generic.ICollection<JiraImportRow> Rows { get; set; } = new System.Collections.ObjectModel.Collection<JiraImportRow>();
+
+        /// <summary>
+        /// Tasks already imported whose issue is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("closures")]
+        public System.Collections.Generic.ICollection<JiraClosureRow> Closures { get; set; }
 
     }
 
@@ -559,6 +600,12 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("skipped")]
         public int Skipped { get; set; }
+
+        /// <summary>
+        /// How many local tasks were closed because their issue is done.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("closed")]
+        public int Closed { get; set; }
 
     }
 
@@ -646,6 +693,18 @@ namespace Todo.Contracts
         public bool AlreadyImported { get; set; }
 
         /// <summary>
+        /// Whether import should offer to close the local task. See the field of the same name on JiraPreviewRow: the server's decision, taken on three facts, and taken again on import.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("suggestsClosing")]
+        public bool SuggestsClosing { get; set; }
+
+        /// <summary>
+        /// Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("doneAt")]
+        public System.DateTimeOffset? DoneAt { get; set; }
+
+        /// <summary>
         /// Why import will skip this row, as an error code the frontend translates. Null means it will be imported.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("excluded")]
@@ -707,12 +766,41 @@ namespace Todo.Contracts
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoClosureRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        /// <summary>
+        /// The work item state. Sent for the same reason AdoImportRow sends it: the server looks it up in the user's done list and takes the decision again rather than trusting the client.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("state")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string State { get; set; }
+
+        /// <summary>
+        /// What the local task's completion time becomes, carried the same way waitingSince is. The import deliberately does not call Azure DevOps, so it cannot look this up.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("doneAt")]
+        public System.DateTimeOffset? DoneAt { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class AdoImportRequest
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("rows")]
         [System.ComponentModel.DataAnnotations.Required]
         public System.Collections.Generic.ICollection<AdoImportRow> Rows { get; set; } = new System.Collections.ObjectModel.Collection<AdoImportRow>();
+
+        /// <summary>
+        /// Tasks already imported whose work item is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("closures")]
+        public System.Collections.Generic.ICollection<AdoClosureRow> Closures { get; set; }
 
     }
 
@@ -725,6 +813,12 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("skipped")]
         public int Skipped { get; set; }
+
+        /// <summary>
+        /// How many local tasks were closed because their work item is done.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("closed")]
+        public int Closed { get; set; }
 
     }
 
@@ -754,6 +848,12 @@ namespace Todo.Contracts
         public bool JiraIncludeWaiting { get; set; }
 
         /// <summary>
+        /// Statuses that mean the issue is finished. No switch beside it, unlike the waiting and duty pairs: doneness only ever offers to close a task you already have, so there is nothing to opt into. An empty list is valid and means no suggestions.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("jiraDoneStatuses")]
+        public System.Collections.Generic.ICollection<string> JiraDoneStatuses { get; set; }
+
+        /// <summary>
         /// Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("jiraDutyStatuses")]
@@ -773,6 +873,12 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("adoProject")]
         public string AdoProject { get; set; }
+
+        /// <summary>
+        /// States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its own list rather than a shared one: the two systems spell different words.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoDoneStates")]
+        public System.Collections.Generic.ICollection<string> AdoDoneStates { get; set; }
 
         /// <summary>
         /// States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart.
@@ -829,6 +935,13 @@ namespace Todo.Contracts
         public bool JiraIncludeWaiting { get; set; }
 
         /// <summary>
+        /// Statuses that mean the issue is finished. No switch beside it, unlike the waiting and duty pairs: doneness only ever offers to close a task you already have, so there is nothing to opt into. An empty list is valid and means no suggestions.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("jiraDoneStatuses")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> JiraDoneStatuses { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        /// <summary>
         /// Statuses that mean "waiting for the shared duty pool". Issues in these are fetched regardless of assignee when jiraOnDuty is on, and they arrive actionable rather than waiting.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("jiraDutyStatuses")]
@@ -855,6 +968,13 @@ namespace Todo.Contracts
 
         [System.Text.Json.Serialization.JsonPropertyName("adoProject")]
         public string AdoProject { get; set; }
+
+        /// <summary>
+        /// States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its own list rather than a shared one: the two systems spell different words.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("adoDoneStates")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> AdoDoneStates { get; set; } = new System.Collections.ObjectModel.Collection<string>();
 
         /// <summary>
         /// States that mean "waiting for somebody else". Compared ordinally: two states that differ only in case are two states the system keeps apart.

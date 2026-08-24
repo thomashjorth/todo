@@ -42,6 +42,13 @@ public static class ErrorCodes
     public const string JiraExcludedWaiting = "jira.excludedWaiting";
 
     /// <summary>
+    /// The issue stands in a status the user calls finished and has never been imported, so importing
+    /// it would create a task that is already over. Shown rather than hidden, the same choice the
+    /// waiting rows make: a hidden row would look like one Jira had lost.
+    /// </summary>
+    public const string JiraExcludedDone = "jira.excludedDone";
+
+    /// <summary>
     /// The work item type filter is a requirement rather than an optional filter, so an empty list is
     /// refused instead of being read as "every type" - the same rule as
     /// <see cref="JiraProjectKeyRequired"/>, and for the same reason: the absence of a limit is not a
@@ -98,6 +105,12 @@ public static class ErrorCodes
     /// <see cref="JiraExcludedWaiting"/>.
     /// </summary>
     public const string AdoExcludedWaiting = "ado.excludedWaiting";
+
+    /// <summary>
+    /// The counterpart of <see cref="JiraExcludedDone"/>: a finished work item that was never
+    /// imported, kept out rather than brought in as a fresh open task.
+    /// </summary>
+    public const string AdoExcludedDone = "ado.excludedDone";
 
     /// <summary>
     /// A work item type name carrying a quotation mark or a backslash. Those two characters are what

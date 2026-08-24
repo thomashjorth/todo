@@ -330,6 +330,7 @@ public sealed class FakeAdo : IAsyncDisposable
             Token: Token,
             WaitingStates: [],
             IncludeWaiting: false,
+            DoneStates: [],
             WorkItemTypes: workItemTypes ?? AdoDefaults.WorkItemTypes,
             DefaultDeadlineDays: defaultDeadlineDays),
         Clock(today));

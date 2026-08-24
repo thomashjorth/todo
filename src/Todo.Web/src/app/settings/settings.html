@@ -385,6 +385,46 @@
       {{ 'settings.jira.onDutyHint' | transloco }}
     </p>
 
+    <!-- Sidst af de tre lister, fordi færdig slår begge de andre: læses den først, ser det ud som
+         om ventende eller vagt kunne vinde over den. Ingen kontakt ved siden af, i modsætning til
+         de to ovenfor — færdighed tilbyder kun at lukke en opgave du allerede har, så der er intet
+         at slå til. -->
+    <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
+      {{ 'settings.jira.doneStatuses' | transloco }}
+    </h4>
+
+    <p data-testid="jira-done-statuses-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.jira.doneStatusesHint' | transloco }}
+    </p>
+
+    @if (doneStatusOptions().length === 0) {
+      <p
+        data-testid="jira-done-statuses-empty"
+        class="mt-2 text-xs text-gray-700 dark:text-gray-300"
+      >
+        {{ 'settings.jira.statusesEmpty' | transloco }}
+      </p>
+    } @else {
+      <ul class="mt-2 space-y-1">
+        @for (status of doneStatusOptions(); track status) {
+          <li data-testid="jira-done-status-row">
+            <label class="flex items-center gap-2">
+              <input
+                #done
+                type="checkbox"
+                class="shrink-0"
+                [checked]="isDoneStatus(status)"
+                (change)="toggleDoneStatus(status, done.checked)"
+              />
+              <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+                status
+              }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    }
+
     <!-- Gruppens egen linje, som ADO-gruppen har haft hele tiden og denne ikke havde: `error`
          skrives af hver gemning, så en afvist basis-URL eller et afvist token landede på linjen
          over sprogvælgeren. Med foldning er det værre end forkert placeret — er sproggruppen
@@ -578,6 +618,42 @@
         'settings.ado.includeWaiting' | transloco
       }}</span>
     </label>
+
+    <!-- Samme liste af tilstande, tilbudt en gang til: GET /api/ado/states svarer med det hele,
+         og begge spørgsmål stilles til det ene svar. Ingen kontakt ved siden af, af samme grund
+         som i Jira-gruppen. -->
+    <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
+      {{ 'settings.ado.doneStates' | transloco }}
+    </h4>
+
+    <p data-testid="ado-done-states-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.ado.doneStatesHint' | transloco }}
+    </p>
+
+    @if (stateOptions().length === 0) {
+      <p data-testid="ado-done-states-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
+        {{ 'settings.ado.statesEmpty' | transloco }}
+      </p>
+    } @else {
+      <ul class="mt-2 space-y-1">
+        @for (state of stateOptions(); track state) {
+          <li data-testid="ado-done-state-row">
+            <label class="flex items-center gap-2">
+              <input
+                #doneState
+                type="checkbox"
+                class="shrink-0"
+                [checked]="isDoneState(state)"
+                (change)="toggleDoneState(state, doneState.checked)"
+              />
+              <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+                state
+              }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    }
 
     <!-- Ingen vagt-liste her, og det er ikke en mangel: Azure DevOps har ingen pulje af sager der
          venter på den der har vagten, så en anden liste ville være en indstilling uden en

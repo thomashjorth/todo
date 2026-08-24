@@ -205,7 +205,8 @@ public sealed class FakeJira : IAsyncDisposable
             WaitingStatuses: [],
             IncludeWaiting: false,
             DutyStatuses: duty ?? [],
-            OnDuty: onDuty));
+            OnDuty: onDuty,
+            DoneStatuses: []));
 
     /// <summary>
     /// Stops answering while keeping <see cref="BaseUrl"/>. Nothing is listening on the port

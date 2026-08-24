@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Todo.Core.Errors;
+using Todo.Core.Persistence;
+using Todo.Core.Settings;
 using Todo.Core.Tasks;
 using Todo.TestSupport.Jira;
 using ApiError = Todo.Contracts.ApiError;
@@ -23,7 +27,8 @@ public class JiraEndpointsTests : ApiTest
         string? projectKey = "SAAS",
         string[]? waitingStatuses = null,
         string[]? dutyStatuses = null,
-        bool onDuty = false)
+        bool onDuty = false,
+        string[]? doneStatuses = null)
     {
         var jira = await FakeJira.StartAsync();
 
@@ -36,6 +41,7 @@ public class JiraEndpointsTests : ApiTest
             jiraIncludeWaiting = includeWaiting,
             jiraDutyStatuses = dutyStatuses ?? [],
             jiraOnDuty = onDuty,
+            jiraDoneStatuses = doneStatuses ?? [],
         });
 
         return jira;
@@ -474,13 +480,130 @@ public class JiraEndpointsTests : ApiTest
         return (await response.Content.ReadFromJsonAsync<ImportBody>())!;
     }
 
+    /// <summary>
+    /// The Jira half of the closure offer, and the one thing it does differently from Azure DevOps:
+    /// the timestamp is not on the issue, so the preview pays a changelog call for it — the same
+    /// bargain a waiting row already makes. SAAS-1 last changed status on the 12th at 13:45 +0200,
+    /// which is 11:45 UTC, and the assertion is on the exact value.
+    /// </summary>
+    [Fact]
+    public async Task A_done_issue_that_was_imported_before_offers_to_close_the_task()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+        await SetDoneStatusesAsync("I gang");
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.True(row.SuggestsClosing);
+        Assert.True(row.AlreadyImported);
+        Assert.Null(row.Excluded);
+        Assert.Equal(new DateTimeOffset(2026, 8, 12, 11, 45, 0, TimeSpan.Zero), row.DoneAt);
+    }
+
+    /// <summary>
+    /// A finished issue that was never imported is kept out rather than brought in as a fresh open
+    /// task. Shown rather than hidden, the same choice the waiting rows make.
+    /// </summary>
+    [Fact]
+    public async Task A_done_issue_that_was_never_imported_is_kept_out()
+    {
+        await using var jira = await ConfigureAsync(doneStatuses: ["I gang"]);
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.Equal(ErrorCodes.JiraExcludedDone, row.Excluded);
+        Assert.False(row.SuggestsClosing);
+        Assert.False(row.AlreadyImported);
+    }
+
+    /// <summary>
+    /// The completion time is the changelog's, not the clock's. Without the fixture's six-day gap this
+    /// would be a test of nothing: PUT /api/tasks/{id} writes the clock's now on every move into Done,
+    /// so a closure that lost its timestamp would answer today and look plausible.
+    /// </summary>
+    [Fact]
+    public async Task Closing_takes_the_completion_time_from_the_changelog()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+        await SetDoneStatusesAsync("I gang");
+
+        var result = await CloseAsync(new { key = "SAAS-1", status = "I gang", doneAt = "2026-08-12T11:45:00Z" });
+
+        Assert.Equal(1, result.Closed);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks?includeCompleted=true");
+        var task = Assert.Single(tasks!.Items);
+
+        Assert.Equal(TodoStatus.Done, task.Status);
+        Assert.Equal(new DateTimeOffset(2026, 8, 12, 11, 45, 0, TimeSpan.Zero), task.CompletedAt);
+    }
+
+    /// <summary>The rule is taken again on the way in, exactly as Azure DevOps' twin does.</summary>
+    [Fact]
+    public async Task A_closure_whose_status_is_not_in_the_done_list_is_skipped()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+
+        var result = await CloseAsync(new { key = "SAAS-1", status = "I gang", doneAt = (string?)null });
+
+        Assert.Equal(0, result.Closed);
+        Assert.Equal(1, result.Skipped);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+
+        Assert.Equal(TodoStatus.Open, Assert.Single(tasks!.Items).Status);
+    }
+
+    private static object InProgressIssue()
+        => new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" };
+
+    /// <summary>
+    /// Upserts, because an empty list is stored as no row at all — so the row does not exist until
+    /// somebody picks a status.
+    /// </summary>
+    private async Task SetDoneStatusesAsync(params string[] statuses)
+    {
+        using var scope = Host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+        var value = System.Text.Json.JsonSerializer.Serialize(statuses);
+        var row = await db.Settings.SingleOrDefaultAsync(s => s.Key == SettingKeys.JiraDoneStatuses);
+
+        if (row is null)
+        {
+            db.Settings.Add(new Setting { Key = SettingKeys.JiraDoneStatuses, Value = value });
+        }
+        else
+        {
+            row.Value = value;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<ImportBody> CloseAsync(object closure)
+    {
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/jira/import", new { rows = Array.Empty<object>(), closures = new[] { closure } });
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<ImportBody>())!;
+    }
+
     private sealed record Connection(string DisplayName);
     private sealed record Statuses(string[] Names);
     private sealed record PreviewBody(PreviewRow[] Rows, int Total);
     private sealed record PreviewRow(
         string Key, string Title, string Status, bool IsWaiting, bool IsDuty,
-        DateTimeOffset? WaitingSince, bool AlreadyImported, string? Excluded, string Url);
-    private sealed record ImportBody(int Imported, int Skipped);
+        DateTimeOffset? WaitingSince, bool AlreadyImported, bool SuggestsClosing,
+        DateTimeOffset? DoneAt, string? Excluded, string Url);
+    private sealed record ImportBody(int Imported, int Skipped, int Closed);
     private sealed record TaskList(TaskBody[] Items);
 
     /// <remarks>
@@ -493,5 +616,7 @@ public class JiraEndpointsTests : ApiTest
         string Title,
         [property: JsonConverter(typeof(JsonStringEnumConverter<TodoStatus>))] TodoStatus Status,
         string? WaitingOn,
-        string? ExternalUrl);
+        string? ExternalUrl,
+        // Read off the wire, because the whole question is which timestamp survived the round trip.
+        DateTimeOffset? CompletedAt);
 }

@@ -165,6 +165,16 @@
                   class="block text-xs font-medium text-gray-700 dark:text-gray-300"
                   >{{ excludedReason(row) }}</span
                 >
+                <!-- Foran alreadyImported, ikke efter: en række der foreslår en lukning *er* også
+                   importeret tidligere, så den anden gren ville sluge den. Mærkaten havner i
+                   afkrydsningsfeltets tilgængelige navn, fordi rækken er en <label> — her en
+                   gevinst, for navnet kommer til at sige hvad fluebenet gør. -->
+              } @else if (row.suggestsClosing) {
+                <span
+                  data-testid="ado-suggests-closing"
+                  class="block text-xs font-medium text-blue-700 dark:text-blue-300"
+                  >{{ 'ado.suggestsClosing' | transloco }}</span
+                >
               } @else if (row.alreadyImported) {
                 <span
                   data-testid="ado-already-imported"
@@ -209,12 +219,28 @@
       type="button"
       data-testid="ado-import"
       class="mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
-      [disabled]="selectedRows().length === 0 || store.busy()"
+      [disabled]="chosenCount() === 0 || store.busy()"
       (click)="importSelected()"
     >
-      {{
-        pluralKey(selectedRows().length, 'ado.import') | transloco: { count: selectedRows().length }
-      }}
+      <!-- Tre mærkater frem for én med to tal i: knappen gør én ting, to ting eller begge, og hver
+           sætning er sand for sit tilfælde. En samlet optlling ville sige Importér 5 sager, hvor de
+           to af dem lukkes. -->
+      @if (selectedClosures().length === 0) {
+        {{
+          pluralKey(selectedRows().length, 'ado.import')
+            | transloco: { count: selectedRows().length }
+        }}
+      } @else if (selectedRows().length === 0) {
+        {{
+          pluralKey(selectedClosures().length, 'ado.close')
+            | transloco: { count: selectedClosures().length }
+        }}
+      } @else {
+        {{
+          'ado.importAndClose'
+            | transloco: { imported: selectedRows().length, closed: selectedClosures().length }
+        }}
+      }
     </button>
   }
 }
