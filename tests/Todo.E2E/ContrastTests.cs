@@ -446,6 +446,28 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(tasks.DetailFor(WaitingTitle)).ToContainTextAsync("Venter på");
         await Snapshot();
 
+        // The shortcut badges exist only while Alt is down, so every one of them was colour no
+        // snapshot above could see - the nine on the list included, which had gone unmeasured since
+        // the day they arrived. Held here rather than over the whole journey: with Alt down a click
+        // or a fill would fire the shortcuts instead of doing what its line says, and this is the
+        // one point where the panel of a waiting task is open, which is the only state that renders
+        // the waiting-on badge at all.
+        var badges = App.Page.GetByTestId("shortcut-badge");
+
+        await App.Page.Keyboard.DownAsync("Alt");
+
+        // Counted rather than assumed: a measurement of no badges is a pass, and this assertion is
+        // the only thing that says they were on screen. Twenty-four, counted from the fixture: nine
+        // fixed ones on the list, seven digits - one per selectable task, the completed one having no
+        // panel and therefore no number - and the panel's eight.
+        await Assertions.Expect(badges).ToHaveCountAsync(24);
+        await Snapshot();
+
+        // Released before anything else is touched, so every assertion after this one measures the
+        // same screen it did before.
+        await App.Page.Keyboard.UpAsync("Alt");
+        await Assertions.Expect(badges).ToHaveCountAsync(0);
+
         // The conflicting start date renders one line and only while its row is open, so this
         // click is what puts the amber pair on screen at all. Waiting on the text rather than the
         // element: an interpolation that had not run yet would be measured as no text.
