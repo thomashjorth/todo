@@ -182,3 +182,10 @@ her som "bliver dyrere" gennem tre leverancer, og aftrykket voksede med cirka é
 - **Resten af GTD-hullerne.** Ingen projekter, ingen kontekster, ingen ugentlig gennemgang.
   Kontekstaksen er den mest indgribende: den ville omgøre designdokumentets afsnit 2 frem for at
   lægge et felt til.
+- **Animationer når en opgave flytter sig mellem sektioner.** I dag hopper en opgave uden varsel fra
+  "Uden deadline" til "Denne uge", når en deadline sættes — eller ud i "Venter på", når statussen
+  skifter — og brugeren skal selv finde den igen. Ønsket er en overgang hver gang en række skifter
+  plads, så flytningen kan følges med øjnene. Noteret 2026-08-24, ikke designet: sektionerne er
+  hver sin `@for`-blok, så rækken **destrueres og genskabes** frem for at flytte sig (samme
+  mekanik som `TaskStore.askingWho` beskriver i `CLAUDE.md`), og en animation der skal krydse to
+  blokke er derfor ikke bare en klasse på `<li>`.
