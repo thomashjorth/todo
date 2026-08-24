@@ -400,10 +400,10 @@ virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende. `J` kom
 Jira-importen i skive 11 og kolliderer ikke: Chrome på Windows binder intet `Alt+J`, og den nære
 nabo er DevTools-konsollen, som er `Ctrl+Shift+J` — et andet modifikatorsæt. (På macOS er den
 `Cmd+Option+J`, men appen er Windows-only.) `A` kom til med ADO-importen i skive 12 og kolliderer
-heller ikke: Chrome på Windows binder intet `Alt+A`, og de nære naboer er `Ctrl+A` og `Alt+D`,
-**`K` kom til med søgefeltet** og kolliderer heller ikke: `Ctrl+K` er Chromes adresselinje, altså et
-andet modifikatorsæt, og `Alt+K` er ubundet.
-altså andre taste- og modifikatorsæt. **Registret er last-writer-wins**, så bogstaverne skal
+heller ikke: Chrome på Windows binder intet `Alt+A`, og de nære naboer er `Ctrl+A` og `Alt+D`, altså
+andre taste- og modifikatorsæt. **`K` kom til med søgefeltet** og kolliderer heller ikke: `Ctrl+K` er
+Chromes adresselinje, altså et andet modifikatorsæt, og `Alt+K` er ubundet.
+**Registret er last-writer-wins**, så bogstaverne skal
 blive ved at være globalt unikke; se designdokumentets afsnit 10.
 
 **Og fra 2026-08-24 er der to lag, ikke ét.** Nøglen i registret er `lag+tast`, bygget af
@@ -446,8 +446,10 @@ Vitest. Vagten er set fejle med netop den mutation og navngiver begge elementer:
 mutationen ellers afslørede:** `Alt_J_follows_the_jira_link` faldt **også** — last-writer-wins gjorde
 `Alt+J` til ADO-skærmens — så en kollision på et bogstav der har en rejse, fanges af rejsen. En
 kollision på `m` eller `v` ville ingen have set. Vagtens grænse er, at den kun sammenligner de
-genveje der er **renderet nu**; alle otte bor på opgavelisten i dag, og tællingen mod otte er det der
-tvinger spørgsmålet frem, hvis en fremtidig genvej kun findes på en anden skærm.
+genveje der er **renderet nu**; alle ni bor på opgavelisten i dag, og tællingen mod ni er det der
+tvinger spørgsmålet frem, hvis en fremtidig genvej kun findes på en anden skærm. (Tallet var otte
+indtil søgefeltets `K` kom til, og grænsen er siden 2026-08-24 den samme men målt: den tomme liste er
+blind for begge nye lag, se søsterpåstanden under "Testdisciplin".)
 
 **`Ctrl+Alt` er AltGr på et dansk tastatur.** En global `Alt+bogstav`-lytter skal tjekke
 `!event.ctrlKey && !event.metaKey`, ellers kan brugeren ikke skrive `@`, `£` eller `$` — en fejl
