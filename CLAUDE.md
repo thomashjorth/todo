@@ -999,7 +999,7 @@ forkerte grund.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **316** Todo.Api.Tests, **69** Todo.E2E, **293** Vitest — alle grønne,
+**174** Todo.Core.Tests, **316** Todo.Api.Tests, **71** Todo.E2E, **293** Vitest — alle grønne,
 målt med `Check.cmd` 2026-08-24.
 
 Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
