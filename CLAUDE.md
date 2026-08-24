@@ -272,12 +272,24 @@ begrundelsen for at klassen `WideScreen` findes — brydepunktet er `(min-width:
 Tailwinds `xl` skrevet i rem, så tallet står ét sted. **jsdom 28.1.0 har ingen `matchMedia`** (målt),
 så servicen defaulter til smal, og en spec der vil have den brede sætter signalet selv.
 
-**`min-h-0` skal kun stå der hvor `overflow` er `visible`.** Et flex- eller gitterbarn hvis overflow
-*ikke* er visible har allerede automatisk minimumstørrelse nul, så `overflow-y-auto` gør arbejdet
-selv. Målt ved mutation: fjernes `xl:min-h-0` fra begge spalter i `task-list.html` fælder det
-**ingenting**; fjernes det fra wrapperen om `router-outlet` i `app.html`, siger
-`The_columns_scroll_on_their_own` *"The list column did not scroll inside itself: 0"*. Tre klasser
-stod der uden at gøre noget, og reglen læst forkert ville sætte dem tilbage.
+**Og `xl:h-screen` på `main` er opgavelistens behov, som de fire andre skærme betaler for.** Rammen de
+to spalter ruller indeni er hele appens, så enhver skærm der er højere end vinduet bliver klampet af
+den. Opgavelisten slap, fordi dens spalter ruller selv; de fire andre er kun `block xl:max-w-2xl`, og
+med `overflow: visible` på wrapperen om `router-outlet` blev deres indhold **ikke klippet** — det flød
+ned gennem health-linjen, som står fast på y=552 inde i en 600 px høj `main`. Målt på ADO-importen i
+1400×600: wrapperen 424 px, skærmen 1310 px. **En sidescrolling hjalp ikke**, fordi `main` flytter sig
+som helhed, så overlappet rejser med. Rettelsen (2026-08-24) er `xl:overflow-y-auto` på wrapperen —
+**ét** sted frem for på de fire hosts, hvor rullebjælken ville stå midt i vinduet ved x≈704 inde i
+deres `max-w-2xl` i stedet for i vinduets kant. Lægger du en femte skærm på, får den det gratis.
+
+**`min-h-0` findes ikke længere i appen, og reglen bag er derfor værd at kende.** Et flex- eller
+gitterbarn hvis overflow *ikke* er visible har allerede automatisk minimumstørrelse nul, så
+`overflow-y-auto` gør arbejdet selv. Målt ved mutation to gange: `xl:min-h-0` på begge spalter i
+`task-list.html` fældede **ingenting**, og da wrapperen fik `xl:overflow-y-auto`, blev også dens
+`xl:min-h-0` overflødig — wrapperen krymper til 424 px uden den. Den bærende klasse på wrapperen er nu
+`xl:overflow-y-auto`, og den bærer **to** ting: fjernes den, fælder det både
+`The_columns_scroll_on_their_own` (*"The list column did not scroll inside itself: 0"*) og
+`A_long_import_list_scrolls_inside_the_window_rather_than_through_the_footer`. Set fejle sammen.
 
 **Valget af opgave er en `computed`, ikke en effekt — og de tre regler er én regel.** `TaskList.selected`
 er `selectable.find(id) ?? (wide ? selectable[0] : undefined)`. Auto-valg ved indlæsning, at valget
@@ -671,6 +683,13 @@ forkerte grund.
   `this.task()` før inputtet var skiftet — så den omskrevne, "positive" påstand bestod af samme
   grund som den negative. En rundtur løser begge; en anden formulering af påstanden løser ingen af
   dem.
+- **`getBoundingClientRect` klipper ikke.** Et element inde i en rullende beholder rapporterer sin
+  **fulde** kasse, også den del beholderen skjuler — så en overlap-test bygget på rå rektangler er
+  **grøn på både fejlen og rettelsen**, og den første udgave af
+  `A_long_import_list_scrolls_inside_the_window_rather_than_through_the_footer` var netop det: rækkerne
+  gik til y=1422 i begge tilfælde. Det man vil vide, er hvad et element **maler**, altså dets kasse
+  skåret ned af hver forælder hvis overflow ikke er visible. Vagten regner den ud i browseren og
+  navngiver de rækker der lander oven på health-linjen (`"Handling nummer 4"`).
 - **`GetByRole(..., Name)` matcher på delstreng** medmindre `Exact = true`. En overskrift
   "Todoo" matchede "Todo" og gjorde en E2E-test meningsløs.
 - **`TaskListScreen.RowTitled` matcher rækkeknappens *fulde* tilgængelige navn.** Deadline,
@@ -914,7 +933,7 @@ forkerte grund.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **316** Todo.Api.Tests, **58** Todo.E2E, **281** Vitest — alle grønne.
+**174** Todo.Core.Tests, **316** Todo.Api.Tests, **59** Todo.E2E, **281** Vitest — alle grønne.
 
 Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
 eller duplikeret.** Det er hele reglen. Kør `Check.cmd` og sammenlign.

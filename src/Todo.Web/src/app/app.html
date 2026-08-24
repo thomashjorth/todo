@@ -2,11 +2,8 @@
      hæver det, og hver af de fire andre skærme sætter sit eget igen, så kun opgavelisten bliver
      bred. Hele omlægningen står bag xl:, så den smalle udgave er uændret — det er derfor de 47
      E2E på 480 px måler nøjagtigt det de målte før.
-     xl:h-screen er rammen de to spalter ruller indeni, og xl:min-h-0 på wrapperen nedenfor er den
-     ene klasse hele rulningen hænger på: wrapperens overflow er visible, så dens automatiske
-     minimumstørrelse er dens indhold, og den nægter at krympe. Målt ved at fjerne den —
-     The_columns_scroll_on_their_own siger da "The list column did not scroll inside itself: 0".
-     Spalterne inde i den behøver den ikke, fordi deres eget overflow-y-auto nulstiller det samme. -->
+     xl:h-screen er rammen de to spalter ruller indeni, og xl:overflow-y-auto på wrapperen nedenfor
+     er den ene klasse hele rulningen hænger på — begrundelsen og målingerne står ved den. -->
 <main class="mx-auto max-w-2xl p-4 sm:p-8 xl:flex xl:h-screen xl:max-w-none xl:flex-col">
   <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ 'app.title' | transloco }}</h1>
   <nav class="mt-2 flex flex-wrap gap-4">
@@ -102,7 +99,22 @@
       }
     </a>
   </nav>
-  <div class="xl:min-h-0 xl:flex-1">
+  <!-- Wrapperen ruller, og det er den ene klasse fire skærme hænger på: xl:h-screen ovenfor er hele
+       appens ramme, så en skærm der er højere end vinduet bliver klippet af den — og med
+       overflow: visible blev den ikke klippet, den flød ned gennem health-linjen nedenfor. Målt på
+       ADO-importen i 1400×600: wrapperen 424 px, skærmen 1310 px, health-linjen fast på y=552, og en
+       sidescrolling hjalp ikke, fordi main flytter sig som helhed. Opgavelisten slap, fordi dens
+       spalter ruller selv; de fire andre er kun `block xl:max-w-2xl`.
+       Rullebjælken lander i vinduets højre kant, fordi wrapperen er fuld bredde — det var
+       argumentet mod at lægge overflow'et på hver af de fire hosts, hvor den ville stå midt i
+       vinduet ved x≈704 inde i deres max-w-2xl.
+       Der står ikke min-h-0 her længere, og det er målt frem for glemt: et flexbarn hvis overflow
+       ikke er visible har allerede automatisk minimumstørrelse nul, så wrapperen krymper til 424 px
+       uanset. Fjernes xl:overflow-y-auto igen, siger The_columns_scroll_on_their_own
+       "The list column did not scroll inside itself: 0" — klassen bærer altså begge halvdele nu.
+       overflow-x computerer til auto af sig selv (visible + auto er ikke en lovlig kombination),
+       men scrollWidth == clientWidth på begge skærme, så der kommer ingen vandret bjælke. -->
+  <div class="xl:flex-1 xl:overflow-y-auto">
     <router-outlet />
   </div>
   @if (status(); as s) {

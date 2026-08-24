@@ -5,7 +5,8 @@
      Der står ingen min-h-0 på spalterne, og det er målt frem for glemt: et gitterbarns automatiske
      minimumstørrelse er allerede nul, når dets overflow ikke er visible, så overflow-y-auto gør
      arbejdet selv. Klassen sad her først, og en mutation der fjernede den fældede ingenting — den
-     bærende ligger på wrapperen om router-outlet i app.html, hvor overflow *er* visible. -->
+     bærende ligger på wrapperen om router-outlet i app.html, som nu klipper selv (xl:overflow-y-auto)
+     og derfor ikke behøver min-h-0 mere. -->
 <div class="xl:grid xl:h-full xl:grid-cols-[30rem_minmax(0,1fr)] xl:gap-6">
   <div data-testid="task-column" class="xl:overflow-y-auto xl:pr-2">
     <div class="relative mt-4">
