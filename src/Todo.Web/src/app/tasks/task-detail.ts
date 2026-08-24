@@ -2,6 +2,8 @@ import { Component, ElementRef, effect, inject, input, output, viewChild } from 
 import { TranslocoPipe } from '@jsverse/transloco';
 import { TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
 import { renderMarkdown } from '../markdown/render-markdown';
+import { Shortcut } from '../shortcuts/shortcut';
+import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { SystemStore } from '../system/system-store';
 import { TaskChanges, TaskStore } from './task-store';
 
@@ -26,7 +28,7 @@ const statusOptions: readonly TodoStatus[] = [
  */
 @Component({
   selector: 'app-task-detail',
-  imports: [TranslocoPipe],
+  imports: [Shortcut, TranslocoPipe],
   templateUrl: './task-detail.html',
   host: {
     'data-testid': 'task-detail',
@@ -42,6 +44,7 @@ export class TaskDetail {
   readonly removed = output<void>();
 
   protected readonly system = inject(SystemStore);
+  protected readonly shortcuts = inject(ShortcutStore);
   protected readonly waitingFor = TodoStatus.WaitingFor;
   protected readonly statusOptions = statusOptions;
 

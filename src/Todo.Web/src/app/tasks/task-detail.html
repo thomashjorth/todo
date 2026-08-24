@@ -1,10 +1,20 @@
 <label class="block">
-  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-    'tasks.deadline' | transloco
-  }}</span>
+  <span class="block text-xs text-gray-500 dark:text-gray-400"
+    >{{ 'tasks.deadline' | transloco }}
+    @if (shortcuts.altHeld()) {
+      <span
+        data-testid="shortcut-badge"
+        aria-hidden="true"
+        class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        >⇧D</span
+      >
+    }
+  </span>
   <input
     #deadline
     data-testid="deadline-input"
+    appShortcut="d"
+    appShortcutModifier="alt-shift"
     type="date"
     class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
     [value]="task().deadline ?? ''"
@@ -13,12 +23,22 @@
   />
 </label>
 <label class="block">
-  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-    'tasks.deferUntil' | transloco
-  }}</span>
+  <span class="block text-xs text-gray-500 dark:text-gray-400"
+    >{{ 'tasks.deferUntil' | transloco }}
+    @if (shortcuts.altHeld()) {
+      <span
+        data-testid="shortcut-badge"
+        aria-hidden="true"
+        class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        >⇧S</span
+      >
+    }
+  </span>
   <input
     #deferUntil
     data-testid="defer-until-input"
+    appShortcut="s"
+    appShortcutModifier="alt-shift"
     type="date"
     class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
     [value]="task().deferUntil ?? ''"
@@ -40,11 +60,21 @@
   </p>
 }
 <label class="block">
-  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-    'tasks.requester' | transloco
-  }}</span>
+  <span class="block text-xs text-gray-500 dark:text-gray-400"
+    >{{ 'tasks.requester' | transloco }}
+    @if (shortcuts.altHeld()) {
+      <span
+        data-testid="shortcut-badge"
+        aria-hidden="true"
+        class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        >⇧O</span
+      >
+    }
+  </span>
   <input
     #requester
+    appShortcut="o"
+    appShortcutModifier="alt-shift"
     type="text"
     class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
     [value]="task().requester ?? ''"
@@ -54,13 +84,24 @@
 </label>
 <div class="space-y-1">
   <div class="flex items-center justify-between gap-2">
-    <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-      'tasks.note' | transloco
-    }}</span>
+    <span class="block text-xs text-gray-500 dark:text-gray-400"
+      >{{ 'tasks.note' | transloco }}
+      @if (shortcuts.altHeld()) {
+        <span
+          data-testid="shortcut-badge"
+          aria-hidden="true"
+          class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+          >⇧N</span
+        >
+      }
+    </span>
     @if (!editingNote()) {
       <button
         type="button"
         data-testid="note-edit"
+        appShortcut="n"
+        appShortcutModifier="alt-shift"
+        appShortcutAction="activate"
         class="shrink-0 text-xs text-blue-700 underline dark:text-blue-300"
         (click)="noteEditStarted.emit()"
       >
@@ -101,11 +142,23 @@
   }
 </div>
 <label class="block">
-  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-    'tasks.status' | transloco
-  }}</span>
+  <span class="block text-xs text-gray-500 dark:text-gray-400"
+    >{{ 'tasks.status' | transloco }}
+    @if (shortcuts.altHeld()) {
+      <span
+        data-testid="shortcut-badge"
+        aria-hidden="true"
+        class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        >⇧T</span
+      >
+    }
+  </span>
+  <!-- T frem for S: startdatoen har det stærkere krav på S, fordi den er et felt man skriver i,
+       hvor status er en vælger man også kan nå med piletasterne, når først den har fokus. -->
   <select
     #status
+    appShortcut="t"
+    appShortcutModifier="alt-shift"
     class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
     (change)="saveStatus(status.value)"
   >
@@ -127,12 +180,22 @@
        chrome og ikke DOM. Samme handel som sprogvælgeren, der er et native <select>; <body>
        har scheme-light-dark netop for at de følger farvetemaet. -->
   <label class="block">
-    <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-      'tasks.waitingOn' | transloco
-    }}</span>
+    <span class="block text-xs text-gray-500 dark:text-gray-400"
+      >{{ 'tasks.waitingOn' | transloco }}
+      @if (shortcuts.altHeld()) {
+        <span
+          data-testid="shortcut-badge"
+          aria-hidden="true"
+          class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+          >⇧V</span
+        >
+      }
+    </span>
     <input
       #waitingOn
       data-testid="waiting-on-input"
+      appShortcut="v"
+      appShortcutModifier="alt-shift"
       type="text"
       list="delegate-names"
       class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500 dark:text-gray-100"
@@ -143,9 +206,17 @@
   </label>
 }
 <div class="space-y-1">
-  <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-    'tasks.subTasks' | transloco
-  }}</span>
+  <span class="block text-xs text-gray-500 dark:text-gray-400"
+    >{{ 'tasks.subTasks' | transloco }}
+    @if (shortcuts.altHeld()) {
+      <span
+        data-testid="shortcut-badge"
+        aria-hidden="true"
+        class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        >⇧U</span
+      >
+    }
+  </span>
   @for (subTask of task().subTasks; track subTask.id) {
     <div data-testid="subtask-row" class="flex items-start gap-2">
       <input
@@ -179,17 +250,32 @@
   <input
     #newSubTask
     data-testid="new-subtask-input"
+    appShortcut="u"
+    appShortcutModifier="alt-shift"
     type="text"
     [placeholder]="'tasks.newSubTask' | transloco"
     class="w-full rounded border border-gray-500 px-2 py-1 text-sm placeholder-gray-500 dark:border-gray-500 dark:placeholder-gray-400"
     (keyup.enter)="createSubTask(newSubTask)"
   />
 </div>
+<!-- Kun fokus, i modsætning til resten af de aktiverende genveje: der er ingen bekræftelse og
+     ingen fortryd i appen, så det andet tryk ER bekræftelsen. Skift den ikke til activate uden
+     at lave en af de to ting først. -->
 <button
   type="button"
   data-testid="delete-task"
+  appShortcut="l"
+  appShortcutModifier="alt-shift"
   class="text-xs text-red-600 underline dark:text-red-400"
   (click)="removed.emit()"
 >
   {{ 'tasks.deleteTask' | transloco }}
+  @if (shortcuts.altHeld()) {
+    <span
+      data-testid="shortcut-badge"
+      aria-hidden="true"
+      class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+      >⇧L</span
+    >
+  }
 </button>
