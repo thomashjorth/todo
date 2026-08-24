@@ -67,6 +67,27 @@ felter, så mærkaten og virkeligheden ikke kan drive fra hinanden.
 Vagten på `!event.ctrlKey && !event.metaKey` bliver stående uændret: `Ctrl+Alt` er AltGr på et dansk
 tastatur, og at spise den ville ødelægge indtastning af `@`, `£` og `$`.
 
+### Registreringen følger inputtet, ikke livscyklussen
+
+Direktivet registrerer i dag i `ngOnInit` og afmelder i `ngOnDestroy`, og resten af designet
+forudsatte tavst at det bliver ved at være nok. Det gør det ikke. `@for` sporer på `task.id`, så en
+søgning, et statusskifte eller en ny opgave omfordeler 1–9 uden at destruere nogen række: **samme
+komponentinstans får et nyt nummer.** `ngOnInit` er kørt for længst, så rækken ville svare på sit
+gamle ciffer for evigt — og fejlen er tavs, fordi badgen læser inputtet og pænt viser det nye tal.
+
+`ngOnInit`/`ngOnDestroy` udgår derfor **helt** og erstattes af én `effect` med `onCleanup`. Den gør
+begge de gamle ting — registrér, og afmeld når værten forsvinder — og desuden det tredje: skifter
+nøglen, rydder effekten den gamle op og skriver den nye, fordi den læser inputtet og dermed kører
+igen.
+
+Effekten trækker en ting med sig, som ellers bliver opdaget som en fejl senere: **to rækker der
+bytter numre kører hver sin oprydning, og rækkefølgen mellem to effekters oprydninger er ikke
+garanteret.** Den enes oprydning kan altså slette den nøgle den anden lige har skrevet, og udfaldet
+er et ciffer der ikke gør noget — uden at nogen test siger fra, for begge rækker har jo registreret.
+`ShortcutStore.unregister` tager derfor **callbacket** med og sletter kun, hvis den gemte stadig er
+den samme. Registreringen bliver ved at være last-writer-wins, hvad der er med vilje; det nye er
+alene, at taberens oprydning ikke kan rive vinderen med sig.
+
 **To ting skal måles frem for antages**, og begge i Photino-vinduet:
 
 1. At `Alt+Shift+D` giver `event.key === "D"`, så `toLowerCase()` er nok, og `event.code` ikke
@@ -111,8 +132,8 @@ allerede står der:
 
 - **Noten** er den eneste `activate`. Genvejen klikker knappen "Redigér noten", og `TaskDetail`s
   eksisterende `effect(() => this.noteEditor()?.nativeElement.focus())` sætter caret'en i editoren,
-  når den dukker op. Er editoren allerede åben, findes knappen ikke, `ngOnDestroy` har afregistreret
-  bogstavet, og genvejen gør ingenting — hvad der er det rigtige, for feltet har fokus.
+  når den dukker op. Er editoren allerede åben, findes knappen ikke, effektens oprydning har
+  afregistreret bogstavet, og genvejen gør ingenting — hvad der er det rigtige, for feltet har fokus.
 - **Venter på** findes kun bag `@if (task().status === waitingFor)`, så registreringen kommer og går
   med feltet. Samme mekanik som i dag; intet nyt.
 - **Slet** er `focus`. Se begrundelsen i afsnit 2.
@@ -159,21 +180,29 @@ permanent.
 ## 6. Vagterne
 
 `Every_shortcut_letter_on_screen_is_its_own` sammenligner allerede hele `aria-keyshortcuts`-strengen
-ordinalt, så `Alt+O` og `Alt+Shift+O` er distinkte af sig selv: **logikken skal ikke røres.** Men
-dens `BadgeCount = 9` skal, og den konstant er delt med badge-optællingen, hvor den er påstanden om
-at Alt-hold faktisk maler mærkaterne.
+ordinalt, så `Alt+O` og `Alt+Shift+O` er distinkte af sig selv: **logikken skal ikke røres.** Og
+`BadgeCount = 9` skal heller ikke — det stod her som en rettelse, og den var forkert. Målt:
+`Holding_Alt_reveals_the_badges_and_releasing_it_hides_them_again` og
+`Every_shortcut_letter_on_screen_is_its_own` **sår ingen opgaver.** De kalder `OpenAppAsync` og intet
+andet, så listen er tom, ingen række har et nummer, og der er intet panel at åbne. Begge bliver ved
+at måle ni, og en konstant der stadig stemmer, er ikke noget at rette.
 
-Det er den ene rigtige komplikation i leverancen: **tallet er ikke længere en konstant.** Det er ni
-faste bogstaver plus `min(9, antal valgbare rækker)` i fixturet plus otte feltbogstaver, hvoraf `V`
-kun findes når status er "Venter på". En konstant der skal genberegnes for hver fixture-ændring, er
-en vagt der bliver slået fra første gang den er i vejen. Derfor:
+Kravet er derfor et **andet**, og det er den rigtige komplikation i leverancen: netop fordi de to
+vagter kun kører på en tom liste, er de **blinde for hele det nye lag.** En kollision mellem to
+feltbogstaver, eller et ciffer der er registreret to gange, kan ikke fælde nogen af dem — der står
+ikke et eneste af de nye `aria-keyshortcuts` på siden de måler. Rettelsen er en **søsterpåstand**
+frem for et nyt tal:
 
-- Konstanten bliver **tre**: `NavBadges = 9` for navigationen og listekontrollerne,
-  `FieldBadges = 7` for panelet uden hvem-feltet, og rækkerne **tælles fra fixturet** frem for
-  skrives ned.
-- Optællingen sker to gange i samme rejse: med panelet **lukket** (`NavBadges` + rækkerne) og med
-  panelet **åbent** (plus `FieldBadges`). Forskellen mellem de to er selve påstanden om at feltlaget
-  kom med, og den kan ikke bestå på en side der renderede ingen af dem.
+- Den tomme liste beholdes uændret med `BadgeCount = 9`. Den er stadig den der siger, at siden
+  renderede *noget*, og at de ni gamle bogstaver ikke er kollideret med hinanden eller med feltlaget.
+- Ved siden af den kommer samme opslag på en **sået** liste med panelet **åbent**, hvor strengene
+  stadig skal være distinkte. Tallet dér **tælles fra fixturet** frem for skrives ned: ni faste
+  bogstaver plus `min(9, antal valgbare rækker)` plus panelets otte, hvoraf `V` kun findes når status
+  er "Venter på". En konstant der skal genberegnes for hver fixture-ændring, er en vagt der bliver
+  slået fra første gang den er i vejen.
+
+Forskellen mellem de to påstande *er* påstanden om at cifrene og feltlaget kom med, og ingen af dem
+kan bestå på en side der renderede ingen af dem.
 
 Nye rejser, som hver skal ses fejle for sig:
 
