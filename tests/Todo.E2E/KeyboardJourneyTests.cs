@@ -31,6 +31,25 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// </summary>
     private const int BadgeCount = 9;
 
+    /// <summary>The nine digits a row can claim. Alt+0 is not a tenth row, it is a key nobody would guess.</summary>
+    private const int RowDigits = 9;
+
+    /// <summary>
+    /// D, S, O, N, T, U and L — the seven field shortcuts every open panel has, whatever the task's
+    /// state is.
+    /// </summary>
+    private const int PanelFieldShortcuts = 7;
+
+    /// <summary>
+    /// V, the who field, which only exists behind <c>@if (task().status === waitingFor)</c>. Its own
+    /// name rather than an eight above, so the sister assertion below says out loud that it is
+    /// counting a branch the fixture had to put a task in.
+    /// </summary>
+    private const int WaitingOnFieldShortcut = 1;
+
+    /// <summary>A task that waits on somebody, so the panel's who field is rendered.</summary>
+    private const string WaitingTitle = "Afventer godkendelse";
+
     /// <summary>
     /// The five nav links in app.html are the first focusable elements on the page, so the
     /// field is the sixth stop — not the first. Asserted below rather than assumed: another
@@ -272,25 +291,215 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     {
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
 
-        var claimed = await App.Page.EvaluateAsync<string[]>(
-            """
-            () => [...document.querySelectorAll('[aria-keyshortcuts]')].map(
-              (el) => `${el.dataset.testid ?? el.tagName.toLowerCase()}=${el.getAttribute('aria-keyshortcuts')}`)
-            """);
+        var claimed = await ClaimedShortcutsAsync();
 
         // Every shortcut the app has, so this cannot pass on a page that rendered none of them — the
         // same reason the badge count asserts zero before it asserts eight.
         Assert.Equal(BadgeCount, claimed.Length);
 
-        var letters = claimed
-            .Select(entry => entry[(entry.IndexOf('=') + 1)..])
-            .ToList();
+        AssertLettersAreDistinct(claimed);
+    }
 
-        // The whole list is in the message rather than the duplicate alone: a collision is two
-        // elements' business, and the one that lost is the one nobody would think to look at.
-        Assert.True(letters.Distinct(StringComparer.Ordinal).Count() == letters.Count,
-            "Two elements claim the same Alt letter, and the last one to register wins in silence: "
-            + string.Join(", ", claimed.Order()));
+    /// <summary>
+    /// The sister of the assertion above, and the reason it can stay as it is: that one seeds no
+    /// tasks, so not one of the row digits and not one of the panel's field letters is on the page
+    /// it measures — a collision in either new layer cannot fail it. This one seeds a list and opens
+    /// the panel, so all three layers are rendered at once, which is the only state where they can
+    /// collide.
+    /// <para>
+    /// The count is worked out from the fixture rather than written down. A constant that has to be
+    /// recomputed for every change to the seeded list is a guard that gets switched off the first
+    /// time it is in the way — and the fixture here is deliberately one task short of nine, so the
+    /// <c>Math.Min</c> is doing arithmetic rather than restating a limit.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Every_shortcut_letter_on_a_seeded_list_with_the_panel_open_is_its_own()
+    {
+        // Distinct deadlines, so the order on screen is the server's and not a coincidence.
+        string[] scheduled = ["Alfa-opgaven", "Bravo-opgaven", "Charlie-opgaven"];
+
+        await Host.AddAndSaveChangesAsync(
+            [
+                ..scheduled.Select((title, i) => new TaskItemBuilder(Clock)
+                    .Titled(title)
+                    .DueOn(Clock.Today.AddDays(i + 1))
+                    .Build()),
+                new TaskItemBuilder(Clock).Titled(WaitingTitle).WaitingFor("Flemming").Build(),
+            ]);
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 });
+        var tasks = App.Tasks;
+
+        // The waiting task, so the panel's V is rendered: the who field only exists behind
+        // @if (task().status === waitingFor), and an unrendered directive registers nothing.
+        await tasks.RowShowing(WaitingTitle).ClickAsync();
+        await Assertions.Expect(tasks.WaitingOnInput).ToBeVisibleAsync();
+
+        var selectable = scheduled.Length + 1;
+        var expected = BadgeCount
+            + Math.Min(RowDigits, selectable)
+            + PanelFieldShortcuts
+            + WaitingOnFieldShortcut;
+
+        var claimed = await ClaimedShortcutsAsync();
+
+        Assert.Equal(expected, claimed.Length);
+
+        AssertLettersAreDistinct(claimed);
+    }
+
+    /// <summary>
+    /// The digit picks the n'th row, and <em>three</em> is the assertion's teeth: side by side the
+    /// panel auto-selects <c>[0]</c>, so a journey that pressed Alt+1 would pass with the whole
+    /// numbering removed. At 480 px nothing is selected until something selects it, and the third
+    /// row is a row no other rule would have reached.
+    /// </summary>
+    [Fact]
+    public async Task Alt_3_selects_the_third_row()
+    {
+        string[] titles = ["Alfa-opgaven", "Bravo-opgaven", "Charlie-opgaven"];
+
+        await Host.AddAndSaveChangesAsync(
+            [.. titles.Select((title, i) => new TaskItemBuilder(Clock)
+                .Titled(title)
+                .DueOn(Clock.Today.AddDays(i + 1))
+                .Build())]);
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var tasks = App.Tasks;
+
+        await Assertions.Expect(tasks.Rows).ToHaveCountAsync(titles.Length);
+        await Assertions.Expect(tasks.Detail).ToHaveCountAsync(0);
+
+        await App.Page.Keyboard.PressAsync("Alt+3");
+
+        // In one column the panel lives inside its own row, so DetailFor is what tells the third
+        // row apart from the first — Detail alone would pass on any row having opened.
+        await Assertions.Expect(tasks.DetailFor(titles[2])).ToBeVisibleAsync();
+        await Assertions.Expect(tasks.DetailFor(titles[0])).ToHaveCountAsync(0);
+        await Assertions.Expect(tasks.Detail).ToHaveCountAsync(1);
+    }
+
+    /// <summary>
+    /// Alt+0 is not a tenth row, so the tenth row has no shortcut at all — measured rather than
+    /// assumed, because the directive's empty-key guard is what makes it so. The ninth row's
+    /// attribute is asserted first: without it a page that rendered no attributes anywhere would
+    /// satisfy the zero below.
+    /// </summary>
+    [Fact]
+    public async Task The_tenth_row_has_no_shortcut()
+    {
+        // Eleven, so the tenth is not also the last: a locator that silently matched the end of the
+        // list would pass on ten.
+        string[] titles =
+        [
+            "Række A", "Række B", "Række C", "Række D", "Række E", "Række F",
+            "Række G", "Række H", "Række I", "Række J", "Række K",
+        ];
+
+        await Host.AddAndSaveChangesAsync(
+            [.. titles.Select((title, i) => new TaskItemBuilder(Clock)
+                .Titled(title)
+                .DueOn(Clock.Today.AddDays(i))
+                .Build())]);
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 2000 });
+        var tasks = App.Tasks;
+
+        await Assertions.Expect(tasks.Rows).ToHaveCountAsync(titles.Length);
+
+        await Assertions.Expect(tasks.RowShortcutFor(titles[0]))
+            .ToHaveAttributeAsync("aria-keyshortcuts", "Alt+1");
+        await Assertions.Expect(tasks.RowShortcutFor(titles[RowDigits - 1]))
+            .ToHaveAttributeAsync("aria-keyshortcuts", $"Alt+{RowDigits}");
+
+        await Assertions.Expect(tasks.RowShortcutFor(titles[RowDigits])).ToHaveCountAsync(0);
+        await Assertions.Expect(tasks.RowShortcutFor(titles[RowDigits + 1])).ToHaveCountAsync(0);
+    }
+
+    /// <summary>
+    /// The field layer, reached with Shift held: Alt+D is nothing and Alt+Shift+D is the deadline.
+    /// The row is opened first, because at 480 px there is no panel until there is.
+    /// </summary>
+    [Fact]
+    public async Task Alt_Shift_D_focuses_the_deadline_field()
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(Title).DueToday().Build());
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var tasks = App.Tasks;
+
+        await tasks.RowShowing(Title).ClickAsync();
+        await Assertions.Expect(tasks.DetailFor(Title)).ToBeVisibleAsync();
+
+        await App.Page.Keyboard.PressAsync("Alt+Shift+D");
+
+        Assert.Equal("deadline-input", await FocusedTestIdAsync());
+    }
+
+    /// <summary>
+    /// Delete is the one shortcut in the panel that only takes focus, because the app has neither a
+    /// confirmation nor an undo — the second keystroke <em>is</em> the confirmation. The second half
+    /// of this journey is the only assertion anywhere that can tell <c>focus</c> from
+    /// <c>activate</c>, and it is written with two full round trips in between: "the task is still
+    /// there" polls, and the first successful poll ends the wait, so read straight after the press
+    /// it would be read before a delete could have removed anything. Toggling the completed switch
+    /// on and off again is a GET each way, so a DELETE fired by the press has landed by the time the
+    /// last assertion looks.
+    /// </summary>
+    [Fact]
+    public async Task Alt_Shift_L_focuses_the_delete_button_without_deleting()
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(Title).DueToday().Build(),
+            new TaskItemBuilder(Clock).Titled(CompletedTitle).Done().Build());
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var tasks = App.Tasks;
+
+        await tasks.RowShowing(Title).ClickAsync();
+        await Assertions.Expect(tasks.DetailFor(Title)).ToBeVisibleAsync();
+
+        await App.Page.Keyboard.PressAsync("Alt+Shift+L");
+
+        Assert.Equal("delete-task", await FocusedTestIdAsync());
+
+        await tasks.ShowCompleted.ClickAsync();
+        await Assertions.Expect(tasks.CompletedRows).ToContainTextAsync(CompletedTitle);
+
+        await tasks.ShowCompleted.ClickAsync();
+        await Assertions.Expect(tasks.CompletedRows).ToHaveCountAsync(0);
+
+        await Assertions.Expect(tasks.RowShowing(Title)).ToBeVisibleAsync();
+        await Assertions.Expect(tasks.DetailFor(Title)).ToBeVisibleAsync();
+    }
+
+    /// <summary>
+    /// The note's shortcut is the only activating one in the panel, and the caret has to arrive with
+    /// it: the editor being visible is the click, and the focus is the detail component's existing
+    /// effect carrying the shortcut the rest of the way. Asserting only visibility would leave the
+    /// user pressing Tab afterwards.
+    /// </summary>
+    [Fact]
+    public async Task Alt_Shift_N_opens_the_note_editor_and_puts_the_caret_in_it()
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(Title).DueToday().Build());
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var tasks = App.Tasks;
+
+        await tasks.RowShowing(Title).ClickAsync();
+        await Assertions.Expect(tasks.NoteEditButton).ToBeVisibleAsync();
+        await Assertions.Expect(tasks.NoteEditor).ToHaveCountAsync(0);
+
+        await App.Page.Keyboard.PressAsync("Alt+Shift+N");
+
+        await Assertions.Expect(tasks.NoteEditor).ToBeVisibleAsync();
+
+        Assert.Equal("note-editor", await FocusedTestIdAsync());
     }
 
     [Fact]
@@ -345,6 +554,31 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     }
 
     private ILocator Badges => App.Page.GetByTestId("shortcut-badge");
+
+    /// <summary>
+    /// Every shortcut rendered right now, read off <c>aria-keyshortcuts</c> — so this is what the
+    /// directive registered rather than what a template says.
+    /// </summary>
+    private Task<string[]> ClaimedShortcutsAsync() => App.Page.EvaluateAsync<string[]>(
+        """
+        () => [...document.querySelectorAll('[aria-keyshortcuts]')].map(
+          (el) => `${el.dataset.testid ?? el.tagName.toLowerCase()}=${el.getAttribute('aria-keyshortcuts')}`)
+        """);
+
+    /// <summary>
+    /// The whole list is in the message rather than the duplicate alone: a collision is two
+    /// elements' business, and the one that lost is the one nobody would think to look at.
+    /// </summary>
+    private static void AssertLettersAreDistinct(string[] claimed)
+    {
+        var letters = claimed
+            .Select(entry => entry[(entry.IndexOf('=') + 1)..])
+            .ToList();
+
+        Assert.True(letters.Distinct(StringComparer.Ordinal).Count() == letters.Count,
+            "Two elements claim the same Alt letter, and the last one to register wins in silence: "
+            + string.Join(", ", claimed.Order()));
+    }
 
     private Task<string> FocusedTestIdAsync() => App.Page.EvaluateAsync<string>(
         "() => document.activeElement?.dataset.testid ?? 'none'");

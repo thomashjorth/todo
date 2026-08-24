@@ -130,6 +130,19 @@ public sealed class TaskListScreen(TodoApp app)
     public ILocator WaitingDaysFor(string title) => RowFor(title).GetByTestId("waiting-days");
 
     /// <summary>
+    /// The digit a row's own button claims, if it claims one. On the attribute rather than on its
+    /// value, so a count of zero is an honest question: from the tenth row the directive registers
+    /// nothing and leaves no <c>aria-keyshortcuts</c> behind at all — not an empty one.
+    /// <para>
+    /// The row's title button, not any button in the row: an open panel puts two more shortcut
+    /// buttons inside the same &lt;li&gt;, so a journey that counts these has to leave the row shut.
+    /// </para>
+    /// </summary>
+    public ILocator RowShortcutFor(string title)
+        => RowFor(title).GetByRole(AriaRole.Button, new() { Name = title })
+            .And(RowFor(title).Locator("[aria-keyshortcuts]"));
+
+    /// <summary>
     /// The detail under one named row. Only one row is expanded at a time, so waiting for this
     /// rather than <see cref="Detail"/> is what tells a click apart from the detail it replaced.
     /// <para>
