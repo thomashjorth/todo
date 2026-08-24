@@ -10,8 +10,18 @@ export class ShortcutStore {
     this.targets.set(key.toLowerCase(), activate);
   }
 
-  unregister(key: string): void {
-    this.targets.delete(key.toLowerCase());
+  /**
+   * Registering the same key twice is still last-writer-wins, deliberately. What the second
+   * argument buys is that the loser's cleanup cannot delete the winner's entry: a row's number
+   * changes while the app runs, and the order between two effects' cleanups is not guaranteed.
+   */
+  unregister(key: string, activate?: () => void): void {
+    const lowered = key.toLowerCase();
+    if (activate && this.targets.get(lowered) !== activate) {
+      return;
+    }
+
+    this.targets.delete(lowered);
   }
 
   /** True when the key was handled, so the caller knows whether to swallow the event. */
