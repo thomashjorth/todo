@@ -633,6 +633,86 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     }
 
     /// <summary>
+    /// The panel's sister of the row guard above, and the same class of defect: a badge's box landing
+    /// on top of something else. The mechanism is different, though, and worth naming — padding and a
+    /// border on a <em>non-replaced inline</em> box do not grow the line box, so the badge's border box
+    /// overflowed its own label line by 1px at top and bottom and painted 1px into the input below it.
+    /// The label span's height never changed, which is why nothing about the label looked wrong.
+    /// <para>
+    /// A pixel count is deliberately not asserted: "5px is enough and 3px is not" is taste, and a test
+    /// pinning a gap would go red on every future spacing tweak for the wrong reason. Overlap is not
+    /// taste — the badge either covers the control or it does not.
+    /// </para>
+    /// <para>
+    /// The badge count is asserted first for the usual reason: with no badge rendered the emptiness
+    /// below is a claim about nothing.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(ColumnWidth)]
+    [InlineData(WideWidth)]
+    public async Task A_panel_badge_never_covers_the_field_below_it(int width)
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(Title).DueToday().WaitingFor("Flemming").Build());
+
+        await OpenAppAsync(new() { Width = width, Height = 1400 });
+        var tasks = App.Tasks;
+
+        // Side by side the panel opens itself; at 480 px there is no panel until a row is clicked.
+        if (width == ColumnWidth)
+        {
+            await tasks.RowShowing(Title).ClickAsync();
+        }
+
+        await Assertions.Expect(tasks.Detail).ToBeVisibleAsync();
+
+        // The waiting task, so the who field's badge is one of the eight rather than seven of them.
+        await Assertions.Expect(tasks.WaitingOnInput).ToBeVisibleAsync();
+
+        await App.Page.Keyboard.DownAsync("Alt");
+
+        await Assertions.Expect(tasks.Detail.GetByTestId("shortcut-badge"))
+            .ToHaveCountAsync(PanelFieldShortcuts + WaitingOnFieldShortcut);
+
+        var covered = await App.Page.EvaluateAsync<string[]>(BadgesOverPanelFields);
+
+        Assert.Empty(covered);
+    }
+
+    /// <summary>
+    /// Every panel badge that intersects a control's box, named by the letter and both boxes so a
+    /// failure says which field rather than merely that one of them is wrong.
+    /// </summary>
+    private const string BadgesOverPanelFields = """
+        () => {
+          const found = [];
+          const panel = document.querySelector('[data-testid="task-detail"]');
+          const round = (r) => `${Math.round(r.top)}-${Math.round(r.bottom)}`;
+
+          for (const badge of panel.querySelectorAll('[data-testid="shortcut-badge"]')) {
+            const b = badge.getBoundingClientRect();
+
+            for (const el of panel.querySelectorAll('input, select, textarea, button')) {
+              // An ancestor's box contains the badge by definition - the delete button holds one.
+              if (el.contains(badge)) continue;
+
+              const f = el.getBoundingClientRect();
+              if (f.width === 0 || f.height === 0) continue;
+              if (!(b.left < f.right && b.right > f.left && b.top < f.bottom && b.bottom > f.top))
+                continue;
+
+              found.push(
+                `Alt+Shift+${badge.textContent.trim()} (y ${round(b)}) covers ` +
+                  `${el.tagName.toLowerCase()}[${el.dataset.testid ?? ''}] (y ${round(f)})`);
+            }
+          }
+
+          return found;
+        }
+        """;
+
+    /// <summary>
     /// The row titles that take more than one line box. A <c>display: block</c> element reports a
     /// single rectangle however many lines it holds, so the lines are counted through a Range over its
     /// contents — that is the one thing that can tell a wrapped title from a wide one.

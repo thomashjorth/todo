@@ -1,11 +1,26 @@
+<!-- Genvejsmærkatens to klasser er målt, ikke valgt på smag, og de gør hver sin ting.
+     inline-block + leading-none er årsagsrettelsen: padding og kant på en ikke-erstattet
+     INLINE-boks vokser ikke linjeboksen, så mærkatens kantboks var 18 px i en 16 px linje og
+     malede 1 px NED I feltet under den — mens etiket-spanden blev ved at være 16 px høj, og
+     derfor så intet forkert ud. Målt: leading-none alene på en inline gjorde ingenting (stadig
+     18 px, stadig -1 px); som inline-block bliver boksen 14 px og holder sig inde i linjen.
+     ⇧-glyffen klippes ikke — efterset i 6x forstørrelse.
+     mb-1 på etiketten er det andet halve, fordi årsagsrettelsen alene kun gav +1 px, altså netop
+     de "et par pixels" brugeren klagede over. Med begge: mærkatens underkant 5 px over feltet,
+     tekstens 4 px, i begge layouts. 5 < de 8 px space-y-2 giver mellem to felter, så grupperingen
+     holder — og 4 px er panelets egen rytme i forvejen (space-y-1 om noten og underopgaverne, som
+     derfor ikke har mb-1: 4 px + 1 giver dem samme 5 px gratis).
+     Ingen af de to reflower når Alt trykkes: begge koster nul, når mærkaten ikke er der.
+     Rør ikke px-1, kanten eller farverne — kanten er det der gør mærkaten til en tast, og
+     farverne er det målte par ContrastTests holder øje med. -->
 <label class="block">
-  <span class="block text-xs text-gray-500 dark:text-gray-400"
+  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
     >{{ 'tasks.deadline' | transloco }}
     @if (shortcuts.altHeld()) {
       <span
         data-testid="shortcut-badge"
         aria-hidden="true"
-        class="ml-2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
         >⇧D</span
       >
     }
@@ -23,13 +38,13 @@
   />
 </label>
 <label class="block">
-  <span class="block text-xs text-gray-500 dark:text-gray-400"
+  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
     >{{ 'tasks.deferUntil' | transloco }}
     @if (shortcuts.altHeld()) {
       <span
         data-testid="shortcut-badge"
         aria-hidden="true"
-        class="ml-2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
         >⇧S</span
       >
     }
@@ -60,13 +75,13 @@
   </p>
 }
 <label class="block">
-  <span class="block text-xs text-gray-500 dark:text-gray-400"
+  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
     >{{ 'tasks.requester' | transloco }}
     @if (shortcuts.altHeld()) {
       <span
         data-testid="shortcut-badge"
         aria-hidden="true"
-        class="ml-2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
         >⇧O</span
       >
     }
@@ -90,7 +105,7 @@
         <span
           data-testid="shortcut-badge"
           aria-hidden="true"
-          class="ml-2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+          class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
           >⇧N</span
         >
       }
@@ -142,13 +157,13 @@
   }
 </div>
 <label class="block">
-  <span class="block text-xs text-gray-500 dark:text-gray-400"
+  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
     >{{ 'tasks.status' | transloco }}
     @if (shortcuts.altHeld()) {
       <span
         data-testid="shortcut-badge"
         aria-hidden="true"
-        class="ml-2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
         >⇧T</span
       >
     }
@@ -180,13 +195,13 @@
        chrome og ikke DOM. Samme handel som sprogvælgeren, der er et native <select>; <body>
        har scheme-light-dark netop for at de følger farvetemaet. -->
   <label class="block">
-    <span class="block text-xs text-gray-500 dark:text-gray-400"
+    <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
       >{{ 'tasks.waitingOn' | transloco }}
       @if (shortcuts.altHeld()) {
         <span
           data-testid="shortcut-badge"
           aria-hidden="true"
-          class="ml-2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+          class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
           >⇧V</span
         >
       }
@@ -212,7 +227,7 @@
       <span
         data-testid="shortcut-badge"
         aria-hidden="true"
-        class="ml-2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
         >⇧U</span
       >
     }
@@ -274,7 +289,7 @@
     <span
       data-testid="shortcut-badge"
       aria-hidden="true"
-      class="ml-2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+      class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
       >⇧L</span
     >
   }
