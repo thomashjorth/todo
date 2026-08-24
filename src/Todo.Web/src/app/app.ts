@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { HealthClient, HealthResponse } from './api/todo-client';
 import { Shortcut } from './shortcuts/shortcut';
+import { ShortcutModifier, shortcutKey } from './shortcuts/shortcut-key';
 import { ShortcutStore } from './shortcuts/shortcut-store';
 import { SystemStore } from './system/system-store';
 
@@ -44,10 +45,14 @@ export class App {
       return;
     }
 
-    // Alt+bogstav, og kun når Alt er den eneste modifikator: Ctrl+Alt er AltGr på et dansk
-    // tastatur, og at spise den ville ødelægge indtastning af @, £ og $.
-    if (event.altKey && !event.ctrlKey && !event.metaKey && this.shortcuts.activate(event.key)) {
-      event.preventDefault();
+    // Ctrl og Meta er stadig udenfor: Ctrl+Alt er AltGr på et dansk tastatur, og at spise den
+    // ville ødelægge indtastning af @, £ og $. Shift er derimod et lag og ikke en udelukkelse.
+    if (event.altKey && !event.ctrlKey && !event.metaKey) {
+      const modifier: ShortcutModifier = event.shiftKey ? 'alt-shift' : 'alt';
+
+      if (this.shortcuts.activate(shortcutKey(modifier, event.key))) {
+        event.preventDefault();
+      }
     }
   }
 

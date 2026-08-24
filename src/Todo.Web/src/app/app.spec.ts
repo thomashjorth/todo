@@ -7,6 +7,8 @@ import { API_BASE_URL } from './api/todo-client';
 import { App } from './app';
 import { routes } from './app.routes';
 import { translocoTesting } from './i18n/transloco.testing';
+import { shortcutKey } from './shortcuts/shortcut-key';
+import { ShortcutStore } from './shortcuts/shortcut-store';
 
 // The generated client requests responseType 'blob' and decodes it with FileReader,
 // so a flushed response only reaches the template after a later microtask.
@@ -107,6 +109,37 @@ describe('App', () => {
     await TestBed.inject(Router).navigate(['/settings']);
 
     expect(await current()).toBe('nav-settings');
+  });
+
+  it('should look up Alt and Alt+Shift in layers of their own, and leave AltGr alone', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const store = TestBed.inject(ShortcutStore);
+    const activate = vi.fn();
+    store.register(shortcutKey('alt', 'k'), activate);
+
+    const press = (init: KeyboardEventInit) => {
+      const event = new KeyboardEvent('keydown', { ...init, cancelable: true });
+      document.dispatchEvent(event);
+      return event;
+    };
+
+    const alt = press({ key: 'k', altKey: true });
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(alt.defaultPrevented).toBe(true);
+
+    // Shift is a layer of its own, so the field layer must not reach the navigation layer's entry.
+    const altShift = press({ key: 'K', altKey: true, shiftKey: true });
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(altShift.defaultPrevented).toBe(false);
+
+    // Ctrl+Alt is AltGr on a Danish keyboard: it has to reach the browser so @, £ and $ can be typed.
+    const altGr = press({ key: 'k', altKey: true, ctrlKey: true });
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(altGr.defaultPrevented).toBe(false);
   });
 
   it('should report the API as unavailable when the call fails', async () => {
