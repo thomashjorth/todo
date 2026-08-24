@@ -16,6 +16,16 @@ fejl i det; de står som opgave 0 og opgave 8.
 
 **Tech stack:** Angular 22 med signals (ingen forms, ingen NgRx), Vitest, Playwright, xUnit.
 
+**Én kommando er værd at kende, før den koster tid:** en enkelt spec-fil køres med `--include` og en
+**sti**, ikke med et navn. Målt — `--run shortcut-key` giver `Unknown argument: run`, og uden `--run`
+giver den `Unknown argument: watch`, fordi `ng test`s positionelle argument er *projektnavnet* og
+`@angular/build:unit-test` slet ikke har et `--run`. Den anden fejlbesked peger altså på det forkerte
+flag. Den virkende form er:
+
+```bash
+npm.cmd run test --prefix src\Todo.Web -- --watch=false --include src/app/<mappe>/<fil>.spec.ts
+```
+
 ---
 
 ## Opgave 0: To rettelser til designet, før koden røres
@@ -84,7 +94,7 @@ describe('shortcutKey', () => {
 **Trin 2: Kør den og se den fejle**
 
 ```bash
-npm.cmd run test --prefix src\Todo.Web -- --watch=false --run shortcut-key
+npm.cmd run test --prefix src\Todo.Web -- --watch=false --include src/app/shortcuts/shortcut-key.spec.ts
 ```
 
 Forventet: `Failed to resolve import "./shortcut-key"`.
