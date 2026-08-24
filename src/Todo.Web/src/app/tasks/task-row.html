@@ -18,12 +18,22 @@
   />
   <div class="min-w-0 flex-1">
     <!-- relative, fordi mærkaten nedenfor er positioneret mod knappen, som de tre felter i
-         task-list.html er mod deres wrapper.
+         task-list.html er mod deres wrapper. Men de er single-line <input>'s, hvor intet ombrydes;
+         her er hver linje et block-span der fylder knappens indholdsbredde, så en titel der nåede
+         højrekanten ombrød *under* cifferet - brugeren læste "booke" gennem et Alt+8.
+         pr-6 reserverer pladsen frem for at lægge mærkaten oven på teksten: absolut positionering
+         måler mod padding-boksen, så de 24 px (mærkaten er målt til 16) er mærkatens egne, og
+         teksten ombryder før den. Kun når rækken har et ciffer, så række ti og frem beholder
+         den fulde bredde.
+         Og padding frem for en flex-række med mærkaten i flowet: i flowet fylder den kun mens Alt
+         holdes nede, så hver ombrudt titel ville reflowe i det sekund brugeren trykker Alt. En
+         permanent reservation koster 24 px titelbredde og hopper ikke.
          @let, ikke `as`: et signal-kald indsnævres ikke af @if, og `as` binder på sandhed. -->
     @let rowNumber = number();
     <button
       type="button"
       class="relative w-full text-left"
+      [class.pr-6]="rowNumber"
       [appShortcut]="shortcut()"
       appShortcutAction="activate"
       (click)="toggled.emit()"

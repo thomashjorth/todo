@@ -16,6 +16,14 @@ namespace Todo.E2E;
 public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
     private const int ColumnWidth = 480;
+
+    /// <summary>
+    /// Above the <c>xl</c> breakpoint, and 1400 rather than 1280 for the same reason as the
+    /// side-by-side journeys: a viewport sitting exactly on the breakpoint makes every number depend
+    /// on a scrollbar.
+    /// </summary>
+    private const int WideWidth = 1400;
+
     private const string Title = "Send referatet";
     private const string CompletedTitle = "Ryd skrivebordet";
 
@@ -552,6 +560,130 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 
         Assert.Equal("new-task-input", await FocusedTestIdAsync());
     }
+
+    /// <summary>
+    /// The badge is absolutely positioned against the row's button, and every line inside that button
+    /// — the title, the deadline, the opgavestiller, the progress — is a <c>block</c> whose box spans
+    /// the button's content width. So a title long enough to reach the right edge wrapped
+    /// <em>underneath</em> the digit, and the user read "booke" through an Alt+8. Nothing in the suite
+    /// could see it: a short title never reaches the badge, and every fixture in the suite was short.
+    /// <para>
+    /// The fixture's first two titles are the user's own, and the assertion below that they really
+    /// wrap is this test's teeth: with a one-line title the boxes are disjoint under the bug as well,
+    /// and the whole journey would be about nothing. Line boxes are counted through a Range, because a
+    /// <c>display: block</c> element reports one rectangle however many lines it has.
+    /// </para>
+    /// <para>
+    /// Raw rectangles rather than the painted-box arithmetic of
+    /// <see cref="WideScreenLayoutJourneyTests.A_long_import_list_scrolls_inside_the_window_rather_than_through_the_footer"/>,
+    /// and that is a decision rather than an omission: both boxes here live inside the same button, so
+    /// every clipping ancestor cuts them equally and clipping can only <em>hide</em> the overlap. That
+    /// would be the wrong direction — a row scrolled half out of the column would go quiet about an
+    /// overlap that is there the moment it scrolls back. The overlap is a property of the layout, not
+    /// of what is on screen, so the unclipped boxes are the honest question.
+    /// </para>
+    /// <para>
+    /// Both layouts, because the row markup is shared by them: side by side the list column is the
+    /// same 30rem the whole app is designed in, but the selected row carries a border and a
+    /// <c>pl-2</c> of its own, so the content width is not the one measured at 480.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(ColumnWidth)]
+    [InlineData(WideWidth)]
+    public async Task A_row_badge_never_covers_the_rows_own_text(int width)
+    {
+        // The user's real titles, which is the point: they are long enough to reach the right edge of
+        // a 480px column and wrap. A short title cannot fail this.
+        string[] titles =
+        [
+            "FSTYR: Ej bestået til KOMBI prøver giver ikke mulighed for at booke en ny teoriprøve",
+            "Kortet viser ikke den geografisk korrekte placering af den valgte prøvesagsadresse",
+            Title,
+        ];
+
+        await Host.AddAndSaveChangesAsync(
+            [.. titles.Select((title, i) => new TaskItemBuilder(Clock)
+                .Titled(title)
+                .DueOn(Clock.Today.AddDays(i))
+                .Build())]);
+
+        await OpenAppAsync(new() { Width = width, Height = 1400 });
+        var tasks = App.Tasks;
+
+        await Assertions.Expect(tasks.Rows).ToHaveCountAsync(titles.Length);
+
+        await App.Page.Keyboard.DownAsync("Alt");
+
+        // The row badges rather than every badge on the page: side by side a panel is open from the
+        // start, and its seven field badges would make the count a layout question instead of a
+        // claim that all three rows are numbered.
+        await Assertions.Expect(tasks.Rows.GetByTestId("shortcut-badge"))
+            .ToHaveCountAsync(titles.Length);
+
+        // Without this the emptiness below proves nothing: a list of one-line titles has no text out
+        // by the right edge for a badge to land on, whether the space is reserved or not.
+        var wrapping = await App.Page.EvaluateAsync<string[]>(WrappingTitles);
+
+        Assert.NotEmpty(wrapping);
+
+        var covered = await App.Page.EvaluateAsync<string[]>(BadgesOverRowText);
+
+        Assert.Empty(covered);
+    }
+
+    /// <summary>
+    /// The row titles that take more than one line box. A <c>display: block</c> element reports a
+    /// single rectangle however many lines it holds, so the lines are counted through a Range over its
+    /// contents — that is the one thing that can tell a wrapped title from a wide one.
+    /// </summary>
+    private const string WrappingTitles = """
+        () =>
+          [...document.querySelectorAll('[data-testid="task-row"] button > span:first-of-type')]
+            .filter((el) => {
+              const range = document.createRange();
+              range.selectNodeContents(el);
+              return range.getClientRects().length > 1;
+            })
+            .map((el) => el.textContent.replace(/\s+/g, ' ').trim().slice(0, 40));
+        """;
+
+    /// <summary>
+    /// Every row badge that intersects a text-bearing element inside its own row's button, named by
+    /// the digit, the text it covers and both boxes — so a failure says which row and which words,
+    /// the way the footer-overlap guard names the rows that land on the health line. A bare boolean
+    /// here would be a failure nobody could act on.
+    /// </summary>
+    private const string BadgesOverRowText = """
+        () => {
+          const found = [];
+          const round = (r) => `${Math.round(r.left)}-${Math.round(r.right)}`;
+
+          for (const row of document.querySelectorAll('[data-testid="task-row"]')) {
+            const badge = row.querySelector('[data-testid="shortcut-badge"]');
+            if (!badge) continue;
+
+            const button = badge.closest('button');
+            const b = badge.getBoundingClientRect();
+
+            for (const el of button.querySelectorAll('span')) {
+              if (el === badge || el.textContent.trim() === '') continue;
+
+              const t = el.getBoundingClientRect();
+              if (t.width === 0 || t.height === 0) continue;
+              if (!(b.left < t.right && b.right > t.left && b.top < t.bottom && b.bottom > t.top))
+                continue;
+
+              const text = el.textContent.replace(/\s+/g, ' ').trim().slice(0, 60);
+              found.push(
+                `Alt+${badge.textContent.trim()} (x ${round(b)}, w ${Math.round(b.width)})` +
+                  ` covers "${text}" (x ${round(t)})`);
+            }
+          }
+
+          return found;
+        }
+        """;
 
     private ILocator Badges => App.Page.GetByTestId("shortcut-badge");
 
