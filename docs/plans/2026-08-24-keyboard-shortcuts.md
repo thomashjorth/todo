@@ -469,9 +469,12 @@ Fem nye `[Fact]`, hver skal **ses fejle** ved at bryde det den beskytter:
    **og** fokuseret.
 
 Udvid desuden `Every_shortcut_letter_on_screen_is_its_own` med en søsterpåstand: samme opslag på en
-**sået** liste med panelet åbent, hvor bogstaverne stadig skal være distinkte, og tallet skal være
-9 + rækker + 7 (eller 8 med hvem-feltet). Uden den er guarden blind for hele det nye lag —
-konstanten `BadgeCount = 9` er stadig rigtig for den tomme liste, se opgave 0.
+**sået** liste med panelet åbent, hvor strengene stadig skal være distinkte. Tallet dér **tælles fra
+fixturet** — ni faste bogstaver plus `min(9, antal valgbare rækker)` plus panelets otte, hvoraf `V`
+kun findes når status er "Venter på" — frem for at skrives ned: en konstant der skal genberegnes for
+hver fixture-ændring, er en vagt der bliver slået fra første gang den er i vejen. Uden søsterpåstanden
+er guarden blind for hele det nye lag, og `BadgeCount = 9` er stadig rigtig for den tomme liste, se
+opgave 0.
 
 **Husk:** `scripts\build-web.ps1` **før** E2E. Suiten bygger ikke Angular, så uden bygningen måler
 Playwright den forrige udgave af frontenden, og intet ser forkert ud.
