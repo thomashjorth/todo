@@ -121,6 +121,12 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   pipe fra PowerShell til `od.exe` tilføjer en **UTF-8 BOM**, så emnet ser ud til at begynde med
   `357 273 277` foran gitmojien. Tallet er pipens, ikke commit'ens — og havde nogen troet på det,
   ville de have "rettet" en fejl der ikke fandtes. Målt i skive 11.
+- **Én enkelt Vitest-fil køres med `--include` og en *sti*, ikke med et navn:**
+  `npm.cmd run test --prefix src\Todo.Web -- --watch=false --include src/app/<mappe>/<fil>.spec.ts`.
+  Målt: `--run <navn>` giver `Unknown argument: run`, og dropper man `--run`, giver den
+  `Unknown argument: watch` — fordi `ng test`s positionelle argument er *projektnavnet*, og
+  `@angular/build:unit-test` har slet ikke noget `--run`. Den anden fejlbesked peger altså på det
+  forkerte flag.
 
 ## Sikkerhed omkring data
 
@@ -374,6 +380,12 @@ i filsættet. Klassen vagter altså både **flagene** i de tre tsconfigs og selv
 er, at `dotnet test` nu forudsætter installerede `node_modules`; mangler `tsc.cmd`, siger vagten
 det med navn og sti frem for at kaste en `Win32Exception`.
 
+**Men `ng test` er ikke *helt* blind, og forskellen betyder noget når en vagt skal ses fejle.**
+Afsnittet ovenfor gælder typerne *inde i* spec-filen; `angular-compiler`-pluginnet compilerer til
+gengæld komponenterne og deres skabeloner, så en spec der rører et input, en metode eller en
+skabelontype der ikke findes, fejler som en **bygning** og ikke som en assertion. Vil du se en vagt
+fejle på sin *påstand*, skal maskineriet lægges ind først og adfærden stå urettet.
+
 **En genvej udfører elementets aktiveringshandling, ikke bare fokus.** Det er
 Windows-konventionen — og HTML's eget `accesskey` — så et tekstfelt får fokus, fordi det ikke har
 andet at gøre, et afkrydsningsfelt skifter, en knap klikkes, et link følges. Gav genvejen kun
@@ -393,6 +405,36 @@ heller ikke: Chrome på Windows binder intet `Alt+A`, og de nære naboer er `Ctr
 andet modifikatorsæt, og `Alt+K` er ubundet.
 altså andre taste- og modifikatorsæt. **Registret er last-writer-wins**, så bogstaverne skal
 blive ved at være globalt unikke; se designdokumentets afsnit 10.
+
+**Og fra 2026-08-24 er der to lag, ikke ét.** Nøglen i registret er `lag+tast`, bygget af
+`shortcutKey` i `src/Todo.Web/src/app/shortcuts/shortcut-key.ts`, og `shortcutLabel` bygger
+`aria-keyshortcuts` af de **samme to felter** — så mærkaten kan ikke drive fra den kombination der
+virker. `alt`-laget er de ni bogstaver ovenfor **plus `Alt+1`–`9`**, som vælger den n'te *valgbare*
+række på listen; det lag er stadig last-writer-wins, så både bogstaver og cifre skal blive ved at
+være globalt unikke. `alt-shift`-laget er detaljepanelets otte felter og hører **kun** til
+opgavelisten — `D` deadline, `S` startdato, `O` opgavestiller, `N` noten, `T` status (`T` og ikke
+`S`, fordi startdatoen har det stærkere krav på et felt man skriver i), `V` venter-på, `U` ny
+underopgave, `L` slet. Cifrene kan **kun** prøves i Photino-vinduet: Chrome binder `Alt+1`–`8` til
+faneskift og `Alt+9` til sidste fane.
+
+**`Alt+Shift+L` er den eneste genvej der kun giver fokus, og mærkaterne vises på Alt alene.**
+Sletningen har hverken bekræftelse eller fortryd i appen, så det **andet** tryk *er* bekræftelsen —
+begrundelsen står ved kaldet i skabelonen, ellers rettes undtagelsen som en inkonsekvens. Og
+mærkaterne — også feltlagets, som læses `⇧D` — vises når **Alt** alene er nede: skulle man holde
+`Alt+Shift` bare for at *se* dem, udsatte hvert slip brugeren for Windows' layoutskift, en fejl der
+dukker op uger senere som "appen skifter mit tastatur". Shift kommer først på i selve anslaget.
+
+**Direktivet registrerer fra en `effect` med `onCleanup`, ikke fra `ngOnInit`/`ngOnDestroy`.** `@for`
+sporer på `task.id`, så en søgning, et statusskifte eller en ny opgave omfordeler 1–9 **uden** at
+destruere nogen række: samme komponentinstans får et nyt nummer, og med livscyklus-hooks ville den
+svare på sit gamle ciffer for evigt — tavst, fordi badgen læser inputtet og pænt viser det nye tal.
+En **tom** `appShortcut` registrerer ingenting og udsender slet ingen `aria-keyshortcuts`; sådan
+virker række ti og frem. Og `unregister` tager callbacket med og sletter kun, hvis det gemte stadig
+er det samme: to rækker der bytter numre kører hver sin oprydning, og rækkefølgen mellem to
+effekters oprydninger er ikke garanteret, så uden vagten kan taberens oprydning slette den nøgle
+vinderen lige skrev. **Vagten skal sammenligne på `key.toLowerCase()`**, fordi `register` gemmer den
+små — ellers holder `unregister('N', fn)` sit callback op mod `undefined`, tager den tidlige udgang
+og sletter aldrig. Planens egen kodestump gjorde netop det.
 
 **Og fra skive 12 findes der en vagt på netop det**, hvad der ikke gjorde før:
 `KeyboardJourneyTests.Every_shortcut_letter_on_screen_is_its_own` læser `aria-keyshortcuts` af hvert
@@ -930,13 +972,44 @@ forkerte grund.
   farvefejl — forudsigelsen om at `@tailwindcss/typography` ville fejle holdt ikke. Hvad den til
   gengæld afdækkede, var blindvinklen ovenfor. Læs ikke "ingen nye fejl" som "udvidelsen var
   spildt".
+- **`BadgeCount = 9` i `KeyboardJourneyTests` gælder den *tomme* liste, og det er ikke en svaghed
+  men en grænse.** `Holding_Alt_reveals_the_badges_and_releasing_it_hides_them_again` og
+  `Every_shortcut_letter_on_screen_is_its_own` sår **ingen** opgaver, så ingen række har et nummer og
+  der er intet panel — de ni statiske `Alt+bogstav` *er* hele siden, og tallet skal derfor ikke
+  hæves, når de to nye lag kommer til. Konsekvensen er den vigtige: de to er **blinde for begge nye
+  lag**, og derfor står `Every_shortcut_letter_on_a_seeded_list_with_the_panel_open_is_its_own` ved
+  siden af dem og tæller **fra fixturet** frem for fra et nedskrevet tal. Målt: giver man
+  `waiting-on-input` bogstavet `d` — en kollision inde i feltlaget — fælder det søsteren med begge
+  elementnavne, mens den tomme liste **består i samme kørsel**.
+- **Mærkaterne var aldrig målt af `ContrastTests`, heller ikke de ni gamle**, fordi ingen rejse holdt
+  Alt nede. `Every_screen_meets_WCAG_AA` holder nu Alt over **ét** snapshot, taget med den *ventende*
+  opgaves panel åbent — den eneste tilstand der renderer `⇧V` — påstår at mærkaterne *er* der (tallet
+  bor i vagten), og slipper Alt igen inden resten af rejsen: med Alt nede ville klikkene og
+  udfyldningerne længere nede i rejsen udløse
+  genveje i stedet. Målt i begge retninger: én mærkat malet `text-gray-400 dark:text-gray-600` gør
+  suiten **rød i begge temaer** (`span[shortcut-badge] text "⇧D" 2,49:1 needs 4,5` lyst, `1,94:1`
+  mørkt) og **grøn** igen, hvis kun Alt-holdet fjernes. Bemærk tallene: de er mod panelets egen
+  `bg-gray-50`/`dark:bg-gray-800`, ikke mod hvid — en forudsigelse på 2,60/2,35 var forkert af netop
+  den grund, jf. paret-afsnittet i "Konventioner".
+- **`aria-hidden="true"` på feltlagets mærkater kan ikke fældes af E2E.** Ingen rejse holder Alt med
+  et panel åbent, så påstanden bor i `task-detail.spec.ts` og læser alle otte mærkater som
+  `glyf:aria-hidden`-par. Set fejle på mutationen (`⇧L:null`).
 
 ## Testtal
 
-**174** Todo.Core.Tests, **316** Todo.Api.Tests, **59** Todo.E2E, **281** Vitest — alle grønne.
+**174** Todo.Core.Tests, **316** Todo.Api.Tests, **67** Todo.E2E, **293** Vitest — alle grønne,
+målt med `Check.cmd` 2026-08-24.
 
 Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
 eller duplikeret.** Det er hele reglen. Kør `Check.cmd` og sammenlign.
+
+**Og E2E-tallet var forældet *inden* genvejslagene — fjerde gang regnskabet driver, og det skal stå
+her frem for at blive overskrevet i stilhed.** Grenen stod på **61** grønne E2E før den leverance,
+ikke 59: seks af de otte nye er dens, og to var lagt til uden at nogen rettede tallet. `HANDOFF.md`
+stod samtidig på **58**, altså et tredje tal. Det er præcis den fejl afsnittet nedenfor advarer mod,
+og den ene ting reglen kræver: et ændret tal kan kun betyde en tabt eller duplikeret test, hvis
+tallet var sandt i forvejen. Flytter du et tal her, så skriv **hvorfor** det flyttede sig — og
+retter du et tal du ikke selv har fået til at flytte sig, så sig at det var forældet.
 
 **Og de her fire tal er de eneste der står i prosa nogen steder.** Afsnittet var 265 linjer med et
 regnskab pr. leverance — hvor mange tests hver skive lagde til, og hvorfor fordelingen var som den

@@ -77,6 +77,55 @@ if it starts waiting again, the count starts over from zero.
 under **Måske**, when you turn **Vis måske** on. That keeps the list short without deleting
 anything.
 
+## Keyboard shortcuts
+
+Hold **Alt** and every shortcut on screen shows its key as a small badge - the detail panel's included,
+which read `⇧D` and so on. The badges appear on **Alt alone** rather than on Alt+Shift: having to hold
+Alt+Shift just to look at them would expose you to Windows' keyboard-layout switch on every release.
+Shift only goes on in the actual keystroke.
+
+`Ctrl+Alt` is AltGr on a Danish keyboard, so a combination is only handled when neither Ctrl nor the
+Windows key is down - `@`, `£` and `$` can still be typed.
+
+**Alt + letter** - the screens, and the list itself:
+
+| Shortcut | What it does |
+| --- | --- |
+| `Alt+O` | **Opgaver**, the task list |
+| `Alt+I` | **Retro-import** |
+| `Alt+J` | **Jira-import** |
+| `Alt+A` | **Azure DevOps-import** |
+| `Alt+S` | **Indstillinger** |
+| `Alt+N` | the new-task field |
+| `Alt+K` | the search field |
+| `Alt+V` | **Vis færdige** on and off |
+| `Alt+M` | **Vis måske** on and off |
+
+**Alt + digit** - `Alt+1` to `Alt+9` select the n'th row on the list, counted from the top and running
+across the sections. Row ten and beyond have no shortcut. Completed rows are skipped and carry no
+number - a completed row has no detail panel to select - so the numbers can jump across that block. The
+numbers follow the list: a search, a status change or a new task renumbers 1-9. In a browser they do
+nothing, because Chrome binds `Alt+1`-`8` to switching tabs, so they can only be tried in the app
+window.
+
+**Alt + Shift + letter** - the eight fields of the open task's detail panel:
+
+| Shortcut | Field |
+| --- | --- |
+| `Alt+Shift+D` | deadline |
+| `Alt+Shift+S` | start date |
+| `Alt+Shift+O` | requester |
+| `Alt+Shift+N` | the note - opens the editor and puts the caret in it |
+| `Alt+Shift+T` | status - `T`, because the start date has the stronger claim on `S` |
+| `Alt+Shift+V` | who you are waiting on - only there when the status is **Venter på** |
+| `Alt+Shift+U` | the new-subtask field |
+| `Alt+Shift+L` | the delete button - focus only |
+
+Every shortcut performs the element's own activation: a text field takes focus because that is all it
+has to do, a switch toggles, a link is followed. `Alt+Shift+L` is the one exception - it gives the
+delete button focus rather than pressing it. There is no confirmation and no undo in this app, so the
+second keypress is the confirmation.
+
 ## Language and settings
 
 The screen is called **Indstillinger** in the top menu and lives on the `/settings` route. It holds

@@ -6,8 +6,11 @@ Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs d
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **174**, Api **316**, E2E **58**, Vitest **281** — alle grønne. `Check.cmd` kører
-dem i den rækkefølge der er bærende.
+**Testtal:** Core **174**, Api **316**, E2E **67**, Vitest **293** — alle grønne, målt 2026-08-24.
+`Check.cmd` kører dem i den rækkefølge der er bærende. Bemærk at E2E-tallet her stod på **58** og i
+`CLAUDE.md` på **59**, mens sandheden før genvejslagene var **61** — to tests var lagt til uden at
+nogen rettede tallet. Begge steder er rettet nu; se `CLAUDE.md`s "Testtal" for hvorfor det står
+skrevet frem for bare overskrevet.
 
 ## Færdigt
 
@@ -32,7 +35,10 @@ vinduesbredde): listen i venstre spalte, detaljerne i højre, med auto-valg af d
 skærmen — planen er `docs/plans/2026-08-21-side-by-side-design.md`, og de fem beslutninger står der
 med deres begrundelser. Og **importens forslag om at lukke en løst sag**: står en hentet ADO- eller
 Jira-sag i en status du kalder færdig, mens opgaven stadig er åben her, tilbyder importen at lukke den
-— planen er `docs/plans/2026-08-24-import-closure-design.md`.
+— planen er `docs/plans/2026-08-24-import-closure-design.md`. Og **to genvejslag oven på Alt-laget**:
+`Alt+1`–`9` vælger den n'te valgbare række på listen, og `Alt+Shift+bogstav` går direkte til et af
+detaljepanelets otte felter — planen er `docs/plans/2026-08-24-keyboard-shortcuts-design.md`, og de fem
+beslutninger står i dens afsnit 2.
 
 ## Næste skridt
 
@@ -63,6 +69,24 @@ beskytter mod noget der ikke findes endnu, og en vagt på dem kunne ikke bringes
 Skive **15** er livscyklus og arkiv.
 
 ## Målinger kun du kan lave
+
+**De to genvejslag i Photino-vinduet — ingen af de to målinger nedenfor er lavet.** Playwright trykker
+`Alt+Shift+D` i Chromium, og suiten er grøn, men det siger intet om dit tastatur i det rigtige vindue.
+Begge står derfor **åbne**, og ingen har prøvet dem:
+
+1. **Giver `Alt+Shift+D` `event.key === "D"`?** Opslaget er `event.key.toLowerCase()`, så `"D"` er
+   nok. Er svaret et andet — et dødt tegn, eller `event.key` som noget helt tredje — skal opslaget
+   bygges på `event.code` i stedet. Det er en rettelse i `app.ts` og `shortcuts/shortcut-key.ts`
+   (opgave 4 i `docs/plans/2026-08-24-keyboard-shortcuts.md`), **ikke** et nyt design.
+2. **Stjæler Windows' layoutskift på `Alt+Shift` kombinationen?** Skiftet udløses på *slip* uden et
+   bogstav, så `Alt+Shift+D` bør være fri — men "bør" er ikke en måling. Og et grønt svar er **svagt**,
+   hvis maskinen kun har ét tastaturlayout installeret: så sker der ingenting under alle omstændigheder,
+   og målingen siger intet om en maskine med to.
+
+Sådan gøres det: start appen med `Todo.cmd`, prøv de otte `Alt+Shift`-bogstaver på en åben opgave
+(`D S O N T V U L`) og de ni `Alt+ciffer` på listen, og skriv resultatet her. Cifrene kan i øvrigt
+**kun** prøves her — Chrome binder `Alt+1`–`8` til faneskift og `Alt+9` til sidste fane — så en
+browser siger ingenting om dem.
 
 **Sætter din Jira en resolution, når en sag flyttes til en færdig-status?** Åbn en løst sag og se om
 resolutionsfeltet er udfyldt. Gør den det, forsvinder sagen ud af JQL'en, og `jira.doneStatuses`, den
