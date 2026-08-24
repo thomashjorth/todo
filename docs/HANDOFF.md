@@ -6,7 +6,7 @@ Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs d
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **174**, Api **316**, E2E **67**, Vitest **293** — alle grønne, målt 2026-08-24.
+**Testtal:** Core **174**, Api **316**, E2E **69**, Vitest **293** — alle grønne, målt 2026-08-24.
 `Check.cmd` kører dem i den rækkefølge der er bærende. Bemærk at E2E-tallet her stod på **58** og i
 `CLAUDE.md` på **59**, mens sandheden før genvejslagene var **61** — to tests var lagt til uden at
 nogen rettede tallet. Begge steder er rettet nu; se `CLAUDE.md`s "Testtal" for hvorfor det står
