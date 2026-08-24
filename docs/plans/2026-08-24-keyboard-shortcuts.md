@@ -432,7 +432,7 @@ tredje påstand ikke består ved et tilfælde.
 ```
 
 Badgen inde i knappen, med `aria-hidden="true"` — `TaskListScreen.RowTitled` matcher knappens
-**fulde** tilgængelige navn, så et synligt ciffel derinde ville få hver eksisterende rækkelokator
+**fulde** tilgængelige navn, så et synligt ciffer derinde ville få hver eksisterende rækkelokator
 til at holde op med at matche.
 
 `TaskRow` skal tilføje `Shortcut` til sine `imports`.
