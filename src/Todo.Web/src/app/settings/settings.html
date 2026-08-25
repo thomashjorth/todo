@@ -22,10 +22,10 @@
     [open]="isOpen('language')"
     (toggled)="toggleSection('language')"
   >
-    <!-- Mærkaten var skjult for øjet, dengang gruppen hed Sprog og havde præcis én kontrol: så
-         ville en synlig mærkat have skrevet ordet to gange. Skive 16 lagde autostart her og
-         omdøbte gruppen til Generelt, så overskriften navngiver ikke længere vælgeren, og en
-         skjult mærkat ville efterlade en dropdown uden et ord ved siden af. -->
+    <!-- Mærkaten er synlig, fordi gruppen hedder Generelt og derfor ikke navngiver vælgeren: en
+         skjult mærkat ville efterlade en dropdown uden et ord ved siden af. Dengang gruppen hed
+         Sprog og havde præcis én kontrol, var mærkaten skjult, fordi den ellers havde skrevet
+         ordet to gange. -->
     <label
       for="settings-language"
       class="mt-2 block text-sm font-medium text-gray-900 dark:text-gray-100"
@@ -48,36 +48,6 @@
     @if (settings.error(); as message) {
       <p
         data-testid="settings-error"
-        role="alert"
-        class="mt-2 text-sm text-red-700 dark:text-red-300"
-      >
-        {{ message }}
-      </p>
-    }
-
-    <label class="mt-4 flex items-center gap-2">
-      <input
-        #autostart
-        data-testid="autostart"
-        type="checkbox"
-        class="shrink-0"
-        [checked]="settings.autostart()"
-        (change)="setAutostart(autostart)"
-      />
-      <span class="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">{{
-        'settings.autostart.label' | transloco
-      }}</span>
-    </label>
-
-    <!-- Sagt med ord, fordi der ikke er et bakke-ikon endnu: appen åbner et vindue ved login, og en
-         bruger der tror den starter i baggrunden, har slået noget til hun ikke bad om. -->
-    <p data-testid="autostart-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-      {{ 'settings.autostart.hint' | transloco }}
-    </p>
-
-    @if (settings.autostartError(); as message) {
-      <p
-        data-testid="autostart-error"
         role="alert"
         class="mt-2 text-sm text-red-700 dark:text-red-300"
       >

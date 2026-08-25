@@ -406,53 +406,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SettingsResponse'
-  /api/settings/autostart:
-    put:
-      operationId: enableAutostart
-      tags:
-        - Settings
-      summary: Starts the app when the user signs in to Windows.
-      description: >-
-        A route of its own for the same reason the tokens have one: PUT /api/settings is a full
-        replacement that reads an absent field as "clear", so saving a language would switch
-        autostart off. PUT enables and DELETE disables, rather than a body carrying a boolean,
-        because the two verbs already say it.
-
-        Unlike every other setting this one is not stored in the database. It lives under
-        HKCU\Software\Microsoft\Windows\CurrentVersion\Run, which is where Windows actually reads
-        it from - so that key is the truth, and a copy in the Settings table could only disagree
-        with it. Remove the key with another tool and the switch reports off, which is correct.
-      responses:
-        '200':
-          description: Autostart is on.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SettingsResponse'
-        '400':
-          description: Autostart could not be turned on.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-    delete:
-      operationId: disableAutostart
-      tags:
-        - Settings
-      summary: Stops the app from starting when the user signs in.
-      responses:
-        '200':
-          description: Autostart is off.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SettingsResponse'
-        '400':
-          description: Autostart could not be turned off.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
   /api/jira/test:
     post:
       operationId: testJiraConnection
@@ -1339,7 +1292,6 @@ components:
         - adoWorkItemTypes
         - adoDefaultDeadlineDays
         - hasAdoToken
-        - autostart
       properties:
         language:
           type: string
@@ -1435,13 +1387,6 @@ components:
           description: >-
             Whether a token is stored. The token itself is never returned; it is written
             through PUT /api/settings/ado-token and cleared through DELETE.
-        autostart:
-          type: boolean
-          description: >-
-            Whether the app starts when the user signs in to Windows. Read from the registry
-            rather than from the Settings table, because the registry is what Windows reads it
-            from - so it is the only answer that cannot be stale. Absent from SettingsRequest on
-            purpose: it is written through PUT and DELETE /api/settings/autostart.
     JiraTokenRequest:
       type: object
       additionalProperties: false

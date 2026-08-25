@@ -120,19 +120,4 @@ public static class ErrorCodes
     public const string AdoWorkItemTypeInvalid = "ado.workItemTypeInvalid";
 
     public const string SystemUnsupportedScheme = "system.unsupportedScheme";
-
-    /// <summary>
-    /// Autostart could not be changed. One code for both directions and for every reason, because
-    /// the user can only do one thing about any of them - a locked-down registry, a policy, a
-    /// missing key - and that is to look at the machine. Naming the cause would promise a
-    /// distinction the app cannot make.
-    /// </summary>
-    public const string AutostartFailed = "autostart.failed";
-
-    /// <summary>
-    /// Autostart was asked for on a platform where it is not implemented. Unreachable on the
-    /// machine this ships to; it exists so the non-Windows branch of the registration can refuse
-    /// rather than answer a request to turn it on with a 200 that changed nothing.
-    /// </summary>
-    public const string AutostartUnsupported = "autostart.unsupported";
 }

@@ -48,7 +48,6 @@ interface SettingsJson {
   adoWorkItemTypes?: string[];
   adoDefaultDeadlineDays?: number;
   hasAdoToken?: boolean;
-  autostart?: boolean;
 }
 
 function settingsJson(overrides: SettingsJson = {}): Blob {
@@ -74,7 +73,6 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       adoWorkItemTypes: ['Bug', 'User Story', 'Task'],
       adoDefaultDeadlineDays: 3,
       hasAdoToken: false,
-      autostart: false,
       ...overrides,
     }),
   ]);
@@ -405,67 +403,6 @@ describe('SettingsStore', () => {
     );
     expect(store.error()).toBeNull();
     expect(store.delegatesError()).toBeNull();
-  });
-
-  // Its own route for the same reason the tokens have one, and this pair is the guard on that: a
-  // field on PUT /api/settings would be read as "clear" by every other save.
-  it('should turn autostart on through its own route', async () => {
-    const { store, http } = configure('da-DK');
-
-    const saved = store.setAutostart(true);
-
-    const request = http.expectOne('/api/settings/autostart');
-    expect(request.request.method).toBe('PUT');
-    // No body. The verb says it, so there is nothing to get wrong in a payload.
-    expect(request.request.body).toBeNull();
-    request.flush(settingsJson({ autostart: true }));
-
-    await saved;
-
-    expect(store.autostart()).toBe(true);
-  });
-
-  it('should turn autostart off through the same route with DELETE', async () => {
-    const { store, http } = configure('da-DK');
-    store.autostart.set(true);
-
-    const saved = store.setAutostart(false);
-
-    const request = http.expectOne('/api/settings/autostart');
-    expect(request.request.method).toBe('DELETE');
-    request.flush(settingsJson({ autostart: false }));
-
-    await saved;
-
-    expect(store.autostart()).toBe(false);
-  });
-
-  // The server's answer wins over what was asked for. On a machine whose registry refuses, the
-  // switch has to end up showing what actually happened rather than what the click intended.
-  it('should keep autostart off and say why when the registry refuses', async () => {
-    const { store, http } = configure('da-DK');
-
-    const saved = store.setAutostart(true);
-
-    http.expectOne('/api/settings/autostart').flush(
-      new Blob([
-        JSON.stringify({
-          code: 'autostart.failed',
-          message: 'Group policy says no.',
-        }),
-      ]),
-      { status: 400, statusText: 'Bad Request' },
-    );
-
-    await saved;
-
-    expect(store.autostart()).toBe(false);
-    expect(store.autostartError()).toBe(
-      'Autostart kunne ikke ændres. Kontrollér om Windows tillader det på maskinen.',
-    );
-    // Its own line, so a refused registry does not print above the language picker - which since
-    // the accordion could be a section the user is not looking at.
-    expect(store.error()).toBeNull();
   });
 
   it('should store an Azure DevOps token on its own route and report that there is one', async () => {

@@ -6,10 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
 using Todo.Core.Ado;
-using Todo.Core.Autostart;
 using Todo.Core.Jira;
 using Todo.Host.Ado;
-using Todo.Host.Autostart;
 using Todo.Host.Endpoints;
 using Todo.Host.Jira;
 using Todo.Host.Links;
@@ -76,20 +74,6 @@ public static class TodoHost
         builder.Services.AddHttpClient<AdoTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
 
         builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
-
-        // Registered behind the OS check the analyser asks for rather than unconditionally: the
-        // registry APIs are annotated Windows-only, and the target framework is net10.0 rather than
-        // net10.0-windows. The app is Windows-only either way - Photino and %APPDATA% both say so -
-        // so the other branch is a courtesy to the compiler and to anyone who opens this on a Mac,
-        // not a platform this ships to. It answers "off" and refuses to lie about turning on.
-        if (OperatingSystem.IsWindows())
-        {
-            builder.Services.AddSingleton<IAutostart, RegistryAutostart>();
-        }
-        else
-        {
-            builder.Services.AddSingleton<IAutostart, UnsupportedAutostart>();
-        }
 
         configureServices?.Invoke(builder.Services);
 
@@ -187,8 +171,9 @@ public static class TodoHost
     /// </summary>
     /// <remarks>
     /// The framework's default is the process working directory, which a published exe does not
-    /// control - whoever starts it does, and autostart is exactly such a caller. Measured on the
-    /// published exe: run from the repository root, <c>/</c> answered 404 and the log said
+    /// control - whoever starts it does, and that is anything from a shortcut to a shell sitting in
+    /// some other folder. Measured on the published exe: run from the repository root, <c>/</c>
+    /// answered 404 and the log said
     /// <c>The WebRootPath was not found: C:\privat-git\todo\wwwroot</c>; run from its own folder the
     /// same exe answered 200.
     /// <para>
@@ -196,7 +181,7 @@ public static class TodoHost
     /// embed the frontend in the assembly, so static files do not come from the content root at all
     /// any more. This stays because the content root is still where the host would look for
     /// configuration beside the exe, and the exe's folder is the only answer that holds wherever the
-    /// process was started from - which autostart decides, not the app.
+    /// process was started from - which whoever launches it decides, not the app.
     /// </para>
     /// <para>
     /// Returning <see langword="null"/> means "leave the default alone", and that is the point of

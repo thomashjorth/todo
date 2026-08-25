@@ -15,9 +15,9 @@ param(
     # same reason it holds out bin and dist.
     #
     # This was %TEMP% first, to keep 110 MB out of the working tree - but a temp folder is the wrong
-    # home for something you launch: Windows may clear it, and autostart writes the exe's path into
-    # the registry, so an entry could end up pointing at a file that is gone. A known folder beats a
-    # disposable one, and the ignore rule does the job the temp folder was doing.
+    # home for something you launch: Windows may clear it, so anything pointing at the exe by path -
+    # a shortcut, a pinned taskbar entry - could end up pointing at a file that is gone. A known
+    # folder beats a disposable one, and the ignore rule does the job the temp folder was doing.
     #
     # Left as a parameter, because installing somewhere permanent is a different act from building:
     # pass -OutputPath C:\Apps\MandalorianToDo when that is what you mean.

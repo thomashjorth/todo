@@ -1146,124 +1146,6 @@ export class SettingsClient {
         }
         return _observableOf(null as any);
     }
-
-    /**
-     * Starts the app when the user signs in to Windows.
-     * @return Autostart is on.
-     */
-    enableAutostart(): Observable<SettingsResponse> {
-        let url_ = this.baseUrl + "/api/settings/autostart";
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_ : any = {
-            observe: "response",
-            responseType: "blob",
-            headers: new HttpHeaders({
-                "Accept": "application/json"
-            })
-        };
-
-        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processEnableAutostart(response_);
-        })).pipe(_observableCatch((response_: any) => {
-            if (response_ instanceof HttpResponseBase) {
-                try {
-                    return this.processEnableAutostart(response_ as any);
-                } catch (e) {
-                    return _observableThrow(e) as any as Observable<SettingsResponse>;
-                }
-            } else
-                return _observableThrow(response_) as any as Observable<SettingsResponse>;
-        }));
-    }
-
-    protected processEnableAutostart(response: HttpResponseBase): Observable<SettingsResponse> {
-        const status = response.status;
-        const responseBlob =
-            response instanceof HttpResponse ? response.body :
-            (response as any).error instanceof Blob ? (response as any).error : undefined;
-
-        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
-        if (status === 200) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result200: any = null;
-            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result200 = SettingsResponse.fromJS(resultData200);
-            return _observableOf(result200);
-            }));
-        } else if (status === 400) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result400: any = null;
-            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result400 = ApiError.fromJS(resultData400);
-            return throwException("Autostart could not be turned on.", status, _responseText, _headers, result400);
-            }));
-        } else if (status !== 200 && status !== 204) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            }));
-        }
-        return _observableOf(null as any);
-    }
-
-    /**
-     * Stops the app from starting when the user signs in.
-     * @return Autostart is off.
-     */
-    disableAutostart(): Observable<SettingsResponse> {
-        let url_ = this.baseUrl + "/api/settings/autostart";
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_ : any = {
-            observe: "response",
-            responseType: "blob",
-            headers: new HttpHeaders({
-                "Accept": "application/json"
-            })
-        };
-
-        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processDisableAutostart(response_);
-        })).pipe(_observableCatch((response_: any) => {
-            if (response_ instanceof HttpResponseBase) {
-                try {
-                    return this.processDisableAutostart(response_ as any);
-                } catch (e) {
-                    return _observableThrow(e) as any as Observable<SettingsResponse>;
-                }
-            } else
-                return _observableThrow(response_) as any as Observable<SettingsResponse>;
-        }));
-    }
-
-    protected processDisableAutostart(response: HttpResponseBase): Observable<SettingsResponse> {
-        const status = response.status;
-        const responseBlob =
-            response instanceof HttpResponse ? response.body :
-            (response as any).error instanceof Blob ? (response as any).error : undefined;
-
-        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
-        if (status === 200) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result200: any = null;
-            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result200 = SettingsResponse.fromJS(resultData200);
-            return _observableOf(result200);
-            }));
-        } else if (status === 400) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result400: any = null;
-            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result400 = ApiError.fromJS(resultData400);
-            return throwException("Autostart could not be turned off.", status, _responseText, _headers, result400);
-            }));
-        } else if (status !== 200 && status !== 204) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            }));
-        }
-        return _observableOf(null as any);
-    }
 }
 
 @Injectable({
@@ -3846,8 +3728,6 @@ export class SettingsResponse implements ISettingsResponse {
     adoDefaultDeadlineDays!: number;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
     hasAdoToken!: boolean;
-    /** Whether the app starts when the user signs in to Windows. Read from the registry rather than from the Settings table, because the registry is what Windows reads it from - so it is the only answer that cannot be stale. Absent from SettingsRequest on purpose: it is written through PUT and DELETE /api/settings/autostart. */
-    autostart!: boolean;
 
     constructor(data?: ISettingsResponse) {
         if (data) {
@@ -3915,7 +3795,6 @@ export class SettingsResponse implements ISettingsResponse {
             }
             this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"];
             this.hasAdoToken = _data["hasAdoToken"];
-            this.autostart = _data["autostart"];
         }
     }
 
@@ -3974,7 +3853,6 @@ export class SettingsResponse implements ISettingsResponse {
         }
         data["adoDefaultDeadlineDays"] = this.adoDefaultDeadlineDays;
         data["hasAdoToken"] = this.hasAdoToken;
-        data["autostart"] = this.autostart;
         return data;
     }
 }
@@ -4010,8 +3888,6 @@ export interface ISettingsResponse {
     adoDefaultDeadlineDays: number;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
     hasAdoToken: boolean;
-    /** Whether the app starts when the user signs in to Windows. Read from the registry rather than from the Settings table, because the registry is what Windows reads it from - so it is the only answer that cannot be stale. Absent from SettingsRequest on purpose: it is written through PUT and DELETE /api/settings/autostart. */
-    autostart: boolean;
 }
 
 export class JiraTokenRequest implements IJiraTokenRequest {

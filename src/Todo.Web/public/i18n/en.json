@@ -166,10 +166,6 @@
       "da": "Danish",
       "en": "English"
     },
-    "autostart": {
-      "label": "Start with Windows",
-      "hint": "The app opens a window when you sign in. There is no tray icon yet, so it starts visibly."
-    },
     "groups": {
       "language": "General",
       "delegates": "Delegating",
@@ -291,10 +287,6 @@
       "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline.",
       "excludedWaiting": "You are waiting for it, and waiting work items are turned off.",
       "excludedDone": "The work item is done in Azure DevOps and was never imported, so it stays out."
-    },
-    "autostart": {
-      "failed": "Autostart could not be changed. Check whether Windows allows it on this machine.",
-      "unsupported": "Autostart is only implemented for Windows."
     },
     "system": {
       "unsupportedScheme": "Only http and https links can be opened."

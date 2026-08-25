@@ -124,21 +124,6 @@ export class SettingsStore {
   readonly hasAdoToken = signal(false);
 
   /**
-   * Whether Windows starts the app at sign-in. The one setting that is not stored in the database:
-   * it lives in the registry, which is where Windows reads it from, so the server reads it back
-   * through on every answer rather than remembering it. Absent from every `put` for the same reason
-   * the two tokens are - it has its own route.
-   */
-  readonly autostart = signal(false);
-
-  /**
-   * The general group's own line. `error` is the language select's, and a refused registry shown
-   * there would print above the language picker - which since the accordion means it could be inside
-   * a folded section the user is not looking at.
-   */
-  readonly autostartError = signal<string | null>(null);
-
-  /**
    * The language group's line, and after the Jira group got one of its own that is all it is: the
    * only caller left is `choose`. Kept as the default `put` target rather than renamed, because a
    * future group that forgets to pass its own signal should land somewhere visible.
@@ -346,24 +331,6 @@ export class SettingsStore {
   }
 
   /** All six routes answer with the whole settings shape, so all six are read the same way. */
-  /**
-   * PUT to turn on, DELETE to turn off, because the two verbs already say it and the route carries
-   * no body. The reply is authoritative: on a machine where the registry refuses, the switch has to
-   * go back to what it actually is rather than to what was asked for.
-   */
-  async setAutostart(enabled: boolean): Promise<void> {
-    this.autostartError.set(null);
-    try {
-      this.read(
-        await firstValueFrom(
-          enabled ? this.client.enableAutostart() : this.client.disableAutostart(),
-        ),
-      );
-    } catch (error) {
-      this.autostartError.set(apiErrorMessage(this.transloco, error));
-    }
-  }
-
   private read(response: SettingsResponse): void {
     this.language.set(response.language ?? null);
     this.delegates.set(response.delegates);
@@ -383,7 +350,6 @@ export class SettingsStore {
     this.adoWorkItemTypes.set(response.adoWorkItemTypes);
     this.adoDefaultDeadlineDays.set(response.adoDefaultDeadlineDays);
     this.hasAdoToken.set(response.hasAdoToken);
-    this.autostart.set(response.autostart);
   }
 
   private async apply(): Promise<void> {
