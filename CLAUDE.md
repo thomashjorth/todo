@@ -342,12 +342,14 @@ testkald der sætter `.value` og udsender et event — for at flytte en valideri
 
 **Prisen for fravalget er målt og skal blive ved at stå her: det manuelle `[checked]`-mønster har
 givet én rigtig fejl og efterlader to latente.** `[checked]` genanvendes **kun når signalet skifter**,
-så da registret afviste autostart, gik signalet `false` → `false`, bindingen havde intet at gøre, og
-fluebenet stod til mens intet var registreret. Fundet af en E2E-rejse, ikke af nogen Vitest.
-`Settings.setAutostart` skriver derfor elementet tilbage fra signalet efter rundturen.
+så afviser serveren skiftet, går signalet `false` → `false`, bindingen har intet at gøre, og fluebenet
+står til mens intet blev gemt. Fundet af en E2E-rejse, ikke af nogen Vitest. **Det arbejdede eksempel
+er væk med sin funktion** — det var autostart-fluebenet, fjernet 2026-08-25 — så led ikke efter
+`Settings.setAutostart`: rettelsen bestod i at skrive elementets `checked` tilbage fra signalet, når
+rundturen var færdig, og der findes ikke længere et sted i koden hvor den står.
 **`jira-on-duty` og `ado-include-waiting` har samme mønster og er *ikke* rettet** — de fejler kun hvis
-serveren afviser, og ingen af dem har en kodet grund til det i dag, hvor et låst register er den
-sandsynlige sag. Rører du en af dem, så skriv elementet tilbage som autostart gør.
+serveren afviser, og ingen af dem har en kodet grund til det i dag. Rører du en af dem, så skriv
+elementet tilbage fra signalet efter rundturen.
 
 **En store-metode der sætter et signal og derefter genindlæser, skal værne mod svar i forkert
 rækkefølge.** To genindlæsninger kan være i luften på én gang — `setShowCompleted` og
@@ -999,11 +1001,18 @@ forkerte grund.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **316** Todo.Api.Tests, **71** Todo.E2E, **293** Vitest — alle grønne,
-målt med `Check.cmd` 2026-08-24.
+**174** Todo.Core.Tests, **310** Todo.Api.Tests, **69** Todo.E2E, **289** Vitest — alle grønne,
+målt med `check.ps1` 2026-08-25.
 
 Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
 eller duplikeret.** Det er hele reglen. Kør `Check.cmd` og sammenlign.
+
+**Og de tre tal faldt 2026-08-25, fordi autostart blev fjernet — tolv tests er slettet med vilje,
+ikke tabt.** Fordelingen: **6** fra `Todo.Api.Tests/AutostartEndpointsTests.cs` (316 → 310), **2** fra
+`Todo.E2E/AutostartJourneyTests.cs` (71 → 69) og **4** Vitest (293 → 289), tre i
+`settings-store.spec.ts` og én i `settings.spec.ts`. `Todo.Core.Tests` rørte funktionen ikke og står
+stille på 174. `ErrorCodeTranslationTests` er stadig to teorikørsler: den tæller sprogfiler, ikke
+fejlkoder, så de to fjernede koder flytter ikke tallet.
 
 **Og E2E-tallet var forældet *inden* genvejslagene — fjerde gang regnskabet driver, og det skal stå
 her frem for at blive overskrevet i stilhed.** Grenen stod på **61** grønne E2E før den leverance,

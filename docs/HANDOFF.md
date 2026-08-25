@@ -1,12 +1,14 @@
 # Hvor projektet står
 
-Sidst opdateret: 2026-08-24.
+Sidst opdateret: 2026-08-25.
 
 Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs den først.
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **174**, Api **316**, E2E **71**, Vitest **293** — alle grønne, målt 2026-08-24.
+**Testtal:** Core **174**, Api **310**, E2E **69**, Vitest **289** — alle grønne, målt 2026-08-25.
+Tre af tallene faldt, da autostart blev fjernet: tolv tests er slettet med vilje — 6 API, 2 E2E og 4
+Vitest. Fordelingen står i `CLAUDE.md`s "Testtal".
 `Check.cmd` kører dem i den rækkefølge der er bærende. Bemærk at E2E-tallet her stod på **58** og i
 `CLAUDE.md` på **59**, mens sandheden før genvejslagene var **61** — to tests var lagt til uden at
 nogen rettede tallet. Begge steder er rettet nu; se `CLAUDE.md`s "Testtal" for hvorfor det står
@@ -24,7 +26,7 @@ rettet undervejs — de filer er detaljen, og de forældes ikke, så de er ikke 
 | 6–8 | TypeScript strict. WCAG AA i begge temaer med en kontrastvagt der måler i browseren. Alt-genvejssystemet |
 | 9–10 | Startdato (`DeferUntil`), beregnet frem for gemt. `long` som id, med en håndskreven migrering |
 | 11–12 | **Jira-import** (DC 10.3.24) og **ADO-import** (Server, api-version 7.1). `ITaskSource` fik sin anden implementation, og hvor den skar forkert står i skive 12's plan |
-| 16 | **Pakning:** `Publish.cmd` giver to filer, exe'en og dens ikon, og prøver exe'en bagefter. Autostart som en indstilling, læst fra registret |
+| 16 | **Pakning:** `Publish.cmd` giver to filer, exe'en og dens ikon, og prøver exe'en bagefter. Skiven gav også autostart som en indstilling; den blev fjernet igen 2026-08-25 på brugerens ønske |
 
 Uden for skiverne: app-ikon og `Todo.cmd`, feature-mapper, testdata-builders, `ApiTest`/`BrowserTest`,
 link til API-dokumentationen på health-linjen, Jiras vagt-statusser, uddelegering, accordion på
@@ -60,9 +62,10 @@ punkt 13 — læs dem der frem for her. Tre ting er værd at have i baghovedet, 
 2. `0` dage betyder **ingen grænse** (afgjort 2026-08-21) — men det er kun halvdelen. Skal en
    hjælpetekst sige det, må den ikke sige "0 betyder ingen omtaler", som er det stik modsatte.
 
-Skive **14** (baggrundssync, tray, notifikationer) er værd at nævne af en anden grund end
-rækkefølgen: autostart sendte i skive 16, og der er **ingen tray**, så appen åbner et vindue ved
-login. Det står med ord under kontakten, men tray'en er det der gør autostart til det den skal være.
+Skive **14** (baggrundssync, tray, notifikationer) er stadig uleveret, og den hænger sammen med det
+der blev fjernet 2026-08-25: appen kunne startes ved login, men der er **ingen tray**, så den åbnede
+et vindue i ansigtet på brugeren. Skal noget lignende komme igen, er tray'en det der gør det til det
+det skal være.
 Skive 14 bærer også `Ext*`-felterne, `TitleOverridden` og `LastSyncedAt` — de er ikke glemt, de
 beskytter mod noget der ikke findes endnu, og en vagt på dem kunne ikke bringes til at fejle i dag.
 
@@ -132,7 +135,8 @@ tokenet i kommandolinjen**; sæt det i `$env:ADO_PAT` først og referér det.
   pulje-sager bliver liggende når en kollega tager sagen, fordi `Status` er lokal efter import.
   Og `alreadyImported` gælder på tværs af vagtuger. Designdokumentets afsnit 4a.
 - **To latente fejl i det manuelle `[checked]`-mønster.** `jira-on-duty` og `ado-include-waiting` kan
-  vise et flueben serveren afviste, som autostart gjorde før det blev rettet. De fejler kun hvis
+  vise et flueben serveren afviste. Det skete én gang for alvor — i autostart-fluebenet, som er
+  fjernet igen — og rettelsen fulgte funktionen ud. De fejler kun hvis
   serveren afviser, og ingen af dem har en kodet grund til det i dag. Rører du en af dem, så skriv
   elementet tilbage fra signalet. Signal forms blev overvejet og **fravalgt** 2026-08-21 — se
   `CLAUDE.md`.

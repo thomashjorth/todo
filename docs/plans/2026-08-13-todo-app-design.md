@@ -694,7 +694,18 @@ Hver skive slutter med en app der kan startes og bruges, plus grønne tests.
     udelade dem.
 14. **Baggrundssync, tray og notifikationer.**
 15. **Livscyklus og arkiv** — detached-håndtering, "vis afsluttede".
-16. **Pakning** — self-contained exe, autostart.
+16. **Pakning** — self-contained exe.
+
+    **Autostart var med i skiven og er fjernet igen 2026-08-25, fordi brugeren bad om det.** Den var
+    et flueben i indstillingssidens første gruppe, to endpoints (`PUT`/`DELETE
+    /api/settings/autostart`), et påkrævet `autostart` på indstillingssvaret og en `IAutostart`-søm,
+    så ingen test rørte det rigtige register; værdien stod under
+    `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. Grunden til at den ikke var værd at have:
+    der er **ingen tray** (skive 14), så appen åbnede et vindue i ansigtet på brugeren ved hvert
+    login. Fjernelsen er **fuldstændig og uden oprydningskode** — også det var brugerens valg: en
+    nøgle i brugerens eget register fjerner brugeren selv, og kode der sletter noget i registret ved
+    opstart er værre end den nøgle den rydder op efter. Skal noget lignende komme igen, hører det
+    sammen med tray'en frem for at komme før den.
 
 ### Ønsket, men ikke placeret endnu
 
