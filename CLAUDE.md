@@ -112,6 +112,15 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   vejen ind. Filen på disken *er* ændret, men Git siger nej, så en midlertidig ændring man tror er
   rullet tilbage, ligger der stadig. Samme klasse af tavs fejl som prettier-fælden ovenfor, men
   gennem et værktøj man bruger til enlinjers-rettelser. Målt i skive 11.
+- **Et mutationsmønster skrevet med `\n` rammer ikke en CRLF-fil — og kørslen bagefter ligner et
+  svar.** Samme familie som `sed`-fælden ovenfor, men den koster mere, fordi den forfalsker en
+  *måling*: erstatningen fejler tavst, testen kører på den **umuterede** kode, og resultatet læses
+  som "vagten holdt". Ramte to gange i sektionsovergangs-leverancen — én gang målte løkken den
+  forrige mutation i stedet for sin egen. Normalisér til `\n` når du læser og skriv `\r\n` tilbage
+  (`newline=''` ved læsning, `newline='\r\n'` ved skrivning i Python), og **verificér at mutationen
+  faktisk står i filen** — print linjen — før du tror på kørslen. Samme grund gælder et
+  `python -c`-kald med indlejrede anførselstegn: PowerShell citerer om, og scriptet dør uden at
+  standse løkken. Læg mutationen i en scriptfil.
 - **`element.dataset.testid` compilerer ikke i en spec-fil.** `noPropertyAccessFromIndexSignature` er
   slået til, så Angulars bygning stopper med `TS4111: Property 'testid' comes from an index signature, so
   it must be accessed with ['testid']`. Fejlen kommer fra `ng test`s egen bygning, ikke fra
@@ -188,6 +197,14 @@ og fastslår at intet blev **forsøgt**, ser den slags. Vagten er `ApiDocsJourne
 undtagelse er `@plugin`-linjen i `styles.css`, som er Tailwinds egen indlæsningsmekanisme.
 Hver `bg-*`/`text-*`/`border-*` skal have en `dark:`-modpart. Ikke `text-gray-400` på lys
 baggrund (2,60:1).
+
+**Og præcis én inline-style, som konventionen ovenfor ellers gør til en overtrædelse:
+`[style.view-transition-name]` på en opgaverække.** Den står to steder — en host-binding på `TaskRow`
+og en i fuldført-sektionens skabelon — og den kan **ikke** være en klasse, fordi værdien er *data*:
+navnet er opgavens id, en utility-klasse er statisk, og Tailwinds arbitrære egenskab
+`[view-transition-name:task-42]` kan ikke tage en køretidsværdi. Undtagelsen er godkendt af brugeren
+2026-08-25 og skal læses så snævert som den er skrevet. Ser du den og tror det er en forglemmelse:
+det er det ikke, og den er ikke en åbning for andre inline-styles.
 
 **Tailwind 4's palette er oklch, ikke Tailwind 3's hex.** `gray-400` er **2,60:1** på hvid,
 ikke 2,85:1. Tallet 2,85 hører til `#9ca3af`, altså Tailwind **3**'s hex-palette; Tailwind 4
@@ -751,6 +768,12 @@ forkerte grund.
   den op med at matche, og fejlen ligner en manglende række.
 - **Sammenlign `scrollWidth` med `clientWidth`**, aldrig med 480. En lodret scrollbar gør
   klientbredden 465, og en fast forventning fejler af den forkerte grund.
+- **`OpenAppAsync()` uden viewport giver den *brede* udgave, ikke den smalle.** Playwrights standard
+  er **1280×720**, og 1280 px *er* `xl` (80rem), så en test uden eksplicit viewport står side om side
+  — modsat resten af suiten. Opgjort 2026-08-25: **45** kald med `ColumnWidth = 480`, **11** med
+  `WideWidth = 1400` og **ét** uden. Det var kosmetik indtil sektionsovergangene, som er **slået fra**
+  fra `xl`; nu afgør viewporten også *adfærd*, så en grøn test på `WideWidth` kan bestå på at
+  ingenting skete. Skriv bredden, også når du tror den er uden betydning.
 - **Drift-testen sammenligner kun stier og metoder.** Skemaændringer fanger den ikke — dem
   dækker wire-format-tests, der ser på det rå JSON. Enum-værdier blev serialiseret forkert i
   en hel skive, før en sådan test blev skrevet. **En ny enum-værdi er samme sag**: `deferred` på
@@ -1009,8 +1032,15 @@ forkerte grund.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **310** Todo.Api.Tests, **69** Todo.E2E, **289** Vitest — alle grønne,
+**174** Todo.Core.Tests, **310** Todo.Api.Tests, **70** Todo.E2E, **301** Vitest — alle grønne,
 målt med `check.ps1` 2026-08-25.
+
+**To af tallene steg samme dag, fordi sektionsovergangene kom til — tretten tests er lagt til med
+vilje.** Fordelingen: **3** Vitest i `layout/reduced-motion.spec.ts`, **7** i `task-store.spec.ts`
+(porten og dens fire vagter), **2** i `task-list.spec.ts` (de to `view-transition-name`-bindinger) —
+altså 289 → 301 — og **1** E2E i `SectionTransitionJourneyTests` (69 → 70). `Todo.Core.Tests` og
+`Todo.Api.Tests` rørte funktionen ikke og står stille. Leverancen er
+`docs/plans/2026-08-25-section-transitions-design.md`.
 
 Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
 eller duplikeret.** Det er hele reglen. Kør `Check.cmd` og sammenlign.

@@ -416,6 +416,20 @@ identificeret; sker det her, skal hele udskriften gemmes.
    **Og mutationen ramte ikke i første forsøg**, fordi citeringen i et `python -c`-kald brækkede —
    kørslen målte den umuterede kode og lignede et svar, anden gang samme klasse fælde som i punkt 4.
    Verificér at mutationen står i filen, før du tror på en kørsel.
-7. Fuld `Check.cmd`, og `CLAUDE.md`s testtal rettet **med hvorfor**.
+7. ~~Fuld `Check.cmd`, og `CLAUDE.md`s testtal rettet **med hvorfor**.~~ **Gjort 2026-08-25**:
+   174/310/70/301, og fordelingen skrevet ned. `CLAUDE.md` fik desuden tre ting, valgt fordi de
+   **ikke** kan udledes af koden — en auto-indlæst fil betales i hver session, så resten blev holdt
+   ude:
+   - **Stylingkonventionen fik sin undtagelse.** Som skrevet gjorde den `[style.view-transition-name]`
+     til en overtrædelse, og den næste der læste den ville have "rettet" den.
+   - **Mutationsfælden** fra punkt 4 og 6: et mønster med `\n` rammer ikke en CRLF-fil, og kørslen
+     bagefter ligner et svar.
+   - **`OpenAppAsync()` uden viewport giver den brede udgave**, fordi Playwrights standard er
+     1280×720 og 1280 px *er* `xl`. Det var kosmetik indtil nu; med vagten afgør viewporten også
+     adfærd.
+
+   Holdt **ude** af `CLAUDE.md` med vilje: at `t.ready` afvises mens `t.finished` resolverer, at jsdom
+   beholder `view-transition-name`, og hvorfor vagten mod `xl` findes. Alle tre står som kommentarer
+   præcis dér hvor nogen ville bryde dem — hvilket er stærkere end en linje i en fil man skimmer.
 
 Hver opgave slutter med sin egen commit.

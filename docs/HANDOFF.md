@@ -6,9 +6,10 @@ Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs d
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **174**, Api **310**, E2E **69**, Vitest **289** — alle grønne, målt 2026-08-25.
-Tre af tallene faldt, da autostart blev fjernet: tolv tests er slettet med vilje — 6 API, 2 E2E og 4
-Vitest. Fordelingen står i `CLAUDE.md`s "Testtal".
+**Testtal:** Core **174**, Api **310**, E2E **70**, Vitest **301** — alle grønne, målt 2026-08-25.
+Tre af tallene faldt først samme dag, da autostart blev fjernet (tolv tests slettet med vilje), og to
+af dem steg igen, da sektionsovergangene kom til (tretten lagt til). Fordelingen for begge står i
+`CLAUDE.md`s "Testtal".
 `Check.cmd` kører dem i den rækkefølge der er bærende. Bemærk at E2E-tallet her stod på **58** og i
 `CLAUDE.md` på **59**, mens sandheden før genvejslagene var **61** — to tests var lagt til uden at
 nogen rettede tallet. Begge steder er rettet nu; se `CLAUDE.md`s "Testtal" for hvorfor det står
@@ -40,7 +41,11 @@ Jira-sag i en status du kalder færdig, mens opgaven stadig er åben her, tilbyd
 — planen er `docs/plans/2026-08-24-import-closure-design.md`. Og **to genvejslag oven på Alt-laget**:
 `Alt+1`–`9` vælger den n'te valgbare række på listen, og `Alt+Shift+bogstav` går direkte til et af
 detaljepanelets otte felter — planen er `docs/plans/2026-08-24-keyboard-shortcuts-design.md`, og de fem
-beslutninger står i dens afsnit 2.
+beslutninger står i dens afsnit 2. Og **animationer når en opgave skifter sektion**: rækken morfes til
+sin nye plads med View Transitions, som overlever at `<li>`'en destrueres undervejs — planen er
+`docs/plans/2026-08-25-section-transitions-design.md`. Læs dens afsnit 8, før du rører noget her:
+overgangen er **slået fra fra `xl`**, fordi et målt bleed lader en flyvende række male oven på
+health-linjen, og den asymmetri er et valg og ikke en forglemmelse.
 
 ## Næste skridt
 
@@ -186,26 +191,17 @@ her som "bliver dyrere" gennem tre leverancer, og aftrykket voksede med cirka é
 - **Resten af GTD-hullerne.** Ingen projekter, ingen kontekster, ingen ugentlig gennemgang.
   Kontekstaksen er den mest indgribende: den ville omgøre designdokumentets afsnit 2 frem for at
   lægge et felt til.
-- **Animationer når en opgave flytter sig mellem sektioner.** I dag hopper en opgave uden varsel fra
-  "Uden deadline" til "Denne uge", når en deadline sættes — eller ud i "Venter på", når statussen
-  skifter — og brugeren skal selv finde den igen. Ønsket er en overgang hver gang en række skifter
-  plads, så flytningen kan følges med øjnene. Noteret 2026-08-24: sektionerne er
-  hver sin `@for`-blok, så rækken **destrueres og genskabes** frem for at flytte sig (samme
-  mekanik som `TaskStore.askingWho` beskriver i `CLAUDE.md`), og en animation der skal krydse to
-  blokke er derfor ikke bare en klasse på `<li>`.
+- **Animationer side om side.** Leveret 2026-08-25 i én spalte, men **slået fra fra `xl`**, og det er
+  det ene stykke af ønsket der stadig ligger tilbage. Grunden er målt og står i afsnit 8 af
+  `docs/plans/2026-08-25-section-transitions-design.md`: `::view-transition`-træet ligger i top-laget
+  og klippes ikke af den rullende spalte, så en flyvende række maler oven på health-linjen — **7328 af
+  21376 pixels**, når destinationen ligger ved spaltens underkant, og **også** når kun den flyttende
+  række er navngivet. Hverken `view-transition-group` eller et navn på health-linjen lukker det uden
+  CSS-regler, og det sidste gør det **værre**.
 
-  **Designet 2026-08-25 i `docs/plans/2026-08-25-section-transitions-design.md`, ikke bygget.**
-  Knasten er løst af View Transitions API'et, som morfer to elementer med samme
-  `view-transition-name` uanset at `<li>`'en imellem blev destrueret. Læs afsnit 3 før noget andet:
-  målingerne siger, at `t.ready` **afvises** hver gang overgangen springes over, mens `t.finished`
-  resolverer og opdateringen kører alligevel.
-
-  **Afsnit 8's risiko 2 er målt og lukket samme dag, og det er den vigtigste linje her:**
-  `::view-transition`-træet ligger i top-laget og klippes ikke af den rullende spalte, så på `xl`
-  maler en flyvende række oven på health-linjen — målt til **7328 af 21376 pixels**, når
-  destinationen ligger ved spaltens underkant, og **også** når kun den flyttende række er navngivet.
-  Hverken `view-transition-group` eller et navn på health-linjen lukker det uden CSS-regler, og det
-  sidste gør det **værre**. Beslutningen er derfor, at overgangen **kun kører i én spalte** —
-  `!wide.wide()` er vagt nummer tre i afsnit 4 — fordi den smalle udgave slet ingen klippende
-  beholder har. Prisen er en permanent asymmetri: ingen animation side om side. Rører du den, så læs
-  afsnit 8 først; tallene står der, så de ikke skal måles igen.
+  Vejen videre er derfor ikke en justering, men et andet greb: **FLIP med Web Animations**, som
+  animerer det rigtige element med en transform og dermed **bliver** klippet af spalten. Det ville
+  virke i begge udgaver. Prisen er anslået 60–80 linjer mod View Transitions' 20, et `data-task-id` på
+  rækken, en service der måler DOM'en før og efter, og at en rækkes højde er forskellig i to
+  sektioner, så en ren translate rammer lidt skævt. Det er ikke presserende: appen bruges i en spalte
+  på ~480 px, hvor animationen virker.
