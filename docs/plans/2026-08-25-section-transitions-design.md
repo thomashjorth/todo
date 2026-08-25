@@ -25,7 +25,9 @@ CSS- eller SCSS-regler."* Alt målt 2026-08-25, ikke antaget.
 
 ## 2. Beslutningerne
 
-Tre valg, truffet af brugeren 2026-08-25, med det der blev valgt fra:
+Tre valg, truffet af brugeren 2026-08-25, med det der blev valgt fra. **Der er et fjerde** — at
+overgangen kun kører i én spalte — men det blev truffet senere samme dag, efter en måling, og står
+derfor i afsnit 8 sammen med den måling der tvang det.
 
 **Mekanikken er View Transitions API'et.** `document.startViewTransition()` snapshotter dokumentet
 før og efter, og to elementer der bærer samme `view-transition-name` morfes mellem deres to
@@ -111,12 +113,15 @@ ville lande i `provideBrowserGlobalErrorListeners`.
 `whenStable()` er faldbagsvalget, hvis `tick()` kaster fordi ændringsdetektion allerede kører — det
 skal måles i implementeringen frem for antages.
 
-Tre vagter foran kaldet, i den rækkefølge:
+**Fire** vagter foran kaldet, i den rækkefølge:
 
 1. `typeof document.startViewTransition !== 'function'` — jsdom 28.1.0 har den ikke, samme hul som
    `matchMedia`, og uden vagten ville hver Vitest der rører `load()` kaste.
 2. Reduceret bevægelse.
-3. Porten.
+3. `!wide.wide()` — kun én spalte animerer. Begrundelsen er en måling og står i afsnit 8; vagten er
+   den fjerde, fordi den er den dyreste at forstå og den billigste at fjerne igen, hvis en fremtidig
+   browser lukker hullet.
+4. Porten.
 
 Fejler én af dem, sættes listen direkte som i dag.
 
@@ -227,22 +232,57 @@ sektionsoverskrifter der kommer og går — hvilket er ønskeligt. Men det er ik
 skulle den vise sig forstyrrende, er valget mellem at leve med den og at omgøre konventionen.
 
 **Risiko 2, den alvorlige: `::view-transition`-træet ligger i top-laget og klippes ikke af nogen
-forælder.** Venstre spalte har `xl:overflow-y-auto`, og i én spalte klipper wrapperen om
-`router-outlet`. En række der morfer til en plads uden for det synlige kan derfor male **oven på**
-health-linjen på vej derhen — nøjagtig samme klasse som *"`getBoundingClientRect` klipper ikke"*, og
-som `A_long_import_list_scrolls_inside_the_window_rather_than_through_the_footer` allerede vogter
-over.
+forælder.** Den er **målt 2026-08-25 og bekræftet**, og målingen er grunden til at afsnit 4 har en
+fjerde vagt. Prøven var en engangs-`VtProbeTests` i `Todo.E2E`, som spejlede `app.html` og
+`task-list.html` med rå CSS, sænkede varigheden til 3000 ms og sammenlignede health-linjens pixels
+med en reference — afkodet **i browseren** med `createImageBitmap` og `OffscreenCanvas`, fordi en
+byte-sammenligning ikke kan skelne en krydsfades antialiasering fra en række malet henover.
 
-Den kunne **ikke** måles under designet: prøven afbrød hver overgang, fordi ruden ikke komponerede
-frames. Den er derfor **implementeringens første opgave**, ikke en note til sidst: en engangs-prøve
-med sænket varighed, en række hvis destination er rullet ud af syne, og et skærmbillede midt i
-flugten. Falder den ud som frygtet, er faldbagsvalget navn **kun** på rækker der er i syne, hvilket
-koster en måling pr. række og skal begrundes på stedet.
+| Runde | Opsætning | Højtråbende pixels på health-linjen |
+| --- | --- | --- |
+| A | xl 1400×600, **alle** rækker navngivet | 2182 / 21376, værste kanal 237 |
+| B | xl, kun den flyttende række navngivet | 0, værste 1 |
+| C | xl, kun den flyttende + `view-transition-group` mod spalten | 0, værste 1 |
+| D | **smal 480×800**, kun den flyttende | 0, værste 1 |
+| F | xl + health-linjen navngivet | 632, værste 55 |
+| G | xl, kun den flyttende, **destination ved spaltens underkant** | **7328**, værste 236 |
+| H | xl, alle navngivet, destination ved underkanten | 3838, værste 238 |
+
+Fem ting følger af tabellen, og de tre sidste var ikke forudset:
+
+- **Det er ikke kun den flyttende række der slipper klippet.** Hver navngivet række bliver sin egen
+  gruppe i top-laget, så i runde A malede hele listens bund gennem health-linjen.
+- **Runde G er den afgørende.** B's nul var fikstur-geometri og ikke en garanti: rækken landede
+  *under* linjen. Flyttes destinationen op til spaltens underkant, dækkes linjen næsten helt — kun
+  `AP` af `API: sund, version 1.0 – Dokumentation` er læsbart. At navngive færre rækker reducerer
+  altså hvor ofte og hvor meget, men fjerner det ikke.
+- **Indlejrede grupper løser det ikke.** `CSS.supports('view-transition-group', 'foo')` svarer
+  `true`, men det betyder kun at egenskaben *parses*: runde C ser identisk ud med B. En klipning
+  ville kræve en regel på `::view-transition-group-children(...)`, altså netop den CSS konventionen
+  forbyder.
+- **At navngive health-linjen gør det værre, ikke bedre.** Tanken var at den så ville males ovenpå,
+  fordi den står efter spalten i DOM-orden. Runde F giver 632 højtråbende pixels: linjens eget
+  snapshot komponeres frem for at males direkte, og subpixel-antialiaseringen går tabt.
+- **Den smalle udgave er strukturelt fri, ikke bare målt fri.** `main` har ingen `h-screen` uden
+  `xl:`, wrapperen om `router-outlet` intet `overflow`, og health-linjen står i normalt flow
+  **efter** alle sektioner. Der findes altså ingen klippende beholder at slippe ud af, og ingen
+  destination der ligger under linjen. Runde D bekræfter det, men argumentet er strukturen.
+
+**Beslutningen, truffet af brugeren 2026-08-25: animér kun i én spalte.** `!wide.wide()` er vagt
+nummer tre, og signalet findes allerede. Fravalgt: at skifte til FLIP, som animerer det **rigtige**
+element med en transform og derfor bliver klippet af spalten — det ville virke i begge udgaver, men
+koster 60–80 linjer mod 20, et `data-task-id` på rækken og en service der måler DOM'en før og efter.
+Fravalgt: at leve med bleedet, hvilket ville stå direkte imod den vagt repoet allerede har mod
+indhold der maler gennem health-linjen.
+
+**Prisen er en permanent asymmetri, og den skal blive ved at stå her:** side om side animerer intet,
+altså netop hvor vinduet er størst. Uden begrundelsen læses det som en fejl. Skulle en fremtidig
+Chromium klippe nestede grupper, er vagt nummer tre det ene sted der skal fjernes.
 
 ## 9. Testplanen
 
 **Vitest, i `task-store.spec.ts`.** Porten er det stykke der kan drive, og den er målbar ved at
-stubbe `document.startViewTransition` og tælle kald. Seks påstande, valgt så hver har sin egen
+stubbe `document.startViewTransition` og tælle kald. **Syv** påstande, valgt så hver har sin egen
 mutation:
 
 | Påstand | Mutationen den skal ses fælde |
@@ -252,6 +292,7 @@ mutation:
 | En rettet note starter ingen overgang | porten sammenligner hele opgaven |
 | En ny opgave starter ingen overgang | `prev.has(id)` fjernet |
 | Reduceret bevægelse sætter listen uden overgang | grenen fjernet |
+| Side om side sætter listen uden overgang | vagten fra afsnit 8 fjernet |
 | Uden `startViewTransition` sættes listen | vagten fjernet — jsdom kaster |
 
 Hver af dem påstår **også**, at listen blev sat. Det er egenskaben målingen i afsnit 3 gav gratis,
@@ -266,7 +307,13 @@ Den vogter over en fælde repoet **har mødt før**: to elementer med samme `vie
 `ready` til at afvise, og **intet andet kan se det** — nøjagtig som `data-testid="task-detail"`
 engang fandtes to gange og Playwright tavst valgte den første.
 
-Forventede tal: Vitest **289 til 295**, E2E **69 til 70**. `Todo.Core.Tests` (174) og
+**Og at rejsen er mulig, er målt frem for antaget:** prøven i afsnit 8 kørte i Playwrights headless
+Chromium 148 og fik `visibilityState = visible`, `ready = resolved` og `finished = resolved`. Havde
+den ruden været ikke-komponerende — som browserruden i designfasen var — ville `ready` altid afvise,
+og påstanden kunne slet ikke skrives. Rejsen skal køre i suitens **smalle** viewport, som er
+standarden, fordi vagt nummer tre lukker overgangen på xl.
+
+Forventede tal: Vitest **289 til 296**, E2E **69 til 70**. `Todo.Core.Tests` (174) og
 `Todo.Api.Tests` (310) rører ikke funktionen.
 
 ## 10. Hvad der ikke kan vogtes, sagt ligeud
@@ -283,12 +330,12 @@ identificeret; sker det her, skal hele udskriften gemmes.
 
 ## 11. Rækkefølgen i implementeringen
 
-1. **Mål risiko 2** med en engangs-prøve i en rigtig, kompositerende browser. Alt andet hænger på
-   svaret.
+1. ~~**Mål risiko 2** med en engangs-prøve i en rigtig, kompositerende browser.~~ **Gjort
+   2026-08-25**; resultatet og beslutningen står i afsnit 8, og prøvefilen er slettet igen.
 2. `ReducedMotion` i `layout/` med sin spec, symmetrisk med `WideScreen`.
 3. `placeTasks`/`placements` udtrukket, `sections()` omlagt til at læse dem. Ingen adfærdsændring,
    så de eksisterende specs er vagten — tallet må ikke flytte sig her.
-4. Porten og overgangen i `load()`, med de seks Vitest, hver set fejle.
+4. Porten, vagten fra afsnit 8 og overgangen i `load()`, med de syv Vitest, hver set fejle.
 5. `view-transition-name` på de to steder.
 6. E2E-rejsen, set fejle på en dubleret navn-mutation.
 7. Fuld `Check.cmd`, og `CLAUDE.md`s testtal rettet **med hvorfor**.

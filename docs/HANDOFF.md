@@ -198,7 +198,14 @@ her som "bliver dyrere" gennem tre leverancer, og aftrykket voksede med cirka é
   Knasten er løst af View Transitions API'et, som morfer to elementer med samme
   `view-transition-name` uanset at `<li>`'en imellem blev destrueret. Læs afsnit 3 før noget andet:
   målingerne siger, at `t.ready` **afvises** hver gang overgangen springes over, mens `t.finished`
-  resolverer og opdateringen kører alligevel. Og afsnit 8's risiko 2 er implementeringens **første**
-  opgave frem for en note til sidst — `::view-transition`-træet ligger i top-laget og klippes ikke af
-  den rullende spalte, så en række kan male oven på health-linjen på vej til sin nye plads. Den kunne
-  ikke måles under designet, fordi prøvens rude ikke komponerede frames.
+  resolverer og opdateringen kører alligevel.
+
+  **Afsnit 8's risiko 2 er målt og lukket samme dag, og det er den vigtigste linje her:**
+  `::view-transition`-træet ligger i top-laget og klippes ikke af den rullende spalte, så på `xl`
+  maler en flyvende række oven på health-linjen — målt til **7328 af 21376 pixels**, når
+  destinationen ligger ved spaltens underkant, og **også** når kun den flyttende række er navngivet.
+  Hverken `view-transition-group` eller et navn på health-linjen lukker det uden CSS-regler, og det
+  sidste gør det **værre**. Beslutningen er derfor, at overgangen **kun kører i én spalte** —
+  `!wide.wide()` er vagt nummer tre i afsnit 4 — fordi den smalle udgave slet ingen klippende
+  beholder har. Prisen er en permanent asymmetri: ingen animation side om side. Rører du den, så læs
+  afsnit 8 først; tallene står der, så de ikke skal måles igen.
