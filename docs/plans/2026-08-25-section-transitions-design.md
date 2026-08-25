@@ -171,22 +171,34 @@ ville være samme regel på to steder. Reglen flyttes derfor ud, og `sections()`
 den frem for dens ejer:
 
 ```ts
-type PlacedGroup = {
-  bucket: DeadlineBucket | null;
-  status: TodoStatus | null;
-  tasks: TodoTask[];
-};
+export type PlacedGroup =
+  | { kind: 'bucket'; bucket: DeadlineBucket; tasks: TodoTask[] }
+  | { kind: 'status'; status: TodoStatus; tasks: TodoTask[] };
 
 /** Hvor hver opgave sidder: den ene regel begge læsere deler. */
-function placeTasks(tasks: TodoTask[]): PlacedGroup[];
+export function placeTasks(tasks: TodoTask[]): PlacedGroup[];
 
 /** id til "hvor", til sammenligning på tværs af to loads: bucket eller status, plus indekset. */
 function placements(tasks: TodoTask[]): Map<number, string>;
 ```
 
+**En udskilt union frem for to nullable felter, og det er rettet i implementeringen 2026-08-25 frem
+for at stå som først skrevet.** To felter der hver kan være `null` beskriver fire tilstande, hvoraf
+kun to findes — og `strict` er slået til, mens `TaskSection.bucket` ikke er optional, så en læser der
+kun vil have deadline-sektionerne ville skulle skrive en non-null-assertion. `sections()` bliver
+derfor et **`flatMap`**, ikke et `filter` plus `map`: et `filter` på `kind` indsnævrer ikke unionen,
+mens en gren der returnerer ingenting gør det uden assertion.
+
+```ts
+readonly sections = computed<TaskSection[]>(() =>
+  placeTasks(this.matching()).flatMap((group) =>
+    group.kind === 'bucket' ? [{ bucket: group.bucket, tasks: group.tasks }] : [],
+  ),
+);
+```
+
 `placeTasks` bærer `bucketOrder` og `inProgressFirst` for de planlagte opgaver og derefter de tre
-statuslister. `sections()` bliver `placeTasks(this.matching()).filter((g) => g.bucket !== null)`, og
-porten bliver:
+statuslister, og dropper tomme grupper i **begge** halvdele. Porten bliver:
 
 ```ts
 private animates(items: TodoTask[]): boolean {
@@ -332,10 +344,19 @@ identificeret; sker det her, skal hele udskriften gemmes.
 
 1. ~~**Mål risiko 2** med en engangs-prøve i en rigtig, kompositerende browser.~~ **Gjort
    2026-08-25**; resultatet og beslutningen står i afsnit 8, og prøvefilen er slettet igen.
-2. `ReducedMotion` i `layout/` med sin spec, symmetrisk med `WideScreen`.
-3. `placeTasks`/`placements` udtrukket, `sections()` omlagt til at læse dem. Ingen adfærdsændring,
-   så de eksisterende specs er vagten — tallet må ikke flytte sig her.
-4. Porten, vagten fra afsnit 8 og overgangen i `load()`, med de syv Vitest, hver set fejle.
+2. ~~`ReducedMotion` i `layout/` med sin spec, symmetrisk med `WideScreen`.~~ **Gjort 2026-08-25**,
+   tre nye Vitest (289 → 292). Set fejle to gange: uden klassen på `Could not resolve
+   "./reduced-motion"`, og med maskineriet inde men adfærden urettet på sine **egne** påstande —
+   `expected [] to deeply equal [ '(prefers-reduced-motion: reduce)' ]` og `expected true to be
+   false`.
+3. ~~`placeTasks`/`placements` udtrukket~~ — **kun `placeTasks`**, og `sections()` omlagt til at læse
+   den. `placements` er flyttet til punkt 4, hvor porten bruger den: lagt ind her ville den være død
+   kode uden en vagt, og både TDD og YAGNI siger nej. **Gjort 2026-08-25**, alle fire tal uændrede
+   (174/310/69/292), og de eksisterende specs er set have tænder frem for antaget at have dem:
+   mutationen "glem statusfiltret" fælder **tre** — *"expected [ 'overdue', 'today' ] to deeply equal
+   [ 'overdue' ]"* — og mutationen "behold de tomme grupper" fælder **tretten**.
+4. `placements`, porten, vagten fra afsnit 8 og overgangen i `load()`, med de syv Vitest, hver set
+   fejle.
 5. `view-transition-name` på de to steder.
 6. E2E-rejsen, set fejle på en dubleret navn-mutation.
 7. Fuld `Check.cmd`, og `CLAUDE.md`s testtal rettet **med hvorfor**.

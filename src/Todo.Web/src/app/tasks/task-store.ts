@@ -47,6 +47,56 @@ function inProgressFirst(tasks: TodoTask[]): TodoTask[] {
   );
 }
 
+/** The status lists, in the order they stand below the deadline sections on screen. */
+const statusOrder: readonly TodoStatus[] = [
+  TodoStatus.WaitingFor,
+  TodoStatus.Done,
+  TodoStatus.Someday,
+];
+
+/**
+ * One place a task can sit. A discriminated union rather than two nullable fields, so a reader that
+ * only wants the deadline sections narrows to a non-null `bucket` without an assertion - `strict`
+ * is on, and `TaskSection.bucket` is not optional.
+ */
+export type PlacedGroup =
+  | { kind: 'bucket'; bucket: DeadlineBucket; tasks: TodoTask[] }
+  | { kind: 'status'; status: TodoStatus; tasks: TodoTask[] };
+
+/**
+ * Where every task sits, as the one rule its readers share.
+ *
+ * It takes a list rather than reading a signal, and that is the whole reason it exists: a caller
+ * has to be able to ask where the tasks in an *incoming* list would sit, before that list is the
+ * one on screen. A signal cannot answer that - it only knows the list it already holds.
+ *
+ * The server buckets by deadline whatever the status, so a task that is done, waiting or parked
+ * would otherwise linger in the deadline section it had before; that is what the first filter is
+ * for. Beyond it the server's order survives untouched, and the only thing that reorders inside a
+ * group is the in-progress rule.
+ *
+ * Empty groups are dropped, in both halves. A section with no tasks would render a heading over
+ * nothing, and a placement key for a group nobody can see would be a difference nobody can follow.
+ */
+export function placeTasks(tasks: TodoTask[]): PlacedGroup[] {
+  const scheduled = tasks.filter(
+    (t) => t.status === TodoStatus.Open || t.status === TodoStatus.InProgress,
+  );
+
+  const groups: PlacedGroup[] = bucketOrder.map((bucket) => ({
+    kind: 'bucket' as const,
+    bucket,
+    // filter already handed us a fresh array, so the in-place sort cannot reach `tasks`.
+    tasks: inProgressFirst(scheduled.filter((t) => t.bucket === bucket)),
+  }));
+
+  for (const status of statusOrder) {
+    groups.push({ kind: 'status', status, tasks: tasks.filter((t) => t.status === status) });
+  }
+
+  return groups.filter((group) => group.tasks.length > 0);
+}
+
 export function subTaskProgress(task: TodoTask): string {
   return `${task.subTasks.filter((s) => s.isDone).length}/${task.subTasks.length}`;
 }
@@ -119,14 +169,6 @@ export class TaskStore {
   /** Whether a search is narrowing the list, so an empty screen can say which kind of empty. */
   readonly searching = computed(() => this.query().trim().length > 0);
 
-  // The server buckets by deadline whatever the status, so a task that is done, waiting or
-  // parked would otherwise linger in the deadline section it had before.
-  private readonly scheduledTasks = computed(() =>
-    this.matching().filter(
-      (t) => t.status === TodoStatus.Open || t.status === TodoStatus.InProgress,
-    ),
-  );
-
   readonly completedTasks = computed(() =>
     this.matching().filter((t) => t.status === TodoStatus.Done),
   );
@@ -139,15 +181,17 @@ export class TaskStore {
     this.matching().filter((t) => t.status === TodoStatus.Someday),
   );
 
-  // The server orders the list and assigns the buckets; grouping preserves that order, and the
-  // only thing that reorders inside a section is the in-progress rule below.
+  /**
+   * The deadline sections, read off the shared placement rule rather than grouping a second time.
+   *
+   * `flatMap` rather than `filter` plus `map`: a `filter` on `kind` does not narrow the union, so
+   * the map afterwards would need a non-null assertion on `bucket`. Returning nothing for a status
+   * group narrows without one.
+   */
   readonly sections = computed<TaskSection[]>(() =>
-    bucketOrder
-      .map((bucket) => ({
-        bucket,
-        tasks: inProgressFirst(this.scheduledTasks().filter((t) => t.bucket === bucket)),
-      }))
-      .filter((section) => section.tasks.length > 0),
+    placeTasks(this.matching()).flatMap((group) =>
+      group.kind === 'bucket' ? [{ bucket: group.bucket, tasks: group.tasks }] : [],
+    ),
   );
 
   async load(): Promise<void> {
