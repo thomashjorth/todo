@@ -321,9 +321,25 @@ engang fandtes to gange og Playwright tavst valgte den første.
 
 **Og at rejsen er mulig, er målt frem for antaget:** prøven i afsnit 8 kørte i Playwrights headless
 Chromium 148 og fik `visibilityState = visible`, `ready = resolved` og `finished = resolved`. Havde
-den ruden været ikke-komponerende — som browserruden i designfasen var — ville `ready` altid afvise,
-og påstanden kunne slet ikke skrives. Rejsen skal køre i suitens **smalle** viewport, som er
-standarden, fordi vagt nummer tre lukker overgangen på xl.
+ruden været ikke-komponerende — som browserruden i designfasen var — ville `ready` altid afvise, og
+påstanden kunne slet ikke skrives. Rejsen kører på **480**, fordi vagt nummer tre lukker overgangen
+fra `xl`; på `WideWidth` ville den påstå at ingenting skete og bestå på ingenting.
+
+**Tre ting om rejsen, som først blev tydelige da den blev skrevet:**
+
+- **Ingen init-script.** Wrapperen om `document.startViewTransition` lægges på **efter** at appen er
+  indlæst, og det er sikkert frem for heldigt: storen læser egenskaben af `document` ved hvert kald,
+  og intet kalder den før en gemning. `TodoApp` behøvede derfor ingen ny parameter.
+- **`ready` og ikke `finished`.** `finished` resolverer også for en sprunget overgang (målt i afsnit
+  3), så den er det forkerte spørgsmål her.
+- **Fikstureet skal have *to* rækker, og det er påstandens tænder.** En dublet kræver to elementer;
+  med én række på skærmen kan fejlen slet ikke udtrykkes, og en mutation der navngiver hver række det
+  samme ville stadig efterlade ét navn i dokumentet. Rejsen sår derfor en anker-opgave, hvis eneste
+  rolle er at findes. **Set fejle** med netop den mutation:
+  *"The browser skipped the view transition: ready settled as 'rejected: InvalidStateError:
+  Transition was aborted because of invalid state'"* — og i **samme** kørsel bestod
+  sektionspåstandene, hvilket er hele begrundelsen for at rejsen findes: listen opdateres, så intet
+  andet kan se det.
 
 **Vitest, i `task-list.spec.ts`.** To påstande mere, som denne testplan oprindeligt slet ikke havde:
 at **hver** rækketype bærer sit navn. De er mulige, fordi jsdom 28.1.0 **beholder**
@@ -344,10 +360,14 @@ men fordi det kun talte de syv i `task-store.spec.ts` og glemte `ReducedMotion`s
 `CLAUDE.md` advarer mod: et ændret tal kan kun betyde en tabt eller duplikeret test, hvis tallet var
 sandt i forvejen.
 
-**Og de 69 eksisterende E2E blev målt frem for antaget.** Afsnit 10 kaldte dem en del af
-verificeringen, fordi hver gemning nu går gennem en rigtig overgang — Playwrights Chromium har
-`startViewTransition`, viewporten er 480, og reduceret bevægelse er slået fra, så de kører den
-animerede vej. Alle 69 grønne på 33 s mod 32–36 s før: ingen målbar afgift, og ingen flakken set.
+**Og de 69 eksisterende E2E blev målt frem for antaget.** Alle grønne på 33 s mod 32–36 s før: ingen
+målbar afgift, og ingen flakken set.
+
+**Men "de kører alle den animerede vej" er forkert, og det stod her.** Opgjort frem for påstået:
+`grep` på `OpenAppAsync` giver **45** kald med `ColumnWidth = 480`, **11** med `WideWidth = 1400` og
+**ét** uden viewport. De 45 animerer; de tolv gør ikke, og det sidste er den nære fælde — uden en
+viewport bruger Playwright sin standard på **1280×720**, og 1280 px *er* `xl`, så også den slukkes af
+vagten. Grønne E2E på `WideWidth` beviser altså ingenting om overgangen.
 
 ## 10. Hvad der ikke kan vogtes, sagt ligeud
 
@@ -391,7 +411,11 @@ identificeret; sker det her, skal hele udskriften gemmes.
    deres eget fravær: `expected [ '', '' ] to deeply equal [ 'task-1', 'task-2' ]` og `expected '' to
    be 'task-9'`, og de er set være **uafhængige**. Herfra morfes der faktisk noget — indtil nu kørte
    kun rodens krydsfade, fordi intet element bar et navn.
-6. E2E-rejsen, set fejle på en dubleret navn-mutation.
+6. ~~E2E-rejsen, set fejle på en dubleret navn-mutation.~~ **Gjort 2026-08-25** (69 → 70), i
+   `SectionTransitionJourneyTests`. Set fejle, med sektionspåstandene grønne i samme kørsel.
+   **Og mutationen ramte ikke i første forsøg**, fordi citeringen i et `python -c`-kald brækkede —
+   kørslen målte den umuterede kode og lignede et svar, anden gang samme klasse fælde som i punkt 4.
+   Verificér at mutationen står i filen, før du tror på en kørsel.
 7. Fuld `Check.cmd`, og `CLAUDE.md`s testtal rettet **med hvorfor**.
 
 Hver opgave slutter med sin egen commit.
