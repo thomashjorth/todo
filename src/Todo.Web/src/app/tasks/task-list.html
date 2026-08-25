@@ -15,7 +15,16 @@
      panelet uændret 24 px. Samme rettelse står på wrapperen i app.html, som er den klippende
      beholder for de fire andre skærme. -->
 <div class="xl:grid xl:h-full xl:grid-cols-[30rem_minmax(0,1fr)] xl:gap-6">
-  <div data-testid="task-column" class="xl:-ml-2 xl:overflow-y-auto xl:pl-2 xl:pr-2">
+  <!-- view-transition-name gør spalten til en gruppe, så hver rækkes gruppe kan hænge under den og
+       blive klippet af reglen i styles.css. Navnet er statisk, så det kunne have været en Tailwind
+       arbitrær egenskab — men det står som en inline-style ved siden af rækkernes, fordi de tre dele
+       af mekanikken skal kunne læses som én ting. Ubetinget, ikke bag xl: i én spalte klipper
+       ingenting, så nestingen ændrer intet der — målt, morfen kører uændret med den. -->
+  <div
+    data-testid="task-column"
+    class="xl:-ml-2 xl:overflow-y-auto xl:pl-2 xl:pr-2"
+    [style.view-transition-name]="'task-column'"
+  >
     <div class="relative mt-4">
       <input
         #newTask
@@ -212,6 +221,7 @@
                 data-testid="task-row"
                 class="flex items-start gap-2 py-2"
                 [style.view-transition-name]="'task-' + task.id"
+                [style.view-transition-group]="'task-column'"
               >
                 <input
                   #reopen

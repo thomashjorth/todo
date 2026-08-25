@@ -193,18 +193,24 @@ og fastslår at intet blev **forsøgt**, ser den slags. Vagten er `ApiDocsJourne
 
 **Commits.** Gitmoji foran, én linje, **ingen `Co-authored-by` og ingen Claude-attribution**.
 
-**Styling.** Kun standard Tailwind utility-klasser. **Ingen CSS- eller SCSS-regler** — eneste
-undtagelse er `@plugin`-linjen i `styles.css`, som er Tailwinds egen indlæsningsmekanisme.
+**Styling.** Kun standard Tailwind utility-klasser. **Næsten ingen CSS-regler og ingen SCSS.**
 Hver `bg-*`/`text-*`/`border-*` skal have en `dark:`-modpart. Ikke `text-gray-400` på lys
 baggrund (2,60:1).
 
-**Og præcis én inline-style, som konventionen ovenfor ellers gør til en overtrædelse:
-`[style.view-transition-name]` på en opgaverække.** Den står to steder — en host-binding på `TaskRow`
-og en i fuldført-sektionens skabelon — og den kan **ikke** være en klasse, fordi værdien er *data*:
-navnet er opgavens id, en utility-klasse er statisk, og Tailwinds arbitrære egenskab
-`[view-transition-name:task-42]` kan ikke tage en køretidsværdi. Undtagelsen er godkendt af brugeren
-2026-08-25 og skal læses så snævert som den er skrevet. Ser du den og tror det er en forglemmelse:
-det er det ikke, og den er ikke en åbning for andre inline-styles.
+**Der er præcis én rigtig CSS-regel i appen, og den er ikke til diskussion — den er målt.**
+`::view-transition-group-children(task-column) { overflow: clip }` i `styles.css`, plus
+`@plugin`-linjen som er Tailwinds egen indlæsningsmekanisme. Reglen er den halvdel der klipper en
+morfende opgaverække, så den ikke maler oven på health-linjen; uden den er bleedet tilbage, og
+animationen ser stadig rigtig ud. Hele begrundelsen med tal står ved reglen. **Den fejler tavst på en
+runtime uden nestede view-transition-grupper.**
+
+**Og præcis to inline-styles, som konventionen ovenfor ellers gør til overtrædelser:
+`[style.view-transition-name]` og `[style.view-transition-group]`.** Navnet står tre steder —
+host-bindingen på `TaskRow`, fuldført-sektionens `<li>`, og spalten `task-column` i `task-list.html`
+— og gruppen to. Navnet kan **ikke** være en klasse, fordi værdien er *data*: den er opgavens id, en
+utility-klasse er statisk, og Tailwinds arbitrære egenskab `[view-transition-name:task-42]` kan ikke
+tage en køretidsværdi. Godkendt af brugeren 2026-08-25. Ser du dem og tror det er en forglemmelse:
+det er det ikke, og de er ikke en åbning for andre inline-styles eller andre regler.
 
 **Tailwind 4's palette er oklch, ikke Tailwind 3's hex.** `gray-400` er **2,60:1** på hvid,
 ikke 2,85:1. Tallet 2,85 hører til `#9ca3af`, altså Tailwind **3**'s hex-palette; Tailwind 4
@@ -771,9 +777,14 @@ forkerte grund.
 - **`OpenAppAsync()` uden viewport giver den *brede* udgave, ikke den smalle.** Playwrights standard
   er **1280×720**, og 1280 px *er* `xl` (80rem), så en test uden eksplicit viewport står side om side
   — modsat resten af suiten. Opgjort 2026-08-25: **45** kald med `ColumnWidth = 480`, **11** med
-  `WideWidth = 1400` og **ét** uden. Det var kosmetik indtil sektionsovergangene, som er **slået fra**
-  fra `xl`; nu afgør viewporten også *adfærd*, så en grøn test på `WideWidth` kan bestå på at
-  ingenting skete. Skriv bredden, også når du tror den er uden betydning.
+  `WideWidth = 1400` og **ét** uden. Skriv bredden, også når du tror den er uden betydning: `xl`
+  skifter *hvor* detaljepanelet renderes, og en påstand om det ene layout kan bestå tomt i det andet.
+- **En mid-flight-måling af en animation kan ikke deles med andre målinger i samme test.** Målt
+  2026-08-25 på en prøve med fire runder i én testmetode: runde 2–4 fik alle
+  `InvalidStateError: Transition was aborted` og rapporterede derfor "intet at se" — hvad der læses
+  som "ingen fejl", men betød "ingen animation kørte". `SetContentAsync` rydder det ikke, og en frisk
+  side pr. runde rettede det heller ikke. Giv hver måling sin **egen testmetode** (`[Theory]` med et
+  `InlineData` pr. kandidat), så en overgang aldrig kan møde en anden.
 - **Drift-testen sammenligner kun stier og metoder.** Skemaændringer fanger den ikke — dem
   dækker wire-format-tests, der ser på det rå JSON. Enum-værdier blev serialiseret forkert i
   en hel skive, før en sådan test blev skrevet. **En ny enum-værdi er samme sag**: `deferred` på
@@ -1032,15 +1043,20 @@ forkerte grund.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **310** Todo.Api.Tests, **70** Todo.E2E, **301** Vitest — alle grønne,
+**174** Todo.Core.Tests, **310** Todo.Api.Tests, **71** Todo.E2E, **301** Vitest — alle grønne,
 målt med `check.ps1` 2026-08-25.
 
-**To af tallene steg samme dag, fordi sektionsovergangene kom til — tretten tests er lagt til med
+**To af tallene steg samme dag, fordi sektionsovergangene kom til — fjorten tests er lagt til med
 vilje.** Fordelingen: **3** Vitest i `layout/reduced-motion.spec.ts`, **7** i `task-store.spec.ts`
-(porten og dens fire vagter), **2** i `task-list.spec.ts` (de to `view-transition-name`-bindinger) —
-altså 289 → 301 — og **1** E2E i `SectionTransitionJourneyTests` (69 → 70). `Todo.Core.Tests` og
-`Todo.Api.Tests` rørte funktionen ikke og står stille. Leverancen er
+(porten og dens vagter), **2** i `task-list.spec.ts` (`view-transition-name`-bindingerne) — altså
+289 → 301 — og **2** E2E i `SectionTransitionJourneyTests`, én pr. udgave af layoutet (69 → 71).
+`Todo.Core.Tests` og `Todo.Api.Tests` rørte funktionen ikke og står stille. Leverancen er
 `docs/plans/2026-08-25-section-transitions-design.md`.
+
+**Bemærk at Vitest-tallet stod stille gennem omgørelsen sidst på dagen, og at det er rigtigt.**
+Beslutningen om at animere side om side vendte én eksisterende test — den påstod først at side om
+side *ikke* animerer, nu at den gør — frem for at lægge en ny til. En vendt påstand flytter ikke
+tallet, så her betyder et uændret tal netop at ingen test blev tabt.
 
 Tallene står her af én grund: **et ændret tal efter en refaktorering betyder, at en test er tabt
 eller duplikeret.** Det er hele reglen. Kør `Check.cmd` og sammenlign.

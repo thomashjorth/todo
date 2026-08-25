@@ -6,7 +6,7 @@ Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs d
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **174**, Api **310**, E2E **70**, Vitest **301** — alle grønne, målt 2026-08-25.
+**Testtal:** Core **174**, Api **310**, E2E **71**, Vitest **301** — alle grønne, målt 2026-08-25.
 Tre af tallene faldt først samme dag, da autostart blev fjernet (tolv tests slettet med vilje), og to
 af dem steg igen, da sektionsovergangene kom til (tretten lagt til). Fordelingen for begge står i
 `CLAUDE.md`s "Testtal".
@@ -43,9 +43,11 @@ Jira-sag i en status du kalder færdig, mens opgaven stadig er åben her, tilbyd
 detaljepanelets otte felter — planen er `docs/plans/2026-08-24-keyboard-shortcuts-design.md`, og de fem
 beslutninger står i dens afsnit 2. Og **animationer når en opgave skifter sektion**: rækken morfes til
 sin nye plads med View Transitions, som overlever at `<li>`'en destrueres undervejs — planen er
-`docs/plans/2026-08-25-section-transitions-design.md`. Læs dens afsnit 8, før du rører noget her:
-overgangen er **slået fra fra `xl`**, fordi et målt bleed lader en flyvende række male oven på
-health-linjen, og den asymmetri er et valg og ikke en forglemmelse.
+`docs/plans/2026-08-25-section-transitions-design.md`. Virker i **begge** udgaver af layoutet, men læs
+afsnit 8 og 8b før du rører noget: `::view-transition`-træet ligger i top-laget og klippes ikke af den
+rullende spalte, så side om side krævede en nestet gruppe plus **appens ene rigtige CSS-regel** for
+ikke at male oven på health-linjen. Fjernes en af mekanikkens tre dele, er bleedet tilbage, og
+animationen ser stadig rigtig ud.
 
 ## Næste skridt
 
@@ -191,17 +193,5 @@ her som "bliver dyrere" gennem tre leverancer, og aftrykket voksede med cirka é
 - **Resten af GTD-hullerne.** Ingen projekter, ingen kontekster, ingen ugentlig gennemgang.
   Kontekstaksen er den mest indgribende: den ville omgøre designdokumentets afsnit 2 frem for at
   lægge et felt til.
-- **Animationer side om side.** Leveret 2026-08-25 i én spalte, men **slået fra fra `xl`**, og det er
-  det ene stykke af ønsket der stadig ligger tilbage. Grunden er målt og står i afsnit 8 af
-  `docs/plans/2026-08-25-section-transitions-design.md`: `::view-transition`-træet ligger i top-laget
-  og klippes ikke af den rullende spalte, så en flyvende række maler oven på health-linjen — **7328 af
-  21376 pixels**, når destinationen ligger ved spaltens underkant, og **også** når kun den flyttende
-  række er navngivet. Hverken `view-transition-group` eller et navn på health-linjen lukker det uden
-  CSS-regler, og det sidste gør det **værre**.
-
-  Vejen videre er derfor ikke en justering, men et andet greb: **FLIP med Web Animations**, som
-  animerer det rigtige element med en transform og dermed **bliver** klippet af spalten. Det ville
-  virke i begge udgaver. Prisen er anslået 60–80 linjer mod View Transitions' 20, et `data-task-id` på
-  rækken, en service der måler DOM'en før og efter, og at en rækkes højde er forskellig i to
-  sektioner, så en ren translate rammer lidt skævt. Det er ikke presserende: appen bruges i en spalte
-  på ~480 px, hvor animationen virker.
+*(Animationer side om side stod her i nogle timer 2026-08-25 og er nu leveret — se "Uden for
+skiverne". Det der lukkede den var afsnit 8b: nesting plus én CSS-regel, målt frem for gættet.)*

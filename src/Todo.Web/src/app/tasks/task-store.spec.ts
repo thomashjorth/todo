@@ -643,18 +643,23 @@ describe('TaskStore', () => {
     });
 
     /**
-     * Mutation: remove the wide guard. Measured 2026-08-25: side by side the row escapes the
-     * scrolling column and paints over the health line, because the view transition tree lives in
-     * the top layer. Section 8 of the design has the numbers.
+     * Side by side animates too, and the history matters here. It did not on 2026-08-25 morning: the
+     * transition tree lives in the top layer, so a row escaped the scrolling column and painted over
+     * the health line - measured at 73 loud pixels on 4K, 7328 at 1400x600. The fix is a nested view
+     * transition group with `overflow: clip`, measured to remove the bleed while leaving the morph
+     * intact (36471 moving pixels against a control of 37071). Section 8 of the design has both
+     * halves of that measurement, and the layout is why they were needed rather than assumed.
+     *
+     * Mutation: put the `wide()` term back in the gate.
      */
-    it('should set the list without a transition side by side', async () => {
+    it('should start a view transition side by side as well', async () => {
       const transitions = recordViewTransitions();
       TestBed.inject(WideScreen).wide.set(true);
       store.tasks.set([taskAt(1, DeadlineBucket.NoDeadline)]);
 
       await reload([taskAt(1, DeadlineBucket.Today)]);
 
-      expect(transitions.started).toBe(0);
+      expect(transitions.started).toBe(1);
       expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
     });
 

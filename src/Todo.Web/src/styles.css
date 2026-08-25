@@ -1,2 +1,26 @@
 @import 'tailwindcss';
 @plugin "@tailwindcss/typography";
+
+/* Den ene rigtige CSS-regel i appen, og den er nødvendig frem for bekvem.
+ *
+ * En sektionsovergang morfer en opgaverække mellem to sektioner, og ::view-transition-træet ligger i
+ * top-laget, hvor ingen forælder klipper det. Side om side betød det, at en række med en destination
+ * uden for den rullende spalte malede oven på health-linjen — målt 2026-08-25 til 73 højtråbende
+ * pixels på 3840×2160 og 7328 på 1400×600, hvor kun `AP` af health-linjens tekst var læsbar.
+ *
+ * Rækkerne bærer derfor `view-transition-group: task-column` og spalten `view-transition-name:
+ * task-column`, så hver rækkes gruppe bliver et barn af spaltens — og *denne* regel er den halvdel
+ * der klipper dem. Målt i begge retninger: bleedet faldt fra 73 til 0, og morfen kørte uændret
+ * (36471 bevægede pixels mod en kontrol på 37071), så reglen fjerner kun det der slap ud.
+ *
+ * Fravalgt: FLIP med Web Animations, som animerer det rigtige element og derfor bliver klippet uden
+ * nogen CSS — men koster 60–80 linjer mod disse tre. Og fravalgt: at slukke overgangen side om side,
+ * som var valget indtil brugeren 2026-08-25 sagde at den også skal virke i fuldskærm på 4K.
+ *
+ * Fragiliteten, sagt højt: nestede view-transition-grupper er nye. På en ældre runtime ignoreres
+ * reglen **tavst**, og bleedet er tilbage. Målt på maskinen: WebView2 151.0.4129.101, og featuren
+ * virkede allerede i Playwrights Chromium 148. `SectionTransitionJourneyTests` vogter over at
+ * mekanikkens tre dele findes, men ikke over runtimen. */
+::view-transition-group-children(task-column) {
+  overflow: clip;
+}

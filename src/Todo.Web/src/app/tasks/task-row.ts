@@ -27,6 +27,10 @@ import { TaskStore, subTaskProgress } from './task-store';
     // med et ciffer. Dækker de tre @for-løkker over li[appTaskRow]; fuldført-sektionens
     // almindelige <li> har sin egen binding i task-list.html.
     '[style.view-transition-name]': '"task-" + task().id',
+    // Hænger rækkens gruppe under spaltens, så `::view-transition-group-children(task-column)` i
+    // styles.css kan klippe den. Uden det maler en række med en destination uden for den rullende
+    // spalte oven på health-linjen — begrundelsen og tallene står ved reglen.
+    '[style.view-transition-group]': '"task-column"',
   },
 })
 export class TaskRow {

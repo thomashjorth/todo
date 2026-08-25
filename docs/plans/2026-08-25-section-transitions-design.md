@@ -113,15 +113,16 @@ ville lande i `provideBrowserGlobalErrorListeners`.
 `whenStable()` er faldbagsvalget, hvis `tick()` kaster fordi ændringsdetektion allerede kører — det
 skal måles i implementeringen frem for antages.
 
-**Fire** vagter foran kaldet, i den rækkefølge:
+**Tre** vagter foran kaldet, i den rækkefølge:
 
 1. `typeof document.startViewTransition !== 'function'` — jsdom 28.1.0 har den ikke, samme hul som
    `matchMedia`, og uden vagten ville hver Vitest der rører `load()` kaste.
 2. Reduceret bevægelse.
-3. `!wide.wide()` — kun én spalte animerer. Begrundelsen er en måling og står i afsnit 8; vagten er
-   den fjerde, fordi den er den dyreste at forstå og den billigste at fjerne igen, hvis en fremtidig
-   browser lukker hullet.
-4. Porten.
+3. Porten.
+
+Der stod en fjerde her — `!wide.wide()`, altså "kun én spalte animerer" — og den er væk igen samme
+dag. Årsagen bag den var rigtig og er løst det rigtige sted, i CSS'en frem for ved at nægte at
+animere; se afsnit 8b.
 
 Fejler én af dem, sættes listen direkte som i dag.
 
@@ -268,10 +269,10 @@ Fem ting følger af tabellen, og de tre sidste var ikke forudset:
   *under* linjen. Flyttes destinationen op til spaltens underkant, dækkes linjen næsten helt — kun
   `AP` af `API: sund, version 1.0 – Dokumentation` er læsbart. At navngive færre rækker reducerer
   altså hvor ofte og hvor meget, men fjerner det ikke.
-- **Indlejrede grupper løser det ikke.** `CSS.supports('view-transition-group', 'foo')` svarer
-  `true`, men det betyder kun at egenskaben *parses*: runde C ser identisk ud med B. En klipning
-  ville kræve en regel på `::view-transition-group-children(...)`, altså netop den CSS konventionen
-  forbyder.
+- **Indlejrede grupper løser det ikke *alene*.** `CSS.supports('view-transition-group', 'foo')` svarer
+  `true`, men det betyder kun at egenskaben *parses*: runde C — nesting uden mere — ser identisk ud
+  med B. Nestingen mangler sin anden halvdel, nemlig en regel på `::view-transition-group-children`.
+  **Se afsnit 8b: den halvdel blev målt senere samme dag, og den virker.**
 - **At navngive health-linjen gør det værre, ikke bedre.** Tanken var at den så ville males ovenpå,
   fordi den står efter spalten i DOM-orden. Runde F giver 632 højtråbende pixels: linjens eget
   snapshot komponeres frem for at males direkte, og subpixel-antialiaseringen går tabt.
@@ -280,16 +281,48 @@ Fem ting følger af tabellen, og de tre sidste var ikke forudset:
   **efter** alle sektioner. Der findes altså ingen klippende beholder at slippe ud af, og ingen
   destination der ligger under linjen. Runde D bekræfter det, men argumentet er strukturen.
 
-**Beslutningen, truffet af brugeren 2026-08-25: animér kun i én spalte.** `!wide.wide()` er vagt
-nummer tre, og signalet findes allerede. Fravalgt: at skifte til FLIP, som animerer det **rigtige**
-element med en transform og derfor bliver klippet af spalten — det ville virke i begge udgaver, men
-koster 60–80 linjer mod 20, et `data-task-id` på rækken og en service der måler DOM'en før og efter.
-Fravalgt: at leve med bleedet, hvilket ville stå direkte imod den vagt repoet allerede har mod
-indhold der maler gennem health-linjen.
+**Den første beslutning, truffet af brugeren 2026-08-25 om formiddagen: animér kun i én spalte.**
+`!wide.wide()` blev vagt nummer tre. Den holdt i nogle timer og er **omgjort** — se 8b — men den
+står her, fordi fravalgene stadig gælder, og fordi rækkefølgen forklarer hvorfor koden ser ud som den
+gør.
 
-**Prisen er en permanent asymmetri, og den skal blive ved at stå her:** side om side animerer intet,
-altså netop hvor vinduet er størst. Uden begrundelsen læses det som en fejl. Skulle en fremtidig
-Chromium klippe nestede grupper, er vagt nummer tre det ene sted der skal fjernes.
+## 8b. Omgørelsen: side om side animerer alligevel
+
+**Brugeren afviste asymmetrien samme dag:** appen bruges i fuldskærm på 4K, og der skal animationen
+virke. Det er en beslutning, ikke en forglemmelse, og den tvang tre målinger frem der ikke fandtes da
+8 blev skrevet. Alle på 3840×2160, én test pr. kandidat:
+
+| Kandidat | Destination | Animerede | Bleed på health-linjen |
+| --- | --- | --- | --- |
+| A: kort liste | inde i spalten | ja | **0** |
+| B: lang liste | uden for | ja | **73**, værste kanal 236 |
+| C: nesting **+** `overflow: clip` | uden for | ja | **0** |
+| D: `skipTransition()` når uden for | uden for | **nej** (`AbortError`) | 0 |
+
+**C er svaret, og den er tre linjer.** Rækkerne bærer `view-transition-group: task-column`, spalten
+bærer `view-transition-name: task-column`, og `styles.css` har
+`::view-transition-group-children(task-column) { overflow: clip }`. Nestingen alene gør ingenting —
+det var runde C i afsnit 8 — men med reglen klippes rækkens gruppe af spaltens.
+
+**Og "intet bleed" blev ikke læst som en sejr, før morfen var bevist at køre.** Et klip der åd hele
+animationen ville give præcis samme nul. Målt på spaltens eget område, midt i flugten mod den satte
+side: **36471** bevægede pixels med nesting mod **37071** i en kontrol uden. Morfen kører altså
+uændret; reglen fjerner kun det der slap ud.
+
+**Fravalgt igen: FLIP** — den animerer det rigtige element og bliver derfor klippet uden nogen CSS,
+men koster 60–80 linjer mod tre nu hvor C er målt. **Fravalgt: `skipTransition()`** — den lukker
+bleedet, men ved at *undlade* at animere netop de flytninger man mest har brug for at følge.
+
+**Prisen er en anden end før, og den skal stå her: konventionen mod CSS-regler har nu en rigtig
+undtagelse**, ikke kun `@plugin`-linjen. Begrundelsen står ved reglen i `styles.css`, og den er
+værd at læse før nogen "rydder op".
+
+**Og fragiliteten er ny: reglen fejler tavst på en ældre runtime.** Nestede grupper er nye; ignoreres
+egenskaben, er bleedet tilbage, og animationen ser stadig rigtig ud. Målt på maskinen: WebView2
+**151.0.4129.101**, og featuren virkede allerede i Playwrights Chromium 148. Vagten er
+`Side_by_side_runs_the_transition_and_keeps_the_clipping_mechanism`, som påstår at mekanikkens **tre**
+dele findes — men den kan ikke se en runtime der ignorerer dem. Det er den ene ting her der ikke er
+vogtet.
 
 ## 9. Testplanen
 
@@ -304,8 +337,11 @@ mutation:
 | En rettet note starter ingen overgang | porten sammenligner hele opgaven |
 | En ny opgave starter ingen overgang | `prev.has(id)` fjernet |
 | Reduceret bevægelse sætter listen uden overgang | grenen fjernet |
-| Side om side sætter listen uden overgang | vagten fra afsnit 8 fjernet |
+| Side om side starter **også** en overgang | `wide()`-leddet lagt tilbage i porten |
 | Uden `startViewTransition` sættes listen | vagten fjernet — jsdom kaster |
+
+Bemærk at den tredje **vendte** samme dag: den påstod først at side om side *ikke* animerer, og efter
+omgørelsen i afsnit 8b at den gør. Det er samme test, ikke en ny — tallet flyttede sig ikke.
 
 Hver af dem påstår **også**, at listen blev sat. Det er egenskaben målingen i afsnit 3 gav gratis,
 og den der betyder at animationen ikke kan tabe data.
@@ -351,7 +387,20 @@ browseren til at springe overgangen helt over.
 De to er uafhængige, målt frem for antaget: fjernes **kun** skabelonbindingen på fuldført-rækken,
 falder netop den ene påstand (`expected '' to be 'task-9'`), mens host-bindingens bliver grøn.
 
-Tal: Vitest **289 til 301**, E2E **69 til 70**. `Todo.Core.Tests` (174) og `Todo.Api.Tests` (310)
+**E2E, en anden rejse — side om side.** Kom til med omgørelsen i afsnit 8b, og den påstår **to** ting,
+fordi hver for sig ville de være grønne af den forkerte grund: at overgangen faktisk *kører* på 1400 px
+(en brækket nesting kunne tage det), og at klipningens **tre** dele *findes* — spaltens navn, rækkernes
+`view-transition-group`, og reglen læst af det **serverede** stilark frem for af kilden, så en bygning
+der tabte den ikke består. Set fejle med reglen fjernet:
+*"Assert.Contains() Failure: Sub-string not found / String: "missing" / Not found: "overflow: clip""*.
+
+Og rejsen afslørede en fælde undervejs, som er værd at kende: side om side er detaljepanelet **allerede**
+synligt for den auto-valgte opgave, så `ToBeVisibleAsync` efter et rækkeklik består **før** valget er
+renderet — udfyldningen landede derfor på den forrige opgave, og "Senere" blev ét i stedet for to. Ventetiden
+er nu på det tomme deadline-felt, som kun den flyttende opgave kan vise. Samme fælde `CLAUDE.md` beskriver
+for en handling lige efter et klik.
+
+Tal: Vitest **289 til 301**, E2E **69 til 71**. `Todo.Core.Tests` (174) og `Todo.Api.Tests` (310)
 rører ikke funktionen.
 
 **Tallet stod som 296 her indtil 2026-08-25, og det var forkert** — ikke fordi en test blev tabt,
@@ -431,5 +480,10 @@ identificeret; sker det her, skal hele udskriften gemmes.
    Holdt **ude** af `CLAUDE.md` med vilje: at `t.ready` afvises mens `t.finished` resolverer, at jsdom
    beholder `view-transition-name`, og hvorfor vagten mod `xl` findes. Alle tre står som kommentarer
    præcis dér hvor nogen ville bryde dem — hvilket er stærkere end en linje i en fil man skimmer.
+
+8. **Omgørelsen** (afsnit 8b), **gjort 2026-08-25** efter at brugeren afviste asymmetrien: `styles.css`
+   fik sin regel, spalten og rækkerne fik `view-transition-group`, den fjerde vagt røg ud, den ene
+   Vitest vendte, og en E2E-rejse på 1400 px kom til (70 → 71). Slutmåling 174/310/71/301.
+   `WideScreen` er ikke længere injiceret i `TaskStore`.
 
 Hver opgave slutter med sin egen commit.

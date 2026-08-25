@@ -12,7 +12,6 @@ import {
   UpdateTodoTaskRequest,
 } from '../api/todo-client';
 import { ReducedMotion } from '../layout/reduced-motion';
-import { WideScreen } from '../layout/wide-screen';
 
 const bucketOrder: readonly DeadlineBucket[] = [
   DeadlineBucket.Overdue,
@@ -139,7 +138,6 @@ export interface TaskChanges {
 export class TaskStore {
   private readonly client = inject(TasksClient);
   private readonly appRef = inject(ApplicationRef);
-  private readonly wide = inject(WideScreen);
   private readonly reducedMotion = inject(ReducedMotion);
 
   readonly tasks = signal<TodoTask[]>([]);
@@ -271,10 +269,14 @@ export class TaskStore {
    * Whether this list is worth animating, asked before it is set - which is the whole reason
    * `placements` takes a list rather than reading a signal.
    *
-   * Four terms, and three of them buy their own behaviour: no `startViewTransition` at all is jsdom
-   * (28.1.0, measured), less motion is the user's own setting, and side by side is the measured
-   * defect in section 8 of the design - the transition tree lives in the top layer, so a row escapes
-   * the scrolling column and paints over the health line.
+   * Three terms. No `startViewTransition` at all is jsdom (28.1.0, measured); less motion is the
+   * user's own setting; and then the gate itself.
+   *
+   * There was a fourth - side by side did not animate - and it is gone on purpose. The reason it
+   * existed was real: the transition tree lives in the top layer, so a row whose destination lay
+   * outside the scrolling column painted over the health line. That is now fixed where it belongs,
+   * by the nested view transition group in `styles.css` rather than by refusing to animate. Section
+   * 8 of docs/plans/2026-08-25-section-transitions-design.md carries both measurements.
    *
    * `prev.has(id)` is what makes the rest quiet. A first load has an empty list, so no id is in
    * both; a new task lands at the end of its section and shifts nobody; and a note or a subtask
@@ -289,7 +291,7 @@ export class TaskStore {
       return false;
     }
 
-    if (this.reducedMotion.reduce() || this.wide.wide()) {
+    if (this.reducedMotion.reduce()) {
       return false;
     }
 
