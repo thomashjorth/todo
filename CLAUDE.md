@@ -224,12 +224,20 @@ pr. `attr/`-mængde — for attributterne afgør det, og `*.cmd text eol=crlf` p
 CRLF selv på en maskine hvor alt andet er LF.
 
 **Og her er den måling der omskriver resten af afsnittet: skaden var arbejdstræ-lokal, og der var
-ingenting at committe.** Alle 255 tekstfiler er `i/lf` og har altid været det — `* text=auto` gør,
-at Git normaliserer på vejen ind, og CRLF kan **ikke** committes. De 40 `w/lf`-filer og den ene
-`w/mixed` var altså udelukkende arbejdskopiens tilstand, og rettelsen er **`git checkout -- .`**,
-ikke en commit. Konsekvensen for vagten er værd at sige højt: **en frisk checkout, CI iberegnet,
-kan ikke fejle den** — det er arbejdstræet tools skriver i, og en beskidt lokal kopi er det eneste
-sted fejlen nogensinde har vist sig.
+ingenting at committe.** De 40 `w/lf`-filer og den ene `w/mixed` var udelukkende arbejdskopiens
+tilstand, og rettelsen er **`git checkout -- .`**, ikke en commit. Konsekvensen for vagten er værd at
+sige højt: **en frisk checkout, CI iberegnet, kan ikke fejle den** — det er arbejdstræet tools
+skriver i, og en beskidt lokal kopi er det eneste sted fejlen nogensinde har vist sig.
+
+**Men sætningen "CRLF kan ikke committes" stod her, og den er forkert.** Den blev afsløret 2026-08-25,
+da fjernelsen af autostart gav `tests/Todo.E2E/SettingsScreen.cs` en diff på **564 linjer** for to
+slettede locators: den gamle blob havde **288 CR**, den nye nul. `* text=auto` normaliserer nemlig på
+vejen **ind ved næste skrivning** — en blob der blev committet før attributten fandtes, beholder sin
+CRLF, indtil noget rører filen igen, og `git ls-files --eol` viser den som `i/crlf`. Filen var den
+sidste af slagsen; `git ls-files --eol | grep -c i/crlf` giver nu **0**. Læren er at tallet skal
+måles frem for påstås: står der en uventet hel-fil-diff i en leverance, så sammenlign de to blobs'
+CR-antal med `git show <ref>:<fil> | tr -dc '\r' | wc -c` før du leder efter en indholdsændring der
+ikke findes.
 
 **`git update-index --refresh` rydder *ikke* det falske `M`** — det stod her, og det er forkert.
 Målt: efter en LF→CRLF-omlægning svarer den `<fil>: needs update` for hver fil og exitkode **1**,
