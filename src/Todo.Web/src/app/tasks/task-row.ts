@@ -19,6 +19,14 @@ import { TaskStore, subTaskProgress } from './task-store';
   host: {
     'data-testid': 'task-row',
     class: 'py-2',
+    // Navnet browseren morfer rækken efter, når den skifter sektion. En inline-style og ikke en
+    // Tailwind-klasse, fordi værdien er *data*: en utility-klasse er statisk, og den arbitrære
+    // egenskab `[view-transition-name:task-42]` kan ikke tage en køretidsværdi. Undtagelsen fra
+    // stylingkonventionen er derfor lige så snæver som den ser ud, og godkendt 2026-08-25.
+    // Præfikset er ikke pynt: en view-transition-name er en <custom-ident> og må ikke begynde
+    // med et ciffer. Dækker de tre @for-løkker over li[appTaskRow]; fuldført-sektionens
+    // almindelige <li> har sin egen binding i task-list.html.
+    '[style.view-transition-name]': '"task-" + task().id',
   },
 })
 export class TaskRow {

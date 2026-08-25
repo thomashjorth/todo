@@ -325,14 +325,24 @@ den ruden været ikke-komponerende — som browserruden i designfasen var — vi
 og påstanden kunne slet ikke skrives. Rejsen skal køre i suitens **smalle** viewport, som er
 standarden, fordi vagt nummer tre lukker overgangen på xl.
 
-Tal: Vitest **289 til 299**, E2E **69 til 70**. `Todo.Core.Tests` (174) og `Todo.Api.Tests` (310)
+**Vitest, i `task-list.spec.ts`.** To påstande mere, som denne testplan oprindeligt slet ikke havde:
+at **hver** rækketype bærer sit navn. De er mulige, fordi jsdom 28.1.0 **beholder**
+`view-transition-name` — målt både gennem `setProperty` og camelCase-egenskaben, og den reflekteres i
+style-attributten — så bindingen kan ses uden Playwright. Navnene er pinnet til id'erne frem for blot
+at være ikke-tomme: navnet *er* den identitet morfen matches på, og to rækker der delte ét ville få
+browseren til at springe overgangen helt over.
+
+De to er uafhængige, målt frem for antaget: fjernes **kun** skabelonbindingen på fuldført-rækken,
+falder netop den ene påstand (`expected '' to be 'task-9'`), mens host-bindingens bliver grøn.
+
+Tal: Vitest **289 til 301**, E2E **69 til 70**. `Todo.Core.Tests` (174) og `Todo.Api.Tests` (310)
 rører ikke funktionen.
 
 **Tallet stod som 296 her indtil 2026-08-25, og det var forkert** — ikke fordi en test blev tabt,
 men fordi det kun talte de syv i `task-store.spec.ts` og glemte `ReducedMotion`s tre. Fordelingen er
-289 + 3 (punkt 2) + 7 (punkt 4) = 299, målt med `check.ps1`. Det er præcis den drift `CLAUDE.md`
-advarer mod: et ændret tal kan kun betyde en tabt eller duplikeret test, hvis tallet var sandt i
-forvejen.
+289 + 3 (punkt 2) + 7 (punkt 4) + 2 (punkt 5) = 301, målt med `check.ps1`. Det er præcis den drift
+`CLAUDE.md` advarer mod: et ændret tal kan kun betyde en tabt eller duplikeret test, hvis tallet var
+sandt i forvejen.
 
 **Og de 69 eksisterende E2E blev målt frem for antaget.** Afsnit 10 kaldte dem en del af
 verificeringen, fordi hver gemning nu går gennem en rigtig overgang — Playwrights Chromium har
@@ -377,7 +387,10 @@ identificeret; sker det her, skal hele udskriften gemmes.
    den ene kørsel målte derfor den **umuterede** fil og den anden den **forrige** mutation, begge med
    et resultat der lignede et svar. Normalisér linjeskiftene i et mutationsscript, og læs hvad der
    faktisk blev anvendt, frem for at stole på løkkens navn.
-5. `view-transition-name` på de to steder.
+5. ~~`view-transition-name` på de to steder.~~ **Gjort 2026-08-25** (299 → 301). Begge set fejle på
+   deres eget fravær: `expected [ '', '' ] to deeply equal [ 'task-1', 'task-2' ]` og `expected '' to
+   be 'task-9'`, og de er set være **uafhængige**. Herfra morfes der faktisk noget — indtil nu kørte
+   kun rodens krydsfade, fordi intet element bar et navn.
 6. E2E-rejsen, set fejle på en dubleret navn-mutation.
 7. Fuld `Check.cmd`, og `CLAUDE.md`s testtal rettet **med hvorfor**.
 

@@ -1329,4 +1329,63 @@ describe('TaskList', () => {
     fixture.detectChanges();
     expect(row.querySelector('[data-testid="task-detail"]')).not.toBeNull();
   });
+  /**
+   * The names the browser morphs rows by. Both kinds of row have to carry one, and they are two
+   * separate bindings in two files: a host binding on `TaskRow`, which covers the three `@for` loops
+   * over `li[appTaskRow]`, and one in this template for the completed section's plain `<li>`.
+   *
+   * jsdom keeps `view-transition-name` - measured against 28.1.0, both through `setProperty` and the
+   * camelCase property, and it reflects into the style attribute - so the binding is visible here
+   * rather than only from Playwright.
+   */
+  describe('section transitions', () => {
+    it('should name every task row so the browser can morph it', async () => {
+      const fixture = TestBed.createComponent(TaskList);
+      TestBed.inject(HttpTestingController)
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items })]));
+
+      const element = await rendered(fixture);
+
+      const names = [...element.querySelectorAll<HTMLElement>('[data-testid="task-row"]')].map(
+        (row) => row.style.getPropertyValue('view-transition-name'),
+      );
+      // Pinned to the ids rather than merely non-empty: the name is the identity the morph is
+      // matched on, so two rows sharing one would make the browser skip the transition outright.
+      expect(names).toEqual(['task-1', 'task-2']);
+    });
+
+    /**
+     * The completed row is a plain `<li>` with no `appTaskRow`, so the host binding does not reach
+     * it - and it is exactly the row a task lands on when it is ticked off with completed tasks
+     * shown. Without a name on both sides of that move there is no morph, only a cross-fade.
+     */
+    it('should name a completed row too, since a task ticked off moves into that list', async () => {
+      const fixture = TestBed.createComponent(TaskList);
+      const http = TestBed.inject(HttpTestingController);
+      http
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items })]));
+      const element = await rendered(fixture);
+
+      element.querySelector<HTMLInputElement>('[data-testid="show-completed"]')!.click();
+      fixture.detectChanges();
+      http
+        .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
+        .flush(
+          new Blob([JSON.stringify({ items: [...items, { ...items[0], id: 9, status: 'done' }] })]),
+        );
+
+      const row = await vi.waitFor(() => {
+        fixture.detectChanges();
+        const found = element.querySelector<HTMLElement>(
+          '[data-testid="completed-section"] [data-testid="task-row"]',
+        );
+        expect(found).not.toBeNull();
+        return found!;
+      });
+
+      expect(row.style.getPropertyValue('view-transition-name')).toBe('task-9');
+    });
+  });
 });

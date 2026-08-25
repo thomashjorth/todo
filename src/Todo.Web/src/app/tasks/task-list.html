@@ -204,7 +204,15 @@
           </h2>
           <ul class="mt-1 divide-y divide-gray-100 dark:divide-gray-700">
             @for (task of completed(); track task.id) {
-              <li data-testid="task-row" class="flex items-start gap-2 py-2">
+              <!-- Samme navn som rækken har i sin deadline-sektion, og det er nødvendigt frem for
+                   pænt: en opgave der markeres færdig *med* fuldførte vist flytter sig fra en
+                   li[appTaskRow] til denne almindelige <li>, og uden navnet på begge sider er der
+                   ingen morf — kun en krydsfade. Host-bindingen på TaskRow når ikke herind. -->
+              <li
+                data-testid="task-row"
+                class="flex items-start gap-2 py-2"
+                [style.view-transition-name]="'task-' + task.id"
+              >
                 <input
                   #reopen
                   data-testid="complete-toggle"
