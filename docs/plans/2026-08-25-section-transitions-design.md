@@ -1,0 +1,296 @@
+# Animationer når en opgave flytter sig mellem sektioner
+
+Design, 2026-08-25. Ønsket stod i `docs/HANDOFF.md` under "Ønsket, men ikke placeret", noteret
+2026-08-24 og ikke designet: *"I dag hopper en opgave uden varsel fra 'Uden deadline' til 'Denne
+uge', når en deadline sættes — eller ud i 'Venter på', når statussen skifter — og brugeren skal selv
+finde den igen. Ønsket er en overgang hver gang en række skifter plads, så flytningen kan følges med
+øjnene."*
+
+## 1. Hvad problemet er, og hvorfor noten kaldte det uafklaret
+
+Noten navngav selv knasten: sektionerne er hver sin `@for`-blok, så rækken **destrueres og
+genskabes** frem for at flytte sig. Målt i `task-list.html` er der fire steder en `<li>` kan bo — de
+tre `@for`-løkker over `li[appTaskRow]` (deadline-sektionerne, "Venter på", "En dag") og
+fuldført-sektionens almindelige `<li>` — og en flytning krydser altid fra det ene til det andet. Det
+er samme mekanik `TaskStore.askingWho` findes for: rækken der spørger, er ikke rækken der svarer.
+
+Konsekvensen er, at en klasse på `<li>`'en ikke kan gøre arbejdet. Der er ikke ét element der
+bevæger sig; der er et element der forsvinder og et andet der opstår et andet sted. Enhver
+CSS-overgang har brug for det samme element i begge tilstande.
+
+Og rammerne er trange. Appen har **ingen** `transition-`, `duration-` eller `animate-`-klasse i
+nogen skabelon i dag, `@angular/animations` er **ikke** en afhængighed, appen er **zoneless** (ingen
+`zone.js` i `package.json`), og konventionen siger *"Kun standard Tailwind utility-klasser. Ingen
+CSS- eller SCSS-regler."* Alt målt 2026-08-25, ikke antaget.
+
+## 2. Beslutningerne
+
+Tre valg, truffet af brugeren 2026-08-25, med det der blev valgt fra:
+
+**Mekanikken er View Transitions API'et.** `document.startViewTransition()` snapshotter dokumentet
+før og efter, og to elementer der bærer samme `view-transition-name` morfes mellem deres to
+positioner — også når `<li>`'en imellem blev destrueret. Det er det ene greb der løser knasten
+direkte frem for at omgå den, og det koster omkring tyve linjer i `TaskStore`.
+
+Fravalgt: **FLIP med Web Animations** — mål hver rækkes position før listen skiftes, mål igen efter
+render, animér forskellen med `element.animate()`. Præcis afgrænset og let at påstå i en test, men
+mere kode, og en række har forskellig højde i to sektioner (deadline-chip mod "venter på X"), så en
+ren `translateY` rammer skævt; sektionsoverskrifter der kommer og går hopper stadig. Fravalgt:
+**fremhævning på ny plads** — et kort blink hvor rækken landede. Mindst mekanik, men flytningen er
+allerede sket når blinket begynder, så den kan ikke følges med øjnene, hvilket var ønskets ordlyd.
+
+**Porten er "enhver ændret plads", ikke "sektionsskift".** En opgave der er med i både den gamle og
+den nye liste får en overgang, hvis dens (sektion, indeks) er anderledes. Det tager derfor også
+løftet til toppen når statussen bliver I gang — `inProgressFirst` sorterer inden for bøtten — og
+rækkerne der glider op efter en sletning.
+
+Fravalgt: **kun sektionsskift**, den snævre læsning af noten, som lader løftet til toppen og
+lukningen af hullet efter en sletning blive ved at være hop uden varsel. Fravalgt: **hver gemning**,
+altså ingen port, hvis pris er målbar — hvert flueben på en underopgave og hver gemt note ville køre
+en 250 ms krydsfade mellem to identiske billeder.
+
+**Reduceret bevægelse respekteres ved at springe overgangen helt over.** Ikke ved at dæmpe den:
+varighed og lempe bor i UA-stilarket bag `::view-transition-*`, altså i CSS-regler konventionen
+forbyder, så der findes ingen knap mellem "fuld animation" og "ingen".
+
+## 3. Målingerne designet hviler på
+
+Målt 2026-08-25 i Chromium 148 med en prøveside, ikke forudsagt:
+
+| Påstand | Målt |
+| --- | --- |
+| `document.startViewTransition` findes | ja |
+| Opdateringen kører selv når overgangen springes over | **ja** — `callbackRan: true` |
+| `t.ready` ved en sprunget overgang | **afvises** — `InvalidStateError: Transition was aborted because of invalid state` |
+| `t.finished` ved en sprunget overgang | **resolver** — ingen afvisning |
+| `t.updateCallbackDone` ved en sprunget overgang | resolver |
+
+Overgangen sprang over, fordi prøvens rude ikke komponerede frames (`document.hidden === true`).
+Det er prøvens miljø og ikke API'et — men det gav den vigtigste egenskab gratis: **listen sættes
+uanset hvad**, så animationen ikke kan tabe data. Og det fastlægger fejlhåndteringen: `t.ready`
+afventes ingen steder, `t.finished` er den sikre.
+
+Prøvefilen ligger ikke i repoet. Skal målingen gentages, er opskriften: to lister i en rullende
+beholder, `view-transition-name` sat inline pr. id, en knap der flytter et element fra den ene liste
+til den anden ved at bygge DOM'en op igen, og en logning af `document.getAnimations()` i `t.ready`.
+
+## 4. Mekanikken, og hvor den bor
+
+Overgangen startes i `TaskStore.load()`. Det er det ene sted hver genindlæsning går igennem — `add`,
+`update`, `remove`, `addSubTask`, `setSubTaskDone`, `removeSubTask`, `setShowCompleted` og
+`setShowSomeday` ender alle der — så én kaldeplads frem for otte. Sekvenstælleren der beskytter mod
+svar i forkert rækkefølge ligger allerede der, og porten skal læse den nyeste liste og kun den.
+
+Rækkefølgen er bærende: HTTP'en er færdig **før** `startViewTransition`, så det gamle snapshot ikke
+står frosset mens en rundtur venter.
+
+```ts
+const items = response.items;
+
+if (!this.animates(items)) {
+  this.tasks.set(items);
+  return;
+}
+
+const transition = document.startViewTransition(() => {
+  this.tasks.set(items);
+  // Zoneless: DOM'en skal være opdateret, før browseren tager det nye snapshot.
+  this.appRef.tick();
+});
+
+// finished resolver også når overgangen springes over — målt. ready gør ikke.
+await transition.finished;
+```
+
+`t.ready` afventes **ikke** nogen steder. Den afvises hver gang overgangen springes over — skjult
+dokument, en overgang der allerede kører, to elementer med samme navn — og en ufanget afvisning
+ville lande i `provideBrowserGlobalErrorListeners`.
+
+`appRef.tick()` frem for `await appRef.whenStable()`: appen er zoneless, så `tick()` kører
+ændringsdetektion synkront og efterlader DOM'en opdateret, når callbacket returnerer.
+`whenStable()` er faldbagsvalget, hvis `tick()` kaster fordi ændringsdetektion allerede kører — det
+skal måles i implementeringen frem for antages.
+
+Tre vagter foran kaldet, i den rækkefølge:
+
+1. `typeof document.startViewTransition !== 'function'` — jsdom 28.1.0 har den ikke, samme hul som
+   `matchMedia`, og uden vagten ville hver Vitest der rører `load()` kaste.
+2. Reduceret bevægelse.
+3. Porten.
+
+Fejler én af dem, sættes listen direkte som i dag.
+
+## 5. Navnet på rækken, og undtagelsen det koster
+
+Browseren morfer kun elementer der bærer samme `view-transition-name` i begge snapshots. Navnet er
+derfor opgavens id, og det er hele grunden til at mekanikken virker: `<li>`'en destrueres, men
+navnet overlever, fordi det er skrevet af den **nye** række.
+
+Navnet er en `<custom-ident>` og må ikke begynde med et ciffer, så det bliver `task-42`, ikke `42`.
+
+To steder, ikke fire. `TaskRow` får en host-binding, som dækker de tre `@for`-løkker over
+`li[appTaskRow]`:
+
+```ts
+host: {
+  'data-testid': 'task-row',
+  class: 'py-2',
+  '[style.view-transition-name]': '"task-" + task().id',
+}
+```
+
+Fuldført-sektionens række er et almindeligt `<li>` uden `appTaskRow` og får samme binding i
+skabelonen. Det er nødvendigt frem for pænt: en opgave der markeres færdig **med** "vis fuldførte"
+slået til flytter sig fra en `appTaskRow`-række til den almindelige, og uden navnet på begge sider
+er der ingen morf — kun en krydsfade.
+
+**Prisen er en konventionsundtagelse, og den er godkendt af brugeren 2026-08-25.** `CLAUDE.md`
+siger *"Kun standard Tailwind utility-klasser. Ingen CSS- eller SCSS-regler."* En
+inline-style-binding er ingen af de to — den er en tredje. Den er nødvendig, fordi værdien er
+**forskellig pr. opgave**: en utility-klasse er statisk, og Tailwinds arbitrære egenskab
+`[view-transition-name:task-42]` kan ikke tage en køretidsværdi. Der findes ingen vej gennem
+klasser. Undtagelsen er derfor snæver og skal læses snævert: `view-transition-name` bundet inline,
+fordi identiteten er data. Alt andet visuelt bliver ved at være Tailwind-klasser.
+
+Sektionerne og detaljepanelet får **ikke** navne. De ligger i rodens snapshot og krydsfader, hvilket
+er det ønskede for en overskrift der kommer og går, og panelet står stille side om side.
+
+## 6. Porten, og omlægningen den tvinger
+
+Porten skal svare "flyttede nogen opgave sig?" **før** listen sættes, så den kan ikke læse
+`sections()` — det signal opdaterer sig først bagefter. Den har brug for en ren funktion der kan
+svare på et vilkårligt array.
+
+Den funktion findes ikke i dag: grupperingsreglen bor inde i `sections()`, og en kopi ved siden af
+ville være samme regel på to steder. Reglen flyttes derfor ud, og `sections()` bliver en læser af
+den frem for dens ejer:
+
+```ts
+type PlacedGroup = {
+  bucket: DeadlineBucket | null;
+  status: TodoStatus | null;
+  tasks: TodoTask[];
+};
+
+/** Hvor hver opgave sidder: den ene regel begge læsere deler. */
+function placeTasks(tasks: TodoTask[]): PlacedGroup[];
+
+/** id til "hvor", til sammenligning på tværs af to loads: bucket eller status, plus indekset. */
+function placements(tasks: TodoTask[]): Map<number, string>;
+```
+
+`placeTasks` bærer `bucketOrder` og `inProgressFirst` for de planlagte opgaver og derefter de tre
+statuslister. `sections()` bliver `placeTasks(this.matching()).filter((g) => g.bucket !== null)`, og
+porten bliver:
+
+```ts
+private animates(items: TodoTask[]): boolean {
+  const next = placements(items);
+  const prev = placements(this.tasks());
+
+  return [...next].some(([id, place]) => prev.has(id) && prev.get(id) !== place);
+}
+```
+
+`prev.has(id)` er porten mod alt andet end en flytning, og den giver tre ting gratis, uden en gren
+hver:
+
+- **Første load animerer ikke.** Listen er tom, så intet id er i begge.
+- **En ny opgave animerer ikke.** Den lander sidst i "Uden deadline" og rykker ingen.
+- **En rettet note eller et flueben på en underopgave animerer ikke.** Ingen plads ændrer sig.
+
+En sletning rykker rækkerne under sig og animerer — som valgt.
+
+**Den accepterede pris, skrevet ned frem for opdaget senere:** porten måler den **ufiltrerede**
+liste, mens skærmen viser den søgefiltrerede. Flytter en opgave sig, mens en søgning skjuler den,
+kører der en overgang der animerer ingenting — 250 ms krydsfade mellem to identiske billeder.
+Alternativet var at lade porten kende `query()`, `showCompleted()` og `showSomeday()`, altså tre
+kilder mere den kan drive fra. Bemærk at søgefiltret ikke selv kalder `load()`, så prisen kræver en
+aktiv søgning **og** en samtidig gemning.
+
+## 7. Reduceret bevægelse
+
+`ReducedMotion` bliver en injectable i `layout/` ved siden af `WideScreen`, bygget efter samme
+mønster af samme grund: `matchMedia('(prefers-reduced-motion: reduce)')`, en `reduce`-signal, en
+lytter på `change`, og den samme vagt mod jsdom der ingen `matchMedia` har. Symmetrien er ikke pynt
+— `WideScreen`s dokumentation af netop det hul er stedet nogen slår det op.
+
+Lytteren frem for én læsning ved opstart: Windows-indstillingen kan skifte mens appen kører, og
+`WideScreen` har præcedensen.
+
+## 8. De to risici, som skal måles frem for antages
+
+**Risiko 1: roden krydsfader, og det kan ikke dæmpes.** Alt uden et navn ligger i rodens snapshot,
+og UA'ens standardanimation er en krydsfade over 250 ms. Varighed, lempe og "sluk den" bor alle i
+`::view-transition-*`. To identiske billeder krydsfadet er usynligt, så i praksis ser man kun de
+sektionsoverskrifter der kommer og går — hvilket er ønskeligt. Men det er ikke en knap vi har, og
+skulle den vise sig forstyrrende, er valget mellem at leve med den og at omgøre konventionen.
+
+**Risiko 2, den alvorlige: `::view-transition`-træet ligger i top-laget og klippes ikke af nogen
+forælder.** Venstre spalte har `xl:overflow-y-auto`, og i én spalte klipper wrapperen om
+`router-outlet`. En række der morfer til en plads uden for det synlige kan derfor male **oven på**
+health-linjen på vej derhen — nøjagtig samme klasse som *"`getBoundingClientRect` klipper ikke"*, og
+som `A_long_import_list_scrolls_inside_the_window_rather_than_through_the_footer` allerede vogter
+over.
+
+Den kunne **ikke** måles under designet: prøven afbrød hver overgang, fordi ruden ikke komponerede
+frames. Den er derfor **implementeringens første opgave**, ikke en note til sidst: en engangs-prøve
+med sænket varighed, en række hvis destination er rullet ud af syne, og et skærmbillede midt i
+flugten. Falder den ud som frygtet, er faldbagsvalget navn **kun** på rækker der er i syne, hvilket
+koster en måling pr. række og skal begrundes på stedet.
+
+## 9. Testplanen
+
+**Vitest, i `task-store.spec.ts`.** Porten er det stykke der kan drive, og den er målbar ved at
+stubbe `document.startViewTransition` og tælle kald. Seks påstande, valgt så hver har sin egen
+mutation:
+
+| Påstand | Mutationen den skal ses fælde |
+| --- | --- |
+| Et sektionsskift starter én overgang | porten slået fra |
+| Et løft til toppen (I gang) tæller som en flytning | porten sammenligner kun bøtte og status, ikke indeks |
+| En rettet note starter ingen overgang | porten sammenligner hele opgaven |
+| En ny opgave starter ingen overgang | `prev.has(id)` fjernet |
+| Reduceret bevægelse sætter listen uden overgang | grenen fjernet |
+| Uden `startViewTransition` sættes listen | vagten fjernet — jsdom kaster |
+
+Hver af dem påstår **også**, at listen blev sat. Det er egenskaben målingen i afsnit 3 gav gratis,
+og den der betyder at animationen ikke kan tabe data.
+
+**E2E, én ny rejse.** Den ene ting kun en rigtig browser kan se: at overgangen faktisk **kørte** og
+ikke blev sprunget over. Et init-script pakker `document.startViewTransition` og gemmer for hvert
+kald om `ready` resolverede eller afvistes; rejsen sætter en deadline, så opgaven forlader "Uden
+deadline", og påstår ét kald med `ready` resolveret.
+
+Den vogter over en fælde repoet **har mødt før**: to elementer med samme `view-transition-name` får
+`ready` til at afvise, og **intet andet kan se det** — nøjagtig som `data-testid="task-detail"`
+engang fandtes to gange og Playwright tavst valgte den første.
+
+Forventede tal: Vitest **289 til 295**, E2E **69 til 70**. `Todo.Core.Tests` (174) og
+`Todo.Api.Tests` (310) rører ikke funktionen.
+
+## 10. Hvad der ikke kan vogtes, sagt ligeud
+
+At animationen ser rigtig ud. Der findes ingen påstand for det, og rodens krydsfade har ingen knap
+at skrue på.
+
+Og en konsekvens der er større end den ser ud: **hver gemning i appen går nu gennem en overgang**,
+så de **69 eksisterende E2E** er en del af verificeringen frem for en formalitet. De kan blive
+langsommere eller flakke — `::view-transition`-træet har `pointer-events: none`, så klik burde gå
+igennem, men "burde" er ikke en måling. Det afgøres af en fuld `Check.cmd`, ikke af en antagelse. Og
+`docs/HANDOFF.md` noterer allerede, at E2E-suiten er set flakke én gang uden at testen blev
+identificeret; sker det her, skal hele udskriften gemmes.
+
+## 11. Rækkefølgen i implementeringen
+
+1. **Mål risiko 2** med en engangs-prøve i en rigtig, kompositerende browser. Alt andet hænger på
+   svaret.
+2. `ReducedMotion` i `layout/` med sin spec, symmetrisk med `WideScreen`.
+3. `placeTasks`/`placements` udtrukket, `sections()` omlagt til at læse dem. Ingen adfærdsændring,
+   så de eksisterende specs er vagten — tallet må ikke flytte sig her.
+4. Porten og overgangen i `load()`, med de seks Vitest, hver set fejle.
+5. `view-transition-name` på de to steder.
+6. E2E-rejsen, set fejle på en dubleret navn-mutation.
+7. Fuld `Check.cmd`, og `CLAUDE.md`s testtal rettet **med hvorfor**.
+
+Hver opgave slutter med sin egen commit.

@@ -189,7 +189,16 @@ her som "bliver dyrere" gennem tre leverancer, og aftrykket voksede med cirka é
 - **Animationer når en opgave flytter sig mellem sektioner.** I dag hopper en opgave uden varsel fra
   "Uden deadline" til "Denne uge", når en deadline sættes — eller ud i "Venter på", når statussen
   skifter — og brugeren skal selv finde den igen. Ønsket er en overgang hver gang en række skifter
-  plads, så flytningen kan følges med øjnene. Noteret 2026-08-24, ikke designet: sektionerne er
+  plads, så flytningen kan følges med øjnene. Noteret 2026-08-24: sektionerne er
   hver sin `@for`-blok, så rækken **destrueres og genskabes** frem for at flytte sig (samme
   mekanik som `TaskStore.askingWho` beskriver i `CLAUDE.md`), og en animation der skal krydse to
   blokke er derfor ikke bare en klasse på `<li>`.
+
+  **Designet 2026-08-25 i `docs/plans/2026-08-25-section-transitions-design.md`, ikke bygget.**
+  Knasten er løst af View Transitions API'et, som morfer to elementer med samme
+  `view-transition-name` uanset at `<li>`'en imellem blev destrueret. Læs afsnit 3 før noget andet:
+  målingerne siger, at `t.ready` **afvises** hver gang overgangen springes over, mens `t.finished`
+  resolverer og opdateringen kører alligevel. Og afsnit 8's risiko 2 er implementeringens **første**
+  opgave frem for en note til sidst — `::view-transition`-træet ligger i top-laget og klippes ikke af
+  den rullende spalte, så en række kan male oven på health-linjen på vej til sin nye plads. Den kunne
+  ikke måles under designet, fordi prøvens rude ikke komponerede frames.
