@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { ApplicationRef, Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
   CreateSubTaskRequest,
@@ -11,6 +11,8 @@ import {
   UpdateSubTaskRequest,
   UpdateTodoTaskRequest,
 } from '../api/todo-client';
+import { ReducedMotion } from '../layout/reduced-motion';
+import { WideScreen } from '../layout/wide-screen';
 
 const bucketOrder: readonly DeadlineBucket[] = [
   DeadlineBucket.Overdue,
@@ -97,6 +99,28 @@ export function placeTasks(tasks: TodoTask[]): PlacedGroup[] {
   return groups.filter((group) => group.tasks.length > 0);
 }
 
+/**
+ * Where every task sits, keyed by id, so two lists can be compared across a reload.
+ *
+ * The key carries the kind as well as the group, which costs nothing and closes a trap: no bucket
+ * name and status name collide today, but a future pair that did would silently merge two groups
+ * and make a real move look like no move at all.
+ *
+ * The index is part of it on purpose. Without it a task lifted to the top of its own section - what
+ * `inProgressFirst` does when a status goes to in progress - would compare equal, and the row would
+ * jump without a transition.
+ */
+function placements(tasks: TodoTask[]): Map<number, string> {
+  const places = new Map<number, string>();
+
+  for (const group of placeTasks(tasks)) {
+    const where = group.kind === 'bucket' ? group.bucket : group.status;
+    group.tasks.forEach((task, index) => places.set(task.id, `${group.kind}:${where}#${index}`));
+  }
+
+  return places;
+}
+
 export function subTaskProgress(task: TodoTask): string {
   return `${task.subTasks.filter((s) => s.isDone).length}/${task.subTasks.length}`;
 }
@@ -114,6 +138,9 @@ export interface TaskChanges {
 @Injectable({ providedIn: 'root' })
 export class TaskStore {
   private readonly client = inject(TasksClient);
+  private readonly appRef = inject(ApplicationRef);
+  private readonly wide = inject(WideScreen);
+  private readonly reducedMotion = inject(ReducedMotion);
 
   readonly tasks = signal<TodoTask[]>([]);
   readonly showCompleted = signal(false);
@@ -207,7 +234,69 @@ export class TaskStore {
       return;
     }
 
-    this.tasks.set(response.items);
+    await this.apply(response.items);
+  }
+
+  /**
+   * Puts the new list on screen, animating the rows that changed place.
+   *
+   * The HTTP round trip is over before `startViewTransition` is called, and that order is
+   * load-bearing: the browser freezes the old snapshot for the length of the callback, so starting
+   * the transition first would hold a still picture of the app for as long as the server took.
+   *
+   * `t.ready` is awaited nowhere. Measured in Chromium 148: it *rejects* every time the transition
+   * is skipped - a hidden document, another transition already running, two elements claiming the
+   * same name - and an uncaught rejection would land in `provideBrowserGlobalErrorListeners`.
+   * `t.finished` resolves in the same case, so it is the safe one to wait for, and the DOM-update
+   * callback runs either way: the list cannot be lost to a skipped animation.
+   */
+  private async apply(items: TodoTask[]): Promise<void> {
+    if (!this.animates(items)) {
+      this.tasks.set(items);
+      return;
+    }
+
+    const transition = document.startViewTransition(() => {
+      this.tasks.set(items);
+      // Zoneless, so nothing else would have run change detection before the browser takes the new
+      // snapshot. Synchronous by design: `whenStable` resolves a microtask later, and the snapshot
+      // would be of the old DOM.
+      this.appRef.tick();
+    });
+
+    await transition.finished;
+  }
+
+  /**
+   * Whether this list is worth animating, asked before it is set - which is the whole reason
+   * `placements` takes a list rather than reading a signal.
+   *
+   * Four terms, and three of them buy their own behaviour: no `startViewTransition` at all is jsdom
+   * (28.1.0, measured), less motion is the user's own setting, and side by side is the measured
+   * defect in section 8 of the design - the transition tree lives in the top layer, so a row escapes
+   * the scrolling column and paints over the health line.
+   *
+   * `prev.has(id)` is what makes the rest quiet. A first load has an empty list, so no id is in
+   * both; a new task lands at the end of its section and shifts nobody; and a note or a subtask
+   * changes no place at all. None of the three needs a branch of its own.
+   *
+   * The cost, said plainly: this measures the unfiltered list while the screen shows the searched
+   * one, so a move hidden behind an active search runs a transition that animates nothing. The
+   * alternative was to let the gate know the query and both switches - three more sources to drift.
+   */
+  private animates(items: TodoTask[]): boolean {
+    if (typeof document.startViewTransition !== 'function') {
+      return false;
+    }
+
+    if (this.reducedMotion.reduce() || this.wide.wide()) {
+      return false;
+    }
+
+    const next = placements(items);
+    const prev = placements(this.tasks());
+
+    return [...next].some(([id, place]) => prev.has(id) && prev.get(id) !== place);
   }
 
   async setShowCompleted(value: boolean): Promise<void> {

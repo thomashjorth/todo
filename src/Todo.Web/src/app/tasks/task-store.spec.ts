@@ -8,6 +8,8 @@ import {
   TodoSubTask,
   TodoTask,
 } from '../api/todo-client';
+import { ReducedMotion } from '../layout/reduced-motion';
+import { WideScreen } from '../layout/wide-screen';
 import { TaskStore, subTaskProgress } from './task-store';
 
 // Ids er tal, så bucket-navnet kan ikke være en del af dem. Tælleren giver hvert kald sit eget
@@ -52,6 +54,53 @@ function taskWith(title: string, note?: string, status = TodoStatus.Open): TodoT
     subTasks: [],
   });
 }
+/**
+ * The same identity twice, so a spec can move one task between two lists. `taskIn` numbers its own
+ * ids, which is the opposite of what a move needs.
+ */
+function taskAt(
+  id: number,
+  bucket: DeadlineBucket,
+  status = TodoStatus.Open,
+  note?: string,
+): TodoTask {
+  return new TodoTask({
+    id,
+    sourceId: 'manual',
+    title: `Task ${id}`,
+    note,
+    status,
+    bucket,
+    createdAt: '2026-08-13T18:25:56.60+00:00',
+    subTasks: [],
+  });
+}
+
+/**
+ * Records every view transition the store starts, and runs the DOM update synchronously inside the
+ * call the way the browser does, so the list is set by the time `finished` resolves.
+ *
+ * jsdom 28.1.0 has no `startViewTransition` at all, so this is both the stub and the only reason the
+ * animated path can be reached from a spec.
+ */
+function recordViewTransitions(): { started: number } {
+  const record = { started: 0 };
+
+  document.startViewTransition = ((update?: ViewTransitionUpdateCallback) => {
+    record.started++;
+    void update?.();
+
+    return {
+      ready: Promise.resolve(),
+      updateCallbackDone: Promise.resolve(),
+      finished: Promise.resolve(),
+      skipTransition: () => {},
+    } as unknown as ViewTransition;
+  }) as typeof document.startViewTransition;
+
+  return record;
+}
+
 describe('TaskStore', () => {
   let store: TaskStore;
 
@@ -514,5 +563,125 @@ describe('TaskStore', () => {
     await removed;
 
     expect(store.tasks()).toEqual([]);
+  });
+  /**
+   * The section transitions. Every assertion here also checks that the list was set, because that is
+   * the one property the whole feature rests on: measured in Chromium 148, the DOM-update callback
+   * runs even when the browser skips the transition, so an animation must never be able to lose a
+   * reload. See docs/plans/2026-08-25-section-transitions-design.md.
+   *
+   * Five of the seven assert that *no* transition started, and those five cannot fail before the
+   * feature exists - they pass on nothing. They are proven by their mutations instead, one each,
+   * named at the assertion.
+   */
+  describe('section transitions', () => {
+    afterEach(() => {
+      // Assigned onto the instance, so removing it puts jsdom back to having no such function.
+      Reflect.deleteProperty(document, 'startViewTransition');
+    });
+
+    async function reload(items: TodoTask[]): Promise<void> {
+      const loaded = store.load();
+      TestBed.inject(HttpTestingController)
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .flush(new Blob([JSON.stringify({ items: items.map((t) => t.toJSON()) })]));
+      await loaded;
+    }
+
+    it('should start one view transition when a task changes section', async () => {
+      const transitions = recordViewTransitions();
+      store.tasks.set([taskAt(1, DeadlineBucket.NoDeadline)]);
+
+      await reload([taskAt(1, DeadlineBucket.Today)]);
+
+      expect(transitions.started).toBe(1);
+      expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
+    });
+
+    /**
+     * The index half of the gate. Task 2 goes in progress, so `inProgressFirst` lifts it over task 1
+     * - same bucket, a new index for both - and a gate that compared only bucket and status would
+     * see nothing move.
+     */
+    it('should count a lift to the top of its own section as a move', async () => {
+      const transitions = recordViewTransitions();
+      store.tasks.set([taskAt(1, DeadlineBucket.Today), taskAt(2, DeadlineBucket.Today)]);
+
+      await reload([
+        taskAt(1, DeadlineBucket.Today),
+        taskAt(2, DeadlineBucket.Today, TodoStatus.InProgress),
+      ]);
+
+      expect(transitions.started).toBe(1);
+      expect(store.tasks().map((t) => t.status)).toEqual([TodoStatus.Open, TodoStatus.InProgress]);
+    });
+
+    /** Mutation: let the gate compare whole tasks rather than their places. */
+    it('should start no view transition when only a note changed', async () => {
+      const transitions = recordViewTransitions();
+      store.tasks.set([taskAt(1, DeadlineBucket.Today)]);
+
+      await reload([taskAt(1, DeadlineBucket.Today, TodoStatus.Open, 'A note that was not there')]);
+
+      expect(transitions.started).toBe(0);
+      expect(store.tasks()[0].note).toBe('A note that was not there');
+    });
+
+    /**
+     * Mutation: drop the `prev.has(id)` term. The new task lands after the one already there, so
+     * nothing that was on screen changed place - but an unknown id has no previous place at all, and
+     * comparing against `undefined` would read as a move.
+     */
+    it('should start no view transition when a task is only added', async () => {
+      const transitions = recordViewTransitions();
+      store.tasks.set([taskAt(1, DeadlineBucket.Today)]);
+
+      await reload([taskAt(1, DeadlineBucket.Today), taskAt(2, DeadlineBucket.Today)]);
+
+      expect(transitions.started).toBe(0);
+      expect(store.tasks()).toHaveLength(2);
+    });
+
+    /**
+     * Mutation: remove the wide guard. Measured 2026-08-25: side by side the row escapes the
+     * scrolling column and paints over the health line, because the view transition tree lives in
+     * the top layer. Section 8 of the design has the numbers.
+     */
+    it('should set the list without a transition side by side', async () => {
+      const transitions = recordViewTransitions();
+      TestBed.inject(WideScreen).wide.set(true);
+      store.tasks.set([taskAt(1, DeadlineBucket.NoDeadline)]);
+
+      await reload([taskAt(1, DeadlineBucket.Today)]);
+
+      expect(transitions.started).toBe(0);
+      expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
+    });
+
+    /** Mutation: remove the reduced-motion branch. */
+    it('should set the list without a transition when less motion was asked for', async () => {
+      const transitions = recordViewTransitions();
+      TestBed.inject(ReducedMotion).reduce.set(true);
+      store.tasks.set([taskAt(1, DeadlineBucket.NoDeadline)]);
+
+      await reload([taskAt(1, DeadlineBucket.Today)]);
+
+      expect(transitions.started).toBe(0);
+      expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
+    });
+
+    /**
+     * The guard, and the first assertion is what gives it teeth: without it this would pass because
+     * nothing had stubbed the function, which is a different thing from the guard working. Remove
+     * the guard and jsdom throws a TypeError instead of loading the list.
+     */
+    it('should set the list where the environment has no startViewTransition', async () => {
+      expect('startViewTransition' in document).toBe(false);
+      store.tasks.set([taskAt(1, DeadlineBucket.NoDeadline)]);
+
+      await reload([taskAt(1, DeadlineBucket.Today)]);
+
+      expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
+    });
   });
 });

@@ -325,8 +325,19 @@ den ruden været ikke-komponerende — som browserruden i designfasen var — vi
 og påstanden kunne slet ikke skrives. Rejsen skal køre i suitens **smalle** viewport, som er
 standarden, fordi vagt nummer tre lukker overgangen på xl.
 
-Forventede tal: Vitest **289 til 296**, E2E **69 til 70**. `Todo.Core.Tests` (174) og
-`Todo.Api.Tests` (310) rører ikke funktionen.
+Tal: Vitest **289 til 299**, E2E **69 til 70**. `Todo.Core.Tests` (174) og `Todo.Api.Tests` (310)
+rører ikke funktionen.
+
+**Tallet stod som 296 her indtil 2026-08-25, og det var forkert** — ikke fordi en test blev tabt,
+men fordi det kun talte de syv i `task-store.spec.ts` og glemte `ReducedMotion`s tre. Fordelingen er
+289 + 3 (punkt 2) + 7 (punkt 4) = 299, målt med `check.ps1`. Det er præcis den drift `CLAUDE.md`
+advarer mod: et ændret tal kan kun betyde en tabt eller duplikeret test, hvis tallet var sandt i
+forvejen.
+
+**Og de 69 eksisterende E2E blev målt frem for antaget.** Afsnit 10 kaldte dem en del af
+verificeringen, fordi hver gemning nu går gennem en rigtig overgang — Playwrights Chromium har
+`startViewTransition`, viewporten er 480, og reduceret bevægelse er slået fra, så de kører den
+animerede vej. Alle 69 grønne på 33 s mod 32–36 s før: ingen målbar afgift, og ingen flakken set.
 
 ## 10. Hvad der ikke kan vogtes, sagt ligeud
 
@@ -355,8 +366,17 @@ identificeret; sker det her, skal hele udskriften gemmes.
    (174/310/69/292), og de eksisterende specs er set have tænder frem for antaget at have dem:
    mutationen "glem statusfiltret" fælder **tre** — *"expected [ 'overdue', 'today' ] to deeply equal
    [ 'overdue' ]"* — og mutationen "behold de tomme grupper" fælder **tretten**.
-4. `placements`, porten, vagten fra afsnit 8 og overgangen i `load()`, med de syv Vitest, hver set
-   fejle.
+4. ~~`placements`, porten, vagten fra afsnit 8 og overgangen i `load()`, med de syv Vitest, hver set
+   fejle.~~ **Gjort 2026-08-25** (292 → 299). Alle syv set fejle, hver på sin egen mutation: porten
+   slået fra fælder 1 og 2, nøglen uden indeks fælder 2, hele-opgave-sammenligningen fælder 3 og 4,
+   `prev.has(id)` fjernet fælder 4, og de tre vagter fælder hver sin — den sidste med
+   `TypeError: document.startViewTransition is not a function`.
+   **To ærlige forbehold.** De fem påstande om at *ingen* overgang starter kunne ikke fejle før
+   funktionen fandtes; kun de to positive gav rigtig RED, og de fem er bevist af mutationerne alene.
+   Og under mutationskørslen ramte to mønstre ikke, fordi de var skrevet med `\n` mod en CRLF-fil —
+   den ene kørsel målte derfor den **umuterede** fil og den anden den **forrige** mutation, begge med
+   et resultat der lignede et svar. Normalisér linjeskiftene i et mutationsscript, og læs hvad der
+   faktisk blev anvendt, frem for at stole på løkkens navn.
 5. `view-transition-name` på de to steder.
 6. E2E-rejsen, set fejle på en dubleret navn-mutation.
 7. Fuld `Check.cmd`, og `CLAUDE.md`s testtal rettet **med hvorfor**.
