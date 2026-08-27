@@ -247,7 +247,10 @@ spørgsmål og svarer med et bestået. Påstanden er på det *brugte* skema og i
 flytning til `<meta name="color-scheme">` bliver ved at være ærlig. Set fejle på den rigtige
 placering: med klassen på `<body>` svarer den mørke række `rgb(255, 255, 255)` på roden.
 **Popup'en selv er stadig umålelig** — den er browserens eget vindue og kommer ikke med i et
-screenshot — så den ene ting kun brugeren kan svare på, er om den blev mørk.
+screenshot — så den ene ting kun brugeren kan svare på, er om den blev mørk. **Bekræftet af brugeren
+2026-08-27**, og det er værd at have stående: det er den eneste bekræftelse på at vagtens præmis
+holder, altså at popup'en males af select'ens baggrund. Falder den om igen, er det den præmis der
+skal måles først — ikke `color-scheme`, som blev udelukket to gange.
 
 **Der er præcis én rigtig CSS-regel i appen, og den er ikke til diskussion — den er målt.**
 `::view-transition-group-children(task-column) { overflow: clip }` i `styles.css`, plus
