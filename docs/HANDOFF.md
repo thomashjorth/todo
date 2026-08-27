@@ -1,14 +1,15 @@
 # Hvor projektet står
 
-Sidst opdateret: 2026-08-25.
+Sidst opdateret: 2026-08-27.
 
 Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs den først.
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **174**, Api **310**, E2E **71**, Vitest **301** — alle grønne, målt 2026-08-25.
-Tre af tallene faldt først samme dag, da autostart blev fjernet (tolv tests slettet med vilje), og to
-af dem steg igen, da sektionsovergangene kom til (tretten lagt til). Fordelingen for begge står i
+**Testtal:** Core **174**, Api **310**, E2E **72**, Vitest **303** — alle grønne, målt 2026-08-27.
+E2E og Vitest steg med tre, da titlen blev redigerbar; Core og Api står stille, fordi backenden kunne
+det i forvejen. Før det faldt tre af tallene, da autostart blev fjernet (tolv tests slettet med
+vilje), og to steg igen med sektionsovergangene (tretten lagt til). Fordelingen for alle tre står i
 `CLAUDE.md`s "Testtal".
 `Check.cmd` kører dem i den rækkefølge der er bærende. Bemærk at E2E-tallet her stod på **58** og i
 `CLAUDE.md` på **59**, mens sandheden før genvejslagene var **61** — to tests var lagt til uden at
@@ -49,7 +50,27 @@ rullende spalte, så side om side krævede en nestet gruppe plus **appens ene ri
 ikke at male oven på health-linjen. Fjernes en af mekanikkens tre dele, er bleedet tilbage, og
 animationen ser stadig rigtig ud.
 
+Og **titlen kan redigeres** fra 2026-08-27: et felt øverst i detaljepanelet med `Alt+Shift+I`, som
+også giver højre spalte side om side en overskrift. Planen er
+`docs/plans/2026-08-27-editing-a-title-design.md`, og den er værd at læse for **hvad den ikke gjorde**:
+backenden og storen kunne det i forvejen, så leverancen var ét felt, én metode og to nøgler. To ting
+at kende, hvis du rører feltet — en tom titel **ruller den gamle tilbage** frem for at vise en fejl
+(DOM-skrivningen i `saveTitle` er bærende, samme fælde som `[checked]`), og gemningen må **ikke** gå
+gennem den generiske `save()`, som ville sende `title: undefined` og få serveren til at afvise tavst.
+Planens afsnit 5 bærer desuden en rettelse af en påstand i `CLAUDE.md`, som kostede en
+fejlforudsigelse.
+
 ## Næste skridt
+
+**Først, og ikke en skive: statusvælgerens popup har ikke mørkt tema.** Brugeren viste 2026-08-27 et
+skærmbillede, hvor appen står i mørkt tema mens `<select>`-popup'en males hvid, og bad om at få det
+rettet efter titlen. Fire ting er målt, så de ikke gættes igen: `scheme-light-dark` **er** på `<body>`
+i `src/Todo.Web/src/index.html`, så årsagen er ikke en manglende `color-scheme`; der er **ingen**
+manuel tema-toggle, så Tailwinds `dark:` er OS-indstillingen, og `color-scheme: light dark` *burde*
+derfor resolve til dark; det peger på **WebView2's native popup-chrome** frem for på CSS'en; og
+popup'en er ikke DOM, så `ContrastTests` kan ikke måle den — samme handel som `<datalist>`, som står
+dokumenteret i `task-detail.html`. Mål i **Photino-vinduet**, ikke i en browser: de to runtimes har
+hver sin popup-implementering.
 
 **Skive 13, mentions-indbakken**, er den næste nummererede. Kravene står i designdokumentets afsnit 9,
 punkt 13 — læs dem der frem for her. Tre ting er værd at have i baghovedet, før planen skrives:

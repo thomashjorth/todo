@@ -130,6 +130,19 @@ liste, hvor der ikke findes noget panel — de ni statiske `Alt+bogstav` *er* he
 `Every_shortcut_letter_on_a_seeded_list_with_the_panel_open_is_its_own` tæller **fra fixturet**, så
 den opdager `⇧I` af sig selv og ville fælde en kollision uden at et tal skal flyttes.
 
+> **Rettelse, målt efter at koden var skrevet: afsnittet ovenfor er forkert, og `CLAUDE.md` var
+> kilden.** `KeyboardJourneyTests` flyttede sig, og den fældede tre tests. Totalen i søsteren er
+> `BadgeCount + Math.Min(RowDigits, selectable) + PanelFieldShortcuts + WaitingOnFieldShortcut` —
+> **aritmetik over konstanter**, ikke en optælling fra fixturet. Kun rækkeleddet kommer fra fixturet;
+> `PanelFieldShortcuts` er et nedskrevet tal og skulle 7 → 8. Den samme konstant bærer
+> `A_panel_badge_never_covers_the_field_below_it` i begge bredder, så én glemt bump gav **tre** røde
+> på én gang. Dertil `ContrastTests`' badge-total, som er en bar literal: 24 → 25.
+>
+> Kun `⇧I`s *distinkthed* blev bekræftet uden indgreb — kollisionsdelen af påstanden bestod. Det er
+> den halvdel af `CLAUDE.md`s sætning der holdt, og forskellen er hele lektionen: **en vagt kan tælle
+> fra fixturet i sin ene påstand og fra en konstant i sin anden.** `CLAUDE.md` er rettet, så næste
+> leverance ikke arver forudsigelsen.
+
 **`ContrastTests` behøver ingen ny fixture-opgave**, modsat den sædvanlige regel om at en `@if`-gren
 er umålt indtil et fixture rammer den. Feltet er **ikke betinget**, og hver opgave har en titel per
 definition, så vagten måler `el.value` på det i begge temaer fra første kørsel. Det er den ene gang

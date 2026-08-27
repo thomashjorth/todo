@@ -444,11 +444,17 @@ blive ved at være globalt unikke; se designdokumentets afsnit 10.
 `aria-keyshortcuts` af de **samme to felter** — så mærkaten kan ikke drive fra den kombination der
 virker. `alt`-laget er de ni bogstaver ovenfor **plus `Alt+1`–`9`**, som vælger den n'te *valgbare*
 række på listen; det lag er stadig last-writer-wins, så både bogstaver og cifre skal blive ved at
-være globalt unikke. `alt-shift`-laget er detaljepanelets otte felter og hører **kun** til
-opgavelisten — `D` deadline, `S` startdato, `O` opgavestiller, `N` noten, `T` status (`T` og ikke
-`S`, fordi startdatoen har det stærkere krav på et felt man skriver i), `V` venter-på, `U` ny
-underopgave, `L` slet. Cifrene kan **kun** prøves i Photino-vinduet: Chrome binder `Alt+1`–`8` til
-faneskift og `Alt+9` til sidste fane.
+være globalt unikke. `alt-shift`-laget er detaljepanelets **ni** felter og hører **kun** til
+opgavelisten — `I` titlen, `D` deadline, `S` startdato, `O` opgavestiller, `N` noten, `T` status
+(`T` og ikke `S`, fordi startdatoen har det stærkere krav på et felt man skriver i), `V` venter-på,
+`U` ny underopgave, `L` slet. Cifrene kan **kun** prøves i Photino-vinduet: Chrome binder
+`Alt+1`–`8` til faneskift og `Alt+9` til sidste fane.
+
+**Og `I` frem for `T` til titlen er en afvist konsekvens, ikke en forglemmelse.** Begrundelsen for
+status' `T` ovenfor — feltet man skriver i har det stærkeste krav — gælder titlen endnu stærkere, så
+efter appens egen regel burde den have `T`. Den fik `I` alligevel (brugerens valg 2026-08-27), fordi
+en flytning ville rive en genvej ud af fingrene og rette fire filer med. Huskereglen er svagere, og
+det er handlen. Rejs den ikke som en inkonsekvens.
 
 **`Alt+Shift+L` er den eneste genvej der kun giver fokus, og mærkaterne vises på Alt alene.**
 Sletningen har hverken bekræftelse eller fortryd i appen, så det **andet** tryk *er* bekræftelsen —
@@ -1027,6 +1033,15 @@ forkerte grund.
   siden af dem og tæller **fra fixturet** frem for fra et nedskrevet tal. Målt: giver man
   `waiting-on-input` bogstavet `d` — en kollision inde i feltlaget — fælder det søsteren med begge
   elementnavne, mens den tomme liste **består i samme kørsel**.
+  **Men "fra fixturet" er kun de tre fjerdedele, og resten kostede en fejlforudsigelse.** Sætningen
+  stod her uden forbehold, og et design skrevet på den påstod at hele `KeyboardJourneyTests` ville stå
+  stille, da titelfeltet kom til. Den gjorde ikke: totalen er `BadgeCount + Math.Min(RowDigits,
+  selectable) + PanelFieldShortcuts + WaitingOnFieldShortcut`, altså **aritmetik over konstanter** —
+  og `PanelFieldShortcuts` er et nedskrevet tal, der skal flyttes med hvert nyt panelfelt (7 → 8 i
+  titel-leverancen). Kun rækkeleddet kommer fra fixturet. Konstanten bærer desuden
+  `A_panel_badge_never_covers_the_field_below_it` i **begge** bredder, så én glemt bump giver **tre**
+  røde. Læg et panelfelt på: forvent at flytte `PanelFieldShortcuts` og `ContrastTests`' egen
+  badge-total, som er en bar literal.
 - **Mærkaterne var aldrig målt af `ContrastTests`, heller ikke de ni gamle**, fordi ingen rejse holdt
   Alt nede. `Every_screen_meets_WCAG_AA` holder nu Alt over **ét** snapshot, taget med den *ventende*
   opgaves panel åbent — den eneste tilstand der renderer `⇧V` — påstår at mærkaterne *er* der (tallet
@@ -1038,13 +1053,28 @@ forkerte grund.
   `bg-gray-50`/`dark:bg-gray-800`, ikke mod hvid — en forudsigelse på 2,60/2,35 var forkert af netop
   den grund, jf. paret-afsnittet i "Konventioner".
 - **`aria-hidden="true"` på feltlagets mærkater kan ikke fældes af E2E.** Ingen rejse holder Alt med
-  et panel åbent, så påstanden bor i `task-detail.spec.ts` og læser alle otte mærkater som
+  et panel åbent, så påstanden bor i `task-detail.spec.ts` og læser alle **ni** mærkater som
   `glyf:aria-hidden`-par. Set fejle på mutationen (`⇧L:null`).
+- **Titelfeltets to Vitest fanger hver sin fejl, og ingen af påstandene er overflødig — målt.**
+  `should put the old title back when the field is emptied` har både et `expectNone` og en påstand på
+  `field.value`, og det ser ud som et bælte med seler. Det er det ikke: fjernes DOM-skrivningen i
+  `saveTitle`, består `expectNone` (der blev jo intet sendt) og **kun** `field.value` fælder den;
+  droppes `.trim()`, er `'   '` truthy, en PUT går ud, og **kun** `expectNone` fælder den. To
+  mutationer, én påstand hver. Skriv ikke den ene væk som en dublet.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **310** Todo.Api.Tests, **71** Todo.E2E, **301** Vitest — alle grønne,
-målt med `check.ps1` 2026-08-25.
+**174** Todo.Core.Tests, **310** Todo.Api.Tests, **72** Todo.E2E, **303** Vitest — alle grønne,
+målt med `Check.cmd` 2026-08-27.
+
+**To af tallene steg 2026-08-27, fordi titlen blev redigerbar — tre tests er lagt til med vilje.**
+Fordelingen: **2** Vitest i `task-detail.spec.ts` (tilbagerulningen af en tom titel og trimningen,
+301 → 303) og **1** E2E, `TaskJourneyTests.A_task_is_renamed_from_the_detail_panel` (71 → 72).
+`Todo.Core.Tests` og `Todo.Api.Tests` står stille på 174 og 310, og det er hele pointen med
+leverancen: backenden kunne det i forvejen. Tre eksisterende tests skiftede *forventning* uden at
+flytte noget tal — panelets to rækkefølge-følsomme arrays fik `Alt+Shift+I`/`⇧I` som nyt **første**
+element, og `PanelFieldShortcuts` gik 7 → 8. Planen er
+`docs/plans/2026-08-27-editing-a-title-design.md`.
 
 **To af tallene steg samme dag, fordi sektionsovergangene kom til — fjorten tests er lagt til med
 vilje.** Fordelingen: **3** Vitest i `layout/reduced-motion.spec.ts`, **7** i `task-store.spec.ts`
