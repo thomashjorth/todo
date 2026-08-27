@@ -119,5 +119,18 @@ public static class ErrorCodes
     /// </summary>
     public const string AdoWorkItemTypeInvalid = "ado.workItemTypeInvalid";
 
+    /// <summary>
+    /// A weekday outside 0-6. Refused rather than clamped, so a typo is visible instead of quietly
+    /// becoming Sunday - and 0 is <em>not</em> out of range: it is Sunday.
+    /// </summary>
+    public const string ReviewWeekdayInvalid = "review.weekdayInvalid";
+
+    /// <summary>
+    /// A time of day that will not parse as HH:mm. Its message must read whole without the value:
+    /// api-error-message.ts calls translate(key) with no params, so a {{value}} placeholder would
+    /// reach the user unrendered.
+    /// </summary>
+    public const string ReviewTimeOfDayInvalid = "review.timeOfDayInvalid";
+
     public const string SystemUnsupportedScheme = "system.unsupportedScheme";
 }

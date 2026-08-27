@@ -23,4 +23,12 @@ public static class ReviewDefaults
 
     /// <summary>Mid-afternoon, so the reminder does not arrive before the day has happened.</summary>
     public static readonly TimeOnly TimeOfDay = new(15, 0);
+
+    /// <summary>
+    /// The one format the time of day is stored, parsed and answered in, so a hand-edited row is
+    /// unambiguous and the reader and the writer cannot drift. Verbatim, because the backslash
+    /// escapes the colon: in a custom format string <c>:</c> is the culture's time separator, and
+    /// under a culture that spelled it otherwise an unescaped one would not round-trip.
+    /// </summary>
+    public const string TimeFormat = @"HH\:mm";
 }

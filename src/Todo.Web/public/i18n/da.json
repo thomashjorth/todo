@@ -289,6 +289,10 @@
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra.",
       "excludedDone": "Sagen er løst i Azure DevOps og er ikke hentet før, så den hentes ikke."
     },
+    "review": {
+      "weekdayInvalid": "Ugedagen skal være mellem søndag og lørdag.",
+      "timeOfDayInvalid": "Klokkeslættet skal skrives som timer og minutter, for eksempel 15:00."
+    },
     "system": {
       "unsupportedScheme": "Kun http- og https-links kan åbnes."
     }

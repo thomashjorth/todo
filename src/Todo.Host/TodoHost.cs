@@ -7,6 +7,7 @@ using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
 using Todo.Core.Ado;
 using Todo.Core.Jira;
+using Todo.Core.Review;
 using Todo.Host.Ado;
 using Todo.Host.Endpoints;
 using Todo.Host.Jira;
@@ -58,6 +59,7 @@ public static class TodoHost
         // as a parameter, which is how a minimal API asks DI for something.
         builder.Services.AddScoped<JiraSettingsReader>();
         builder.Services.AddScoped<AdoSettingsReader>();
+        builder.Services.AddScoped<ReviewSettingsReader>();
 
         // A typed client, so the source gets a pooled HttpClient rather than one per call. The
         // timeout is the point of configuring it at all: the app is a single window, and a Jira that

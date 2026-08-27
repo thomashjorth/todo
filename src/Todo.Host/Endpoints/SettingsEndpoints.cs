@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Todo.Core.Ado;
 using Todo.Core.Errors;
 using Todo.Core.Jira;
+using Todo.Core.Review;
 using Todo.Core.Settings;
 
 namespace Todo.Host.Endpoints;
@@ -18,14 +19,14 @@ public static class SettingsEndpoints
 
     public static IEndpointRouteBuilder MapSettings(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/settings", async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado) =>
-            await ReadAllAsync(db, jira, ado))
+        app.MapGet("/api/settings", async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review) =>
+            await ReadAllAsync(db, jira, ado, review))
         .WithName("getSettings")
         .WithTags("Settings")
         .Produces<SettingsResponse>();
 
         app.MapPut("/api/settings", async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
-            SettingsRequest request, TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado) =>
+            SettingsRequest request, TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review) =>
         {
             // No language means "follow the system", which is a value in its own right and not English.
             if (request.Language is { } language && !SupportedLanguages.Contains(language))
@@ -64,6 +65,24 @@ public static class SettingsEndpoints
                     ErrorCodes.AdoDefaultDeadlineDaysInvalid,
                     $"A deadline of {request.AdoDefaultDeadlineDays} days ahead is outside "
                         + $"0-{AdoDefaults.DeadlineDaysMax}.");
+            }
+
+            // 0 is not out of range here: it is Sunday. Refused rather than clamped, so a typo is
+            // visible instead of quietly moving the habit to the start of the week.
+            if (request.ReviewWeekday is < 0 or > 6)
+            {
+                return ApiErrors.BadRequest(
+                    ErrorCodes.ReviewWeekdayInvalid,
+                    $"{request.ReviewWeekday} is not a day of the week.");
+            }
+
+            if (!TimeOnly.TryParseExact(
+                    request.ReviewTimeOfDay, ReviewDefaults.TimeFormat, CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var reviewTime))
+            {
+                return ApiErrors.BadRequest(
+                    ErrorCodes.ReviewTimeOfDayInvalid,
+                    $"'{request.ReviewTimeOfDay}' is not a time of day.");
             }
 
             await StoreAsync(db, SettingKeys.Language, request.Language);
@@ -123,9 +142,31 @@ public static class SettingsEndpoints
                     ? null
                     : request.AdoDefaultDeadlineDays.ToString(CultureInfo.InvariantCulture));
 
+            // The same rule as the line above, and the trap is sharper: 0 here is Sunday rather than
+            // "off", so the contract's default: 5 is what keeps an absent field from moving the
+            // review. Asking for the default removes the row, which is what stops a save that never
+            // mentioned the review from leaving one behind - and a leftover row is exactly what the
+            // two whole-table tests in SettingsEndpointsTests go red on.
+            await StoreAsync(
+                db,
+                SettingKeys.ReviewWeekday,
+                request.ReviewWeekday == (int)ReviewDefaults.Weekday
+                    ? null
+                    : request.ReviewWeekday.ToString(CultureInfo.InvariantCulture));
+
+            // Compared as a parsed TimeOnly rather than as text, so "09:30" and a default written
+            // some other way could never both be stored. The completion timestamp is deliberately
+            // not here: it has its own route, see SettingKeys.ReviewLastCompletedAt.
+            await StoreAsync(
+                db,
+                SettingKeys.ReviewTimeOfDay,
+                reviewTime == ReviewDefaults.TimeOfDay
+                    ? null
+                    : reviewTime.ToString(ReviewDefaults.TimeFormat, CultureInfo.InvariantCulture));
+
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
         })
         .WithName("updateSettings")
         .WithTags("Settings");
@@ -135,7 +176,7 @@ public static class SettingsEndpoints
         app.MapPut("/api/settings/jira-token",
             async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
                 JiraTokenRequest request, TodoDbContext db, JiraSettingsReader jira,
-                AdoSettingsReader ado) =>
+                AdoSettingsReader ado, ReviewSettingsReader review) =>
         {
             // NSwag puts [Required] on Token, but that is DataAnnotations, which System.Text.Json
             // does not enforce while deserialising - and it was generated with AllowEmptyStrings.
@@ -149,18 +190,18 @@ public static class SettingsEndpoints
             await StoreAsync(db, SettingKeys.JiraToken, request.Token.Trim());
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
         })
         .WithName("setJiraToken")
         .WithTags("Settings");
 
         app.MapDelete("/api/settings/jira-token",
-            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado) =>
+            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review) =>
         {
             await StoreAsync(db, SettingKeys.JiraToken, null);
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
         })
         .WithName("clearJiraToken")
         .WithTags("Settings");
@@ -171,7 +212,7 @@ public static class SettingsEndpoints
         app.MapPut("/api/settings/ado-token",
             async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
                 AdoTokenRequest request, TodoDbContext db, JiraSettingsReader jira,
-                AdoSettingsReader ado) =>
+                AdoSettingsReader ado, ReviewSettingsReader review) =>
         {
             // The contract's [Required] is DataAnnotations, which System.Text.Json does not enforce
             // while deserialising, so this is the only actual validation.
@@ -184,18 +225,18 @@ public static class SettingsEndpoints
             await StoreAsync(db, SettingKeys.AdoToken, request.Token.Trim());
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
         })
         .WithName("setAdoToken")
         .WithTags("Settings");
 
         app.MapDelete("/api/settings/ado-token",
-            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado) =>
+            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review) =>
         {
             await StoreAsync(db, SettingKeys.AdoToken, null);
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
         })
         .WithName("clearAdoToken")
         .WithTags("Settings");
@@ -210,10 +251,12 @@ public static class SettingsEndpoints
     private static async Task<SettingsResponse> ReadAllAsync(
         TodoDbContext db,
         JiraSettingsReader reader,
-        AdoSettingsReader adoReader)
+        AdoSettingsReader adoReader,
+        ReviewSettingsReader reviewReader)
     {
         var jira = await reader.ReadAsync();
         var ado = await adoReader.ReadAsync();
+        var review = await reviewReader.ReadAsync();
 
         return new SettingsResponse
         {
@@ -238,6 +281,11 @@ public static class SettingsEndpoints
             AdoWorkItemTypes = [.. ado.WorkItemTypes],
             AdoDefaultDeadlineDays = ado.DefaultDeadlineDays,
             HasAdoToken = ado.Token is not null,
+            // The effective values, not the stored ones: the defaults live in the reader, and the
+            // client has no second place to learn them from. lastCompletedAt is deliberately not
+            // here - it is not a choice, and this route would clear it.
+            ReviewWeekday = (int)review.Weekday,
+            ReviewTimeOfDay = review.TimeOfDay.ToString(ReviewDefaults.TimeFormat, CultureInfo.InvariantCulture),
         };
     }
 

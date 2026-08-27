@@ -36,4 +36,21 @@ public static class SettingKeys
     public const string AdoIncludeWaiting = "ado.includeWaiting";
     public const string AdoWorkItemTypes = "ado.workItemTypes";
     public const string AdoDefaultDeadlineDays = "ado.defaultDeadlineDays";
+
+    // ReviewSettingsReader selects on the "review." prefix, so a key that does not start with it is
+    // read as absent rather than as a compiler error.
+    public const string ReviewWeekday = "review.weekday";
+    public const string ReviewTimeOfDay = "review.timeOfDay";
+
+    /// <summary>
+    /// When the weekly review was last finished, UTC. Not a user choice like its two neighbours, and
+    /// therefore deliberately not written by <c>PUT /api/settings</c>: that route is a full
+    /// replacement which reads an absent field as clear, so a field there would be wiped by any
+    /// unrelated save. It is written by <c>POST /api/review/complete</c> and nowhere else.
+    ///
+    /// It lives in this table rather than in the design's SyncState because SyncState does not exist
+    /// yet (slice 14), and Setting already carries the tokens, which are not choices either. A
+    /// hand-written migration for one key/value row was not worth the price.
+    /// </summary>
+    public const string ReviewLastCompletedAt = "review.lastCompletedAt";
 }

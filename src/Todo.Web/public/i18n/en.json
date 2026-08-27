@@ -289,6 +289,10 @@
       "excludedWaiting": "You are waiting for it, and waiting work items are turned off.",
       "excludedDone": "The work item is done in Azure DevOps and was never imported, so it stays out."
     },
+    "review": {
+      "weekdayInvalid": "The weekday has to be between Sunday and Saturday.",
+      "timeOfDayInvalid": "The time has to be written as hours and minutes, for example 15:00."
+    },
     "system": {
       "unsupportedScheme": "Only http and https links can be opened."
     }

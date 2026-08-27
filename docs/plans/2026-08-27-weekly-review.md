@@ -456,10 +456,25 @@ uparsebart klokkeslæt med `ErrorCodes.ReviewTimeOfDayInvalid`. **Begge koder sk
 `Assert.Empty(StoredSettings())` vælter, hvis standarden gemmes.
 
 **Trin 5 — se vagten fælde.** Fjern `? null :` fra `StoreAsync`-kaldet ovenfor, så standarden
-gemmes ubetinget. Forventet: **tre** røde — `Saving_the_default_weekday_stores_no_row` plus
-`Clearing_the_language_removes_the_row_rather_than_storing_null` og
-`Choosing_a_language_twice_overwrites_the_one_row` i `SettingsEndpointsTests`, som ligger i en fil
-om sprog og ikke peger tilbage hertil. **Det er tellet på at reglen er bærende.**
+gemmes ubetinget. **Målt: fem røde, ikke tre** — planen forudsagde tre, og de to ekstra er fundet:
+
+```
+SettingsEndpointsTests.Clearing_the_language_removes_the_row_rather_than_storing_null   Assert.Empty() Failure: Collection was not empty
+SettingsEndpointsTests.Choosing_a_language_twice_overwrites_the_one_row                 Assert.Single() Failure: The collection contained 2 items
+SettingsEndpointsTests.An_empty_list_of_delegates_removes_the_row                       Assert.Single() Failure: The collection contained 2 items
+AdoSettingsEndpointsTests.Asking_for_the_default_deadline_leaves_no_row_behind          Assert.Empty() Failure: Collection was not empty
+ReviewSettingsTests.Saving_the_default_weekday_stores_no_row                            Assert.Empty() Failure: Collection was not empty
+```
+
+Tre filer, som mellem sig hverken nævner gennemgangen eller hinanden. **Det er tellet på at reglen er
+bærende** — og at den er vagtet fra flere retninger end nogen der skriver en ny indstilling ville
+kigge efter.
+
+**Og en fælde undervejs, målt frem for gættet:** `DateTimeStyles.RoundtripKind | AdjustToUniversal`
+er en **ulovlig** kombination der kaster `ArgumentException` i runtime frem for at fejle i
+compileren — den gav `500` på hver læsning af `GET /api/settings`. `RoundtripKind` **alene** er det
+der gør et lagret `Z` til `DateTimeKind.Utc`. Fejlen var kun synlig i hostens log, ikke i testens
+udskrift, som bare sagde `Response status code does not indicate success: 500`.
 
 **Trin 6 — commit.** `✨ Ugedag og klokkeslæt er indstillinger, og standarden gemmer ingen række`
 
