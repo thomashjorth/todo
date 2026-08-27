@@ -204,12 +204,22 @@
     }
   </span>
   <!-- T frem for S: startdatoen har det stærkere krav på S, fordi den er et felt man skriver i,
-       hvor status er en vælger man også kan nå med piletasterne, når først den har fokus. -->
+       hvor status er en vælger man også kan nå med piletasterne, når først den har fokus.
+       bg-* og text-* er ikke pynt her, og de er de eneste af panelets felter der har dem: WebView2
+       maler <select>-popup'en af ELEMENTETS egen baggrund, og var den transparent, faldt popup'en
+       tilbage på hvid — med optionernes nedarvede lysegrå tekst oven på, altså næsten usynlig i
+       mørkt tema. Målt 2026-08-27: rgba(0,0,0,0) på både select og option, mens color var
+       gray-100. Og bemærk hvad der IKKE virkede først: color-scheme når slet ikke popup'en, hverken
+       resolveret eller skrevet eksplicit ud. Sprogvælgeren på indstillingssiden har haft mønsteret
+       hele tiden og har derfor aldrig haft fejlen — den er det arbejdende eksempel.
+       Farverne er panelets egne, så siden ser uændret ud; optionerne får ingen klasser, fordi
+       background-color ikke nedarves og popup'ens flade kommer fra select'en. Vagten er
+       ColorSchemeTests, som måler alfaen frem for kuløren. -->
   <select
     #status
     appShortcut="t"
     appShortcutModifier="alt-shift"
-    class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
+    class="w-full rounded border border-gray-500 bg-gray-50 px-2 py-1 text-sm text-gray-900 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100"
     (change)="saveStatus(status.value)"
   >
     @for (option of statusOptions; track option) {

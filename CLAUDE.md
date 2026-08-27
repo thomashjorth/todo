@@ -212,11 +212,24 @@ appens mørke tema *virkede*, og det er præcis derfor fejlen kunne stå.
 kombinerede `light dark`-værdi på roden var det **brugte** skema mørkt — `Canvas` gav `rgb(18,18,18)`
 på roden — og popup'en var stadig hvid i Photino-vinduet. Verificeret at det ikke bare var en
 udeployet rettelse: `curl.exe` mod den kørende apps egen port viste `<html … class>` og reglen i den
-indlejrede kritiske CSS. **Popup'en følger altså ikke det resolverede skema i WebView2**, så roden
-bærer nu to eksplicitte klasser i stedet, `scheme-light` og `dark:scheme-dark`, hvor det eksplicitte
-nøgleord er den ene ting tilbage der kan gøre en forskel. Begge retninger skrives ud, fordi appen
-ingen tema-kontakt har. Rullebjælkerne og lærredet blev rettet af flytningen uanset; om popup'en
-blev, kan **kun brugeren se** — se afsnittet nedenfor om hvorfor ingen test kan.
+indlejrede kritiske CSS. Roden bærer derfor to eksplicitte klasser, `scheme-light` og
+`dark:scheme-dark` — og **det rettede den heller ikke.** Begge retninger skrives ud, fordi appen ingen
+tema-kontakt har. Flytningen rettede rullebjælkerne og lærredet, og det er hvad den er værd:
+**`color-scheme` når slet ikke en `<select>`-popup i WebView2, målt to gange, hverken resolveret eller
+skrevet eksplicit ud.** Hold de to fejl adskilt — at folde dem sammen er hvad der kostede to forgæves
+rettelser.
+
+**Popup'en males af select'ens *egen* baggrund, og den var transparent.** Det er den rigtige årsag, og
+fingeraftrykket stod i brugerens skærmbillede hele tiden: optionernes tekst var **lys** på hvid. Havde
+popup'en malet alt fra et lyst UA-tema, ville teksten være sort — den var lys, fordi CSS'ens `color`
+nedarves. Målt i mørkt tema med roden allerede mørk: `background-color` var `rgba(0,0,0,0)` på både
+`<select>` og `<option>`, mens `color` var `gray-100`. WebView2 falder tilbage på hvid for en
+transparent baggrund, og den lyse tekst landede der. **En `<select>` skal derfor male sin egen
+baggrund** — statusvælgeren har nu `bg-gray-50 dark:bg-gray-800`, altså panelets egne farver, så siden
+ser uændret ud. Optionerne får **ingen** klasser: `background-color` nedarves ikke, og popup'ens flade
+kommer fra select'en. Det er målt frem for valgt — **sprogvælgeren på indstillingssiden har haft
+mønsteret siden den blev skrevet, styler ingen optioner, og har aldrig haft fejlen.** Den var det
+arbejdende eksempel, og statusvælgeren var den ene af appens to `<select>` der manglede parret.
 
 **Og en utility-klasse nævnt i en *kodekommentar* bliver ved at stå i bundlen.** Målt her: den gamle
 klasse blev genereret, længe efter at ingen brugte den, fordi en kommentar i `task-detail.html`
@@ -1106,9 +1119,11 @@ forkerte grund.
 **174** Todo.Core.Tests, **310** Todo.Api.Tests, **75** Todo.E2E, **303** Vitest — alle grønne,
 målt med `Check.cmd` 2026-08-27.
 
-**E2E steg til 75 senere samme dag, fordi `color-scheme` blev flyttet til roden — to teorikørsler er
-lagt til.** `ColorSchemeTests` er én `[Theory]` med et `InlineData` pr. tema (73 → 75). Vitest står
-stille på 303, og det er rigtigt: kun `index.html` ændrede sig, og ingen spec dækker den.
+**E2E steg til 77 senere samme dag, fordi statusvælgerens popup blev rettet — fire teorikørsler er
+lagt til.** `ColorSchemeTests` har to `[Theory]` med et `InlineData` pr. tema: rodens brugte skema
+(73 → 75) og at hver `<select>` maler sin egen baggrund (75 → 77). To vagter og ikke én, fordi det var
+**to** fejl — se stylingafsnittet. Vitest står stille på 303, og det er rigtigt: kun `index.html` og en
+klasse-attribut ændrede sig, og ingen spec dækker dem.
 
 **To af tallene steg 2026-08-27, fordi titlen blev redigerbar — fire tests er lagt til med vilje.**
 Fordelingen: **2** Vitest i `task-detail.spec.ts` (tilbagerulningen af en tom titel og trimningen,

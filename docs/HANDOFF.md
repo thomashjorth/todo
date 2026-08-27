@@ -65,18 +65,19 @@ Og **`color-scheme` er flyttet til `<html>`** samme dag, med to eksplicitte klas
 `normal`, og browseren maler popup'en, rullebjælkerne og lærredet efter rodens skema. Det rettede
 rullebjælkerne og lærredet.
 
-**Men den hvide `<select>`-popup, brugeren rapporterede, er ikke bevist lukket, og det skal stå her
-frem for at blive læst som løst.** Flytningen alene rettede den ikke: med den kombinerede værdi på
-roden var det brugte skema mørkt (`Canvas` gav `rgb(18,18,18)` på roden, og den kørende app blev
-verificeret til faktisk at servere rettelsen), og popup'en var stadig hvid. Derfor de eksplicitte
-klasser som andet forsøg. **Ingen test kan afgøre det** — popup'en er browserens eget vindue og kommer
-ikke med i et screenshot — så status er brugerens øjne. Er den stadig lys, er næste kandidat at give
-`<select>` og dens `<option>`s eksplicitte `bg-*`/`text-*` med `dark:`-modparter, hvilket samtidig
-lukker en overtrædelse af appens egen stylingregel: vælgeren har `border-gray-500` men hverken
-baggrund eller tekstfarve. Baggrunden bør være `bg-gray-50 dark:bg-gray-800`, altså panelets egne
-farver, så siden ser uændret ud mens popup'en får noget at arve.
-Begrundelsen med tal står i `CLAUDE.md`s stylingafsnit; vagten er `ColorSchemeTests`, som måler rodens
-*brugte* skema gennem systemfarven `Canvas` i begge temaer.
+**Men den hvide `<select>`-popup var en anden fejl, og de to skal blive ved at være adskilt — at folde
+dem sammen kostede to forgæves rettelser.** `color-scheme` når slet ikke popup'en i WebView2, målt to
+gange: hverken den resolverede `light dark` eller et eksplicit `dark` gjorde den mørk, og den kørende
+app blev verificeret til faktisk at servere hver rettelse. Årsagen var, at popup'en males af
+**select'ens egen baggrund**, som var `rgba(0,0,0,0)` mens `color` var `gray-100` — WebView2 falder
+tilbage på hvid, og den lyse tekst landede der. Statusvælgeren har nu `bg-gray-50 dark:bg-gray-800`,
+panelets egne farver, så siden ser uændret ud. Sprogvælgeren på indstillingssiden havde mønsteret i
+forvejen og har aldrig haft fejlen — den var det arbejdende eksempel.
+
+Begrundelsen med tal står i `CLAUDE.md`s stylingafsnit. Vagten er `ColorSchemeTests` med **to**
+påstande, én pr. fejl: rodens *brugte* skema gennem systemfarven `Canvas`, og at hver `<select>` maler
+en uigennemsigtig baggrund. Ingen af dem kan se popup'en selv — den er browserens eget vindue og kommer
+ikke med i et screenshot — så de måler det popup'en læser.
 
 ## Næste skridt
 
