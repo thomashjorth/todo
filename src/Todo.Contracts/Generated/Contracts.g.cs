@@ -905,6 +905,23 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("adoDefaultDeadlineDays")]
         public int AdoDefaultDeadlineDays { get; set; } = 3;
 
+        /// <summary>
+        /// The weekday the weekly review is suggested on, 0 = Sunday. 5 is Friday, which is Allen's own recommendation. Rejected outside 0-6 with review.weekdayInvalid.
+        /// <br/>The default is load-bearing for the same reason adoDefaultDeadlineDays' is, and the trap here is sharper. This is a full replacement, System.Text.Json gives 0 for an absent int, and 0 is Sunday — a real weekday rather than a missing value. So without the default, a save that never mentioned the review would move the habit to Sunday. NSwag turns the default into a property initializer, which the deserialiser leaves alone for an absent field, so absent binds to Friday and a deliberate Sunday stays Sunday.
+        /// <br/>SettingsResponse deliberately carries no default, the same as adoDefaultDeadlineDays: an initializer there would let a handler that never assigned the field answer 5 and make the test for it unfailable.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reviewWeekday")]
+        [System.ComponentModel.DataAnnotations.Range(0, 6)]
+        public int ReviewWeekday { get; set; } = 5;
+
+        /// <summary>
+        /// The time of day the review is suggested at, HH:mm in the machine's own zone. Rejected with review.timeOfDayInvalid if it will not parse.
+        /// <br/>Local rather than UTC on purpose: "Friday at three" is a statement about the user's own afternoon, and the review's stored completion timestamp is the UTC half of the comparison. ReviewSchedule.For does the conversion in one frame; see IClock.LocalNow for why the local reading is its own thing rather than derived.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reviewTimeOfDay")]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^([01][0-9]|2[0-3]):[0-5][0-9]$")]
+        public string ReviewTimeOfDay { get; set; } = "15:00";
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -1007,6 +1024,45 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("hasAdoToken")]
         public bool HasAdoToken { get; set; }
+
+        /// <summary>
+        /// The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reviewWeekday")]
+        public int ReviewWeekday { get; set; }
+
+        /// <summary>
+        /// The time of day the review is suggested at, HH:mm local. Always the effective value: an absent row reads back as 15:00.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reviewTimeOfDay")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string ReviewTimeOfDay { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ReviewStatusResponse
+    {
+
+        /// <summary>
+        /// Whether a review is owed right now. Computed from the chosen weekday and time, the stored completion timestamp and the clock — never stored, and nothing runs at midnight to keep it true. The same rule as DeadlineBucket.deferred: the app has no tray and no background sync, so a moment that fired at 15:00 would hit nothing with the window shut. This survives the app having been closed for three weeks.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("due")]
+        public bool Due { get; set; }
+
+        /// <summary>
+        /// When the review was last finished, UTC. Null means it never has been, which reads as owed rather than as not-configured: a fresh database says so on day one, and one press clears it.
+        /// <br/>Deliberately absent from SettingsResponse and never written by PUT /api/settings. That route is a full replacement which reads an absent field as clear, so a field there would be wiped by any unrelated save — the same reason each token has a route of its own. It is written by POST /api/review/complete and nowhere else.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("lastCompletedAt")]
+        public System.DateTimeOffset? LastCompletedAt { get; set; }
+
+        /// <summary>
+        /// The next scheduled moment, UTC. Carried so the client does no arithmetic, and so a test can assert about the boundary rather than only about which side of it we are on.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("nextDueAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset NextDueAt { get; set; }
 
     }
 

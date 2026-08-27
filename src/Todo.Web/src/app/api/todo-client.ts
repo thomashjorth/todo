@@ -541,6 +541,124 @@ export class TasksClient {
 @Injectable({
     providedIn: 'root'
 })
+export class ReviewClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * Whether the weekly review is owed, and when the next one is due.
+     * @return The review's state.
+     */
+    getReviewStatus(): Observable<ReviewStatusResponse> {
+        let url_ = this.baseUrl + "/api/review";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processGetReviewStatus(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processGetReviewStatus(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<ReviewStatusResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<ReviewStatusResponse>;
+        }));
+    }
+
+    protected processGetReviewStatus(response: HttpResponseBase): Observable<ReviewStatusResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = ReviewStatusResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Records that the weekly review has been finished.
+     * @return The review's state after the stamp.
+     */
+    completeReview(): Observable<ReviewStatusResponse> {
+        let url_ = this.baseUrl + "/api/review/complete";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processCompleteReview(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processCompleteReview(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<ReviewStatusResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<ReviewStatusResponse>;
+        }));
+    }
+
+    protected processCompleteReview(response: HttpResponseBase): Observable<ReviewStatusResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = ReviewStatusResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
+@Injectable({
+    providedIn: 'root'
+})
 export class RetroClient {
     private http: HttpClient;
     private baseUrl: string;
@@ -3548,6 +3666,13 @@ export class SettingsRequest implements ISettingsRequest {
     /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. Rejected below 0 or above 365 with ado.defaultDeadlineDaysInvalid.
 The default is load-bearing here and only here. This is a full replacement, so an absent field means clear — but System.Text.Json gives 0 for an absent int, and 0 is a meaningful value, so without the default a request that never mentioned this field would silently turn the deadline off. NSwag turns the default into a property initializer, which the deserialiser leaves alone for an absent field, so absent binds to 3 and a deliberate 0 stays 0. SettingsResponse deliberately carries no default: an initializer there would let a handler that never assigned the field answer 3 and make the test for it unfailable. */
     adoDefaultDeadlineDays?: number;
+    /** The weekday the weekly review is suggested on, 0 = Sunday. 5 is Friday, which is Allen's own recommendation. Rejected outside 0-6 with review.weekdayInvalid.
+The default is load-bearing for the same reason adoDefaultDeadlineDays' is, and the trap here is sharper. This is a full replacement, System.Text.Json gives 0 for an absent int, and 0 is Sunday — a real weekday rather than a missing value. So without the default, a save that never mentioned the review would move the habit to Sunday. NSwag turns the default into a property initializer, which the deserialiser leaves alone for an absent field, so absent binds to Friday and a deliberate Sunday stays Sunday.
+SettingsResponse deliberately carries no default, the same as adoDefaultDeadlineDays: an initializer there would let a handler that never assigned the field answer 5 and make the test for it unfailable. */
+    reviewWeekday?: number;
+    /** The time of day the review is suggested at, HH:mm in the machine's own zone. Rejected with review.timeOfDayInvalid if it will not parse.
+Local rather than UTC on purpose: "Friday at three" is a statement about the user's own afternoon, and the review's stored completion timestamp is the UTC half of the comparison. ReviewSchedule.For does the conversion in one frame; see IClock.LocalNow for why the local reading is its own thing rather than derived. */
+    reviewTimeOfDay?: string;
 
     constructor(data?: ISettingsRequest) {
         if (data) {
@@ -3558,6 +3683,8 @@ The default is load-bearing here and only here. This is a full replacement, so a
         }
         if (!data) {
             this.adoDefaultDeadlineDays = 3;
+            this.reviewWeekday = 5;
+            this.reviewTimeOfDay = "15:00";
         }
     }
 
@@ -3607,6 +3734,8 @@ The default is load-bearing here and only here. This is a full replacement, so a
                     this.adoWorkItemTypes!.push(item);
             }
             this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"] !== undefined ? _data["adoDefaultDeadlineDays"] : 3;
+            this.reviewWeekday = _data["reviewWeekday"] !== undefined ? _data["reviewWeekday"] : 5;
+            this.reviewTimeOfDay = _data["reviewTimeOfDay"] !== undefined ? _data["reviewTimeOfDay"] : "15:00";
         }
     }
 
@@ -3663,6 +3792,8 @@ The default is load-bearing here and only here. This is a full replacement, so a
                 data["adoWorkItemTypes"].push(item);
         }
         data["adoDefaultDeadlineDays"] = this.adoDefaultDeadlineDays;
+        data["reviewWeekday"] = this.reviewWeekday;
+        data["reviewTimeOfDay"] = this.reviewTimeOfDay;
         return data;
     }
 }
@@ -3695,6 +3826,13 @@ export interface ISettingsRequest {
     /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Not nullable: a nullable field would add an @if branch in the frontend, and 0 reads as "off" for a number of days. Rejected below 0 or above 365 with ado.defaultDeadlineDaysInvalid.
 The default is load-bearing here and only here. This is a full replacement, so an absent field means clear — but System.Text.Json gives 0 for an absent int, and 0 is a meaningful value, so without the default a request that never mentioned this field would silently turn the deadline off. NSwag turns the default into a property initializer, which the deserialiser leaves alone for an absent field, so absent binds to 3 and a deliberate 0 stays 0. SettingsResponse deliberately carries no default: an initializer there would let a handler that never assigned the field answer 3 and make the test for it unfailable. */
     adoDefaultDeadlineDays?: number;
+    /** The weekday the weekly review is suggested on, 0 = Sunday. 5 is Friday, which is Allen's own recommendation. Rejected outside 0-6 with review.weekdayInvalid.
+The default is load-bearing for the same reason adoDefaultDeadlineDays' is, and the trap here is sharper. This is a full replacement, System.Text.Json gives 0 for an absent int, and 0 is Sunday — a real weekday rather than a missing value. So without the default, a save that never mentioned the review would move the habit to Sunday. NSwag turns the default into a property initializer, which the deserialiser leaves alone for an absent field, so absent binds to Friday and a deliberate Sunday stays Sunday.
+SettingsResponse deliberately carries no default, the same as adoDefaultDeadlineDays: an initializer there would let a handler that never assigned the field answer 5 and make the test for it unfailable. */
+    reviewWeekday?: number;
+    /** The time of day the review is suggested at, HH:mm in the machine's own zone. Rejected with review.timeOfDayInvalid if it will not parse.
+Local rather than UTC on purpose: "Friday at three" is a statement about the user's own afternoon, and the review's stored completion timestamp is the UTC half of the comparison. ReviewSchedule.For does the conversion in one frame; see IClock.LocalNow for why the local reading is its own thing rather than derived. */
+    reviewTimeOfDay?: string;
 }
 
 export class SettingsResponse implements ISettingsResponse {
@@ -3728,6 +3866,10 @@ export class SettingsResponse implements ISettingsResponse {
     adoDefaultDeadlineDays!: number;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
     hasAdoToken!: boolean;
+    /** The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema. */
+    reviewWeekday!: number;
+    /** The time of day the review is suggested at, HH:mm local. Always the effective value: an absent row reads back as 15:00. */
+    reviewTimeOfDay!: string;
 
     constructor(data?: ISettingsResponse) {
         if (data) {
@@ -3795,6 +3937,8 @@ export class SettingsResponse implements ISettingsResponse {
             }
             this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"];
             this.hasAdoToken = _data["hasAdoToken"];
+            this.reviewWeekday = _data["reviewWeekday"];
+            this.reviewTimeOfDay = _data["reviewTimeOfDay"];
         }
     }
 
@@ -3853,6 +3997,8 @@ export class SettingsResponse implements ISettingsResponse {
         }
         data["adoDefaultDeadlineDays"] = this.adoDefaultDeadlineDays;
         data["hasAdoToken"] = this.hasAdoToken;
+        data["reviewWeekday"] = this.reviewWeekday;
+        data["reviewTimeOfDay"] = this.reviewTimeOfDay;
         return data;
     }
 }
@@ -3888,6 +4034,62 @@ export interface ISettingsResponse {
     adoDefaultDeadlineDays: number;
     /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
     hasAdoToken: boolean;
+    /** The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema. */
+    reviewWeekday: number;
+    /** The time of day the review is suggested at, HH:mm local. Always the effective value: an absent row reads back as 15:00. */
+    reviewTimeOfDay: string;
+}
+
+export class ReviewStatusResponse implements IReviewStatusResponse {
+    /** Whether a review is owed right now. Computed from the chosen weekday and time, the stored completion timestamp and the clock — never stored, and nothing runs at midnight to keep it true. The same rule as DeadlineBucket.deferred: the app has no tray and no background sync, so a moment that fired at 15:00 would hit nothing with the window shut. This survives the app having been closed for three weeks. */
+    due!: boolean;
+    /** When the review was last finished, UTC. Null means it never has been, which reads as owed rather than as not-configured: a fresh database says so on day one, and one press clears it.
+Deliberately absent from SettingsResponse and never written by PUT /api/settings. That route is a full replacement which reads an absent field as clear, so a field there would be wiped by any unrelated save — the same reason each token has a route of its own. It is written by POST /api/review/complete and nowhere else. */
+    lastCompletedAt?: string | undefined;
+    /** The next scheduled moment, UTC. Carried so the client does no arithmetic, and so a test can assert about the boundary rather than only about which side of it we are on. */
+    nextDueAt!: string;
+
+    constructor(data?: IReviewStatusResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.due = _data["due"];
+            this.lastCompletedAt = _data["lastCompletedAt"];
+            this.nextDueAt = _data["nextDueAt"];
+        }
+    }
+
+    static fromJS(data: any): ReviewStatusResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new ReviewStatusResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["due"] = this.due;
+        data["lastCompletedAt"] = this.lastCompletedAt;
+        data["nextDueAt"] = this.nextDueAt;
+        return data;
+    }
+}
+
+export interface IReviewStatusResponse {
+    /** Whether a review is owed right now. Computed from the chosen weekday and time, the stored completion timestamp and the clock — never stored, and nothing runs at midnight to keep it true. The same rule as DeadlineBucket.deferred: the app has no tray and no background sync, so a moment that fired at 15:00 would hit nothing with the window shut. This survives the app having been closed for three weeks. */
+    due: boolean;
+    /** When the review was last finished, UTC. Null means it never has been, which reads as owed rather than as not-configured: a fresh database says so on day one, and one press clears it.
+Deliberately absent from SettingsResponse and never written by PUT /api/settings. That route is a full replacement which reads an absent field as clear, so a field there would be wiped by any unrelated save — the same reason each token has a route of its own. It is written by POST /api/review/complete and nowhere else. */
+    lastCompletedAt?: string | undefined;
+    /** The next scheduled moment, UTC. Carried so the client does no arithmetic, and so a test can assert about the boundary rather than only about which side of it we are on. */
+    nextDueAt: string;
 }
 
 export class JiraTokenRequest implements IJiraTokenRequest {

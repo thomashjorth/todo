@@ -207,6 +207,42 @@ paths:
           description: The subtask is gone.
         '404':
           description: No such task or subtask.
+  /api/review:
+    get:
+      operationId: getReviewStatus
+      tags:
+        - Review
+      summary: Whether the weekly review is owed, and when the next one is due.
+      description: >-
+        Carries only the due state. The five groups the review screen walks through are grouped in
+        the client off the bucket each task already carries, because TaskRow and TaskDetail inject
+        TaskStore directly — a review holding its own copy of the list would go stale the moment
+        anything was saved, and the row would not leave its group.
+      responses:
+        '200':
+          description: The review's state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewStatusResponse'
+  /api/review/complete:
+    post:
+      operationId: completeReview
+      tags:
+        - Review
+      summary: Records that the weekly review has been finished.
+      description: >-
+        Stamps the clock and answers the new state, so the client needs no second call. A route of
+        its own rather than a field on PUT /api/settings, for the same reason each token has one:
+        that route is a full replacement and reads an absent field as clear, so an unrelated save
+        would wipe the timestamp. Idempotent in effect — finishing twice simply moves the stamp.
+      responses:
+        '200':
+          description: The review's state after the stamp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewStatusResponse'
   /api/retro/preview:
     post:
       operationId: previewRetro
@@ -1275,6 +1311,39 @@ components:
             to 3 and a deliberate 0 stays 0. SettingsResponse deliberately carries no default:
             an initializer there would let a handler that never assigned the field answer 3 and
             make the test for it unfailable.
+        reviewWeekday:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 6
+          default: 5
+          description: >-
+            The weekday the weekly review is suggested on, 0 = Sunday. 5 is Friday, which is
+            Allen's own recommendation. Rejected outside 0-6 with review.weekdayInvalid.
+
+            The default is load-bearing for the same reason adoDefaultDeadlineDays' is, and the
+            trap here is sharper. This is a full replacement, System.Text.Json gives 0 for an
+            absent int, and 0 is Sunday — a real weekday rather than a missing value. So without
+            the default, a save that never mentioned the review would move the habit to Sunday.
+            NSwag turns the default into a property initializer, which the deserialiser leaves
+            alone for an absent field, so absent binds to Friday and a deliberate Sunday stays
+            Sunday.
+
+            SettingsResponse deliberately carries no default, the same as adoDefaultDeadlineDays:
+            an initializer there would let a handler that never assigned the field answer 5 and
+            make the test for it unfailable.
+        reviewTimeOfDay:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          default: '15:00'
+          description: >-
+            The time of day the review is suggested at, HH:mm in the machine's own zone. Rejected
+            with review.timeOfDayInvalid if it will not parse.
+
+            Local rather than UTC on purpose: "Friday at three" is a statement about the user's
+            own afternoon, and the review's stored completion timestamp is the UTC half of the
+            comparison. ReviewSchedule.For does the conversion in one frame; see IClock.LocalNow
+            for why the local reading is its own thing rather than derived.
     SettingsResponse:
       type: object
       additionalProperties: false
@@ -1292,6 +1361,8 @@ components:
         - adoWorkItemTypes
         - adoDefaultDeadlineDays
         - hasAdoToken
+        - reviewWeekday
+        - reviewTimeOfDay
       properties:
         language:
           type: string
@@ -1387,6 +1458,52 @@ components:
           description: >-
             Whether a token is stored. The token itself is never returned; it is written
             through PUT /api/settings/ado-token and cleared through DELETE.
+        reviewWeekday:
+          type: integer
+          format: int32
+          description: >-
+            The weekday the weekly review is suggested on, 0 = Sunday. Always the effective
+            value: an absent row reads back as 5. No default is declared here on purpose — see
+            the request schema.
+        reviewTimeOfDay:
+          type: string
+          description: >-
+            The time of day the review is suggested at, HH:mm local. Always the effective value:
+            an absent row reads back as 15:00.
+    ReviewStatusResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - due
+        - nextDueAt
+      properties:
+        due:
+          type: boolean
+          description: >-
+            Whether a review is owed right now. Computed from the chosen weekday and time, the
+            stored completion timestamp and the clock — never stored, and nothing runs at
+            midnight to keep it true. The same rule as DeadlineBucket.deferred: the app has no
+            tray and no background sync, so a moment that fired at 15:00 would hit nothing with
+            the window shut. This survives the app having been closed for three weeks.
+        lastCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When the review was last finished, UTC. Null means it never has been, which reads as
+            owed rather than as not-configured: a fresh database says so on day one, and one
+            press clears it.
+
+            Deliberately absent from SettingsResponse and never written by PUT /api/settings.
+            That route is a full replacement which reads an absent field as clear, so a field
+            there would be wiped by any unrelated save — the same reason each token has a route
+            of its own. It is written by POST /api/review/complete and nowhere else.
+        nextDueAt:
+          type: string
+          format: date-time
+          description: >-
+            The next scheduled moment, UTC. Carried so the client does no arithmetic, and so a
+            test can assert about the boundary rather than only about which side of it we are on.
     JiraTokenRequest:
       type: object
       additionalProperties: false
