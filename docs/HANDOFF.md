@@ -60,17 +60,15 @@ gennem den generiske `save()`, som ville sende `title: undefined` og få servere
 Planens afsnit 5 bærer desuden en rettelse af en påstand i `CLAUDE.md`, som kostede en
 fejlforudsigelse.
 
-## Næste skridt
+Og **`color-scheme` er flyttet til `<html>`** samme dag, hvad der lukker en fejl brugeren så som en hvid
+`<select>`-popup i mørkt tema. På `<body>` nedarves egenskaben til hele siden, men **roden** bliver
+stående på `normal`, og browseren maler popup'en, rullebjælkerne og lærredet efter rodens skema.
+Begrundelsen med tal står i `CLAUDE.md`s stylingafsnit; vagten er `ColorSchemeTests`, som måler rodens
+*brugte* skema gennem systemfarven `Canvas` i begge temaer. **Popup'en selv kan ingen test se** — den
+er browserens eget vindue og kommer ikke med i et screenshot — så hvis den nogensinde ser lys ud igen,
+er det rodens skema der skal måles først.
 
-**Først, og ikke en skive: statusvælgerens popup har ikke mørkt tema.** Brugeren viste 2026-08-27 et
-skærmbillede, hvor appen står i mørkt tema mens `<select>`-popup'en males hvid, og bad om at få det
-rettet efter titlen. Fire ting er målt, så de ikke gættes igen: `scheme-light-dark` **er** på `<body>`
-i `src/Todo.Web/src/index.html`, så årsagen er ikke en manglende `color-scheme`; der er **ingen**
-manuel tema-toggle, så Tailwinds `dark:` er OS-indstillingen, og `color-scheme: light dark` *burde*
-derfor resolve til dark; det peger på **WebView2's native popup-chrome** frem for på CSS'en; og
-popup'en er ikke DOM, så `ContrastTests` kan ikke måle den — samme handel som `<datalist>`, som står
-dokumenteret i `task-detail.html`. Mål i **Photino-vinduet**, ikke i en browser: de to runtimes har
-hver sin popup-implementering.
+## Næste skridt
 
 **Skive 13, mentions-indbakken**, er den næste nummererede. Kravene står i designdokumentets afsnit 9,
 punkt 13 — læs dem der frem for her. Tre ting er værd at have i baghovedet, før planen skrives:

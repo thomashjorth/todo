@@ -1,5 +1,13 @@
 <!doctype html>
-<html lang="en">
+<!-- color-scheme hører på RODEN, ikke på <body>, og det er målt frem for stilistisk: på <body>
+     styler den kroppen og alt under den, mens roden bliver stående på `normal`. Browseren maler
+     <select>-popup'en, rullebjælkerne og lærredet efter rodens skema, så statusvælgeren åbnede hvid
+     under en mørk app — med optionernes tekst stadig i det mørke temas lysegrå, altså næsten
+     usynlig. Målt 2026-08-27 med præferencen på mørk: systemfarven Canvas gav rgb(255,255,255) på
+     roden og rgb(18,18,18) under <body>.
+     `light dark` og ikke `dark`: appen har ingen tema-kontakt, så Tailwinds `dark:` er
+     `prefers-color-scheme`, og begge temaer skal følge OS'et. Vagten er ColorSchemeTests. -->
+<html lang="en" class="scheme-light-dark">
   <head>
     <meta charset="utf-8" />
     <title>Mandalorian ToDo</title>
@@ -7,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
   </head>
-  <body class="scheme-light-dark bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+  <body class="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
     <app-root></app-root>
   </body>
 </html>

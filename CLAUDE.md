@@ -197,6 +197,29 @@ og fastslår at intet blev **forsøgt**, ser den slags. Vagten er `ApiDocsJourne
 Hver `bg-*`/`text-*`/`border-*` skal have en `dark:`-modpart. Ikke `text-gray-400` på lys
 baggrund (2,60:1).
 
+**`color-scheme` hører på `<html>`, og på `<body>` gør den kun det halve arbejde.** `scheme-light-dark`
+sad på `<body>` fra indstillingssiden til 2026-08-27, og konsekvensen var synlig men blev læst som
+noget andet: statusvælgerens popup åbnede **hvid** under en mørk app, med optionernes tekst stadig i
+det mørke temas lysegrå — altså næsten usynlig — og rullebjælkerne var lyse. Grunden er, at
+egenskaben nedarves til alt under `<body>`, mens **roden bliver stående på `normal`**, og browseren
+maler `<select>`-popup'en, rullebjælkerne og lærredet efter **rodens** skema. Målt med præferencen på
+mørk: systemfarven `Canvas` gav `rgb(255,255,255)` på roden og `rgb(18,18,18)` under `<body>`, altså
+et lyst dokument med en mørk krop indeni. Bemærk hvad der **ikke** var årsagen, fordi det var det
+første gæt: klassen udsender rigtig CSS (`.scheme-light-dark{color-scheme:light dark}` står i
+bundlen), og `prefers-color-scheme: dark` matcher fint i WebView2 — appens mørke tema *virkede*, og
+det er præcis derfor fejlen kunne stå. Værdien er stadig `light dark` og ikke `dark`: appen har ingen
+tema-kontakt, så begge temaer skal følge OS'et.
+
+**Og `ContrastTests` kan ikke se den klasse af fejl — den blindvinkel har nu sin egen vagt.**
+Vagten måler DOM-noder, og en popup, en rullebjælke og lærredet er ingen af dem. `ColorSchemeTests`
+påstår derfor, at **rodens brugte skema følger temaet**, i begge retninger, læst gennem `Canvas` på en
+probe der er hængt på `document.documentElement` — en probe under `<body>` svarer på et andet
+spørgsmål og svarer med et bestået. Påstanden er på det *brugte* skema og ikke på markup'en, så en
+flytning til `<meta name="color-scheme">` bliver ved at være ærlig. Set fejle på den rigtige
+placering: med klassen på `<body>` svarer den mørke række `rgb(255, 255, 255)` på roden.
+**Popup'en selv er stadig umålelig** — den er browserens eget vindue og kommer ikke med i et
+screenshot — så den ene ting kun brugeren kan svare på, er om den blev mørk.
+
 **Der er præcis én rigtig CSS-regel i appen, og den er ikke til diskussion — den er målt.**
 `::view-transition-group-children(task-column) { overflow: clip }` i `styles.css`, plus
 `@plugin`-linjen som er Tailwinds egen indlæsningsmekanisme. Reglen er den halvdel der klipper en
@@ -1064,8 +1087,12 @@ forkerte grund.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **310** Todo.Api.Tests, **73** Todo.E2E, **303** Vitest — alle grønne,
+**174** Todo.Core.Tests, **310** Todo.Api.Tests, **75** Todo.E2E, **303** Vitest — alle grønne,
 målt med `Check.cmd` 2026-08-27.
+
+**E2E steg til 75 senere samme dag, fordi `color-scheme` blev flyttet til roden — to teorikørsler er
+lagt til.** `ColorSchemeTests` er én `[Theory]` med et `InlineData` pr. tema (73 → 75). Vitest står
+stille på 303, og det er rigtigt: kun `index.html` ændrede sig, og ingen spec dækker den.
 
 **To af tallene steg 2026-08-27, fordi titlen blev redigerbar — fire tests er lagt til med vilje.**
 Fordelingen: **2** Vitest i `task-detail.spec.ts` (tilbagerulningen af en tom titel og trimningen,
