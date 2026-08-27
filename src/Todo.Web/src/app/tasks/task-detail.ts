@@ -88,6 +88,31 @@ export class TaskDetail {
     this.store.update(this.task(), changes).catch(() => {});
   }
 
+  /**
+   * The one field the server can refuse, so the one that cannot go through `save`: `text` answers
+   * `undefined` on empty, and `update`'s spread lets an explicit `undefined` clear the field, so the
+   * server would get `title: undefined`, refuse with 400, and the swallowed catch would hide it -
+   * leaving the field blank while the row kept its title.
+   *
+   * One rule rather than a branch per case: the field always shows what the task holds. Empty rolls
+   * the old title back, and surrounding whitespace shows the trimmed form the server gets.
+   *
+   * The write to `field.value` is load-bearing and is the `[checked]` trap one field over: rolling
+   * back does not change the signal, so the `[value]` binding has nothing to do and the field would
+   * stay empty. `update` compares against the current task itself, so Enter followed by blur does
+   * not save twice.
+   */
+  protected saveTitle(field: HTMLInputElement): void {
+    const trimmed = field.value.trim();
+    field.value = trimmed || this.task().title;
+
+    if (!trimmed) {
+      return;
+    }
+
+    this.save({ title: trimmed });
+  }
+
   protected saveStatus(status: string): void {
     const next = status as TodoStatus;
     const id = this.task().id;

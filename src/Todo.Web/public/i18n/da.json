@@ -20,6 +20,7 @@
     "noMatches": "Ingen opgaver passer på søgningen.",
     "empty": "Ingen opgaver.",
     "selectPrompt": "Vælg en opgave for at se detaljerne.",
+    "title": "Titel",
     "deadline": "Deadline",
     "deadlineValue": "Deadline: {{value}}",
     "deferUntil": "Startdato",

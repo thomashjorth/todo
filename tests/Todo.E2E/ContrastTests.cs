@@ -457,10 +457,11 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await App.Page.Keyboard.DownAsync("Alt");
 
         // Counted rather than assumed: a measurement of no badges is a pass, and this assertion is
-        // the only thing that says they were on screen. Twenty-four, counted from the fixture: nine
+        // the only thing that says they were on screen. Twenty-five, counted from the fixture: nine
         // fixed ones on the list, seven digits - one per selectable task, the completed one having no
-        // panel and therefore no number - and the panel's eight.
-        await Assertions.Expect(badges).ToHaveCountAsync(24);
+        // panel and therefore no number - and the panel's nine. The panel's was eight until the
+        // title became editable and brought its own field.
+        await Assertions.Expect(badges).ToHaveCountAsync(25);
         await Snapshot();
 
         // Released before anything else is touched, so every assertion after this one measures the

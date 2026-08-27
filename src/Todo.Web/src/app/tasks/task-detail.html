@@ -13,6 +13,41 @@
      Ingen af de to reflower når Alt trykkes: begge koster nul, når mærkaten ikke er der.
      Rør ikke px-1, kanten eller farverne — kanten er det der gør mærkaten til en tast, og
      farverne er det målte par ContrastTests holder øje med. -->
+<!-- Titlen står først, og det er ikke pynt: side om side har højre spalte ellers intet der siger
+     hvilken opgave den hører til — accentkanten på rækken i venstre spalte er hele signalet — så
+     feltet giver den brede udgave en overskrift gratis, uden en ekstra komponent.
+     maxlength spejler serverens egen grænse, så ErrorCodes.TaskTitleTooLong ikke kan nås herfra.
+     Sammen med tilbagerulningen i saveTitle betyder det, at serveren aldrig kan afvise et
+     titelgem — og DET er hvad der lader panelet slippe for et fejlsignal, en errors.*-nøgle og en
+     @if-gren mere. Prisen: en indsat titel på 600 tegn klippes tavst til 500 af browseren.
+     saveTitle og ikke save({ title: text(...) }): text() svarer undefined på tomt, og update's
+     spread lader et eksplicit undefined RYDDE feltet, så serveren ville få title: undefined,
+     afvise med 400, og .catch(() => {}) ville sluge den. -->
+<label class="block">
+  <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
+    >{{ 'tasks.title' | transloco }}
+    @if (shortcuts.altHeld()) {
+      <span
+        data-testid="shortcut-badge"
+        aria-hidden="true"
+        class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        >⇧I</span
+      >
+    }
+  </span>
+  <input
+    #title
+    data-testid="title-input"
+    appShortcut="i"
+    appShortcutModifier="alt-shift"
+    type="text"
+    maxlength="500"
+    class="w-full rounded border border-gray-500 px-2 py-1 text-sm dark:border-gray-500"
+    [value]="task().title"
+    (blur)="saveTitle(title)"
+    (keyup.enter)="saveTitle(title)"
+  />
+</label>
 <label class="block">
   <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
     >{{ 'tasks.deadline' | transloco }}

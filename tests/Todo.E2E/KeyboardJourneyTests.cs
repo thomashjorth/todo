@@ -43,10 +43,11 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const int RowDigits = 9;
 
     /// <summary>
-    /// D, S, O, N, T, U and L — the seven field shortcuts every open panel has, whatever the task's
-    /// state is.
+    /// I, D, S, O, N, T, U and L — the eight field shortcuts every open panel has, whatever the
+    /// task's state is. I is the title's, and it moved the number from seven the day the title
+    /// became editable.
     /// </summary>
-    private const int PanelFieldShortcuts = 7;
+    private const int PanelFieldShortcuts = 8;
 
     /// <summary>
     /// V, the who field, which only exists behind <c>@if (task().status === waitingFor)</c>. Its own

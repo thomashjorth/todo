@@ -60,4 +60,32 @@ public class TaskJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         Assert.True(scrollWidth <= ColumnWidth,
             $"The page overflows the {ColumnWidth}px column: scrollWidth was {scrollWidth}.");
     }
+
+    /// <summary>
+    /// The title was the one field a task could never have corrected, and the panel is where it is
+    /// corrected from.
+    ///
+    /// The assertion is on the row rather than on the field: <see cref="TaskListScreen.RowTitled"/>
+    /// matches the row button's accessible name in full, so a stale name cannot hide behind a
+    /// substring. And it needs no reload to be honest - <c>TaskStore.update</c> ends in
+    /// <c>load()</c>, so the row's text after a save is already the server's answer.
+    /// </summary>
+    [Fact]
+    public async Task A_task_is_renamed_from_the_detail_panel()
+    {
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+        var tasks = App.Tasks;
+
+        await tasks.NewTaskInput.FillAsync(TaskTitle);
+        await tasks.NewTaskInput.PressAsync("Enter");
+
+        await tasks.RowTitled(TaskTitle).ClickAsync();
+        await Assertions.Expect(tasks.TitleInput).ToHaveValueAsync(TaskTitle);
+
+        await tasks.TitleInput.FillAsync("Køb te");
+        await tasks.TitleInput.PressAsync("Enter");
+
+        await Assertions.Expect(tasks.RowTitled("Køb te")).ToHaveCountAsync(1);
+        await Assertions.Expect(tasks.RowTitled(TaskTitle)).ToHaveCountAsync(0);
+    }
 }
