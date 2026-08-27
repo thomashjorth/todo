@@ -81,8 +81,30 @@ ikke med i et screenshot — så de måler det popup'en læser.
 
 ## Næste skridt
 
-**Skive 13, mentions-indbakken**, er den næste nummererede. Kravene står i designdokumentets afsnit 9,
-punkt 13 — læs dem der frem for her. Tre ting er værd at have i baghovedet, før planen skrives:
+**Den ugentlige gennemgang er designet og planlagt 2026-08-27, og intet af den er bygget.** Designet er
+`docs/plans/2026-08-27-weekly-review-design.md`, leveranceplanen
+`docs/plans/2026-08-27-weekly-review.md` med tolv opgaver. Den lukker det GTD-hul designdokumentets
+afsnit 11 kalder GTD's nøglevane, og brugeren valgte den frem for projekter, kontekster,
+revisionsloggen og "sådan er den tænkt"-siden. **Den får ikke et skivenummer** — se designets afsnit 0,
+punkt 10, hvor begrundelsen står: numrene er mærkater og ikke en rækkefølge længere, siden skive 16 blev
+leveret før 13, 14 og 15.
+
+Fire ting er værd at kende, før planen køres:
+
+- **Forfaldstilstanden er beregnet, ikke udløst** — samme regel som udskudtheden, så intet kører ved
+  midnat og appen tåler at have været lukket i tre uger. Kadencen er **fast ugedag, ikke syv dage**, og
+  gættet falder den anden vej.
+- **Task 5 rører `TaskStore`**, altså kode uden for gennemgangen: `showSomeday` går fra
+  indlæsningsparameter til visningsfilter. De tre afviste alternativer står i designets afsnit 4, og
+  `showCompleted` bliver uændret en indlæsningsparameter.
+- **Task 11 er den dyre.** Gennemgangen er appens sjette rute, og kontrastvagten er skrevet om fem —
+  plus at hver af de fem grupper skal have en fixture-opgave og et klik, ellers er dens `@if`-gren
+  umålt.
+- **`CLAUDE.md` bliver forældet på ét punkt** ("`app.routes.ts` har præcis fem ruter") og skal rettes i
+  samme leverance. Den er auto-indlæst i hver session.
+
+**Skive 13, mentions-indbakken**, er den næste *nummererede*, altså efter gennemgangen. Kravene står i
+designdokumentets afsnit 9, punkt 13 — læs dem der frem for her. Tre ting er værd at have i baghovedet, før planen skrives:
 
 - Et **pull request er ikke et work item**, så de to slags omtaler kommer fra hver sin kilde og skal
   mødes i én indbakke.
@@ -220,8 +242,10 @@ her som "bliver dyrere" gennem tre leverancer, og aftrykket voksede med cirka é
 - **"Sådan er den tænkt"-side.** Brugen i GTD-termer, som markdown pr. sprog renderet med kæden fra
   skive 4 — prosa hører ikke i oversættelsesnøgler. **Skal også sige hvad værktøjet ikke gør**,
   ellers lover den GTD og leverer en deadline-liste. Materialet er designdokumentets afsnit 11.
-- **Resten af GTD-hullerne.** Ingen projekter, ingen kontekster, ingen ugentlig gennemgang.
-  Kontekstaksen er den mest indgribende: den ville omgøre designdokumentets afsnit 2 frem for at
-  lægge et felt til.
+- **Resten af GTD-hullerne.** Ingen projekter og ingen kontekster. Kontekstaksen er den mest
+  indgribende: den ville omgøre designdokumentets afsnit 2 frem for at lægge et felt til, og afsnit 11
+  rangerer den som det største hul, fordi deadline stadig er den eneste akse for alt handlingsklart.
+  *(Den ugentlige gennemgang stod her indtil 2026-08-27 og er nu designet og planlagt — se "Næste
+  skridt". Den var den billigste af de tre, fordi den læser data der allerede findes.)*
 *(Animationer side om side stod her i nogle timer 2026-08-25 og er nu leveret — se "Uden for
 skiverne". Det der lukkede den var afsnit 8b: nesting plus én CSS-regel, målt frem for gættet.)*

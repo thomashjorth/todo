@@ -205,7 +205,13 @@ optioner, klokkeslættet et `<input type="time">`. Samme mønster som resten af 
 
 To målte krav følger med:
 
-- **`<select>`'en skal male sin egen baggrund** — `bg-gray-50 dark:bg-gray-800`, panelets egne farver.
+- **`<select>`'en skal male sin egen baggrund** — her `bg-white dark:bg-gray-800`. **Rettet
+  2026-08-27, efter at leveranceplanen målte det:** afsnittet sagde først `bg-gray-50
+  dark:bg-gray-800` og kaldte det "panelets egne farver", og det er det forkerte par for *denne*
+  vælger. Reglen er ikke ét fast par, men at male en uigennemsigtig baggrund der matcher det man
+  **står på**: sprogvælgeren på indstillingssiden er `bg-white dark:bg-gray-800` (sidens baggrund),
+  statusvælgeren i detaljepanelet er `bg-gray-50 dark:bg-gray-800` (panelets). Ugedagsvælgeren står
+  på indstillingssiden ved siden af sprogvælgeren og tager derfor dens par.
   Det er appens **tredje** `<select>`, og de to første er hele historien om den hvide popup:
   sprogvælgeren havde mønsteret fra starten og har aldrig fejlet, statusvælgeren manglede det og malede
   en hvid popup under et mørkt tema, fordi WebView2 falder tilbage på hvid for en transparent baggrund.
