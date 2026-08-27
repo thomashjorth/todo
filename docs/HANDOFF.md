@@ -60,13 +60,23 @@ gennem den generiske `save()`, som ville sende `title: undefined` og få servere
 Planens afsnit 5 bærer desuden en rettelse af en påstand i `CLAUDE.md`, som kostede en
 fejlforudsigelse.
 
-Og **`color-scheme` er flyttet til `<html>`** samme dag, hvad der lukker en fejl brugeren så som en hvid
-`<select>`-popup i mørkt tema. På `<body>` nedarves egenskaben til hele siden, men **roden** bliver
-stående på `normal`, og browseren maler popup'en, rullebjælkerne og lærredet efter rodens skema.
+Og **`color-scheme` er flyttet til `<html>`** samme dag, med to eksplicitte klasser — `scheme-light` og
+`dark:scheme-dark`. På `<body>` nedarvedes egenskaben til hele siden, men **roden** blev stående på
+`normal`, og browseren maler popup'en, rullebjælkerne og lærredet efter rodens skema. Det rettede
+rullebjælkerne og lærredet.
+
+**Men den hvide `<select>`-popup, brugeren rapporterede, er ikke bevist lukket, og det skal stå her
+frem for at blive læst som løst.** Flytningen alene rettede den ikke: med den kombinerede værdi på
+roden var det brugte skema mørkt (`Canvas` gav `rgb(18,18,18)` på roden, og den kørende app blev
+verificeret til faktisk at servere rettelsen), og popup'en var stadig hvid. Derfor de eksplicitte
+klasser som andet forsøg. **Ingen test kan afgøre det** — popup'en er browserens eget vindue og kommer
+ikke med i et screenshot — så status er brugerens øjne. Er den stadig lys, er næste kandidat at give
+`<select>` og dens `<option>`s eksplicitte `bg-*`/`text-*` med `dark:`-modparter, hvilket samtidig
+lukker en overtrædelse af appens egen stylingregel: vælgeren har `border-gray-500` men hverken
+baggrund eller tekstfarve. Baggrunden bør være `bg-gray-50 dark:bg-gray-800`, altså panelets egne
+farver, så siden ser uændret ud mens popup'en får noget at arve.
 Begrundelsen med tal står i `CLAUDE.md`s stylingafsnit; vagten er `ColorSchemeTests`, som måler rodens
-*brugte* skema gennem systemfarven `Canvas` i begge temaer. **Popup'en selv kan ingen test se** — den
-er browserens eget vindue og kommer ikke med i et screenshot — så hvis den nogensinde ser lys ud igen,
-er det rodens skema der skal måles først.
+*brugte* skema gennem systemfarven `Canvas` i begge temaer.
 
 ## Næste skridt
 

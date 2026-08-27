@@ -205,10 +205,26 @@ egenskaben nedarves til alt under `<body>`, mens **roden bliver stående på `no
 maler `<select>`-popup'en, rullebjælkerne og lærredet efter **rodens** skema. Målt med præferencen på
 mørk: systemfarven `Canvas` gav `rgb(255,255,255)` på roden og `rgb(18,18,18)` under `<body>`, altså
 et lyst dokument med en mørk krop indeni. Bemærk hvad der **ikke** var årsagen, fordi det var det
-første gæt: klassen udsender rigtig CSS (`.scheme-light-dark{color-scheme:light dark}` står i
-bundlen), og `prefers-color-scheme: dark` matcher fint i WebView2 — appens mørke tema *virkede*, og
-det er præcis derfor fejlen kunne stå. Værdien er stadig `light dark` og ikke `dark`: appen har ingen
-tema-kontakt, så begge temaer skal følge OS'et.
+første gæt: klassen udsendte rigtig CSS, og `prefers-color-scheme: dark` matcher fint i WebView2 —
+appens mørke tema *virkede*, og det er præcis derfor fejlen kunne stå.
+
+**Men flytningen til roden rettede ikke popup'en, og det er den vigtigste måling i sagen.** Med den
+kombinerede `light dark`-værdi på roden var det **brugte** skema mørkt — `Canvas` gav `rgb(18,18,18)`
+på roden — og popup'en var stadig hvid i Photino-vinduet. Verificeret at det ikke bare var en
+udeployet rettelse: `curl.exe` mod den kørende apps egen port viste `<html … class>` og reglen i den
+indlejrede kritiske CSS. **Popup'en følger altså ikke det resolverede skema i WebView2**, så roden
+bærer nu to eksplicitte klasser i stedet, `scheme-light` og `dark:scheme-dark`, hvor det eksplicitte
+nøgleord er den ene ting tilbage der kan gøre en forskel. Begge retninger skrives ud, fordi appen
+ingen tema-kontakt har. Rullebjælkerne og lærredet blev rettet af flytningen uanset; om popup'en
+blev, kan **kun brugeren se** — se afsnittet nedenfor om hvorfor ingen test kan.
+
+**Og en utility-klasse nævnt i en *kodekommentar* bliver ved at stå i bundlen.** Målt her: den gamle
+klasse blev genereret, længe efter at ingen brugte den, fordi en kommentar i `task-detail.html`
+nævnte den ved navn — Tailwind udtrækker kandidater fra rå tekst, kommentarer iberegnet. Konsekvensen
+er dobbelt: `grep` efter en klasse giver **falsk positiv** på "den er i brug", og en død regel
+overlever for evigt. Målt i samme ombæring hvad der **ikke** scannes: `CLAUDE.md` og fem filer i
+`docs/plans/` nævner også klassen, og reglen forsvandt alligevel da kommentaren blev omskrevet — så
+markdown uden for `src\Todo.Web` er uden for rækkevidde.
 
 **Og `ContrastTests` kan ikke se den klasse af fejl — den blindvinkel har nu sin egen vagt.**
 Vagten måler DOM-noder, og en popup, en rullebjælke og lærredet er ingen af dem. `ColorSchemeTests`

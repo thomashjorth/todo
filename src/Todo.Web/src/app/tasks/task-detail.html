@@ -227,8 +227,9 @@
        Listen bor i task-list.html: den er den samme for alle rækker, og et id pr. række ville
        give dubletter i dokumentet, hvor browseren tavst vælger den første.
        Prisen: <datalist>s popup kan ContrastTests ikke måle, fordi den er browserens eget
-       chrome og ikke DOM. Samme handel som sprogvælgeren, der er et native <select>; <body>
-       har scheme-light-dark netop for at de følger farvetemaet. -->
+       chrome og ikke DOM. Samme handel som sprogvælgeren, der er et native <select>; roden
+       bærer en color-scheme netop for at de følger farvetemaet — se index.html, og bemærk at
+       den stod på <body> indtil 2026-08-27, hvor det viste sig kun at nå det halve. -->
   <label class="block">
     <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
       >{{ 'tasks.waitingOn' | transloco }}
