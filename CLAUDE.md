@@ -1064,12 +1064,17 @@ forkerte grund.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **310** Todo.Api.Tests, **72** Todo.E2E, **303** Vitest — alle grønne,
+**174** Todo.Core.Tests, **310** Todo.Api.Tests, **73** Todo.E2E, **303** Vitest — alle grønne,
 målt med `Check.cmd` 2026-08-27.
 
-**To af tallene steg 2026-08-27, fordi titlen blev redigerbar — tre tests er lagt til med vilje.**
+**To af tallene steg 2026-08-27, fordi titlen blev redigerbar — fire tests er lagt til med vilje.**
 Fordelingen: **2** Vitest i `task-detail.spec.ts` (tilbagerulningen af en tom titel og trimningen,
-301 → 303) og **1** E2E, `TaskJourneyTests.A_task_is_renamed_from_the_detail_panel` (71 → 72).
+301 → 303) og **2** E2E (71 → 73): `TaskJourneyTests.A_task_is_renamed_from_the_detail_panel` og
+`KeyboardJourneyTests.Alt_Shift_I_focuses_the_title_field`. Den sidste er lagt til **ud over** planen,
+og begrundelsen er værd at kende: fem af feltlagets otte bogstaver har ingen anslags-test, fordi
+`Alt_Shift_D` dækker den delte maskineri — men et **nyt** bogstav har en risiko maskineriet ikke kan
+gå god for, nemlig om browseren spiser kombinationen, jf. `Alt+D`/`Alt+E`/`Alt+F`. Målt i rigtig
+Chromium; set fejle med `"none"` som fokuseret element, da bogstavet blev ændret i skabelonen.
 `Todo.Core.Tests` og `Todo.Api.Tests` står stille på 174 og 310, og det er hele pointen med
 leverancen: backenden kunne det i forvejen. Tre eksisterende tests skiftede *forventning* uden at
 flytte noget tal — panelets to rækkefølge-følsomme arrays fik `Alt+Shift+I`/`⇧I` som nyt **første**

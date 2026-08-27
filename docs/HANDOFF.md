@@ -6,8 +6,8 @@ Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs d
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **174**, Api **310**, E2E **72**, Vitest **303** — alle grønne, målt 2026-08-27.
-E2E og Vitest steg med tre, da titlen blev redigerbar; Core og Api står stille, fordi backenden kunne
+**Testtal:** Core **174**, Api **310**, E2E **73**, Vitest **303** — alle grønne, målt 2026-08-27.
+E2E og Vitest steg med fire, da titlen blev redigerbar; Core og Api står stille, fordi backenden kunne
 det i forvejen. Før det faldt tre af tallene, da autostart blev fjernet (tolv tests slettet med
 vilje), og to steg igen med sektionsovergangene (tretten lagt til). Fordelingen for alle tre står i
 `CLAUDE.md`s "Testtal".

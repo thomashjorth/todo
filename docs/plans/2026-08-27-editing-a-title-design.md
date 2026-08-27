@@ -173,6 +173,12 @@ mekanisme der ikke findes andre steder i appen.
    tester Playwright den forrige udgave af frontenden.
 6. `Check.cmd` og sammenlign tallene mod 174 / 310 / 303 / 72.
 
+**Leveret 2026-08-27, og tallene blev 174 / 310 / 303 / 73.** E2E fik én test mere end planlagt:
+`KeyboardJourneyTests.Alt_Shift_I_focuses_the_title_field`. Begrundelsen står i `CLAUDE.md`s
+"Testtal" — registreringen af bogstavet var vogtet to gange, men ingen af de vagter *trykker* noget,
+og den ene risiko de derfor ikke kan se, er om browseren spiser kombinationen. Målt i rigtig Chromium
+og set fejle med `"none"` som fokuseret element.
+
 ## 7. Parkeret til bagefter
 
 Brugeren viste 2026-08-27 et skærmbillede: appen er i mørkt tema, men statusvælgerens `<select>`-popup

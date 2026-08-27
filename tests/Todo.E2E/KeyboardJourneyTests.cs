@@ -449,6 +449,39 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     }
 
     /// <summary>
+    /// <para>
+    /// The title's letter, and the one thing no other guard on it can see. Registration is covered
+    /// twice over — the <c>aria-keyshortcuts</c> array in <c>task-detail.spec.ts</c> and the
+    /// distinctness assertion above — but both read the DOM, and neither presses anything. What is
+    /// left is whether the combination survives the browser at all, which is the trap
+    /// <c>CLAUDE.md</c> names for <c>Alt+D</c>, <c>Alt+E</c> and <c>Alt+F</c>: a shortcut that works
+    /// in the Photino window and not in Chrome gets debugged at the wrong end. Playwright drives
+    /// real Chromium, so this is the assertion that answers it.
+    /// </para>
+    /// <para>
+    /// Five of the field layer's letters have no keystroke test, because
+    /// <see cref="Alt_Shift_D_focuses_the_deadline_field"/> covers the shared machinery. I is here
+    /// anyway for being new: the letter is the part the machinery cannot vouch for.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Alt_Shift_I_focuses_the_title_field()
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(Title).DueToday().Build());
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var tasks = App.Tasks;
+
+        await tasks.RowShowing(Title).ClickAsync();
+        await Assertions.Expect(tasks.DetailFor(Title)).ToBeVisibleAsync();
+
+        await App.Page.Keyboard.PressAsync("Alt+Shift+I");
+
+        Assert.Equal("title-input", await FocusedTestIdAsync());
+    }
+
+    /// <summary>
     /// Delete is the one shortcut in the panel that only takes focus, because the app has neither a
     /// confirmation nor an undo — the second keystroke <em>is</em> the confirmation. The second half
     /// of this journey is the only assertion anywhere that can tell <c>focus</c> from
