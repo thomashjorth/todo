@@ -182,7 +182,7 @@ describe('TaskList', () => {
   it('should render a Danish heading per deadline section', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
 
     const element = await rendered(fixture);
@@ -210,7 +210,7 @@ describe('TaskList', () => {
 
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [items[0], ...inProgress] })]));
 
     const element = await vi.waitFor(() => {
@@ -236,7 +236,7 @@ describe('TaskList', () => {
   it('should remove the rows that do not match what is typed in the search box', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
 
     const element = await rendered(fixture);
@@ -256,7 +256,7 @@ describe('TaskList', () => {
   it('should say nothing matched rather than that there are no tasks', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
 
     const element = await rendered(fixture);
@@ -275,7 +275,7 @@ describe('TaskList', () => {
   it('should put a deferred task in its own last section and prefill its start date', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [items[0], ...deferredItems] })]));
 
     const element = await rendered(fixture);
@@ -297,7 +297,7 @@ describe('TaskList', () => {
   it('should say in the panel that a start date after the deadline does nothing', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: conflicting })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
 
@@ -314,7 +314,7 @@ describe('TaskList', () => {
   it('should not call a start date on the deadline itself a conflict', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: startingOnTheDeadline })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
 
@@ -329,7 +329,7 @@ describe('TaskList', () => {
   it('should show the deadline written out in the active language', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
 
     const rows = (await rendered(fixture)).querySelectorAll('[data-testid="task-row"]');
@@ -344,7 +344,7 @@ describe('TaskList', () => {
   it('should rewrite the deadline when the language changes under it', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
 
@@ -361,7 +361,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
 
@@ -377,7 +377,7 @@ describe('TaskList', () => {
   it('should expand one row at a time and prefill it with the task', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
     const rows = element.querySelectorAll('[data-testid="task-row"]');
@@ -408,7 +408,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
     const row = element.querySelector('[data-testid="task-row"]')!;
@@ -425,7 +425,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
     const row = element.querySelector('[data-testid="task-row"]')!;
@@ -444,14 +444,14 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
 
     element.querySelector<HTMLInputElement>('[data-testid="show-completed"]')!.click();
     fixture.detectChanges();
     http
-      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=true')
       .flush(
         new Blob([JSON.stringify({ items: [...items, { ...items[0], id: 9, status: 'done' }] })]),
       );
@@ -477,7 +477,7 @@ describe('TaskList', () => {
   it('should show the ticked-off count on the row that has subtasks', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
 
     const rows = (await rendered(fixture)).querySelectorAll('[data-testid="task-row"]');
@@ -491,7 +491,7 @@ describe('TaskList', () => {
   it('should list the subtasks of the expanded row', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
 
@@ -512,7 +512,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -531,7 +531,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -551,7 +551,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withSubTasks })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -566,7 +566,7 @@ describe('TaskList', () => {
   it('should show the note as rendered markdown rather than as its source', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withNote })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
 
@@ -583,7 +583,7 @@ describe('TaskList', () => {
   it('should open the editor on the raw markdown when the rendered note is clicked', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withNote })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -601,7 +601,7 @@ describe('TaskList', () => {
   it('should open the editor from the button as well, for anyone who cannot click', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withNote })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -621,7 +621,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withLink })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -643,7 +643,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withLink })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -673,7 +673,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: fromJira })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
 
@@ -696,7 +696,7 @@ describe('TaskList', () => {
   it('should show no issue link on a task that has none', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
 
@@ -707,7 +707,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withNote })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -730,7 +730,7 @@ describe('TaskList', () => {
   it('should invite a note where there is none instead of leaving the row bare', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
 
@@ -745,7 +745,7 @@ describe('TaskList', () => {
   it('should list a waiting task on its own with who it waits on and for how long', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [...items, waiting] })]));
 
     const section = await shown(fixture, '[data-testid="waiting-section"]');
@@ -767,7 +767,7 @@ describe('TaskList', () => {
   it('should keep the waiting line out of the row button', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [waiting] })]));
 
     const section = await shown(fixture, '[data-testid="waiting-section"]');
@@ -778,7 +778,7 @@ describe('TaskList', () => {
   it('should count a single day of waiting in the singular', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [{ ...waiting, waitingDays: 1 }] })]));
 
     const days = await shown(fixture, '[data-testid="waiting-days"]');
@@ -789,7 +789,7 @@ describe('TaskList', () => {
   it('should mark an overdue deadline on a waiting task in red', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(
         new Blob([
           JSON.stringify({ items: [{ ...waiting, deadline: '2026-08-10', bucket: 'overdue' }] }),
@@ -808,7 +808,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [items[1], waiting] })]));
     const section = await shown(fixture, '[data-testid="waiting-section"]');
     const element = fixture.nativeElement as HTMLElement;
@@ -830,7 +830,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [waiting] })]));
     const section = await shown(fixture, '[data-testid="waiting-section"]');
     section.querySelector('button')!.click();
@@ -850,7 +850,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
@@ -868,7 +868,7 @@ describe('TaskList', () => {
     const put = await vi.waitFor(() => http.expectOne(`/api/tasks/${items[0].id}`));
     put.flush(new Blob([JSON.stringify(handedOver[0])]));
     const reload = await vi.waitFor(() =>
-      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=true'),
     );
     reload.flush(new Blob([JSON.stringify({ items: handedOver })]));
 
@@ -882,7 +882,7 @@ describe('TaskList', () => {
   it('should leave the focus alone when a waiting row is merely expanded', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [waiting] })]));
     const section = await shown(fixture, '[data-testid="waiting-section"]');
 
@@ -902,7 +902,7 @@ describe('TaskList', () => {
     const http = TestBed.inject(HttpTestingController);
     TestBed.inject(SettingsStore).delegates.set(delegates);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [waiting] })]));
     const section = await shown(fixture, '[data-testid="waiting-section"]');
     section.querySelector('button')!.click();
@@ -922,7 +922,7 @@ describe('TaskList', () => {
     const http = TestBed.inject(HttpTestingController);
     TestBed.inject(SettingsStore).delegates.set(delegates);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [waiting] })]));
     const section = await shown(fixture, '[data-testid="waiting-section"]');
     section.querySelector('button')!.click();
@@ -943,7 +943,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(SettingsStore).delegates.set(delegates);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [...items, waiting] })]));
     const section = await shown(fixture, '[data-testid="waiting-section"]');
     section.querySelector('button')!.click();
@@ -965,18 +965,19 @@ describe('TaskList', () => {
   it('should hide a parked task until the someday toggle is on', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
+    // Den parkerede er med i den første indlæsning, og det gør påstanden nedenfor stærkere end den
+    // var: sektionen er ikke tom fordi data mangler, men fordi kontakten er slået fra. Før
+    // omlægningen hentede listen slet ikke parkerede opgaver, så en manglende sektion kunne lige så
+    // godt have betydet et tomt svar.
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
-      .flush(new Blob([JSON.stringify({ items })]));
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items: [...items, parked] })]));
     const element = await rendered(fixture);
 
     expect(element.querySelector('[data-testid="someday-section"]')).toBeNull();
 
     element.querySelector<HTMLInputElement>('[data-testid="show-someday"]')!.click();
     fixture.detectChanges();
-    http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
-      .flush(new Blob([JSON.stringify({ items: [...items, parked] })]));
 
     const section = await shown(fixture, '[data-testid="someday-section"]');
 
@@ -989,17 +990,18 @@ describe('TaskList', () => {
   it('should let a parked task be expanded so its status can be changed back', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
+    // Den parkerede kommer med i den første indlæsning, fordi parkerede altid hentes. Kontakten
+    // afgør kun om sektionen renderes, så der er ingen anden rundtur at vente på. Og listen skal
+    // stadig bære `items`: rendered() venter på præcis items.length rækker, og den parkerede tæller
+    // ikke med, før kontakten er slået til.
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
-      .flush(new Blob([JSON.stringify({ items })]));
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items: [...items, parked] })]));
     await rendered(fixture);
     (fixture.nativeElement as HTMLElement)
       .querySelector<HTMLInputElement>('[data-testid="show-someday"]')!
       .click();
     fixture.detectChanges();
-    http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
-      .flush(new Blob([JSON.stringify({ items: [parked] })]));
     const section = await shown(fixture, '[data-testid="someday-section"]');
 
     section.querySelector('button')!.click();
@@ -1018,7 +1020,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
 
@@ -1050,7 +1052,7 @@ describe('TaskList', () => {
     it('should show the first task on screen without anyone opening a row', async () => {
       const fixture = TestBed.createComponent(TaskList);
       TestBed.inject(HttpTestingController)
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items: [items[1], items[0]] })]));
 
       // Waited for the panel rather than the column: the column renders as soon as the signal says
@@ -1070,7 +1072,7 @@ describe('TaskList', () => {
     it('should say which row the panel belongs to', async () => {
       const fixture = TestBed.createComponent(TaskList);
       TestBed.inject(HttpTestingController)
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items })]));
       const rows = (await rendered(fixture)).querySelectorAll('[data-testid="task-row"]');
 
@@ -1088,7 +1090,7 @@ describe('TaskList', () => {
     it('should render the panel once, outside the row', async () => {
       const fixture = TestBed.createComponent(TaskList);
       TestBed.inject(HttpTestingController)
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items })]));
       const element = await rendered(fixture);
 
@@ -1106,7 +1108,7 @@ describe('TaskList', () => {
     it('should keep the selection when the selected row is clicked again', async () => {
       const fixture = TestBed.createComponent(TaskList);
       TestBed.inject(HttpTestingController)
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items })]));
       const element = await rendered(fixture);
       const second = element.querySelectorAll('[data-testid="task-row"]')[1];
@@ -1128,7 +1130,7 @@ describe('TaskList', () => {
     it('should move the panel to the first task left when the selected one is searched away', async () => {
       const fixture = TestBed.createComponent(TaskList);
       TestBed.inject(HttpTestingController)
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items })]));
       const element = await rendered(fixture);
 
@@ -1164,14 +1166,14 @@ describe('TaskList', () => {
       const fixture = TestBed.createComponent(TaskList);
       const http = TestBed.inject(HttpTestingController);
       http
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items: [] })]));
       // shown returns the element it matched, not the root, so the switch is what comes back here.
       const showCompleted = await shown(fixture, '[data-testid="show-completed"]');
 
       showCompleted.click();
       http
-        .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=true&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items: [finished] })]));
       const row = await shown(
         fixture,
@@ -1195,7 +1197,7 @@ describe('TaskList', () => {
   it('should open nothing by itself in one column', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
 
     const element = await rendered(fixture);
@@ -1207,7 +1209,7 @@ describe('TaskList', () => {
   it('should fold the panel away in one column when the selected task is searched away', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items })]));
     const element = await rendered(fixture);
     const row = element.querySelectorAll('[data-testid="task-row"]')[0];
@@ -1225,23 +1227,22 @@ describe('TaskList', () => {
   });
 
   // Begge kontakter slået til, så den fuldførte og den parkerede sektion er på skærmen.
+  // To rundture og ikke tre: parkerede opgaver hentes altid, så måske-kontakten er et rent
+  // visningsfilter og går ikke til serveren. Kun fuldførte er stadig en indlæsningsparameter.
   async function everythingShown(
     fixture: ComponentFixture<TaskList>,
     http: HttpTestingController,
   ): Promise<HTMLElement> {
     http
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: numberedItems })]));
     (await shown(fixture, '[data-testid="show-completed"]')).click();
     fixture.detectChanges();
     http
-      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: numberedItems })]));
     (await shown(fixture, '[data-testid="show-someday"]')).click();
     fixture.detectChanges();
-    http
-      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=true')
-      .flush(new Blob([JSON.stringify({ items: numberedItems })]));
 
     return vi.waitFor(() => {
       fixture.detectChanges();
@@ -1298,7 +1299,7 @@ describe('TaskList', () => {
     const fixture = TestBed.createComponent(TaskList);
     const shortcuts = TestBed.inject(ShortcutStore);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: numberedItems.slice(0, 3) })]));
 
     const element = await vi.waitFor(() => {
@@ -1342,7 +1343,7 @@ describe('TaskList', () => {
     it('should name every task row so the browser can morph it', async () => {
       const fixture = TestBed.createComponent(TaskList);
       TestBed.inject(HttpTestingController)
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items })]));
 
       const element = await rendered(fixture);
@@ -1364,14 +1365,14 @@ describe('TaskList', () => {
       const fixture = TestBed.createComponent(TaskList);
       const http = TestBed.inject(HttpTestingController);
       http
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items })]));
       const element = await rendered(fixture);
 
       element.querySelector<HTMLInputElement>('[data-testid="show-completed"]')!.click();
       fixture.detectChanges();
       http
-        .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=true&includeSomeday=true')
         .flush(
           new Blob([JSON.stringify({ items: [...items, { ...items[0], id: 9, status: 'done' }] })]),
         );

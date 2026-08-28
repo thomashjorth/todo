@@ -315,14 +315,29 @@ describe('TaskStore', () => {
     expect(store.somedayTasks()).toEqual([parked]);
   });
 
-  it('should ask the API for parked tasks once they are shown', async () => {
-    const shown = store.setShowSomeday(true);
+  // Parked tasks come down on every load, whatever the switch says, because the weekly review needs
+  // them and the switch belongs to the task list. It is only a display filter: `someday()` in
+  // task-list.ts is `showSomeday() ? somedayTasks() : []`, and that gate was already there - the
+  // server filter was the belt to its braces, and only for payload. showCompleted keeps its filter,
+  // because Done grows forever while Someday is a curated list.
+  it('should load parked tasks without the switch being on', async () => {
+    const load = store.load();
     TestBed.inject(HttpTestingController)
       .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [] })]));
-    await shown;
+    await load;
+
+    expect(store.showSomeday()).toBe(false);
+  });
+
+  it('should not go to the API when the parked switch is flipped', async () => {
+    await store.setShowSomeday(true);
 
     expect(store.showSomeday()).toBe(true);
+
+    // The assertion with teeth, and it has to be called here: this describe has no afterEach, so
+    // without it the test would pass whether or not a request went out.
+    TestBed.inject(HttpTestingController).verify();
   });
 
   it('should have no completed tasks while every task is open', () => {
@@ -338,7 +353,7 @@ describe('TaskStore', () => {
   it('should load the tasks the API returns, excluding completed ones by default', async () => {
     const loaded = store.load();
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [taskIn(DeadlineBucket.Today).toJSON()] })]));
     await loaded;
 
@@ -348,30 +363,35 @@ describe('TaskStore', () => {
   it('should ask the API for completed tasks once they are shown', async () => {
     const shown = store.setShowCompleted(true);
     TestBed.inject(HttpTestingController)
-      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=false')
+      .expectOne('/api/tasks?includeCompleted=true&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [] })]));
     await shown;
 
     expect(store.showCompleted()).toBe(true);
   });
 
-  // Flipping both switches in quick succession puts two loads in flight, and nothing orders
-  // their responses. When the older one straggles in last it used to win, and the list silently
-  // lost whatever the newer request had asked for until something else triggered a reload.
+  // Two loads in flight at once, and nothing orders their responses. When the older one straggles
+  // in last it used to win, and the list silently lost whatever the newer request had asked for
+  // until something else triggered a reload.
+  //
+  // Driven by flipping showCompleted twice rather than one switch each way, and that is a rewrite
+  // rather than the original: showSomeday stopped being a load parameter when the weekly review
+  // needed parked tasks unconditionally, so it no longer puts anything in flight. The guard itself
+  // still earns its place — `load`, `update`, `remove` and `add` can all overlap.
   it('should not let a slow earlier load overwrite a newer list', async () => {
     const http = TestBed.inject(HttpTestingController);
 
-    const completed = store.setShowCompleted(true);
-    const someday = store.setShowSomeday(true);
+    const first = store.setShowCompleted(true);
+    const second = store.setShowCompleted(false);
 
-    const stale = http.expectOne('/api/tasks?includeCompleted=true&includeSomeday=false');
-    const fresh = http.expectOne('/api/tasks?includeCompleted=true&includeSomeday=true');
+    const stale = http.expectOne('/api/tasks?includeCompleted=true&includeSomeday=true');
+    const fresh = http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=true');
 
     // The newer request answers first; the older one arrives after it.
     fresh.flush(new Blob([JSON.stringify({ items: [taskIn(DeadlineBucket.Today).toJSON()] })]));
     stale.flush(new Blob([JSON.stringify({ items: [] })]));
 
-    await Promise.all([completed, someday]);
+    await Promise.all([first, second]);
 
     expect(store.tasks().map((t) => t.bucket)).toEqual([DeadlineBucket.Today]);
   });
@@ -387,7 +407,7 @@ describe('TaskStore', () => {
     created.flush(new Blob([JSON.stringify(taskIn(DeadlineBucket.Today).toJSON())]));
 
     const reloaded = await vi.waitFor(() =>
-      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=true'),
     );
     reloaded.flush(new Blob([JSON.stringify({ items: [taskIn(DeadlineBucket.Today).toJSON()] })]));
     await added;
@@ -426,7 +446,7 @@ describe('TaskStore', () => {
     request.flush(new Blob([JSON.stringify(task.toJSON())]));
 
     const reloaded = await vi.waitFor(() =>
-      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=true'),
     );
     reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
     await updated;
@@ -492,7 +512,7 @@ describe('TaskStore', () => {
     });
 
     const reloaded = await vi.waitFor(() =>
-      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=true'),
     );
     reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
     await added;
@@ -524,7 +544,7 @@ describe('TaskStore', () => {
     request.flush(new Blob([]), { status: 204, statusText: 'No Content' });
 
     const reloaded = await vi.waitFor(() =>
-      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=true'),
     );
     reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
     await removed;
@@ -557,7 +577,7 @@ describe('TaskStore', () => {
     request.flush(new Blob([]), { status: 204, statusText: 'No Content' });
 
     const reloaded = await vi.waitFor(() =>
-      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=false'),
+      http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=true'),
     );
     reloaded.flush(new Blob([JSON.stringify({ items: [] })]));
     await removed;
@@ -583,7 +603,7 @@ describe('TaskStore', () => {
     async function reload(items: TodoTask[]): Promise<void> {
       const loaded = store.load();
       TestBed.inject(HttpTestingController)
-        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=false')
+        .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
         .flush(new Blob([JSON.stringify({ items: items.map((t) => t.toJSON()) })]));
       await loaded;
     }

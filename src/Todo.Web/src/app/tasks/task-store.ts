@@ -221,9 +221,15 @@ export class TaskStore {
 
   async load(): Promise<void> {
     const sequence = ++this.loadSequence;
-    const response = await firstValueFrom(
-      this.client.listTasks(this.showCompleted(), this.showSomeday()),
-    );
+    // Parked tasks always come down, whatever the switch says: the weekly review walks a Someday
+    // group and must see it whether or not the task list is showing one. `showSomeday` is therefore
+    // a display filter and nothing more — `someday()` in task-list.ts is
+    // `showSomeday() ? somedayTasks() : []`, and that gate was already doing the work. The server
+    // filter was only ever about payload.
+    //
+    // `showCompleted` deliberately stays a load parameter, and the asymmetry is the argument: Done
+    // grows without bound, while Someday is a curated list somebody prunes.
+    const response = await firstValueFrom(this.client.listTasks(this.showCompleted(), true));
 
     // Two loads can be in flight at once — flipping both switches quickly does it — and nothing
     // orders their responses. Without this the older answer can land last and wipe the newer
@@ -306,9 +312,16 @@ export class TaskStore {
     await this.load();
   }
 
-  async setShowSomeday(value: boolean): Promise<void> {
+  /**
+   * No reload: the parked tasks are already in `tasks`, and this only decides whether the list
+   * renders them. It stays a Promise-returning method even though nothing is awaited, so the two
+   * switches read the same at the call site and `task-list.ts` does not have to know which of them
+   * talks to the server.
+   */
+  setShowSomeday(value: boolean): Promise<void> {
     this.showSomeday.set(value);
-    await this.load();
+
+    return Promise.resolve();
   }
 
   async add(title: string): Promise<void> {
