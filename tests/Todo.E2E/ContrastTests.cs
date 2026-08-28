@@ -41,6 +41,20 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string ConflictTitle = "Bestil nyt pas";
 
     /// <summary>
+    /// Starts in three days, so the weekly review's tickler group has something in it. No deadline
+    /// on it: a deferred task with one would land in a deadline bucket instead, the way
+    /// <see cref="ConflictTitle"/> does — Overdue beats Deferred.
+    /// </summary>
+    private const string StartingTitle = "Forbered kvartalsmødet";
+
+    /// <summary>
+    /// No deadline and no start date, so the review's wide-pile group has something in it. Every
+    /// other task in the fixture carries a date of some kind, so without this one that group is a
+    /// heading over nothing and its rows are never painted.
+    /// </summary>
+    private const string NoDeadlineTitle = "Find en ny kaffeleverandør";
+
+    /// <summary>
     /// A task imported from Jira, which is the only kind that renders the link on a row: the task
     /// endpoint computes <c>externalUrl</c> only when the source is Jira, so no other fixture puts
     /// that branch on screen at all.
@@ -362,6 +376,12 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             // has to be stored as well: the link is computed from it, and without one the branch
             // stays absent however the source is spelled.
             new TaskItemBuilder(Clock).Titled(JiraTitle).FromJira("SAAS-1").DueToday().Build(),
+            // The last two are the weekly review's: its tickler group and its wide-pile group have
+            // no member among the tasks above, and a group with no rows renders a heading over an
+            // empty branch rather than the row colours the guard is here for.
+            new TaskItemBuilder(Clock).Titled(StartingTitle)
+                .WithoutDeadline().DeferredUntil(Clock.Today.AddDays(3)).Build(),
+            new TaskItemBuilder(Clock).Titled(NoDeadlineTitle).WithoutDeadline().Build(),
             new Setting { Key = SettingKeys.JiraBaseUrl, Value = JiraBaseUrl });
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
@@ -457,12 +477,14 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await App.Page.Keyboard.DownAsync("Alt");
 
         // Counted rather than assumed: a measurement of no badges is a pass, and this assertion is
-        // the only thing that says they were on screen. Twenty-six, counted from the fixture: ten
-        // fixed ones on the list, seven digits - one per selectable task, the completed one having no
-        // panel and therefore no number - and the panel's nine. The panel's was eight until the
-        // title became editable and brought its own field; the fixed ones were nine until the weekly
-        // review added Alt+G to the nav.
-        await Assertions.Expect(badges).ToHaveCountAsync(26);
+        // the only thing that says they were on screen. Twenty-eight, counted from the fixture: ten
+        // fixed ones on the list, nine digits - one per selectable task, the completed one having no
+        // panel and therefore no number, capped at nine because Alt+0 is not a tenth row - and the
+        // panel's nine. The panel's was eight until the title became editable and brought its own
+        // field; the fixed ones were nine until the weekly review added Alt+G to the nav; and the
+        // digits were seven until the review's two fixture tasks brought the selectable count to
+        // ten, which the cap then trims back to nine.
+        await Assertions.Expect(badges).ToHaveCountAsync(28);
         await Snapshot();
 
         // Released before anything else is touched, so every assertion after this one measures the
@@ -490,6 +512,40 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
 
         await tasks.Search.FillAsync(string.Empty);
         await Assertions.Expect(tasks.Rows.First).ToBeVisibleAsync();
+
+        // The weekly review, the app's sixth screen. Its five groups fold, so every one of them has
+        // to be unfolded in turn to be measured at all — a folded panel is out of the DOM, the same
+        // as on the settings page. That is what the last two fixture tasks are for: a group with no
+        // rows paints its empty line instead of the row colours this walk exists to look at.
+        var review = await App.GoToReview();
+        await Assertions.Expect(review.Heading).ToHaveTextAsync("Ugentlig gennemgang");
+
+        foreach (var group in new[]
+        {
+            ReviewScreen.OverdueGroup,
+            ReviewScreen.WaitingGroup,
+            ReviewScreen.StartingGroup,
+            ReviewScreen.NoDeadlineGroup,
+            ReviewScreen.SomedayGroup,
+        })
+        {
+            await review.OpenGroupAsync(group);
+
+            // Waited on the rows rather than on the heading: the headings are all there whatever the
+            // fixture holds, so a wait on one is satisfied before the group's rows exist and the
+            // snapshot would measure an empty panel.
+            await Assertions.Expect(review.RowsIn(group).First).ToBeVisibleAsync();
+            await Snapshot();
+        }
+
+        // The finished state, which is its own branch: the "never been through one" line is
+        // replaced by the timestamp, and only a round trip can put it there.
+        await Assertions.Expect(review.Never).ToBeVisibleAsync();
+        await Snapshot();
+
+        await review.Complete.ClickAsync();
+        await Assertions.Expect(review.LastCompleted).ToBeVisibleAsync();
+        await Snapshot();
 
         var import = await App.GoToImport();
         await Assertions.Expect(import.AnalyseButton).ToHaveTextAsync("Analysér");
