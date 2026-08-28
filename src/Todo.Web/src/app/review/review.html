@@ -1,0 +1,90 @@
+<h2 class="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+  {{ 'review.heading' | transloco }}
+</h2>
+
+<p data-testid="review-intro" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+  {{ 'review.intro' | transloco }}
+</p>
+
+<!-- Fem grupper i beslutningsrækkefølge, ikke i tidsrækkefølge: brudte tilsagn først, fordi de
+     kræver en beslutning nu, og Måske sidst, fordi den er den man tager stilling til når resten er
+     ryddet. Rækkefølgen er hele grunden til at skærmen ikke bare er en femte liste — se designets
+     afsnit 1. Højst én åben, og nul er en gyldig tilstand. -->
+<div class="mt-4 border-t border-gray-300 dark:border-gray-700">
+  @for (group of groups(); track group.name) {
+    <section
+      appReviewSection
+      [attr.data-testid]="group.name + '-review-group'"
+      [name]="group.name"
+      [heading]="headingKey(group.name)"
+      [count]="group.tasks.length"
+      [open]="isOpen(group.name)"
+      (toggled)="toggleSection(group.name)"
+    >
+      @if (group.tasks.length === 0) {
+        <!-- En tom gruppe beholder sin overskrift og kan stadig åbnes: en kontrol der ikke kan
+             betjenes er en død kontrol, og "der er ikke noget her" er et svar på gennemgangens
+             spørgsmål frem for fraværet af et. -->
+        <p data-testid="group-empty" class="text-sm text-gray-500 dark:text-gray-400">
+          {{ 'review.groupEmpty' | transloco }}
+        </p>
+      } @else {
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+          @for (task of group.tasks; track task.id) {
+            <!-- Samme række som på opgavelisten, med hele detaljepanelet. Det er ikke sparsommelighed:
+                 fordi TaskStore genindlæser efter et gem, forlader rækken sin gruppe i samme øjeblik
+                 beslutningen er truffet, og sektionsovergangene animerer det uden en linje her.
+                 Ingen [number]: cifrene 1–9 hører til opgavelisten, og registret er
+                 last-writer-wins, så en anden skærm der uddelte dem ville stjæle dem. -->
+            <li
+              appTaskRow
+              [task]="task"
+              [expanded]="expandedId() === task.id"
+              [editingNote]="editingNote() === task.id"
+              (toggled)="toggle(task)"
+              (noteEditStarted)="editNote(task)"
+              (noteEditStopped)="stopEditingNote()"
+              (removed)="remove(task)"
+            ></li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>
+
+@if (empty()) {
+  <p data-testid="review-empty" class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+    {{ 'review.empty' | transloco }}
+  </p>
+}
+
+<!-- Afslutningen, og den er hele grunden til at det er en vane frem for en skærm: der er et
+     øjeblik hvor man siger "nu er jeg igennem". Altid aktiv — man må gerne være færdig med at
+     kigge selvom der står noget tilbage; gennemgangen handler om at have set det. -->
+<div class="mt-6 flex flex-wrap items-center gap-3">
+  <button
+    type="button"
+    data-testid="review-complete"
+    class="rounded bg-blue-700 px-3 py-2 text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-600 dark:focus-visible:outline-blue-400"
+    (click)="complete()"
+  >
+    {{ 'review.done' | transloco }}
+  </button>
+
+  @if (review.lastCompletedAt(); as last) {
+    <p data-testid="review-last" class="text-xs text-gray-500 dark:text-gray-400">
+      {{ 'review.lastCompleted' | transloco: { at: last } }}
+    </p>
+  } @else {
+    <p data-testid="review-never" class="text-xs text-gray-500 dark:text-gray-400">
+      {{ 'review.never' | transloco }}
+    </p>
+  }
+</div>
+
+@if (review.error(); as message) {
+  <p data-testid="review-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+    {{ message }}
+  </p>
+}

@@ -7,10 +7,28 @@
   },
   "nav": {
     "tasks": "Tasks",
+    "review": "Review",
     "import": "Retro import",
     "jira": "Jira import",
     "ado": "ADO import",
     "settings": "Settings"
+  },
+  "review": {
+    "heading": "Weekly review",
+    "intro": "Five questions in the order worth asking them. Take them one at a time.",
+    "groups": {
+      "overdue": "Overdue",
+      "waiting": "Waiting on others",
+      "startingThisWeek": "Starting this week",
+      "noDeadline": "No deadline",
+      "someday": "Someday"
+    },
+    "groupEmpty": "There is nothing here.",
+    "empty": "There is nothing to review right now.",
+    "done": "Review finished",
+    "lastCompleted": "Last review: {{at}}",
+    "never": "You have not been through one yet.",
+    "due": "due"
   },
   "tasks": {
     "newTask": "New task",

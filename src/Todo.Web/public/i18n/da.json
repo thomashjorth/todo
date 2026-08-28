@@ -7,10 +7,28 @@
   },
   "nav": {
     "tasks": "Opgaver",
+    "review": "Gennemgang",
     "import": "Retro-import",
     "jira": "Jira-import",
     "ado": "ADO-import",
     "settings": "Indstillinger"
+  },
+  "review": {
+    "heading": "Ugentlig gennemgang",
+    "intro": "Fem spørgsmål i den rækkefølge de er værd at stille. Tag dem ét ad gangen.",
+    "groups": {
+      "overdue": "Overskredet",
+      "waiting": "Venter på andre",
+      "startingThisWeek": "Starter i denne uge",
+      "noDeadline": "Uden deadline",
+      "someday": "Måske"
+    },
+    "groupEmpty": "Der er ikke noget her.",
+    "empty": "Der er ingenting at gennemgå lige nu.",
+    "done": "Gennemgang færdig",
+    "lastCompleted": "Sidste gennemgang: {{at}}",
+    "never": "Du har ikke været igennem endnu.",
+    "due": "forfalden"
   },
   "tasks": {
     "newTask": "Ny opgave",
