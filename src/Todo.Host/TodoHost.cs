@@ -161,6 +161,7 @@ public static class TodoHost
         app.MapJira();
         app.MapAdo();
         app.MapSettings();
+        app.MapReview();
         app.MapSystem();
 
         app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = frontend });
