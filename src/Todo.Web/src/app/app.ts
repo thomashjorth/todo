@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { HealthClient, HealthResponse } from './api/todo-client';
+import { ReviewStore } from './review/review-store';
 import { Shortcut } from './shortcuts/shortcut';
 import { ShortcutModifier, shortcutKey } from './shortcuts/shortcut-key';
 import { ShortcutStore } from './shortcuts/shortcut-store';
@@ -24,6 +25,13 @@ export class App {
 
   protected readonly shortcuts = inject(ShortcutStore);
 
+  /**
+   * Read here rather than only on the review screen, because the marker has to be visible from all
+   * six: the whole point of putting it on the nav link instead of on the task list is that it does
+   * not depend on where you happen to be standing.
+   */
+  protected readonly review = inject(ReviewStore);
+
   protected readonly status = signal<HealthResponse | undefined>(undefined);
   protected readonly failed = signal(false);
 
@@ -32,6 +40,8 @@ export class App {
       next: (r) => this.status.set(r),
       error: () => this.failed.set(true),
     });
+
+    this.review.load().catch(() => {});
   }
 
   /** Porten er tilfældig, så URL'en bygges fra appens egen origin. */

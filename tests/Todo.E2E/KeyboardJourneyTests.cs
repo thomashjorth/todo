@@ -32,12 +32,13 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string SomedayTitle = "Læs om typografi";
 
     /// <summary>
-    /// Five in the nav, one in the new-task field, one in the search field and one per switch —
+    /// Six in the nav, one in the new-task field, one in the search field and one per switch —
     /// every shortcut the app has. Grew from six with the Jira import screen in slice 11, which
     /// added Alt+J to the nav, to eight with the Azure DevOps import screen in slice 12, which
-    /// added Alt+A, and to nine with the search field, which added Alt+K.
+    /// added Alt+A, to nine with the search field, which added Alt+K, and to ten with the weekly
+    /// review, which added Alt+G.
     /// </summary>
-    private const int BadgeCount = 9;
+    private const int BadgeCount = 10;
 
     /// <summary>The nine digits a row can claim. Alt+0 is not a tenth row, it is a key nobody would guess.</summary>
     private const int RowDigits = 9;
@@ -60,13 +61,23 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string WaitingTitle = "Afventer godkendelse";
 
     /// <summary>
-    /// The five nav links in app.html are the first focusable elements on the page, so the
-    /// field is the sixth stop — not the first. Asserted below rather than assumed: another
+    /// The six nav links in app.html are the first focusable elements on the page, so the
+    /// field is the seventh stop — not the first. Asserted below rather than assumed: another
     /// link, or a skip link, has to fail here with the name of what appeared, not somewhere
-    /// later where the failure would read as a broken field.
+    /// later where the failure would read as a broken field. It did exactly that when the weekly
+    /// review put nav-review second: <c>Collections differ at index 1, Expected "nav-import",
+    /// Actual "nav-review"</c>.
     /// </summary>
     private static readonly string[] TrailToTheField =
-        ["nav-tasks", "nav-import", "nav-jira", "nav-ado", "nav-settings", "new-task-input"];
+    [
+        "nav-tasks",
+        "nav-review",
+        "nav-import",
+        "nav-jira",
+        "nav-ado",
+        "nav-settings",
+        "new-task-input",
+    ];
 
     private static readonly FixedClock Clock = new(new DateOnly(2026, 8, 17));
 

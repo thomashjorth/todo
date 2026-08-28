@@ -26,6 +26,36 @@
         >
       }
     </a>
+    <!-- Markøren hænger her og ikke på opgavelisten, fordi den så er synlig fra alle seks skærme og
+         ikke koster lodret plads i en 480 px spalte. Glyffen er tekst og aria-hidden; ordet kommer
+         fra en sr-only-søskende, så linkets tilgængelige navn faktisk skifter til "Gennemgang
+         forfalden" — en farvet prik alene er ikke en forskel efter WCAG. Tekstglyf frem for en SVG
+         af samme grund som accordion-chevronen: en SVG uden titel bidrager intet til navnet, så
+         mutationen der fjerner aria-hidden ville fælde ingenting. -->
+    <a
+      data-testid="nav-review"
+      appShortcut="g"
+      appShortcutAction="activate"
+      class="text-sm text-gray-600 dark:text-gray-400"
+      routerLink="/review"
+      routerLinkActive="font-semibold text-gray-900 underline dark:text-gray-100"
+      ariaCurrentWhenActive="page"
+      >{{ 'nav.review' | transloco }}
+      @if (review.due()) {
+        <span data-testid="review-due" aria-hidden="true" class="text-amber-700 dark:text-amber-300"
+          >●</span
+        >
+        <span class="sr-only">{{ 'review.due' | transloco }}</span>
+      }
+      @if (shortcuts.altHeld()) {
+        <span
+          data-testid="shortcut-badge"
+          aria-hidden="true"
+          class="ml-1 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+          >G</span
+        >
+      }
+    </a>
     <a
       data-testid="nav-import"
       appShortcut="i"

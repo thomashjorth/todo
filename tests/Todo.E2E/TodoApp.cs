@@ -80,6 +80,16 @@ public sealed class TodoApp
         return screen;
     }
 
+    public async Task<ReviewScreen> GoToReview()
+    {
+        await Page.GetByTestId("nav-review").ClickAsync();
+
+        var screen = new ReviewScreen(this);
+        await screen.WaitUntilShownAsync();
+
+        return screen;
+    }
+
     public async Task<SettingsScreen> GoToSettings()
     {
         await Page.GetByTestId("nav-settings").ClickAsync();
