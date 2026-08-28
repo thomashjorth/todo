@@ -718,6 +718,16 @@ vagt-statusserne blev leveret uden for skiverne og står nedenfor som lukkede.
   ændrede sig hvornår — som kan bære spørgsmål som "hvor mange lukker jeg om ugen"
   og "hvor længe ligger noget i Venter på". Den er også fundamentet for GTD's
   ugentlige gennemgang, som appen slet ikke understøtter i dag. Største af de to.
+- **Ugentlig gennemgang — leveret uden for skiverne 2026-08-28.** Stod under "Resten af
+  GTD-hullerne" og var det billigste af dem, fordi den læser data der allerede fandtes. En sjette
+  rute `/review` med `Alt+G`, fem foldede grupper i beslutningsrækkefølge, en "gennemgang
+  færdig"-knap, to indstillinger (ugedag og klokkeslæt, standard fredag 15:00) og en markør på
+  navigationslinket. **Den fik bevidst ikke et skivenummer**, af samme grund som Swagger-linket og
+  vagt-statusserne — og argumentet der ellers plejede at afgøre det, nemlig at et nummer skubber
+  13–16 med, er dødt: skive 16 blev leveret før 13, 14 og 15, så numrene er mærkater og ikke en
+  rækkefølge. **Ingen migrering:** tre rækker i `Setting`. Planen er
+  `docs/plans/2026-08-27-weekly-review.md`, designet med de ti beslutninger ligger ved siden af den,
+  og de to ting der er værd at kende står i afsnit 11.
 - **"Sådan er den tænkt"-side.** En side der beskriver brugen i GTD-termer.
   Skrives som markdown-filer pr. sprog og renderes med kæden fra skive 4 — prosa
   hører ikke hjemme i oversættelsesnøgler. **Skal også sige hvad værktøjet ikke
@@ -1131,9 +1141,20 @@ Det, den stadig ikke gør, i rækkefølge efter hvor meget det betyder:
 - **Der er ingen projekter.** Underopgaver er en tjekliste under én opgave; de kan
   ikke have egen deadline eller stå selvstændigt på listen. Et udfald der kræver
   flere handlinger på forskellige tidspunkter, kan ikke repræsenteres.
-- **Der er ingen kontekster** og ingen støtte til ugentlig gennemgang, som er GTD's
-  nøglevane. "Måske"-listen er præcis den liste, en ugentlig gennemgang ville tage
-  fat i, så hullet er blevet lettere at se — ikke mindre.
+- **Der er ingen kontekster.** Det var tidligere formuleret "ingen kontekster og ingen støtte
+  til ugentlig gennemgang"; gennemgangen er lukket 2026-08-28, kontekstaksen står stadig åben.
+
+Det, den ugentlige gennemgang lukkede 2026-08-28:
+
+- **GTD's nøglevane er bygget.** En sjette skærm fører gennem fem grupper i den rækkefølge de er
+  værd at stille: overskredet, venter på andre, starter i denne uge, uden deadline, måske. Den
+  slutter med et tryk, og det tryk er hele forskellen på en vane og en skærm.
+- **"Måske"-listen var forudsagt at være den, en gennemgang ville tage fat i**, og det holdt: den er
+  gennemgangens sidste gruppe, og den kom med uden at koste andet end at `showSomeday` blev et
+  visningsfilter frem for en indlæsningsparameter.
+- **Ugedag og klokkeslæt er indstillinger, og forfaldet er beregnet frem for udløst** — samme regel
+  som udskudtheden ovenfor, så der stadig ikke findes noget i appen der kører ved midnat. Planen er
+  `docs/plans/2026-08-27-weekly-review.md`, designet ligger ved siden af den.
 
 Det, der står tilbage, bliver stående her, så det er et valg og ikke en
 forglemmelse — og så en senere beslutning om at gå hele vejen kan træffes med

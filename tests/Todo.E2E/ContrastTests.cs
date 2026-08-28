@@ -586,6 +586,16 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(settings.DelegateRows).ToHaveCountAsync(0);
         await Snapshot();
 
+        // The review group, the sixth. Its own snapshot for the same reason every other group has
+        // one: a folded panel is out of the DOM, so nothing in it is measured until it is opened —
+        // and the weekday select is the app's third, which has to paint its own opaque background
+        // or WebView2 falls back to white behind the popup.
+        await settings.OpenAsync(SettingsScreen.ReviewSection);
+        await Assertions.Expect(App.Page.GetByTestId("review-weekday")).ToBeVisibleAsync();
+        await Assertions.Expect(App.Page.GetByTestId("review-settings-hint"))
+            .ToContainTextAsync("hver uge");
+        await Snapshot();
+
         // The other half of that branch, and it cannot be staged: nothing in this suite stubs
         // /api/settings, so a row exists only because the page saved a name through the real
         // backend. The empty sentence is gone by then, which is why it is measured above.

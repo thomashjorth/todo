@@ -6,15 +6,16 @@ Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs d
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **174**, Api **310**, E2E **73**, Vitest **303** — alle grønne, målt 2026-08-27.
-E2E og Vitest steg med fire, da titlen blev redigerbar; Core og Api står stille, fordi backenden kunne
-det i forvejen. Før det faldt tre af tallene, da autostart blev fjernet (tolv tests slettet med
-vilje), og to steg igen med sektionsovergangene (tretten lagt til). Fordelingen for alle tre står i
-`CLAUDE.md`s "Testtal".
-`Check.cmd` kører dem i den rækkefølge der er bærende. Bemærk at E2E-tallet her stod på **58** og i
-`CLAUDE.md` på **59**, mens sandheden før genvejslagene var **61** — to tests var lagt til uden at
-nogen rettede tallet. Begge steder er rettet nu; se `CLAUDE.md`s "Testtal" for hvorfor det står
-skrevet frem for bare overskrevet.
+**Testtal:** Core **181**, Api **323**, E2E **81**, Vitest **330** — alle grønne, målt med
+`Check.cmd` 2026-08-28. Alle fire steg med den ugentlige gennemgang: 7 Core, 13 Api, 4 E2E og 27
+Vitest, i alt 51 lagt til med vilje. Fordelingen står i `CLAUDE.md`s "Testtal".
+`Check.cmd` kører dem i den rækkefølge der er bærende.
+
+**Og E2E-baseline var forkert to steder, femte gang regnskabet driver.** Denne fil stod på **73** og
+`CLAUDE.md` på **75**, mens sandheden var **77**: `ColorSchemeTests`' fire teorikørsler var kun
+bogført ét af stederne. Begge er rettet, og det står skrevet frem for overskrevet — et ændret tal kan
+kun betyde en tabt eller duplikeret test, hvis tallet var sandt i forvejen. Det er samme fejl som
+sidst, hvor de tre tal stod på 58, 59 og 61.
 
 ## Færdigt
 
@@ -60,7 +61,32 @@ gennem den generiske `save()`, som ville sende `title: undefined` og få servere
 Planens afsnit 5 bærer desuden en rettelse af en påstand i `CLAUDE.md`, som kostede en
 fejlforudsigelse.
 
-Og **`color-scheme` er flyttet til `<html>`** samme dag, med to eksplicitte klasser — `scheme-light` og
+Og **den ugentlige gennemgang** er leveret 2026-08-28: en sjette skærm på `/review` med `Alt+G`, som
+fører dig gennem fem grupper i GTD's rækkefølge — overskredet, venter på andre, starter i denne uge,
+uden deadline, måske — og slutter med et tryk der siger "nu er jeg igennem". Ugedag og klokkeslæt er
+indstillinger (standard fredag 15:00), og en markør på navigationslinket siger at ugens gennemgang
+mangler. Designet er `docs/plans/2026-08-27-weekly-review-design.md` med de ti beslutninger i afsnit 0,
+leveranceplanen `docs/plans/2026-08-27-weekly-review.md`. **Uden skivenummer**, af samme grund som
+Swagger-linket og de otte andre: numrene er mærkater og ikke en rækkefølge længere, siden skive 16 blev
+leveret før 13, 14 og 15.
+
+Fire ting at kende, hvis du rører den:
+
+- **Forfaldet er beregnet, ikke udløst.** Samme regel som udskudtheden — intet kører ved midnat, og
+  appen tåler at have været lukket i tre uger. Kadencen er **fast ugedag, ikke syv dage**, og gættet
+  falder den anden vej: en gennemgang taget tirsdag tilfredsstiller den igangværende periode, men køber
+  ikke en uge.
+- **Skærmen har ingen egen kopi af listen, og det er hele designet.** Rækkerne er `li[appTaskRow]` og
+  læser `TaskStore`, så en beslutning flytter rækken ud af dens gruppe uden en linje ekstra.
+  `GET /api/review` bærer derfor kun forfaldstilstanden. Vagten er
+  `Deciding_from_the_review_moves_the_row_out_of_its_group`, set fælde med en egen kopi.
+- **`showSomeday` er ikke længere en indlæsningsparameter**, men et rent visningsfilter: gennemgangen
+  skal have Måske-rækkerne uanset fluebenet. `showCompleted` er uændret, fordi Fuldført vokser for
+  evigt. Omlægningen fjernede desuden halvdelen af den reload-race `CLAUDE.md` advarer mod.
+- **`lastCompletedAt` har sin egen rute** og går aldrig gennem `PUT /api/settings`, som er en fuld
+  erstatning der ville rydde den ved enhver anden gemning. Samme grund som tokenernes ruter.
+
+Og **`color-scheme` er flyttet til `<html>`** 2026-08-27, med to eksplicitte klasser — `scheme-light` og
 `dark:scheme-dark`. På `<body>` nedarvedes egenskaben til hele siden, men **roden** blev stående på
 `normal`, og browseren maler popup'en, rullebjælkerne og lærredet efter rodens skema. Det rettede
 rullebjælkerne og lærredet.
@@ -81,30 +107,8 @@ ikke med i et screenshot — så de måler det popup'en læser.
 
 ## Næste skridt
 
-**Den ugentlige gennemgang er designet og planlagt 2026-08-27, og intet af den er bygget.** Designet er
-`docs/plans/2026-08-27-weekly-review-design.md`, leveranceplanen
-`docs/plans/2026-08-27-weekly-review.md` med tolv opgaver. Den lukker det GTD-hul designdokumentets
-afsnit 11 kalder GTD's nøglevane, og brugeren valgte den frem for projekter, kontekster,
-revisionsloggen og "sådan er den tænkt"-siden. **Den får ikke et skivenummer** — se designets afsnit 0,
-punkt 10, hvor begrundelsen står: numrene er mærkater og ikke en rækkefølge længere, siden skive 16 blev
-leveret før 13, 14 og 15.
-
-Fire ting er værd at kende, før planen køres:
-
-- **Forfaldstilstanden er beregnet, ikke udløst** — samme regel som udskudtheden, så intet kører ved
-  midnat og appen tåler at have været lukket i tre uger. Kadencen er **fast ugedag, ikke syv dage**, og
-  gættet falder den anden vej.
-- **Task 5 rører `TaskStore`**, altså kode uden for gennemgangen: `showSomeday` går fra
-  indlæsningsparameter til visningsfilter. De tre afviste alternativer står i designets afsnit 4, og
-  `showCompleted` bliver uændret en indlæsningsparameter.
-- **Task 11 er den dyre.** Gennemgangen er appens sjette rute, og kontrastvagten er skrevet om fem —
-  plus at hver af de fem grupper skal have en fixture-opgave og et klik, ellers er dens `@if`-gren
-  umålt.
-- **`CLAUDE.md` bliver forældet på ét punkt** ("`app.routes.ts` har præcis fem ruter") og skal rettes i
-  samme leverance. Den er auto-indlæst i hver session.
-
-**Skive 13, mentions-indbakken**, er den næste *nummererede*, altså efter gennemgangen. Kravene står i
-designdokumentets afsnit 9, punkt 13 — læs dem der frem for her. Tre ting er værd at have i baghovedet, før planen skrives:
+**Skive 13, mentions-indbakken**, er den næste nummererede. Kravene står i designdokumentets afsnit 9,
+punkt 13 — læs dem der frem for her. Tre ting er værd at have i baghovedet, før planen skrives:
 
 - Et **pull request er ikke et work item**, så de to slags omtaler kommer fra hver sin kilde og skal
   mødes i én indbakke.
@@ -131,6 +135,22 @@ beskytter mod noget der ikke findes endnu, og en vagt på dem kunne ikke bringes
 Skive **15** er livscyklus og arkiv.
 
 ## Målinger kun du kan lave
+
+**Bliver `type="time"`s vælger-popup mørk i Photino-vinduet?** Ny 2026-08-28 med gennemgangens
+indstillinger. Åbn Indstillinger → Gennemgang under et mørkt tema og klik på urikonet. Er popup'en
+hvid, er det samme klasse af fejl som statusvælgerens, og faldbacket er navngivet i designets afsnit
+5: to `<select>` for time og minut, altså det mønster der nu er bevist tre steder. **Bemærk hvad der
+*ikke* er årsagen, hvis det sker** — `color-scheme` er udelukket to gange på præcis den slags popup,
+så mål feltets egen baggrund frem for at flytte `color-scheme` igen. Feltets *værdi* er derimod
+allerede dækket: `'time'` stod i forvejen i kontrastvagtens hvidliste.
+
+**Virker `Alt+G` i det rigtige vindue?** Dækket af en E2E i Chromium, men et nyt bogstav er den ene
+risiko maskineriet ikke kan gå god for. Står sammen med de to genvejslag-målinger nedenfor, som
+heller ikke er lavet.
+
+**Er fredag 15:00 den rigtige standard for dig?** Ikke en kodemåling men en brugsmåling: bliver
+markøren konsekvent ignoreret til mandag, er ugedagen forkert valgt frem for at vanen er det.
+Indstillingen findes netop derfor.
 
 **De to genvejslag i Photino-vinduet — ingen af de to målinger nedenfor er lavet.** Playwright trykker
 `Alt+Shift+D` i Chromium, og suiten er grøn, men det siger intet om dit tastatur i det rigtige vindue.
@@ -245,7 +265,7 @@ her som "bliver dyrere" gennem tre leverancer, og aftrykket voksede med cirka é
 - **Resten af GTD-hullerne.** Ingen projekter og ingen kontekster. Kontekstaksen er den mest
   indgribende: den ville omgøre designdokumentets afsnit 2 frem for at lægge et felt til, og afsnit 11
   rangerer den som det største hul, fordi deadline stadig er den eneste akse for alt handlingsklart.
-  *(Den ugentlige gennemgang stod her indtil 2026-08-27 og er nu designet og planlagt — se "Næste
-  skridt". Den var den billigste af de tre, fordi den læser data der allerede findes.)*
+  *(Den ugentlige gennemgang stod her indtil 2026-08-27 og er leveret 2026-08-28 — se "Uden for
+  skiverne". Den var den billigste af de tre, fordi den læste data der allerede fandtes.)*
 *(Animationer side om side stod her i nogle timer 2026-08-25 og er nu leveret — se "Uden for
 skiverne". Det der lukkede den var afsnit 8b: nesting plus én CSS-regel, målt frem for gættet.)*

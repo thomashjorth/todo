@@ -138,8 +138,7 @@ public class ColorSchemeTests(BrowserFixture fixture) : BrowserTest(fixture)
             };
 
             // Every select on this screen rather than the status one by name, so a second select on
-            // the task list inherits the rule instead of slipping past it. Today that is one: the
-            // language select lives on the settings page and is not in reach here.
+            // the task list inherits the rule instead of slipping past it.
             return Array.from(document.querySelectorAll('select')).map((select, index) => {
                 const name = select.getAttribute('data-testid') || 'select-' + index;
                 return name + ' ' + channels(getComputedStyle(select).backgroundColor);
@@ -148,7 +147,29 @@ public class ColorSchemeTests(BrowserFixture fixture) : BrowserTest(fixture)
 
         Assert.NotEmpty(measured);
 
-        foreach (var entry in measured)
+        // The settings page's two, which the pass above cannot reach: the language select and the
+        // review weekday. Both are behind folded groups, so each has to be opened before it exists
+        // in the DOM at all. Added 2026-08-28 with the third select - the rule had a working example
+        // and a fixed bug behind it, and leaving a new select outside the guard is how the second
+        // one happened.
+        var settings = await App.GoToSettings();
+        await settings.OpenAsync(SettingsScreen.LanguageSection);
+        await Assertions.Expect(settings.Language).ToBeVisibleAsync();
+        var onSettings = await MeasureSelectsAsync();
+
+        await settings.OpenAsync(SettingsScreen.ReviewSection);
+        await Assertions.Expect(App.Page.GetByTestId("review-weekday")).ToBeVisibleAsync();
+        var withReview = await MeasureSelectsAsync();
+
+        // Named rather than counted, so a select that stopped rendering shows up as a missing name
+        // instead of as a smaller number nobody reads. The status select is absent from this list on
+        // purpose: it carries no data-testid — TaskListScreen finds it as the panel's only select —
+        // so it reads as `select-0`, and pinning that would break the day a second select joins the
+        // panel. `Assert.NotEmpty(measured)` above is what says it was there.
+        Assert.Contains(onSettings, e => e.StartsWith("language-select ", StringComparison.Ordinal));
+        Assert.Contains(withReview, e => e.StartsWith("review-weekday ", StringComparison.Ordinal));
+
+        foreach (var entry in measured.Concat(withReview))
         {
             var parts = entry.Split(' ');
             var channels = parts[1].Split(',').Select(int.Parse).ToArray();
@@ -168,6 +189,33 @@ public class ColorSchemeTests(BrowserFixture fixture) : BrowserTest(fixture)
                 + $"{(expectDark ? "dark" : "light")}.");
         }
     }
+
+    /// <summary>
+    /// Every &lt;select&gt; rendered right now, as <c>name r,g,b,a</c>. Painted onto a 1x1 canvas and
+    /// read back rather than parsed, because Tailwind's palette is oklch and a regex over the digits
+    /// would read <c>oklch(0.967 0.003 264.542)</c> as a blue channel of 264.
+    /// </summary>
+    private Task<string[]> MeasureSelectsAsync() => App.Page.EvaluateAsync<string[]>(@"() => {
+        const surface = document.createElement('canvas');
+        surface.width = surface.height = 1;
+        const ctx = surface.getContext('2d', { willReadFrequently: true });
+        ctx.globalCompositeOperation = 'copy';
+
+        const channels = (css) => {
+            // Reset first: an unparseable colour leaves fillStyle alone, so without this it would
+            // silently report the previous element's colour.
+            ctx.fillStyle = '#000';
+            ctx.fillStyle = css;
+            ctx.fillRect(0, 0, 1, 1);
+            const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+            return r + ',' + g + ',' + b + ',' + a;
+        };
+
+        return Array.from(document.querySelectorAll('select')).map((select, index) => {
+            const name = select.getAttribute('data-testid') || 'select-' + index;
+            return name + ' ' + channels(getComputedStyle(select).backgroundColor);
+        });
+    }");
 
     /// <summary>The mean channel, which is enough to tell near-black from white and does not pretend
     /// to be a perceptual measure - <see cref="ContrastTests"/> owns those.</summary>

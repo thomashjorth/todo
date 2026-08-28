@@ -231,6 +231,13 @@ kommer fra select'en. Det er målt frem for valgt — **sprogvælgeren på indst
 mønsteret siden den blev skrevet, styler ingen optioner, og har aldrig haft fejlen.** Den var det
 arbejdende eksempel, og statusvælgeren var den ene af appens to `<select>` der manglede parret.
 
+**Men parret er ikke ét fast par — det er den flade select'en *står på*.** Reglen stod her som
+"`bg-gray-50 dark:bg-gray-800`", og et design skrevet på den formulering gav ugedagsvælgeren det
+forkerte par; rettet 2026-08-27 inden koden blev skrevet. Sprogvælgeren og ugedagsvælgeren står på
+**siden** og er `bg-white dark:bg-gray-800`; statusvælgeren står i **detaljepanelet** og er
+`bg-gray-50 dark:bg-gray-800`. Kravet er uigennemsigtighed, ikke en bestemt grå: kopiér naboens par
+frem for at kopiere det par der tilfældigvis står her.
+
 **Og en utility-klasse nævnt i en *kodekommentar* bliver ved at stå i bundlen.** Målt her: den gamle
 klasse blev genereret, længe efter at ingen brugte den, fordi en kommentar i `task-detail.html`
 nævnte den ved navn — Tailwind udtrækker kandidater fra rå tekst, kommentarer iberegnet. Konsekvensen
@@ -423,7 +430,7 @@ og `validateTree` står **uden** `@experimental` — den ene markering i `signal
 AI-værktøjsdel. Så argumentet mod dem er ikke modenhed.
 Argumentet er formen: appen gemmer **pr. felt** på blur/change og har ingen formular-submit, og
 **valideringen bor på serveren** med fejlkoder som `apiErrorMessage` oversætter. Signal forms er
-bygget om en formularmodel med submit, så et skifte ville røre 40+ felter på fem skærme og omkring 90
+bygget om en formularmodel med submit, så et skifte ville røre 40+ felter på seks skærme og omkring 90
 testkald der sætter `.value` og udsender et event — for at flytte en validering serveren ejer.
 
 **Prisen for fravalget er målt og skal blive ved at stå her: det manuelle `[checked]`-mønster har
@@ -482,7 +489,7 @@ fokus, skulle brugeren trykke Alt+O og **derefter** Enter. Og et programmatisk `
 lige så meget som den handler. Direktivet har derfor
 `appShortcutAction="focus" | "activate"`, hvor `'activate'` kalder begge.
 
-**Bogstaverne er `Alt+O/I/J/A/S/N/K/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
+**Bogstaverne er `Alt+O/G/I/J/A/S/N/K/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
 piletasterne, som Chrome stjæler under udvikling. De er frie i Photino-vinduet, men en genvej der
 virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende. `J` kom til med
 Jira-importen i skive 11 og kolliderer ikke: Chrome på Windows binder intet `Alt+J`, og den nære
@@ -490,7 +497,9 @@ nabo er DevTools-konsollen, som er `Ctrl+Shift+J` — et andet modifikatorsæt. 
 `Cmd+Option+J`, men appen er Windows-only.) `A` kom til med ADO-importen i skive 12 og kolliderer
 heller ikke: Chrome på Windows binder intet `Alt+A`, og de nære naboer er `Ctrl+A` og `Alt+D`, altså
 andre taste- og modifikatorsæt. **`K` kom til med søgefeltet** og kolliderer heller ikke: `Ctrl+K` er
-Chromes adresselinje, altså et andet modifikatorsæt, og `Alt+K` er ubundet.
+Chromes adresselinje, altså et andet modifikatorsæt, og `Alt+K` er ubundet. **`G` kom til med den
+ugentlige gennemgang** 2026-08-28: Chrome på Windows binder intet `Alt+G`, og `Ctrl+G` (find næste)
+er et andet modifikatorsæt.
 **Registret er last-writer-wins**, så bogstaverne skal
 blive ved at være globalt unikke; se designdokumentets afsnit 10.
 
@@ -954,12 +963,15 @@ forkerte grund.
   Playwright med en afbrydelse — så en E2E-påstand skrevet på kodens tekst fejler, uden at der er
   noget i vejen med koden.
 - **Kontrast måles i browseren** med `getComputedStyle`, fordi kun browseren har afgjort hvilken
-  baggrund et stykke tekst endte på. `ContrastTests` går appens **fem** skærme igennem i begge
-  farvetemaer — `app.routes.ts` har præcis fem ruter: opgavelisten, retro-importen, Jira-importen,
-  ADO-importen og indstillingerne — og måler derudover det **udvidede detaljepanel**, hvor noten,
-  underopgaverne og statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en sjette skærm;
-  tæl det ikke som en. (Tallet var fire indtil 2026-08-20; ADO-importen gjorde det fem, og vagten
-  fulgte med i skive 12's sidste opgave.) **En `@if`-gren er umålt, indtil fixturet har en opgave i den
+  baggrund et stykke tekst endte på. `ContrastTests` går appens **seks** skærme igennem i begge
+  farvetemaer — `app.routes.ts` har præcis seks ruter: opgavelisten, gennemgangen, retro-importen,
+  Jira-importen, ADO-importen og indstillingerne — og måler derudover det **udvidede detaljepanel**,
+  hvor noten, underopgaverne og statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en
+  syvende skærm; tæl det ikke som en. (Tallet var fire indtil 2026-08-20; ADO-importen gjorde det
+  fem, og den ugentlige gennemgang gjorde det seks 2026-08-28.) **Gennemgangen koster mere end en
+  rute:** dens fem grupper folder som indstillingssidens, så hver af dem skal åbnes for at blive
+  målt, og to fixture-opgaver kom til alene for at give tickler-gruppen og "uden deadline" en række
+  at male — uden dem viser de deres tomme linje i stedet. **En `@if`-gren er umålt, indtil fixturet har en opgave i den
   tilstand og rejsen åbner rækken** — vagten kan ikke se en farve, der aldrig blev renderet, så en ny
   betinget linje koster en fixture-opgave og en klik-og-vent i `ContrastTests`. Hintet om en startdato
   efter deadline kom ind i vagten netop derfor, og blev set fejle i begge temaer.
@@ -969,8 +981,12 @@ forkerte grund.
   Jiras og ADO's åbnes af `StoreJiraTokenAsync`/`StoreAdoTokenAsync`. Målt at det virker frem for antaget:
   overskriftens `<span>` sat til `text-gray-400 dark:text-gray-600` gav **fem** fejl pr. tema i **tre**
   teorier (`Every_screen`, `The_Jira_screens`, `The_Ado_screens`), én pr. gruppenavn —
-  `span text "Sprog" 2,60:1 needs 4,5`. Tælles skærme, er svaret stadig fem ruter; tælles **tilstande**,
-  koster indstillingssiden nu fem snapshots.
+  `span text "Sprog" 2,60:1 needs 4,5`. (Målt før gennemgangens gruppe kom til; med seks grupper er
+  det seks.) Tælles skærme, er svaret seks ruter; tælles **tilstande**, koster indstillingssiden nu
+  seks snapshots — det foldede plus de fem grupper rejsen selv åbner.
+  **Og gennemgangens egen skærm koster fem mere**, ét pr. gruppe, fordi de folder på samme måde;
+  samme mutation på `review-section.html`s overskrift gav `span text "Overskredet" 2,60:1 needs 4,5`
+  og fire søskende i lyst tema, og 2,35:1 i mørkt. Set fejle.
   **Og hele suiten kører på 480 px undtagen to teorier**, så alt bag `xl:` var farve for farve umålt,
   indtil `The_side_by_side_layout_meets_WCAG_AA` og `The_side_by_side_prompt_meets_WCAG_AA` kom til.
   Det nye der måles, er ikke en palette men et sæt **forældre**: panelet har forladt sin række, og en
@@ -1119,8 +1135,28 @@ forkerte grund.
 
 ## Testtal
 
-**174** Todo.Core.Tests, **310** Todo.Api.Tests, **75** Todo.E2E, **303** Vitest — alle grønne,
-målt med `Check.cmd` 2026-08-27.
+**181** Todo.Core.Tests, **323** Todo.Api.Tests, **81** Todo.E2E, **330** Vitest — alle grønne,
+målt med `Check.cmd` 2026-08-28.
+
+**Alle fire steg, fordi den ugentlige gennemgang kom til — 51 tests er lagt til med vilje.**
+Fordelingen: **7** Core i `ReviewScheduleTests` (174 → 181, forfaldsberegningen), **13** Api
+(310 → 323: 8 i `ReviewSettingsTests`, 5 i `ReviewEndpointsTests`), **4** E2E i
+`ReviewJourneyTests` (77 → 81) og **27** Vitest (303 → 330: 11 i `review-groups.spec.ts`, 5 i
+`review-store.spec.ts`, 7 i `review.spec.ts`, 3 i `settings.spec.ts` og netto 1 i
+`task-store.spec.ts`, hvor `showSomeday`-omlægningen erstattede én test med to). Planen er
+`docs/plans/2026-08-27-weekly-review.md`, designet ligger ved siden af den.
+
+**Og E2E-baseline var forkert *to* steder, femte gang regnskabet driver.** Før leverancen stod
+`HANDOFF.md` på **73** og linjen her på **75**, mens sandheden var **77** — de fire teorikørsler fra
+`ColorSchemeTests` var kun bogført ét af de to steder. 77 + 4 = 81, hvilket er hvad `Check.cmd`
+måler. Begge tal er rettet, og det står her frem for at blive overskrevet i stilhed: et ændret tal
+kan kun betyde en tabt eller duplikeret test, hvis tallet var sandt i forvejen.
+
+**Nogle eksisterende tests skiftede *forventning* uden at flytte noget tal**, og de er værd at kende,
+fordi de alle sammen er nedskrevne konstanter: `KeyboardJourneyTests.BadgeCount` 9 → 10 (`Alt+G`),
+`ContrastTests`' bare badge-total 26 → 28 (de ti faste plus ni cifre, hvor cifrene gik fra syv, da
+gennemgangens to fixture-opgaver kom til), `TrailToTheField` fik `nav-review` som andet stop, og
+indstillingssidens fem grupper blev seks i to påstande.
 
 **E2E steg til 77 senere samme dag, fordi statusvælgerens popup blev rettet — fire teorikørsler er
 lagt til.** `ColorSchemeTests` har to `[Theory]` med et `InlineData` pr. tema: rodens brugte skema

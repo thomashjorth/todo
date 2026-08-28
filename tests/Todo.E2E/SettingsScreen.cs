@@ -25,6 +25,8 @@ public sealed class SettingsScreen(TodoApp app)
 
     public const string RetroSection = "retro";
 
+    public const string ReviewSection = "review";
+
     public ILocator Heading => Page.GetByRole(AriaRole.Heading, new() { Level = 2 });
 
     public ILocator Language => Page.GetByTestId("language-select");
