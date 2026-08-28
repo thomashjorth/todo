@@ -758,4 +758,70 @@
       </p>
     }
   </section>
+
+  <!-- Gennemgangen står sidst, fordi den er den nyeste og ikke fordi den er mindst vigtig: de fem
+       grupper over den har en rækkefølge der er begrundet ovenfor, og at skubbe en ind i midten
+       ville bryde den uden at vinde noget. -->
+  <section
+    appSettingsSection
+    data-testid="review-settings"
+    name="review"
+    heading="settings.groups.review"
+    [open]="isOpen('review')"
+    (toggled)="toggleSection('review')"
+  >
+    <p data-testid="review-settings-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ 'settings.review.hint' | transloco }}
+    </p>
+
+    <label
+      for="review-weekday"
+      class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
+      >{{ 'settings.review.weekday' | transloco }}</label
+    >
+    <!-- bg-white dark:bg-gray-800 er bærende og ikke pynt: WebView2 maler en <select>-popup af
+         elementets EGEN baggrund, og er den transparent, falder popup en tilbage på hvid — med den
+         lyse tekst fra det mørke tema ovenpå. Parret er sidens, som sprogvælgeren ovenfor, ikke
+         panelets gray-50; en <select> skal male den flade den står på.
+         Optionerne får ingen klasser: background-color nedarves ikke, og popup ens flade kommer
+         fra select en. -->
+    <select
+      #weekday
+      id="review-weekday"
+      data-testid="review-weekday"
+      class="mt-2 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+      (change)="chooseWeekday(weekday.value)"
+    >
+      @for (day of weekdays; track day) {
+        <option [value]="day" [selected]="day === settings.reviewWeekday()">
+          {{ weekdayKey(day) | transloco }}
+        </option>
+      }
+    </select>
+
+    <label
+      for="review-time"
+      class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
+      >{{ 'settings.review.time' | transloco }}</label
+    >
+    <input
+      #time
+      id="review-time"
+      data-testid="review-time"
+      type="time"
+      [value]="settings.reviewTimeOfDay()"
+      class="mt-2 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+      (change)="chooseTime(time.value)"
+    />
+
+    @if (settings.reviewError(); as message) {
+      <p
+        data-testid="review-settings-error"
+        role="alert"
+        class="mt-2 text-sm text-red-700 dark:text-red-300"
+      >
+        {{ message }}
+      </p>
+    }
+  </section>
 </div>

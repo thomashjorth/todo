@@ -46,6 +46,8 @@ interface SettingsFixture {
   adoWorkItemTypes?: string[];
   adoDefaultDeadlineDays?: number;
   hasAdoToken?: boolean;
+  reviewWeekday?: number;
+  reviewTimeOfDay?: string;
 }
 
 /**
@@ -78,6 +80,11 @@ function settingsJson(language: string | null, rest: SettingsFixture = {}): Blob
       adoWorkItemTypes: defaultTypes,
       adoDefaultDeadlineDays: 3,
       hasAdoToken: false,
+      // Friday at three, the two the read layer answers for an absent row. Both are
+      // required on the response, so a fixture without them hands the store an
+      // undefined the types say cannot happen - and nothing here type-checks that.
+      reviewWeekday: 5,
+      reviewTimeOfDay: '15:00',
       ...rest,
     }),
   ]);
@@ -92,7 +99,7 @@ function press(element: HTMLElement, testid: string): void {
 }
 
 /** The five groups, named the way the heading button's id and test id are built from. */
-type Section = 'language' | 'delegate' | 'jira' | 'ado' | 'retro';
+type Section = 'language' | 'delegate' | 'jira' | 'ado' | 'retro' | 'review';
 
 /**
  * Unfolds one group, and folds whichever was open. Every control on this page now lives behind an
@@ -236,7 +243,7 @@ describe('Settings', () => {
   // the sources are set up once while the language and the delegates are what you touch. ADO sits
   // beside Jira because the two groups have the same shape, and the retro import is last because it
   // is not a connected source at all — no URL, no token, just a file.
-  it('should hold the settings in five equal groups', async () => {
+  it('should hold the settings in six equal groups', async () => {
     const { element } = await open(null);
 
     const sections = [...element.querySelectorAll('section')];
@@ -246,6 +253,7 @@ describe('Settings', () => {
       'jira-settings',
       'ado-settings',
       'retro-settings',
+      'review-settings',
     ]);
 
     const headings = sections.map((s) => s.querySelector('h3')!);
@@ -259,12 +267,13 @@ describe('Settings', () => {
       'Jira-import',
       'ADO-import',
       'Retro-import',
+      'Gennemgang',
     ]);
 
-    // Equal groups look equal: one class list for all five, rather than three structures with
+    // Equal groups look equal: one class list for all six, rather than three structures with
     // three levels, which is what the page had.
     expect([...new Set(headings.map((h) => h.className))]).toHaveLength(1);
-    expect(element.querySelectorAll('h3')).toHaveLength(5);
+    expect(element.querySelectorAll('h3')).toHaveLength(6);
   });
 
   // One group at a time, so each of these has to be unfolded before its subsections exist at all.
@@ -357,12 +366,12 @@ describe('Settings', () => {
     const screen = await open(null, [], {}, 'jira');
 
     const chevrons = [...screen.element.querySelectorAll('[data-testid="section-chevron"]')];
-    expect(chevrons).toHaveLength(5);
+    expect(chevrons).toHaveLength(6);
     expect(chevrons.every((c) => c.getAttribute('aria-hidden') === 'true')).toBe(true);
 
     // The open one points down, the folded ones sideways.
     expect(chevrons[2].textContent!.trim()).toBe('▾');
-    expect(chevrons.filter((c) => c.textContent!.trim() === '▸')).toHaveLength(4);
+    expect(chevrons.filter((c) => c.textContent!.trim() === '▸')).toHaveLength(5);
   });
 
   it('should say that delegating is bookkeeping only, and that nobody is on the list yet', async () => {
@@ -993,6 +1002,85 @@ describe('Settings', () => {
 
     input.value = '';
     input.dispatchEvent(new Event('change'));
+
+    screen.http.verify();
+  });
+
+  // Sunday is 0, a real weekday rather than an absent value, so it has to reach the server - the
+  // same shape as the day count above, and the reason the contract declares default: 5.
+  it('should save a chosen weekday, Sunday included', async () => {
+    const screen = await open(null, [], {}, 'review');
+
+    const select = screen.element.querySelector<HTMLSelectElement>(
+      '[data-testid="review-weekday"]',
+    )!;
+    expect(select.value).toBe('5');
+
+    select.value = '0';
+    select.dispatchEvent(new Event('change'));
+
+    const saved = screen.http.expectOne('/api/settings');
+    expect(JSON.parse(saved.request.body)).toEqual({
+      adoWorkItemTypes: defaultTypes,
+      reviewWeekday: 0,
+    });
+    saved.flush(settingsJson(null, { reviewWeekday: 0 }));
+
+    await settled(screen, () =>
+      expect(
+        screen.element.querySelector<HTMLSelectElement>('[data-testid="review-weekday"]')!.value,
+      ).toBe('0'),
+    );
+  });
+
+  // Every field goes with every save, because PUT /api/settings is a full replacement that reads an
+  // absent field as clear. Saving the time must therefore carry the weekday that was chosen first -
+  // the trap `current` exists for in TaskStore.update, here in its settings shape.
+  //
+  // The server answers a *different* weekday than the one clicked, and that is deliberate twice
+  // over. It makes the wait real: waiting for the select to show the value the test itself assigned
+  // reads back its own write and cannot fail, which is the same trap the manual [checked] pattern
+  // has. And it makes the assertion honest: only the reply can put a 2 in that box, so the second
+  // save is provably carrying what the server said rather than what the click did.
+  it('should carry the stored weekday along when the time is saved', async () => {
+    const screen = await open(null, [], {}, 'review');
+
+    const select = screen.element.querySelector<HTMLSelectElement>(
+      '[data-testid="review-weekday"]',
+    )!;
+    select.value = '1';
+    select.dispatchEvent(new Event('change'));
+    screen.http.expectOne('/api/settings').flush(settingsJson(null, { reviewWeekday: 2 }));
+
+    await settled(screen, () =>
+      expect(
+        screen.element.querySelector<HTMLSelectElement>('[data-testid="review-weekday"]')!.value,
+      ).toBe('2'),
+    );
+
+    const time = field(screen.element, 'review-time');
+    time.value = '09:30';
+    time.dispatchEvent(new Event('change'));
+
+    const saved = screen.http.expectOne('/api/settings');
+    expect(JSON.parse(saved.request.body)).toEqual({
+      adoWorkItemTypes: defaultTypes,
+      reviewWeekday: 2,
+      reviewTimeOfDay: '09:30',
+    });
+    saved.flush(settingsJson(null, { reviewWeekday: 2, reviewTimeOfDay: '09:30' }));
+
+    screen.http.verify();
+  });
+
+  // A cleared time input reads as an empty string, which the server refuses. Nothing is sent
+  // instead - emptying the box is not a way to say anything.
+  it('should send nothing for an emptied time field', async () => {
+    const screen = await open(null, [], {}, 'review');
+
+    const time = field(screen.element, 'review-time');
+    time.value = '';
+    time.dispatchEvent(new Event('change'));
 
     screen.http.verify();
   });

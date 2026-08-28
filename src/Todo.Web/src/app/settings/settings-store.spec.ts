@@ -48,6 +48,8 @@ interface SettingsJson {
   adoWorkItemTypes?: string[];
   adoDefaultDeadlineDays?: number;
   hasAdoToken?: boolean;
+  reviewWeekday?: number;
+  reviewTimeOfDay?: string;
 }
 
 function settingsJson(overrides: SettingsJson = {}): Blob {
@@ -73,6 +75,11 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       adoWorkItemTypes: ['Bug', 'User Story', 'Task'],
       adoDefaultDeadlineDays: 3,
       hasAdoToken: false,
+      // Friday at three, the two the read layer answers for an absent row. Both are
+      // required on the response, so a fixture without them hands the store an
+      // undefined the types say cannot happen - and nothing here type-checks that.
+      reviewWeekday: 5,
+      reviewTimeOfDay: '15:00',
       ...overrides,
     }),
   ]);

@@ -190,7 +190,22 @@
       "delegates": "Uddelegering",
       "jira": "Jira-import",
       "ado": "ADO-import",
-      "retro": "Retro-import"
+      "retro": "Retro-import",
+      "review": "Gennemgang"
+    },
+    "review": {
+      "hint": "Appen foreslår en gennemgang fra dette tidspunkt hver uge. Du kan altid starte en før tid.",
+      "weekday": "Ugedag",
+      "time": "Klokkeslæt",
+      "days": {
+        "sunday": "Søndag",
+        "monday": "Mandag",
+        "tuesday": "Tirsdag",
+        "wednesday": "Onsdag",
+        "thursday": "Torsdag",
+        "friday": "Fredag",
+        "saturday": "Lørdag"
+      }
     },
     "delegates": {
       "hint": "Uddelegering er kun bogføring: der bliver ikke sendt en besked til den anden, og en Jira-sag skifter ikke assignee i Jira.",

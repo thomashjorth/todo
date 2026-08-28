@@ -33,6 +33,8 @@ export interface SettingsChanges {
   adoIncludeWaiting?: boolean;
   adoWorkItemTypes?: readonly string[];
   adoDefaultDeadlineDays?: number;
+  reviewWeekday?: number;
+  reviewTimeOfDay?: string;
 }
 
 /**
@@ -46,6 +48,16 @@ export interface SettingsChanges {
  * never mentioned Azure DevOps must therefore leave the key out, and a deliberate `0` must not.
  */
 const defaultDeadlineDays = new SettingsRequest().adoDefaultDeadlineDays ?? 3;
+
+/**
+ * The weekday and time the contract itself declares, read off the generated request rather than
+ * written down again - the same trick as `defaultDeadlineDays`, and needed for the same reason:
+ * omitting the key is how the wire spells "the default", and here the cleared value is not the
+ * falsy one either. `0` is Sunday.
+ */
+const defaultWeekday = new SettingsRequest().reviewWeekday ?? 5;
+
+const defaultTimeOfDay = new SettingsRequest().reviewTimeOfDay ?? '15:00';
 
 @Injectable({ providedIn: 'root' })
 export class SettingsStore {
@@ -122,6 +134,15 @@ export class SettingsStore {
   readonly adoDefaultDeadlineDays = signal(defaultDeadlineDays);
 
   readonly hasAdoToken = signal(false);
+
+  /** The weekday the weekly review is suggested on, 0 = Sunday. */
+  readonly reviewWeekday = signal(defaultWeekday);
+
+  /** The local time of day it is suggested at, HH:mm. */
+  readonly reviewTimeOfDay = signal(defaultTimeOfDay);
+
+  /** The review group's own line, so a refused weekday does not land above the language select. */
+  readonly reviewError = signal<string | null>(null);
 
   /**
    * The language group's line, and after the Jira group got one of its own that is all it is: the
@@ -209,6 +230,14 @@ export class SettingsStore {
   }
 
   /**
+   * The same one path as `save`, answering into the review group's own line. Every field still
+   * goes with it - this is which line the refusal lands on, not which fields are sent.
+   */
+  async saveReview(changes: SettingsChanges): Promise<void> {
+    await this.put(changes, this.reviewError);
+  }
+
+  /**
    * Answers into whichever line the caller shows, because the two error signals are two places on
    * the page rather than two kinds of failure.
    */
@@ -230,6 +259,8 @@ export class SettingsStore {
       adoIncludeWaiting: this.adoIncludeWaiting(),
       adoWorkItemTypes: this.adoWorkItemTypes(),
       adoDefaultDeadlineDays: this.adoDefaultDeadlineDays(),
+      reviewWeekday: this.reviewWeekday(),
+      reviewTimeOfDay: this.reviewTimeOfDay(),
       ...changes,
     };
 
@@ -269,6 +300,10 @@ export class SettingsStore {
         next.adoDefaultDeadlineDays === defaultDeadlineDays
           ? undefined
           : next.adoDefaultDeadlineDays,
+      // Never through a truthiness check either: 0 is Sunday, a real weekday. Omitted at the
+      // default, because absent is how the wire spells "the default" on this field too.
+      reviewWeekday: next.reviewWeekday === defaultWeekday ? undefined : next.reviewWeekday,
+      reviewTimeOfDay: next.reviewTimeOfDay === defaultTimeOfDay ? undefined : next.reviewTimeOfDay,
     });
 
     into.set(null);
@@ -350,6 +385,8 @@ export class SettingsStore {
     this.adoWorkItemTypes.set(response.adoWorkItemTypes);
     this.adoDefaultDeadlineDays.set(response.adoDefaultDeadlineDays);
     this.hasAdoToken.set(response.hasAdoToken);
+    this.reviewWeekday.set(response.reviewWeekday);
+    this.reviewTimeOfDay.set(response.reviewTimeOfDay);
   }
 
   private async apply(): Promise<void> {

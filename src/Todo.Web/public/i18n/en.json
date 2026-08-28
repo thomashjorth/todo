@@ -190,7 +190,22 @@
       "delegates": "Delegating",
       "jira": "Jira import",
       "ado": "ADO import",
-      "retro": "Retro import"
+      "retro": "Retro import",
+      "review": "Review"
+    },
+    "review": {
+      "hint": "The app suggests a review from this time every week. You can always start one early.",
+      "weekday": "Weekday",
+      "time": "Time of day",
+      "days": {
+        "sunday": "Sunday",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday"
+      }
     },
     "delegates": {
       "hint": "Delegating is bookkeeping only: nobody is told, and a Jira issue does not change assignee in Jira.",

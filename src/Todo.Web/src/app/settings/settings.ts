@@ -12,7 +12,18 @@ const wholeNumber = /^\d+$/;
 const languageOptions = ['system', 'da', 'en'] as const;
 
 /** The five groups. Only used as a type here — the page names them one by one in the template. */
-type SettingsSectionName = 'language' | 'delegate' | 'jira' | 'ado' | 'retro';
+type SettingsSectionName = 'language' | 'delegate' | 'jira' | 'ado' | 'retro' | 'review';
+
+/** Sunday first, the way DayOfWeek numbers them, so the value is the index and not a lookup. */
+const weekdayNames = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
 
 @Component({
   selector: 'app-settings',
@@ -31,6 +42,8 @@ export class Settings {
   protected readonly ado = inject(AdoStore);
 
   protected readonly options = languageOptions;
+
+  protected readonly weekdays = [0, 1, 2, 3, 4, 5, 6];
 
   /**
    * The token being typed. It lives here rather than in the store on purpose: a store is a
@@ -93,6 +106,22 @@ export class Settings {
 
   constructor() {
     void this.retro.loadAliases();
+  }
+
+  protected weekdayKey(day: number): string {
+    return `settings.review.days.${weekdayNames[day]}`;
+  }
+
+  protected chooseWeekday(value: string): void {
+    this.settings.saveReview({ reviewWeekday: Number(value) }).catch(() => {});
+  }
+
+  protected chooseTime(value: string): void {
+    // An empty field is what a cleared time input reads as, and the server would refuse it. The
+    // stored value stays instead - clearing the box is not a way to say anything.
+    if (value) {
+      this.settings.saveReview({ reviewTimeOfDay: value }).catch(() => {});
+    }
   }
 
   protected isOpen(section: SettingsSectionName): boolean {
