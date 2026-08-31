@@ -549,8 +549,23 @@ git commit -m "✨ Jira afstemmer pr. nøgle, fordi key IN fejler på præcis de
 **Filer:**
 - Ret: `contracts/openapi.yaml`
 - Ret: `src/Todo.Core/Errors/ErrorCodes.cs`
-- Ret: `src/Todo.Web/src/assets/i18n/da.json`, `src/Todo.Web/src/assets/i18n/en.json`
-- Genereret: `src/Todo.Web/src/app/api/todo-client.ts`
+- Ret: `src/Todo.Web/public/i18n/da.json`, `src/Todo.Web/public/i18n/en.json`
+- Genereret: `src/Todo.Web/src/app/api/todo-client.ts` **og**
+  `src/Todo.Contracts/Generated/Contracts.g.cs`
+
+**Fire rettelser fra Task 4, alle målt da opgaven blev kørt:**
+
+1. **Sprogfilerne ligger i `public/i18n/`, ikke `src/assets/i18n/`.** Stod forkert her og i opgavens
+   egen tekst.
+2. **`generate-api.ps1` skriver *to* outputs.** Ud over TypeScript-klienten genererer den C#-DTO'erne
+   i `src/Todo.Contracts/Generated/Contracts.g.cs`, som endpoints bruger direkte. Nullabiliteten
+   kostede intet i C#: NSwag udsender `public string State { get; set; }` uanset `nullable`, og
+   `CS8618` er undertrykt i `Todo.Contracts.csproj`.
+3. **Enummerne er *delte* skemaer: `ClosureReason` og `ReopenTarget`**, ikke `AdoClosureReason` og
+   `JiraClosureReason`. Designet skrev "samme enum", og to enums med samme medlemmer er ikke samme
+   enum. **Task 7's kodestump nedenfor er rettet i overensstemmelse.**
+4. **Jiras modpart til `ado.noState` hedder `jira.noStatus`**, efter repoets egen konvention
+   (`ado.stateValue` mod `jira.statusValue`).
 
 **Trin 1 — ret kontrakten.** På `AdoPreviewRow` og `JiraPreviewRow`:
 
@@ -796,7 +811,7 @@ opgave; det er rettelse 1 der viser sig.
 // doneAt og waitingSince allerede har. Tilbage er de tre vi kan kræve: at opgaven findes, at
 // den hører til kilden, og at den ikke allerede er færdig.
 var stateSaysDone = AdoStateRoles.For(closure.State, settings) == AdoStateRole.Done;
-if ((closure.Reason == AdoClosureReason.Resolved && !stateSaysDone)
+if ((closure.Reason == ClosureReason.Resolved && !stateSaysDone)
     || !tasks.TryGetValue(closure.Key, out var task)
     || task.Status == CoreStatus.Done)
 ```

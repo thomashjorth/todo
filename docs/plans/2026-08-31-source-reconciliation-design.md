@@ -190,6 +190,14 @@ altså ved siden af de fire udfald i tabellen ovenfor, og den gælder **begge** 
 klasse gennem et token der ikke må læse projektet. Bemærk at én nøgle spurgt er undtaget: der er
 "alle" og "én" det samme, og en enkelt slettet sag skal stadig kunne foreslås lukket.
 
+**Og reglens falske negativ skal siges højt, for den findes.** Sletter du rent faktisk *begge* dine
+to eneste afstemte sager, foreslås ingen af dem — grænsen kan ikke skelne det fra en mistet
+rettighed, fordi de to ser identiske ud fra kildens svar. Det er accepteret frem for overset: prisen
+er et manglende forslag, som du selv kan lukke opgaverne uden, mod den anden vejs pris, som er et
+tilbud om at lukke **hele** din liste. Ved store N forsvinder problemet af sig selv, fordi en
+massesletning bliver usandsynlig; det er kun ved to og tre at reglen koster noget, og der er den
+billig.
+
 ## 6. Kontrakten
 
 `AdoPreviewRow` og `JiraPreviewRow` får tre felter: `closureReason` (`resolved` | `unassigned`,
