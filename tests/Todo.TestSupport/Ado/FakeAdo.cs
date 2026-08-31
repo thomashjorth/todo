@@ -69,6 +69,35 @@ public sealed class FakeAdo : IAsyncDisposable
     public const string Owner = "Thomas fra kataloget";
 
     /// <summary>
+    /// One of the measured work items, open and the user's own, so a reconciliation has something
+    /// ordinary to answer beside the two awkward ones. Named rather than spelled per test, because
+    /// what matters about it is those two facts and not its number.
+    /// </summary>
+    public const string MineKey = "16901";
+
+    /// <summary>
+    /// Assigned to somebody else, which is the case reconciling exists for at all: the fetch's
+    /// <c>[System.AssignedTo] = @Me</c> cannot see it, while a batch read by id can. Constructed
+    /// rather than measured - every one of the twelve work items seen on 2026-08-20 was the user's
+    /// own - and the ownership is this fake's own knowledge rather than a field, see
+    /// <see cref="NotMine"/>.
+    /// </summary>
+    public const string HandedOverKey = "17141";
+
+    /// <summary>
+    /// The other thing the fetch cannot see, and still the user's own. Its work item type is an
+    /// importable one on purpose: a Test Plan would be hidden by the type filter, and then the state
+    /// clause would never have to be honoured for the existing item counts to hold.
+    /// </summary>
+    public const string ClosedKey = "17140";
+
+    /// <summary>
+    /// An id no work item here has. The deleted item, which is an outcome the reconciliation is
+    /// written to report rather than an error it may die on.
+    /// </summary>
+    public const string UnknownKey = "999999";
+
+    /// <summary>
     /// Explicit rather than inherited from the hosting defaults, so the property names this fake
     /// answers with are decided here and cannot drift with a framework default. Nulls are left out
     /// rather than written, because a field a work item type does not have is <em>absent</em> from the
@@ -80,7 +109,9 @@ public sealed class FakeAdo : IAsyncDisposable
     };
 
     /// <summary>
-    /// Nine work items covering what can go wrong in the mapping, and the awkward ones are the point.
+    /// The work items that cover what can go wrong in the mapping, and the awkward ones are the
+    /// point. Counted in prose until 2026-08-31, when the reconciliation's pair made the number wrong
+    /// for the second time; a fixture list numbers itself.
     ///
     /// 15664 is the measured Bug: repro steps and no System.Description at all. 16901 is a User Story
     /// the other way round. 17170 has every optional field absent. 17169 is a Test Suite, which the
@@ -97,6 +128,11 @@ public sealed class FakeAdo : IAsyncDisposable
     /// 17162 carries a timestamp that is not a date. That is what gives "bind the date as a string"
     /// something to fail on: a DTO typing the field as DateTimeOffset throws for the whole page here,
     /// while the source under test loses one row's date.
+    ///
+    /// 17140 and 17141 are the reconciliation's pair: one Closed, one belonging to somebody else.
+    /// They are the only two kept out of an import by something other than their type, which is what
+    /// turns the existing item counts into a guard on <see cref="Matches"/> honouring the state and
+    /// assignment clauses.
     /// </summary>
     private static readonly WorkItemBody[] Measured =
     [
@@ -147,20 +183,65 @@ public sealed class FakeAdo : IAsyncDisposable
         new(17148, new FieldsBody(
             "Testplan med lille begyndelsesbogstav", "active", "Test Plan",
             Identity("Hanne Holm"), "<div>Plan</div>", null, "2026-08-12T08:00:00Z")),
+
+        // The two the fetch is built to miss, and both an importable type so that only the clause
+        // meant to exclude them can. The state name comes from AdoStateRoles.ClosedState rather than
+        // being spelled here as well, for the reason BaseQuery gives: two spellings of one fact are
+        // invisible to the compiler.
+        new(17140, new FieldsBody(
+            "Lukket i kilden", AdoStateRoles.ClosedState, "Task",
+            Identity("Ida Iversen"), "<div>Lukket</div>", null, "2026-08-11T08:00:00Z")),
+        new(17141, new FieldsBody(
+            "Overdraget til en anden", "Active", "Task",
+            Identity("Jens Jensen"), "<div>Overdraget</div>", null, "2026-08-10T08:00:00Z")),
     ];
+
+    /// <summary>
+    /// Who a work item belongs to, held here rather than served as a field - and that is the shape
+    /// the real thing has rather than a shortcut. <c>@Me</c> is resolved by the server, so assignment
+    /// never reaches the wire for <see cref="AdoTaskSource"/> to read: it deliberately does not ask
+    /// for System.AssignedTo, because that field's wire form is unmeasured and the query answers the
+    /// ownership question without anybody having to interpret a name. A fake that served the field
+    /// would invite exactly the binding the design refuses.
+    /// </summary>
+    private static readonly HashSet<long> NotMine =
+        [long.Parse(HandedOverKey, CultureInfo.InvariantCulture)];
 
     /// <summary>
     /// The order the WIQL's <c>ORDER BY [System.ChangedDate] DESC</c> leaves them in, and deliberately
     /// not ascending by id - the batch answers in id order, so a source that forgot to restore this
     /// order would look right until somebody compared the two lists.
+    ///
+    /// The reconciliation's two are last because their fixture timestamps are the oldest, so the
+    /// descending order still reads as one rule rather than as an exception for the newcomers.
     /// </summary>
     private static readonly long[] MeasuredOrder =
-        [17170, 15664, 17165, 16901, 17162, 17169, 17150, 17149, 17148];
+        [17170, 15664, 17165, 16901, 17162, 17169, 17150, 17149, 17148, 17140, 17141];
 
     private static readonly Regex TypeClause = new(
         @"\[System\.WorkItemType\]\s+IN\s+\(([^)]*)\)", RegexOptions.IgnoreCase);
 
     private static readonly Regex TypeName = new("'([^']*)'");
+
+    /// <summary>
+    /// The reconciliation's own narrowing. Its <c>IN</c> list holds bare numbers where the type
+    /// filter's holds quoted names, and the <c>SELECT [System.Id] FROM</c> at the front of every
+    /// query is not a match: the operator has to follow the field for the pattern to fire.
+    /// </summary>
+    private static readonly Regex IdClause = new(
+        @"\[System\.Id\]\s+IN\s+\(([^)]*)\)", RegexOptions.IgnoreCase);
+
+    private static readonly Regex IdValue = new(@"\d+");
+
+    private static readonly Regex AssignedToMe = new(
+        @"\[System\.AssignedTo\]\s*=\s*@Me", RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Matched as <c>&lt;&gt;</c> against a quoted literal rather than as the word Closed, so this
+    /// evaluates the clause the source writes instead of recognising one state by name.
+    /// </summary>
+    private static readonly Regex StateIsNot = new(
+        @"\[System\.State\]\s*<>\s*'([^']*)'", RegexOptions.IgnoreCase);
 
     private readonly HttpClient _client;
     private readonly int _batchLimit;
@@ -255,7 +336,7 @@ public sealed class FakeAdo : IAsyncDisposable
     /// boundary without seeding two hundred work items.
     /// </param>
     /// <param name="filler">
-    /// How many extra, uninteresting work items to serve on top of the measured six. The only way to
+    /// How many extra, uninteresting work items to serve on top of the fixed ones. The only way to
     /// cross the source's real chunk size of 200 without turning that constant into a test hook, which
     /// would have measured the hook rather than the cap.
     /// </param>
@@ -439,10 +520,21 @@ public sealed class FakeAdo : IAsyncDisposable
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            // Measured: unknown ids are a 400 saying which ones, not a silently shorter list.
+            // Measured 2026-08-20: unknown ids are a 400 naming which ones, not a silently shorter
+            // list. Worth noting against the design, which predicted a 404 here - the code is what
+            // the real instance answered, and the difference costs the source nothing either way,
+            // because both fail the whole request rather than part of it.
+            //
+            // errorPolicy=omit is the way out, and it is UNMEASURED against the real instance:
+            // nobody has yet asked that server for a missing id with the flag on. What stands here is
+            // our own assumption of what it does, so a green test says the source sends the flag and
+            // reads a short answer - it does not say Azure DevOps honours it.
+            var omit = string.Equals(
+                request.Query["errorPolicy"].ToString(), "omit", StringComparison.OrdinalIgnoreCase);
+
             var unknown = asked.Where(id => _items.All(item => item.Id != id)).ToArray();
 
-            if (unknown.Length > 0)
+            if (unknown.Length > 0 && !omit)
             {
                 return Results.Json(
                     new ErrorBody($"The following Ids are not valid: {string.Join(",", unknown)}."),
@@ -506,15 +598,48 @@ public sealed class FakeAdo : IAsyncDisposable
     }
 
     /// <summary>
-    /// The one piece of WIQL this fake understands, and it understands it because the type filter is
-    /// what decision B is: a fake that ignored the clause would answer test artefacts to a source that
-    /// correctly asked for none, and the item-level assertion would be measuring nothing. The state
-    /// clause is not interpreted - no work item here is Closed - so that half is asserted on the query
-    /// text instead.
+    /// The WIQL this fake understands, which is now every clause the source can send rather than only
+    /// the type filter. Each clause is evaluated when it is there and ignored when it is not, so one
+    /// matcher serves the fetch, the state list and the reconciliation alike.
+    ///
+    /// The type clause was the first, because it is what decision B is: a fake that ignored it would
+    /// answer test artefacts to a source that correctly asked for none, and the item-level assertion
+    /// would be measuring nothing. The state and assignment clauses were added with the
+    /// reconciliation, and neither is decoration - 17140 is Closed and 17141 belongs to somebody
+    /// else, both of an importable type, so dropping either clause hands those two to
+    /// <see cref="AdoTaskSource.FetchAssignedAsync"/>. Measured rather than predicted, by disabling
+    /// each branch in turn: without the assignment one, four of AdoTaskSourceTests go red; without
+    /// the state one, five. Three of them - the order, the item count and the paging count - fall
+    /// both times, which is what says a lapse here shows up as an ordinary test failure rather than
+    /// as a reconciliation quietly measuring a fake that answers everything.
+    ///
+    /// Assignment is not read off the work item, because it is not on the wire: the source never asks
+    /// for System.AssignedTo. It is <see cref="NotMine"/>, this fake's own knowledge, which is the
+    /// same place the real server keeps it.
     /// </summary>
     private bool Matches(string wiql, long id)
     {
         var item = _items.First(candidate => candidate.Id == id);
+
+        if (AssignedToMe.IsMatch(wiql) && NotMine.Contains(id))
+        {
+            return false;
+        }
+
+        if (StateIsNot.Match(wiql) is { Success: true } excluded
+            && string.Equals(
+                excluded.Groups[1].Value, item.Fields?.State, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (IdClause.Match(wiql) is { Success: true } wanted
+            && !IdValue.Matches(wanted.Groups[1].Value).Any(
+                value => long.Parse(value.Value, CultureInfo.InvariantCulture) == id))
+        {
+            return false;
+        }
+
         var clause = TypeClause.Match(wiql);
 
         if (!clause.Success)

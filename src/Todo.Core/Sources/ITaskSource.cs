@@ -33,4 +33,23 @@ public interface ITaskSource
     /// asks gets a real answer rather than a silent null.
     /// </summary>
     Task<DateTime?> FetchStatusChangedAtAsync(string externalKey, CancellationToken ct = default);
+
+    /// <summary>
+    /// What the source says about keys the app already holds. Called only with the keys that are open
+    /// locally and were <em>missing</em> from <see cref="FetchAssignedAsync"/>'s answer, because the
+    /// rest already have a row — so the set is bounded by the user's working list rather than by the
+    /// archive, and is typically a handful.
+    ///
+    /// It exists because both sources' fetch filters on assignment. Hand an item to somebody else and
+    /// it drops straight out of the answer, leaving the app unable to tell "nothing happened" from
+    /// "it is not mine any more". Absence cannot be used as that signal: change the project key or
+    /// the type filter and every task looks gone at once, on precisely the day the user touched a
+    /// setting.
+    ///
+    /// A key the source does not know must be answered as an <em>absence from both sets</em> rather
+    /// than as an exception. The deleted item is one of the outcomes this method exists to report, so
+    /// throwing would fail the whole preview on the very case it was written for.
+    /// </summary>
+    Task<ExternalReconciliation> ReconcileAsync(
+        IReadOnlyList<string> keys, CancellationToken ct = default);
 }

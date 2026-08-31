@@ -278,6 +278,87 @@ public sealed class AdoTaskSource : ITaskSource
     }
 
     /// <summary>
+    /// What Azure DevOps says about keys the app already holds, in two calls that are both reuse. The
+    /// WIQL answers ownership — <c>[System.Id] IN (…) AND [System.AssignedTo] = @Me</c>, where an id
+    /// nobody has matches nothing rather than failing — and the batch read answers state, because
+    /// reading by id is independent of both assignment and state. That independence is the whole
+    /// mechanism: it is how a work item the fetch cannot see comes back at all.
+    ///
+    /// <b>The query is deliberately not built out of <see cref="BaseQuery"/>.</b> BaseQuery carries
+    /// <c>&lt;&gt; 'Closed'</c>, so reusing it would drop a resolved work item out of the ownership
+    /// answer, and the app would then report it as handed to somebody else — the same suggestion
+    /// carrying the wrong reason. <see cref="FetchStatusNamesAsync"/> stands above as a worked
+    /// example of exactly that reuse, which is what makes the trap an easy one to walk into;
+    /// <see cref="AdoStateRoles.ClosedState"/> predicts it in so many words.
+    ///
+    /// <b>System.AssignedTo is deliberately not added to <see cref="ItemFields"/>.</b> That field's
+    /// wire form is unmeasured — System.CreatedBy is a JsonElement for precisely that reason — and
+    /// @Me answers the ownership question without anybody having to interpret a name, so binding a
+    /// second identity blind is a price this does not have to pay.
+    /// </summary>
+    public async Task<ExternalReconciliation> ReconcileAsync(
+        IReadOnlyList<string> keys, CancellationToken ct = default)
+    {
+        // The ordinary state rather than an edge case: when the fetch brought everything back, this
+        // is what the caller passes. Here to save the settings read and to say so out loud - it is
+        // NOT what keeps the network quiet, measured by deleting it, after which all 47 tests stayed
+        // green because an empty key list chunks into no rounds either way.
+        if (keys.Count == 0)
+        {
+            return new ExternalReconciliation([], new HashSet<string>(StringComparer.Ordinal));
+        }
+
+        var settings = await _settings(ct);
+
+        // The keys are work item ids written as text, because ids are all the import ever writes. One
+        // that is not a number cannot be ours, so it is dropped rather than passed on - the same
+        // caller mix-up FetchStatusChangedAtAsync refuses, except that here it would make the query
+        // itself invalid instead of costing one row its answer.
+        var ids = keys
+            .Select(key =>
+                long.TryParse(key, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+                    ? id
+                    : (long?)null)
+            .Where(id => id is not null)
+            .Select(id => id!.Value)
+            .ToList();
+
+        var mine = new HashSet<string>(StringComparer.Ordinal);
+        var found = new List<ExternalTask>();
+
+        // Chunked here even though HydrateAsync chunks internally, because the WIQL has no chunking
+        // of its own and its IN list is the half that would grow without a bound. Measured by
+        // replacing this with one unchunked round: an empty key list then emits
+        // WHERE [System.Id] IN (), a WIQL syntax error against the real server, and both of the "no
+        // request" tests go red naming exactly that query. The size is the existing BatchSize, whose
+        // own note is worth reading before the number is trusted - the cap is Azure DevOps'
+        // documented one rather than one measured here.
+        foreach (var chunk in ids.Chunk(BatchSize))
+        {
+            var stillMine = await QueryIdsAsync(
+                settings,
+                "SELECT [System.Id] FROM WorkItems "
+                    + $"WHERE [System.Id] IN ({string.Join(", ", chunk)}) "
+                    + "AND [System.AssignedTo] = @Me",
+                ct);
+
+            foreach (var id in stillMine)
+            {
+                mine.Add(id.ToString(CultureInfo.InvariantCulture));
+            }
+
+            // No deadline, and not for want of one to derive: a reconciled row is never imported as a
+            // new task, so a suggested deadline would be noise on a row whose tick box means "close
+            // this one".
+            found.AddRange(
+                (await HydrateAsync(settings, [.. chunk], ItemFields, ct, omitMissing: true))
+                    .Select(item => Map(item, deadline: null)));
+        }
+
+        return new ExternalReconciliation(found, mine);
+    }
+
+    /// <summary>
     /// The assigned query plus the type filter from decision B. An empty list is a refusal rather than
     /// an omitted clause, which is the opposite of what Jira's duty clause does - and deliberately so:
     /// duty is an optional widening, while this list <em>is</em> the limit. Slice 11's lesson applies
@@ -358,10 +439,27 @@ public sealed class AdoTaskSource : ITaskSource
     /// stopped after the first would silently import the newest 200 work items and look like it had
     /// finished.
     /// </summary>
+    /// <param name="omitMissing">
+    /// Adds <c>errorPolicy=omit</c>, which asks Azure DevOps to leave an id it cannot find out of the
+    /// answer rather than failing the request. <b>False by default</b>, so the fetch's read stays byte
+    /// for byte the request it has always been: it asks only for ids its own WIQL just answered, so it
+    /// can never meet a missing one, and a flag it does not need is a change made for one caller
+    /// reaching a path nobody was thinking about.
+    ///
+    /// <b>Unmeasured against the real instance.</b> What was measured, 2026-08-20, is the other half:
+    /// a batch asked for ids that do not exist fails the whole request, with a 400 naming them.
+    /// Whether this flag turns that into a shorter answer is an assumption, and it is written down as
+    /// one here and in FakeAdo rather than dressed up as a measurement.
+    /// </param>
     private async Task<List<WorkItemBody>> HydrateAsync(
-        AdoSettings settings, List<long> ids, string fields, CancellationToken ct)
+        AdoSettings settings,
+        List<long> ids,
+        string fields,
+        CancellationToken ct,
+        bool omitMissing = false)
     {
         var items = new List<WorkItemBody>();
+        var policy = omitMissing ? "&errorPolicy=omit" : string.Empty;
 
         for (var offset = 0; offset < ids.Count; offset += BatchSize)
         {
@@ -372,7 +470,7 @@ public sealed class AdoTaskSource : ITaskSource
                 settings,
                 HttpMethod.Get,
                 "_apis/wit/workitems",
-                $"ids={string.Join(",", chunk)}&fields={fields}",
+                $"ids={string.Join(",", chunk)}&fields={fields}{policy}",
                 null,
                 ct);
 

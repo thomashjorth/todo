@@ -627,4 +627,185 @@ public class AdoTaskSourceTests
             Assert.Contains($"'{type}'", ado.LastWiql);
         }
     }
+
+    /// <summary>
+    /// Reconciling in one answer, and the reason the whole feature exists. Both work items come back
+    /// from the batch read, because reading by id is independent of who an item is assigned to, and
+    /// only one comes back from the ownership query, because that one asks @Me.
+    ///
+    /// Both halves are asserted because they fail differently: Found says the source can still see an
+    /// item the fetch has lost, StillMine says it can tell the two apart. A source that answered
+    /// every key it was handed as still mine would pass on the first assertion alone.
+    /// </summary>
+    [Fact]
+    public async Task Reconciling_finds_a_work_item_that_is_no_longer_assigned_to_me()
+    {
+        await using var ado = await FakeAdo.StartAsync();
+
+        var answer = await ado.SourceFor().ReconcileAsync([FakeAdo.HandedOverKey, FakeAdo.MineKey]);
+
+        Assert.Equal(2, answer.Found.Count);
+        Assert.Contains(FakeAdo.MineKey, answer.StillMine);
+        Assert.DoesNotContain(FakeAdo.HandedOverKey, answer.StillMine);
+    }
+
+    /// <summary>
+    /// The state BaseQuery excludes, and therefore the state the app can only learn about by asking a
+    /// different question. The fetch is run here as well rather than the name being taken on trust:
+    /// "the fetch cannot see it" is half of what this measures, and the batch read carrying the state
+    /// back is the other half, because that is what lets AdoStateRoles call the item done.
+    /// </summary>
+    [Fact]
+    public async Task Reconciling_finds_a_closed_work_item_the_fetch_cannot_see()
+    {
+        await using var ado = await FakeAdo.StartAsync();
+        var source = ado.SourceFor();
+
+        var page = await source.FetchAssignedAsync();
+        var answer = await source.ReconcileAsync([FakeAdo.ClosedKey]);
+
+        Assert.DoesNotContain(FakeAdo.ClosedKey, page.Items.Select(item => item.Key));
+        Assert.Equal(AdoStateRoles.ClosedState, Assert.Single(answer.Found).StatusName);
+    }
+
+    /// <summary>
+    /// The one assertion that can see the reconciliation being built out of BaseQuery, and it is
+    /// needed because the obvious candidate cannot. BaseQuery carries <c>&lt;&gt; 'Closed'</c>, but
+    /// Found comes from the batch read, which no WIQL touches — so the test above stays green under
+    /// that mutation. What moves is StillMine: a closed work item that is still the user's own would
+    /// drop out of the ownership query, and the app would then read a resolved item as one handed to
+    /// somebody else, which is the same suggestion carrying the wrong reason.
+    ///
+    /// AdoStateRoles.ClosedState predicts this trap in so many words, down to FetchStatusNamesAsync
+    /// standing beside it as a worked example of the reuse to avoid.
+    /// </summary>
+    [Fact]
+    public async Task A_closed_work_item_that_is_still_mine_stays_mine()
+    {
+        await using var ado = await FakeAdo.StartAsync();
+
+        var answer = await ado.SourceFor().ReconcileAsync([FakeAdo.ClosedKey]);
+
+        Assert.Contains(FakeAdo.ClosedKey, answer.StillMine);
+    }
+
+    /// <summary>
+    /// The deleted work item is one of the legal outcomes rather than a failure. Without
+    /// <c>errorPolicy=omit</c> the batch read fails for the <em>whole</em> request — measured
+    /// 2026-08-20, a 400 naming the ids, where the design had predicted a 404 — so a single deleted
+    /// work item would take every preview down with it.
+    ///
+    /// The two assertions fail on different mutations: dropping the flag throws before either is
+    /// reached, and a source that answered every key it was handed as still mine passes the first.
+    /// </summary>
+    [Fact]
+    public async Task An_unknown_key_is_an_absence_rather_than_a_failure()
+    {
+        await using var ado = await FakeAdo.StartAsync();
+
+        var answer = await ado.SourceFor().ReconcileAsync([FakeAdo.MineKey, FakeAdo.UnknownKey]);
+
+        Assert.Equal(FakeAdo.MineKey, Assert.Single(answer.Found).Key);
+        Assert.DoesNotContain(FakeAdo.UnknownKey, answer.StillMine);
+    }
+
+    /// <summary>
+    /// Ownership is the server's decision rather than a comparison made here, and the query text is
+    /// the only place that is visible — the fake would answer the question however it was asked. This
+    /// is what makes ExternalReconciliation two sets instead of a flag per row: @Me and Jira's
+    /// currentUser() are each source's own word for the same idea, where a name is not. Jira's
+    /// identity is a display name and nothing else, so comparing on one would break the day somebody
+    /// corrects a surname.
+    /// </summary>
+    [Fact]
+    public async Task The_ownership_question_is_asked_with_at_me_rather_than_a_name()
+    {
+        await using var ado = await FakeAdo.StartAsync();
+
+        await ado.SourceFor().ReconcileAsync([FakeAdo.MineKey]);
+
+        var wiql = Assert.Single(ado.WiqlRequests);
+
+        Assert.Contains("[System.AssignedTo] = @Me", wiql);
+        Assert.Contains("[System.Id] IN", wiql);
+    }
+
+    /// <summary>
+    /// The empty set is the ordinary state: when the fetch brought everything back, there is nothing
+    /// left to reconcile. The request lists carry the weight rather than the answer, because an
+    /// implementation that asked anyway would answer correctly against this fake — an empty
+    /// <c>IN ()</c> matches nothing here and an empty <c>?ids=</c> returns nothing. Against the real
+    /// server the first of those is a WIQL syntax error, so it has to not happen rather than merely
+    /// not matter.
+    ///
+    /// Seen to fail on the shape that invites it, which is a tempting simplification rather than a
+    /// contrived mutation: one unchunked round instead of one per chunk, on the grounds that
+    /// HydrateAsync already chunks internally. That emits <c>WHERE [System.Id] IN ()</c> for an empty
+    /// key list, and this names the query in its failure. Note what does <em>not</em> fell it —
+    /// deleting the source's own <c>keys.Count == 0</c> guard leaves all 47 green, because an empty
+    /// list chunks into no rounds anyway.
+    /// </summary>
+    [Fact]
+    public async Task No_keys_is_no_request()
+    {
+        await using var ado = await FakeAdo.StartAsync();
+
+        var answer = await ado.SourceFor().ReconcileAsync([]);
+
+        Assert.Empty(answer.Found);
+        Assert.Empty(answer.StillMine);
+        Assert.Empty(ado.WiqlRequests);
+        Assert.Empty(ado.BatchRequests);
+    }
+
+    /// <summary>
+    /// An Azure DevOps key is a work item id, so a key that is not a number cannot be one of ours —
+    /// the import writes nothing else — and it is dropped rather than passed on, because
+    /// <c>IN (SAAS-1)</c> is a WIQL error that would take the whole reconciliation with it. Same
+    /// class of caller mix-up FetchStatusChangedAtAsync already refuses, one call up.
+    ///
+    /// With nothing numeric left there is no chunk at all, and the empty request lists are what says
+    /// the dropping happened before the query rather than after it.
+    ///
+    /// Seen to fail on both of the ways this is naturally got wrong: <c>long.Parse</c> in place of
+    /// the TryParse, which throws <c>FormatException</c> on the key rather than dropping it, and the
+    /// unchunked shape described on the test above, which sends the query anyway.
+    /// </summary>
+    [Fact]
+    public async Task A_key_that_is_not_a_work_item_id_is_dropped_before_the_query()
+    {
+        await using var ado = await FakeAdo.StartAsync();
+
+        var answer = await ado.SourceFor().ReconcileAsync(["SAAS-1"]);
+
+        Assert.Empty(answer.Found);
+        Assert.Empty(ado.WiqlRequests);
+        Assert.Empty(ado.BatchRequests);
+    }
+
+    /// <summary>
+    /// <c>errorPolicy=omit</c> belongs to the reconciliation and to nothing else. The fetch asks for
+    /// the ids its own WIQL just answered, so it can never meet a missing one and has nothing to gain
+    /// — and leaving its request byte for byte what it has always been is what stops a change made
+    /// for one caller from reaching a path nobody was thinking about. Read off one list in order, so
+    /// a default flipped from false to true fails this and nothing else.
+    ///
+    /// Note what is <em>not</em> claimed: this says the flag goes out on the wire. Whether the real
+    /// Azure DevOps Server honours it is unmeasured, and FakeAdo's batch route says so where the
+    /// assumption is written down.
+    /// </summary>
+    [Fact]
+    public async Task Only_the_reconciliation_asks_azure_devops_to_omit_what_it_cannot_find()
+    {
+        await using var ado = await FakeAdo.StartAsync();
+        var source = ado.SourceFor();
+
+        await source.FetchAssignedAsync();
+        await source.ReconcileAsync([FakeAdo.MineKey]);
+
+        Assert.Collection(
+            ado.BatchRequests,
+            fetch => Assert.DoesNotContain("errorPolicy", fetch),
+            reconciliation => Assert.Contains("errorPolicy=omit", reconciliation));
+    }
 }

@@ -244,6 +244,24 @@ public sealed partial class JiraTaskSource : ITaskSource
     }
 
     /// <summary>
+    /// Not built yet — task 3 of the source reconciliation delivery is where Jira gets its half, and
+    /// the shape is not Azure DevOps': one <c>GET issue/{key}</c> per key, where a 404 <em>is</em> the
+    /// answer "does not know it", and then one JQL naming only the keys that answered.
+    ///
+    /// Throwing rather than answering an empty <see cref="ExternalReconciliation"/>, and the
+    /// difference is not stylistic. An empty answer reads as "Jira has nothing to reconcile", which is
+    /// a lie the type cannot distinguish from the truth, and it would leave the whole Jira half of the
+    /// feature silently doing nothing while every test stayed green. JiraTaskSourceTests holds the
+    /// guard that this throws; task 3 deletes it as a visible act.
+    /// </summary>
+    public Task<ExternalReconciliation> ReconcileAsync(
+        IReadOnlyList<string> keys, CancellationToken ct = default) =>
+        throw new NotSupportedException(
+            "Reconciling against Jira arrives in task 3 of the source reconciliation delivery. "
+            + "Until then this throws rather than answering an empty reconciliation, which would "
+            + "read as 'nothing has changed' and hide the whole feature.");
+
+    /// <summary>
     /// Bound as a string and parsed here rather than typed as a DateTimeOffset on the DTO. Measured
     /// against this repo's fake, which serves the offset exactly as the real instance writes it:
     /// Jira uses the basic form <c>+0200</c>, System.Text.Json accepts only the extended ISO 8601

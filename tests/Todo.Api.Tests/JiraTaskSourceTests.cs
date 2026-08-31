@@ -293,4 +293,30 @@ public class JiraTaskSourceTests
 
         Assert.Equal(ErrorCodes.JiraUnreachable, exception.Code);
     }
+
+    /// <summary>
+    /// The guard on the intermediate state between task 2 and task 3, and it is a guard rather than a
+    /// note: ITaskSource has two implementations, so ReconcileAsync had to land on both at once, and
+    /// the tempting way to fill this one in is an empty <c>ExternalReconciliation</c>. That reads as
+    /// "Jira has nothing to reconcile", which no caller and no type can tell from the truth - the
+    /// whole Jira half of the feature would do nothing while the suite stayed green.
+    ///
+    /// So it throws, and this says so. If task 3 never happens, this stands as documentation of a
+    /// hole instead of the hole standing unmarked; when task 3 does happen, deleting this test is a
+    /// visible act in the diff rather than a silent one.
+    ///
+    /// The message is asserted on as well as the type, because <see cref="NotSupportedException"/>
+    /// says nothing on its own about who is supposed to fix it or when.
+    /// </summary>
+    [Fact]
+    public async Task Reconciling_against_jira_throws_until_it_is_built()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var exception = await Assert.ThrowsAsync<NotSupportedException>(
+            () => jira.SourceFor("SAAS").ReconcileAsync(["SAAS-1"]));
+
+        Assert.Contains("task 3", exception.Message, StringComparison.Ordinal);
+        Assert.Empty(jira.SearchRequests);
+    }
 }
