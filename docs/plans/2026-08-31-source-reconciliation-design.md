@@ -175,6 +175,21 @@ dag — og vagt-rollen falder derfor med rette på `open`, fordi en vagt-sag ven
 listen som nyt arbejde; en opgave du allerede ejer, holdes ikke tilbage af et filter for nye. Brugeren
 bad om "status matchende kildesystem", og det er `waitingFor`.
 
+**Og der er én regel mere, som er hele funktionens sikkerhedsnet: svarer *hver* nøgle med et fravær,
+foreslås ingenting.** Tilføjet 2026-08-31 under Task 3, hvor risikoen blev målt frem. Grunden er
+Jiras egen adfærd: **Jira DC skjuler rutinemæssigt en sag du ikke må browse bag
+`404 Issue Does Not Exist` frem for bag en 403**, netop for ikke at afsløre at sagen findes. Mister
+du en projektrettighed — eller udløber tokenet på en måde der giver 404 frem for 401 — svarer hver
+eneste nøgle "kender den ikke", og uden reglen læser appen det som at **hele din liste er slettet**
+og tilbyder at lukke alt. Det er værre end den fejl afstemningen findes for at rette.
+
+Grænsen er derfor: **alle nøgler fraværende og mere end én nøgle spurgt → ingen forslag**, og i stedet
+en linje der siger at kilden ikke genkendte noget. En massesletning af hele din arbejdsliste er
+sjældnere end en mistet rettighed, så det sikre gæt er rettigheden. Reglen hører i forhåndsvisningen,
+altså ved siden af de fire udfald i tabellen ovenfor, og den gælder **begge** kilder — ADO har samme
+klasse gennem et token der ikke må læse projektet. Bemærk at én nøgle spurgt er undtaget: der er
+"alle" og "én" det samme, og en enkelt slettet sag skal stadig kunne foreslås lukket.
+
 ## 6. Kontrakten
 
 `AdoPreviewRow` og `JiraPreviewRow` får tre felter: `closureReason` (`resolved` | `unassigned`,

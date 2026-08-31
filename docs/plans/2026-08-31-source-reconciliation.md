@@ -705,6 +705,24 @@ ombytning: begge udfald er lovlige, så en ombytning compilerer og læser rigtig
 `A_task_that_is_done_here_is_never_reconciled` er den der holder mængden nede — uden den kan nogen
 komme til at afstemme arkivet uden at nogen test siger fra.
 
+**Og så den sikkerhedsregel Task 3 fandt frem, som er hele funktionens net.** Designets afsnit 5
+bærer nu: **svarer hver nøgle med et fravær, og blev der spurgt om mere end én, foreslås ingenting** —
+i stedet en linje om at kilden ikke genkendte noget. Grunden er at **Jira DC skjuler en sag du ikke må
+browse bag `404 Issue Does Not Exist` frem for bag en 403**, så en mistet projektrettighed ellers
+læses som at hele din liste er slettet, hvorefter appen tilbyder at lukke alt. ADO har samme klasse
+gennem et token der ikke må læse projektet. To tests mere, og de er begge nemme at skrive svage:
+
+```csharp
+[Fact]
+public async Task Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission()
+
+[Fact]
+public async Task A_single_missing_key_is_still_suggested_because_all_and_one_are_the_same_there()
+```
+
+Den anden er tanden i den første: uden den kan grænsen skrives som "≥ 1 fravær" og bestå, hvilket
+ville slå den ægte slettede sag ihjel — altså det udfald funktionen findes for.
+
 **Trin 3 — kør og se dem fejle.**
 
 **Trin 4 — implementér.** Efter hentningens løkke: find de lokale nøgler der ikke er `Done` og ikke
