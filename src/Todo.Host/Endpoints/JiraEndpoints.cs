@@ -157,14 +157,35 @@ public static class JiraEndpoints
                         SuggestsReopening = suggestsReopening,
                         // Only where there is a suggestion to explain, the same rule DoneAt follows.
                         ReopenTo = suggestsReopening ? ReopenTargetFor(role) : null,
-                        // Done first, so a finished issue that was never imported is kept out rather
-                        // than brought in as a fresh open task. Shown rather than hidden, the same
-                        // choice the waiting rows make.
-                        Excluded = role == JiraStatusRole.Done && localStatus is null
-                            ? ErrorCodes.JiraExcludedDone
-                            : isWaiting && !settings.IncludeWaiting
-                                ? ErrorCodes.JiraExcludedWaiting
-                                : null,
+                        // A row with something to do is never excluded, and that is what the word means
+                        // rather than a special case for the reopening: isBlocked reads this field to
+                        // disable the checkbox, and the label chain shows it first, so a row carrying
+                        // it says "nothing will happen here". Before the reopening existed no row
+                        // could be both, which is why the waiting branch below never needed a guard
+                        // while the done branch did. The twin in AdoEndpoints carries the rest of the
+                        // reasoning, including why this is asked here rather than in the label chain.
+                        //
+                        // Only the waiting branch can actually reach it - measured at this endpoint
+                        // with a status in both lists and the toggle off: suggestsClosing true,
+                        // isWaiting false, excluded null. The durable reason does not rest on the
+                        // branch order in JiraStatusRoles.For: role is one enum value, suggestsClosing
+                        // needs Done and isWaiting is Waiting, so the two cannot both hold.
+                        Excluded = suggestsClosing || suggestsReopening
+                            ? null
+                            // Done first, so a finished issue that was never imported is kept out
+                            // rather than brought in as a fresh open task. Shown rather than hidden,
+                            // the same choice the waiting rows make.
+                            //
+                            // The localStatus test stays, and it is not the guard above written twice:
+                            // the two part company when the task is done here and done in the source,
+                            // where neither suggestion fires and this is what keeps a finished row
+                            // from being labelled as one import will skip. Pinned by
+                            // A_task_finished_in_both_places_suggests_nothing.
+                            : role == JiraStatusRole.Done && localStatus is null
+                                ? ErrorCodes.JiraExcludedDone
+                                : isWaiting && !settings.IncludeWaiting
+                                    ? ErrorCodes.JiraExcludedWaiting
+                                    : null,
                     });
                 }
 

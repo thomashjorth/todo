@@ -194,14 +194,40 @@ public static class AdoEndpoints
                         SuggestsReopening = suggestsReopening,
                         // Only where there is a suggestion to explain, the same rule DoneAt follows.
                         ReopenTo = suggestsReopening ? ReopenTargetFor(role) : null,
-                        // Done first, so a finished work item that was never imported is kept out
-                        // rather than brought in as a fresh open task. Shown rather than hidden, the
-                        // same choice the waiting rows make.
-                        Excluded = role == AdoStateRole.Done && localStatus is null
-                            ? ErrorCodes.AdoExcludedDone
-                            : isWaiting && !settings.IncludeWaiting
-                                ? ErrorCodes.AdoExcludedWaiting
-                                : null,
+                        // A row with something to do is never excluded, and that is what the word
+                        // means rather than a special case for the reopening: isBlocked reads this
+                        // field to disable the checkbox, and the label chain shows it first, so a row
+                        // carrying it says "nothing will happen here". Before the reopening existed no
+                        // row could be both, which is why the waiting branch below never needed a
+                        // guard while the done branch did.
+                        //
+                        // Asked here rather than in the label chain, whose order has its own reasoning
+                        // in the template, and asked once rather than as a !suggestsReopening on the
+                        // waiting branch alone: the reconciliation adds two more codes below this, and
+                        // a rule at the top is one their author cannot forget.
+                        //
+                        // Only the waiting branch can actually reach it - measured at this endpoint
+                        // rather than reasoned from the branch order over in AdoStateRoles.For, with a
+                        // state in both lists and the toggle off: suggestsClosing true, isWaiting
+                        // false, excluded null. The durable reason is narrower than that branch order
+                        // anyway: role is one enum value, suggestsClosing needs Done and isWaiting is
+                        // Waiting, so the two cannot both hold whichever branch wins an overlap.
+                        Excluded = suggestsClosing || suggestsReopening
+                            ? null
+                            // Done first, so a finished work item that was never imported is kept out
+                            // rather than brought in as a fresh open task. Shown rather than hidden,
+                            // the same choice the waiting rows make.
+                            //
+                            // The localStatus test stays, and it is not the guard above written twice:
+                            // the two part company when the task is done here and done in the source,
+                            // where neither suggestion fires and this is what keeps a finished row
+                            // from being labelled as one import will skip. Pinned by
+                            // A_task_finished_in_both_places_suggests_nothing.
+                            : role == AdoStateRole.Done && localStatus is null
+                                ? ErrorCodes.AdoExcludedDone
+                                : isWaiting && !settings.IncludeWaiting
+                                    ? ErrorCodes.AdoExcludedWaiting
+                                    : null,
                     });
                 }
 

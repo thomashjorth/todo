@@ -603,6 +603,12 @@ public class JiraEndpointsTests : ApiTest
         // only Jira assertion on that direction of the closure rule - other Jira tests fall to the
         // same mutation, but from the other side, by losing an offer rather than gaining one.
         Assert.False(row.SuggestsClosing);
+
+        // And nothing is excluded either. This is the state where the two guards on Excluded part
+        // company: neither suggestion fires here, so the action guard lets the chain run, and it is
+        // the done branch's own localStatus test that keeps a row finished in both places from being
+        // labelled as one import will skip. Drop that test and this line is what falls.
+        Assert.Null(row.Excluded);
     }
 
     /// <summary>
@@ -655,11 +661,19 @@ public class JiraEndpointsTests : ApiTest
         Assert.True(row.SuggestsReopening);
         Assert.Equal("waitingFor", row.ReopenTo);
 
-        // The toggle really is off on this preview, rather than the helper having quietly written
-        // nothing: excluded is the older rule reading the same setting, so it answers for the
-        // arrangement. Untouched by the reopening on purpose - that field is what stops a fresh
-        // import, and a reopening is not one.
-        Assert.Equal(ErrorCodes.JiraExcludedWaiting, row.Excluded);
+        // And the row is not excluded, which is the second guard this test carries and the only place
+        // in the suite the collision can be seen. Excluded means "nothing will happen here" twice
+        // over - isBlocked reads it to disable the checkbox, and the label chain shows it first - so a
+        // row offering a reopening must not carry it. Without the rule the row would say it will be
+        // skipped, have its checkbox enabled, and import anyway.
+        Assert.Null(row.Excluded);
+
+        // The row really is in the waiting role, which is what makes waitingFor the right expectation
+        // rather than a value that happened to come out. That the toggle is off is checked inside
+        // TurnIncludeWaitingOffAsync, and it has to be: the rule above makes this row look identical
+        // with the toggle on and off, so nothing on it can answer for the arrangement any more. That
+        // is the price of the fix, and it is why the check moved rather than being dropped.
+        Assert.True(row.IsWaiting);
     }
 
     /// <summary>
@@ -758,6 +772,12 @@ public class JiraEndpointsTests : ApiTest
     /// the state the app itself can produce - where a stored "false" would be a value nothing writes.
     /// SingleAsync rather than SingleOrDefaultAsync, so a caller that never turned it on fails here
     /// rather than in an assertion about something else.
+    ///
+    /// It then reads the setting back through the app, and that assertion is load-bearing rather than
+    /// belt and braces: a row that suggests a reopening is no longer excluded, so it looks the same
+    /// with the toggle on and off, and no assertion the caller can make about the row would notice a
+    /// write that never landed. Read off the raw JSON, because the question is what the app answers
+    /// and not what the row this method just deleted said.
     /// </summary>
     private async Task TurnIncludeWaitingOffAsync()
     {
@@ -768,6 +788,9 @@ public class JiraEndpointsTests : ApiTest
         db.Settings.Remove(row);
 
         await db.SaveChangesAsync();
+
+        Assert.Contains(
+            "\"jiraIncludeWaiting\":false", await Host.Client.GetStringAsync("/api/settings"));
     }
 
     /// <summary>
