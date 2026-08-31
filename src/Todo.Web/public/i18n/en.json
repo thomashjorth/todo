@@ -319,7 +319,8 @@
       "excludedWaiting": "You are waiting for it, and waiting issues are turned off.",
       "excludedDone": "The issue is done in Jira and was never imported, so it stays out.",
       "outsideFilter": "The issue is still yours and not resolved, but the fetch did not bring it back.",
-      "missingInSource": "Jira does not know the issue. It may be deleted, moved, or outside what the token may read."
+      "missingInSource": "Jira does not know the issue. It may be deleted, moved, or outside what the token may read.",
+      "noneRecognized": "Jira recognised none of the tasks being reconciled. That looks more like a lost permission than a clear-out, so nothing is suggested."
     },
     "ado": {
       "notConfigured": "Azure DevOps is not set up. Fill in the collection URL and the token under Settings.",
@@ -337,7 +338,8 @@
       "excludedWaiting": "You are waiting for it, and waiting work items are turned off.",
       "excludedDone": "The work item is done in Azure DevOps and was never imported, so it stays out.",
       "outsideFilter": "The work item is still yours and not done, but the fetch did not bring it back.",
-      "missingInSource": "Azure DevOps does not know the work item. It may be deleted, moved, or outside what the token may read."
+      "missingInSource": "Azure DevOps does not know the work item. It may be deleted, moved, or outside what the token may read.",
+      "noneRecognized": "Azure DevOps recognised none of the tasks being reconciled. That looks more like a lost permission than a clear-out, so nothing is suggested."
     },
     "review": {
       "weekdayInvalid": "The weekday has to be between Sunday and Saturday.",

@@ -319,7 +319,8 @@
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra.",
       "excludedDone": "Sagen er løst i Jira og er ikke hentet før, så den hentes ikke.",
       "outsideFilter": "Sagen er stadig din og ikke løst, men kom ikke med i hentningen.",
-      "missingInSource": "Jira kender ikke sagen. Den kan være slettet, flyttet eller uden for tokenets rettigheder."
+      "missingInSource": "Jira kender ikke sagen. Den kan være slettet, flyttet eller uden for tokenets rettigheder.",
+      "noneRecognized": "Jira genkendte ingen af de opgaver der skulle afstemmes. Det ligner en mistet rettighed frem for en oprydning, så der foreslås ingenting."
     },
     "ado": {
       "notConfigured": "Azure DevOps er ikke sat op. Udfyld samlingens URL og token under Indstillinger.",
@@ -337,7 +338,8 @@
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra.",
       "excludedDone": "Sagen er løst i Azure DevOps og er ikke hentet før, så den hentes ikke.",
       "outsideFilter": "Sagen er stadig din og ikke løst, men kom ikke med i hentningen.",
-      "missingInSource": "Azure DevOps kender ikke sagen. Den kan være slettet, flyttet eller uden for tokenets rettigheder."
+      "missingInSource": "Azure DevOps kender ikke sagen. Den kan være slettet, flyttet eller uden for tokenets rettigheder.",
+      "noneRecognized": "Azure DevOps genkendte ingen af de opgaver der skulle afstemmes. Det ligner en mistet rettighed frem for en oprydning, så der foreslås ingenting."
     },
     "review": {
       "weekdayInvalid": "Ugedagen skal være mellem søndag og lørdag.",

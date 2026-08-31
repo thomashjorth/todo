@@ -81,7 +81,9 @@ public static class JiraEndpoints
             try
             {
                 var page = await source.FetchAssignedAsync();
-                var imported = await ImportedKeysAsync(db, [.. page.Items.Select(item => item.Key)]);
+                var imported = await ImportedKeysAsync(db);
+                var fetched = new HashSet<string>(
+                    page.Items.Select(item => item.Key), StringComparer.Ordinal);
                 var rows = new List<JiraPreviewRow>();
 
                 foreach (var item in page.Items)
@@ -95,7 +97,7 @@ public static class JiraEndpoints
                     // the server, so the decision belongs to the server, and the import takes it
                     // again. The local status is what stops the offer once it has been accepted.
                     var localStatus = imported.TryGetValue(item.Key, out var found)
-                        ? (CoreStatus?)found
+                        ? (CoreStatus?)found.Status
                         : null;
                     var suggestsClosing = role == JiraStatusRole.Done
                         && localStatus is { } status
@@ -147,6 +149,15 @@ public static class JiraEndpoints
                             : null,
                         AlreadyImported = localStatus is not null,
                         SuggestsClosing = suggestsClosing,
+                        // Decided rather than left out, and the server cannot tell the two apart: a
+                        // closure body without "reason" deserialises to Resolved, because Reason is a
+                        // non-nullable enum whose zero is Resolved, nothing validates it, and
+                        // ValidateClosure asks only about the key and the status. So the value here is
+                        // the same one an absent field would have produced - what changes is that it
+                        // was chosen. That is what lets jira-store.ts drop its
+                        // `?? ClosureReason.Resolved` fallback: the fallback can only go once every
+                        // closing row carries a reason, and these are the older half of them.
+                        ClosureReason = suggestsClosing ? ClosureReason.Resolved : null,
                         // Same bargain as WaitingSince above and the same price: one changelog call,
                         // and only for the rows that will show the answer. Its own field rather than
                         // a loosened WaitingSince, which is null for every row that is not waiting -
@@ -197,7 +208,16 @@ public static class JiraEndpoints
                     });
                 }
 
-                return TypedResults.Ok(new JiraPreviewResponse { Rows = rows, Total = page.Total });
+                var (reconciled, notice) = await ReconciledRowsAsync(source, settings, imported, fetched);
+
+                rows.AddRange(reconciled);
+
+                return TypedResults.Ok(new JiraPreviewResponse
+                {
+                    Rows = rows,
+                    Total = page.Total,
+                    ReconciliationNotice = notice,
+                });
             }
             catch (SourceException exception)
             {
@@ -242,7 +262,7 @@ public static class JiraEndpoints
                 }
             }
 
-            var known = await ImportedKeysAsync(db, [.. rows.Select(row => row.Key)]);
+            var known = await ImportedKeysAsync(db);
             var imported = 0;
             var skipped = 0;
 
@@ -271,10 +291,11 @@ public static class JiraEndpoints
                 }
 
                 // StatusFor rather than a literal Open, which is what this said while the value went
-                // unread. Task 6 widens ImportedKeysAsync to carry the status, and a reader who
-                // starts trusting it would otherwise get Open for a row this very loop writes as
+                // unread. The preview now reads the status the lookup carries, and a reader who
+                // trusted a hardcoded Open here would get it for a row this very loop writes as
                 // WaitingFor - a third spelling of the mapping the two above were just merged into.
-                if (!known.TryAdd(row.Key, StatusFor(role)))
+                // The title is trimmed to match what the entity below is given, for the same reason.
+                if (!known.TryAdd(row.Key, new ImportedTask(StatusFor(role), row.Title.Trim())))
                 {
                     skipped++;
                     continue;
@@ -317,6 +338,122 @@ public static class JiraEndpoints
         .Produces<JiraImportResponse>();
 
         return app;
+    }
+
+    /// <summary>
+    /// The rows for the keys the fetch could not speak about, and the notice that stands in for all of
+    /// them when the answer is not to be trusted. The twin in AdoEndpoints carries the full reasoning
+    /// and the mutation measurements - the two were mutated together, and every one of them named a
+    /// test on this source as well as on that one. What differs here is the price of a timestamp:
+    /// Jira has none on the issue, so a resolved row costs one changelog call, the same bargain the
+    /// fetch's own closing rows make.
+    /// </summary>
+    private static async Task<(List<JiraPreviewRow> Rows, string? Notice)> ReconciledRowsAsync(
+        JiraTaskSource source,
+        JiraSettings settings,
+        Dictionary<string, ImportedTask> imported,
+        HashSet<string> fetched)
+    {
+        // Open here and missing from today's fetch. Done is left out because a task finished here is
+        // settled whatever Jira says - and this source pays one call per key, so the archive would be
+        // the expensive half of a question with no answer in it.
+        var keys = imported
+            .Where(entry => entry.Value.Status != CoreStatus.Done && !fetched.Contains(entry.Key))
+            .Select(entry => entry.Key)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        if (keys.Count == 0)
+        {
+            return ([], null);
+        }
+
+        var answer = await source.ReconcileAsync(keys);
+        var found = answer.Found.ToDictionary(item => item.Key, StringComparer.Ordinal);
+
+        // The safety net, and Jira is the source it was written for: Data Center hides an issue you may
+        // not browse behind 404 Issue Does Not Exist rather than a 403, so a lost project permission
+        // answers exactly like a deleted issue, for every key at once. Reading that as a mass deletion
+        // would paper the screen with missingInSource against every task the user still has open. The
+        // twin in AdoEndpoints carries the rest of the reasoning, including why the absence is asked on
+        // Found alone and why one key asked is exempt.
+        if (keys.Count > 1 && keys.TrueForAll(key => !found.ContainsKey(key)))
+        {
+            return ([], ErrorCodes.JiraNoneRecognized);
+        }
+
+        var rows = new List<JiraPreviewRow>();
+
+        foreach (var key in keys)
+        {
+            var local = imported[key];
+            var item = found.GetValueOrDefault(key);
+            var role = item is null
+                ? (JiraStatusRole?)null
+                : JiraStatusRoles.For(item.StatusName, settings);
+
+            // Resolved outranks unassigned, and the order of these two branches is the whole of that
+            // rule - see the twin in AdoEndpoints for why only one test can see it, and why the
+            // unassigned branch has to test the item and not only the set.
+            ClosureReason? reason = role == JiraStatusRole.Done
+                ? ClosureReason.Resolved
+                : item is not null && !answer.StillMine.Contains(key)
+                    ? ClosureReason.Unassigned
+                    : null;
+
+            rows.Add(new JiraPreviewRow
+            {
+                Key = key,
+                // The source's title where there is one, and the local task's where Jira answered
+                // nothing at all - there was no answer to take one from. This is the half of the key
+                // lookup that grew past the status.
+                Title = item?.Title ?? local.Title,
+                Url = settings.BrowseUrl(key)
+                    ?? throw new SourceException(
+                        ErrorCodes.JiraNotConfigured,
+                        "A reconciled row has no browse URL, which cannot happen once IsConfigured has passed."),
+                Note = item?.Note,
+                // Null on every reconciled item, and that is ExternalReconciliation's rule rather than
+                // this line's: Map fills it from duedate for the fetch, and the reconciliation clears
+                // it, because a row whose tick box means "close this one" is never imported as new
+                // work. Read off the item so the rule lives in one place.
+                Deadline = item?.Deadline,
+                Requester = item?.Requester,
+                // Null for a key Jira does not know, which is why the contract loosened it: no answer
+                // came back to take one from, and an empty string would be a value saying one thing
+                // while its type said another.
+                Status = item?.StatusName,
+                IsWaiting = role == JiraStatusRole.Waiting,
+                IsDuty = role == JiraStatusRole.Duty,
+                // Never carried on a reconciled row. It travels so a newly imported waiting task knows
+                // when its wait began, and none of these is imported as new work - and on this source
+                // it would cost a changelog call per row to say something nothing acts on.
+                WaitingSince = null,
+                // True by construction: every key here came out of the imported lookup.
+                AlreadyImported = true,
+                SuggestsClosing = reason is not null,
+                ClosureReason = reason,
+                // Follows the reason and not the suggestion, and the call is paid only where the answer
+                // will be used: an unassigned issue was never finished - it stopped being the user's -
+                // so there is no completion time to fetch and the import falls back on the clock.
+                DoneAt = reason == ClosureReason.Resolved
+                    ? AsUtc(await source.FetchStatusChangedAtAsync(key))
+                    : null,
+                // Unreachable rather than merely false: a task that is done here is not reconciled at
+                // all, and being done here is the whole of what a reopening rests on.
+                SuggestsReopening = false,
+                ReopenTo = null,
+                // The same rule the fetch's rows follow: a row with something to do never carries a
+                // code, because this field is the row's "nothing will happen here" mark.
+                Excluded = reason is not null
+                    ? null
+                    : item is null
+                        ? ErrorCodes.JiraMissingInSource
+                        : ErrorCodes.JiraOutsideFilter,
+            });
+        }
+
+        return (rows, null);
     }
 
     /// <summary>
@@ -467,25 +604,26 @@ public static class JiraEndpoints
     }
 
     /// <summary>
-    /// Scoped to this source. A retro card and a Jira issue can carry the same key, and one of them
-    /// counting as the other would hide a real issue behind a card that has nothing to do with it.
+    /// Every key this source has imported, each with the local task's status and title.
+    ///
+    /// <b>Scoped to this source and to nothing else.</b> A retro card and a Jira issue can carry the
+    /// same key, and one of them counting as the other would hide a real issue behind a card that has
+    /// nothing to do with it.
+    ///
+    /// The status is what stops a closure suggestion from coming back once it has been accepted, the
+    /// title is what a reconciled row falls back on when Jira answers nothing at all, and the reason
+    /// this reads <em>every</em> key rather than a named list is that the preview has to see what was
+    /// missing from the fetch. The twin in AdoEndpoints carries the trade in full.
     /// </summary>
-    /// <summary>
-    /// The keys already imported, each with the local task's status. The status is what stops a
-    /// closure suggestion from coming back once it has been accepted, and a set of keys cannot say
-    /// it - see the twin in AdoEndpoints.
-    /// </summary>
-    private static async Task<Dictionary<string, CoreStatus>> ImportedKeysAsync(
-        TodoDbContext db, List<string> keys)
+    private static async Task<Dictionary<string, ImportedTask>> ImportedKeysAsync(TodoDbContext db)
     {
         var found = await db.Tasks
-            .Where(t => t.SourceId == JiraTaskSource.Id
-                && t.ExternalKey != null
-                && keys.Contains(t.ExternalKey))
-            .Select(t => new { Key = t.ExternalKey!, t.Status })
+            .Where(t => t.SourceId == JiraTaskSource.Id && t.ExternalKey != null)
+            .Select(t => new { Key = t.ExternalKey!, t.Status, t.Title })
             .ToListAsync();
 
-        return found.ToDictionary(row => row.Key, row => row.Status, StringComparer.Ordinal);
+        return found.ToDictionary(
+            row => row.Key, row => new ImportedTask(row.Status, row.Title), StringComparer.Ordinal);
     }
 
     // The source hands over UTC, because SQLite cannot sort a DateTimeOffset and one must never

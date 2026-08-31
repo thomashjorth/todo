@@ -565,6 +565,13 @@ public class AdoEndpointsTests : ApiTest
         Assert.True(row.SuggestsClosing);
         Assert.True(row.AlreadyImported);
 
+        // The reason is decided rather than left out, and this row is where that matters: a body
+        // without "reason" deserialises silently to Resolved, because Reason is a non-nullable enum
+        // whose zero is Resolved and nothing validates it. So an absent reason and a resolved one are
+        // the same thing on the wire, and only a row that carries it lets the client's
+        // `?? ClosureReason.Resolved` fallback be taken away.
+        Assert.Equal("resolved", row.ClosureReason);
+
         // Not excluded: the row has something to do, and an excluded row is one that has not.
         Assert.Null(row.Excluded);
 
@@ -764,6 +771,223 @@ public class AdoEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The first of the four reconciliation outcomes: the work item is Closed, which the fetch cannot
+    /// see at all, so nothing but a reconciliation can report it.
+    ///
+    /// The row is imported with the state the client saw at the time, which is the honest sequence
+    /// rather than a trick: 17140 was Active when it was taken in, and it has moved to Closed since.
+    /// The import writes what the client sends, so the local task is the one the app itself produced.
+    ///
+    /// <b>Three assertions carry the fixture's teeth.</b> The title is the <em>source's</em>, not the
+    /// one the import wrote, so the row cannot have been built out of the local task alone. The
+    /// deadline is null, which an ordinary fetch row for this work item could never be - it would
+    /// carry <see cref="DefaultDeadline"/> - so this pins the row's provenance on the reconciliation.
+    /// And doneAt is the exact state change date, nine days before the fixed clock, so a row that
+    /// forgot the timestamp and fell back on the clock could not pass.
+    /// </summary>
+    [Fact]
+    public async Task A_key_that_fell_out_of_the_fetch_and_is_done_in_the_source_suggests_closing()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.ClosedKey));
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeAdo.ClosedKey);
+
+        Assert.True(row.SuggestsClosing);
+        Assert.Equal("resolved", row.ClosureReason);
+        Assert.Equal(AdoStateRoles.ClosedState, row.State);
+        Assert.Equal("Lukket i kilden", row.Title);
+        Assert.Null(row.Deadline);
+        Assert.Equal(new DateTimeOffset(2026, 8, 11, 8, 0, 0, TimeSpan.Zero), row.DoneAt);
+
+        // Not excluded: the row has something to do, and an excluded row is one that has not.
+        Assert.Null(row.Excluded);
+    }
+
+    /// <summary>
+    /// The second outcome, and the one the whole feature was asked for: the work item is still open,
+    /// but it belongs to somebody else now, so the fetch's <c>[System.AssignedTo] = @Me</c> stops
+    /// answering with it and only the ownership question can tell.
+    ///
+    /// <b>doneAt is null on purpose and is asserted.</b> The item was never finished - it stopped
+    /// being the user's - so there is no completion time to carry, and the import falls back on the
+    /// clock. Its sibling above asserts the opposite on the same field, which is what makes the pair
+    /// say something: the field follows the reason rather than the suggestion.
+    /// </summary>
+    [Fact]
+    public async Task A_key_that_is_no_longer_assigned_to_me_suggests_closing_for_that_reason()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.HandedOverKey));
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeAdo.HandedOverKey);
+
+        Assert.True(row.SuggestsClosing);
+        Assert.Equal("unassigned", row.ClosureReason);
+        Assert.Equal("Overdraget til en anden", row.Title);
+        Assert.Null(row.DoneAt);
+        Assert.Null(row.Excluded);
+    }
+
+    /// <summary>
+    /// The third outcome, where nothing has changed and the row says so. The lever is the work item
+    /// type filter, which is the sequence a user actually walks: 16901 was imported while User Story
+    /// was in the filter, and the filter has been narrowed since - so the fetch's WIQL leaves it out
+    /// while the reconciliation's batch read and <c>@Me</c> both still find it.
+    ///
+    /// <c>Assert.Null(row.Deadline)</c> is what says the row came from the reconciliation rather than
+    /// from the fetch: a fetched 16901 carries <see cref="DefaultDeadline"/>. Without it a narrowing
+    /// that never landed would leave an ordinary row here, and the excluded assertion would fail for
+    /// a reason nobody could read off the message.
+    /// </summary>
+    [Fact]
+    public async Task A_key_that_is_still_mine_and_open_is_shown_as_outside_the_filter()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+        await NarrowWorkItemTypesAsync(ado, "Bug");
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "16901");
+
+        Assert.Equal(ErrorCodes.AdoOutsideFilter, row.Excluded);
+        Assert.False(row.SuggestsClosing);
+        Assert.Null(row.ClosureReason);
+        Assert.Equal("Active", row.State);
+        Assert.Null(row.Deadline);
+    }
+
+    /// <summary>
+    /// The fourth outcome. The batch read is asked with <c>errorPolicy=omit</c>, so a work item that
+    /// is not there any more comes back as an absence rather than a 400 for the whole request.
+    ///
+    /// <b>The title is the local task's, and that is the assertion this outcome exists for.</b> No
+    /// answer came back to take one from, so the only title there is is the one the import wrote -
+    /// which is why the key lookup had to grow past the status. State and type are null for the same
+    /// reason, and they are asserted because they are the two fields the contract loosened for it.
+    /// </summary>
+    [Fact]
+    public async Task A_key_the_source_does_not_know_is_shown_as_missing_and_carries_the_local_title()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.UnknownKey, "Den der ikke findes mere"));
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeAdo.UnknownKey);
+
+        Assert.Equal(ErrorCodes.AdoMissingInSource, row.Excluded);
+        Assert.Equal("Den der ikke findes mere", row.Title);
+        Assert.False(row.SuggestsClosing);
+        Assert.Null(row.State);
+        Assert.Null(row.WorkItemType);
+    }
+
+    /// <summary>
+    /// What keeps the reconciliation off the archive. A task that is done here is settled whatever the
+    /// source says, so asking about it would buy nothing and grow the question by every task the user
+    /// has ever finished.
+    ///
+    /// <b>The second key is the tooth.</b> Without it the test would pass just as happily if the
+    /// reconciliation never ran at all - and that is the likelier way to break it than a filter
+    /// written the wrong way round. 17140 is reconciled in the same preview, so the absence of 17141
+    /// is an absence from a reconciliation that demonstrably happened.
+    /// </summary>
+    [Fact]
+    public async Task A_task_that_is_done_here_is_never_reconciled()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.HandedOverKey, "Den der er færdig her"));
+        await Import(Reconcilable(FakeAdo.ClosedKey, "Den der stadig er åben her"));
+        await FinishAsync("Den der er færdig her");
+
+        var rows = (await Preview()).Rows;
+
+        Assert.DoesNotContain(rows, r => r.Key == FakeAdo.HandedOverKey);
+        Assert.Contains(rows, r => r.Key == FakeAdo.ClosedKey);
+    }
+
+    /// <summary>
+    /// The order of the two closing branches, and the only test in the suite that can see it: both
+    /// outcomes are legal, so swapping them compiles and reads right. 17141 is handed to somebody else
+    /// <em>and</em> in a state the user has since called finished, so both branches are true at once -
+    /// and resolved is the more precise of the two, which is why it has to win.
+    ///
+    /// The done list is set after the import rather than in <see cref="ConfigureAsync"/>, because a
+    /// row whose state is already in it would be skipped on the way in and there would be no local
+    /// task to reconcile.
+    ///
+    /// <c>doneAt</c> is asserted beside the reason and is not decoration: it follows the reason rather
+    /// than the suggestion, so swapping the branches turns it null in the same move.
+    /// </summary>
+    [Fact]
+    public async Task Resolved_outranks_unassigned_when_both_are_true()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.HandedOverKey));
+        await SetDoneStatesAsync("Active");
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeAdo.HandedOverKey);
+
+        Assert.True(row.SuggestsClosing);
+        Assert.Equal("resolved", row.ClosureReason);
+        Assert.Equal(new DateTimeOffset(2026, 8, 10, 8, 0, 0, TimeSpan.Zero), row.DoneAt);
+    }
+
+    /// <summary>
+    /// The safety net. Azure DevOps answers nothing for either key, and the app says so once instead
+    /// of printing a row per key claiming the source has never heard of it - because a token that
+    /// stopped being allowed to read the project answers exactly like that, and a whole working list
+    /// deleted at once is the rarer of the two.
+    ///
+    /// The false negative is accepted rather than overlooked and is written down in the design's
+    /// section 5: delete both of your only two reconciled work items for real and neither is reported.
+    /// </summary>
+    [Fact]
+    public async Task Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.UnknownKey, "Den ene"));
+        await Import(Reconcilable("999998", "Den anden"));
+
+        var preview = await Preview();
+
+        Assert.Equal(ErrorCodes.AdoNoneRecognized, preview.ReconciliationNotice);
+        Assert.DoesNotContain(preview.Rows, r => r.Key == FakeAdo.UnknownKey);
+        Assert.DoesNotContain(preview.Rows, r => r.Key == "999998");
+    }
+
+    /// <summary>
+    /// The tooth in the one above, and the reason the boundary is "all of them" rather than "any of
+    /// them": with one key asked, all and one are the same answer, and a single work item that really
+    /// was deleted still has to be reported. Written as "at least one absence" the guard would pass
+    /// its sibling and kill the outcome the reconciliation exists for.
+    ///
+    /// Named as reported rather than as suggested, which is what the plan called it: a key the source
+    /// does not know carries <c>missingInSource</c> and offers nothing - see the note on the outcome
+    /// table in the delivery report.
+    /// </summary>
+    [Fact]
+    public async Task A_single_missing_key_is_still_reported_because_all_and_one_are_the_same_there()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.UnknownKey, "Den eneste"));
+
+        var preview = await Preview();
+
+        Assert.Null(preview.ReconciliationNotice);
+
+        var row = Assert.Single(preview.Rows, r => r.Key == FakeAdo.UnknownKey);
+
+        Assert.Equal(ErrorCodes.AdoMissingInSource, row.Excluded);
+    }
+
+    /// <summary>
     /// The completion time is the source's, not the clock's, and the fixture is what gives this teeth:
     /// PUT /api/tasks/{id} sets CompletedAt to the clock's now on every move into Done, so a closure
     /// routed through that path - or one that simply forgot the field - would answer 2026-08-20 here.
@@ -871,18 +1095,71 @@ public class AdoEndpointsTests : ApiTest
     private static object Blocked() => Row(state: "Blocked");
 
     /// <summary>
+    /// A row for one of the work items the ordinary fetch cannot reach, so importing it leaves a local
+    /// task the next preview has to reconcile.
+    ///
+    /// The state is <c>Active</c> whatever the work item says now, and that is the honest sequence
+    /// rather than a trick: the import writes what the client sends, and what the client saw was the
+    /// state before it was closed or handed over. A row carrying the item's current state would be
+    /// skipped on the way in - Closed is done, and a done row is never imported - so there would be no
+    /// task to reconcile.
+    /// </summary>
+    private static object Reconcilable(string key, string title = "Hentet mens den stadig var min")
+        => Row(key: key, title: title, state: "Active", workItemType: "Task");
+
+    /// <summary>
     /// Finishes the imported task the way the user does, through the task route rather than by writing
     /// a status into the database - so the row the preview then answers about is one the app itself
     /// produced. PUT is a full replacement, and every field it drops on the way is one the preview
     /// never reads: it looks at the source id, the external key and the status.
     /// </summary>
-    private async Task FinishAsync()
+    private Task FinishAsync() => FinishAsync(title: null);
+
+    /// <summary>
+    /// The same thing for a fixture holding more than one task, picked by title. A key would read
+    /// better, but the task list answers the browse URL rather than the external key, and matching a
+    /// key inside a URL would pass for <c>16901</c> against <c>116901</c>.
+    /// </summary>
+    private async Task FinishAsync(string? title)
     {
-        var task = Assert.Single((await Tasks()).Items);
+        var items = (await Tasks()).Items;
+        var task = title is null
+            ? Assert.Single(items)
+            : Assert.Single(items, t => t.Title == title);
         var response = await Host.Client.PutAsJsonAsync(
             $"/api/tasks/{task.Id}", new { title = task.Title, status = "done" });
 
         response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Narrows the work item type filter through the settings route, which is how a user changes it -
+    /// so a work item imported under the old filter falls out of the fetch's WIQL while still being
+    /// theirs and still being open, which is the only way to reach the outsideFilter outcome.
+    ///
+    /// <c>PUT /api/settings</c> is a full replacement, so every Azure DevOps field
+    /// <see cref="ConfigureAsync"/> wrote has to be written again. The setting is then read back
+    /// through the app: nothing on the reconciled row can say the filter really narrowed, so a write
+    /// that never landed would otherwise surface as a puzzling assertion about a deadline.
+    /// </summary>
+    private async Task NarrowWorkItemTypesAsync(FakeAdo ado, params string[] types)
+    {
+        var response = await Host.Client.PutAsJsonAsync("/api/settings", new
+        {
+            adoBaseUrl = ado.BaseUrl,
+            adoProject = FakeAdo.Project,
+            adoWaitingStates = new[] { "Blocked" },
+            adoDoneStates = Array.Empty<string>(),
+            adoIncludeWaiting = false,
+            adoWorkItemTypes = types,
+            adoDefaultDeadlineDays = AdoDefaults.DeadlineDays,
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        Assert.Contains(
+            $"\"adoWorkItemTypes\":[{string.Join(",", types.Select(type => $"\"{type}\""))}]",
+            await Host.Client.GetStringAsync("/api/settings"));
     }
 
     /// <summary>
@@ -1010,11 +1287,15 @@ public class AdoEndpointsTests : ApiTest
 
     private sealed record Connection(string DisplayName);
     private sealed record States(string[] Names);
-    private sealed record PreviewBody(PreviewRow[] Rows, int Total);
+    private sealed record PreviewBody(PreviewRow[] Rows, int Total, string? ReconciliationNotice);
     private sealed record PreviewRow(
         string Key, string Title, string Url, string? Note, DateOnly? Deadline, string? Requester,
-        string State, string WorkItemType, bool IsWaiting, DateTimeOffset? WaitingSince,
-        bool AlreadyImported, bool SuggestsClosing, DateTimeOffset? DoneAt,
+        // Nullable since the reconciliation arrived: a key the source does not know has neither, and
+        // no answer came back to take one from.
+        string? State, string? WorkItemType, bool IsWaiting, DateTimeOffset? WaitingSince,
+        bool AlreadyImported, bool SuggestsClosing,
+        // A string rather than the contract's enum, for the reason ReopenTo below gives.
+        string? ClosureReason, DateTimeOffset? DoneAt,
         // A string rather than the contract's enum, and for the same reason Excluded is one: what is
         // being asserted is the name on the wire. Reading it into ReopenTarget would let a renamed
         // enum member pass, because the converter would map the new name back to the same value.

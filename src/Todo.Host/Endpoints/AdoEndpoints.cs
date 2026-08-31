@@ -102,7 +102,9 @@ public static class AdoEndpoints
             try
             {
                 var page = await source.FetchAssignedAsync();
-                var imported = await ImportedKeysAsync(db, [.. page.Items.Select(item => item.Key)]);
+                var imported = await ImportedKeysAsync(db);
+                var fetched = new HashSet<string>(
+                    page.Items.Select(item => item.Key), StringComparer.Ordinal);
                 var rows = new List<AdoPreviewRow>();
 
                 foreach (var item in page.Items)
@@ -117,7 +119,7 @@ public static class AdoEndpoints
                     // local status is what stops the offer once it has been accepted - without it the
                     // same row would keep suggesting a closure it already got.
                     var localStatus = imported.TryGetValue(item.Key, out var found)
-                        ? (CoreStatus?)found
+                        ? (CoreStatus?)found.Status
                         : null;
                     var suggestsClosing = role == AdoStateRole.Done
                         && localStatus is { } status
@@ -186,6 +188,21 @@ public static class AdoEndpoints
                         WaitingSince = isWaiting ? AsUtc(item.StatusChangedAt) : null,
                         AlreadyImported = localStatus is not null,
                         SuggestsClosing = suggestsClosing,
+                        // Decided rather than left out, and the server cannot tell the two apart: a
+                        // closure body without "reason" deserialises to Resolved, because Reason is a
+                        // non-nullable enum whose zero is Resolved, nothing validates it, and
+                        // ValidateClosure asks only about the key and the state. So the value here is
+                        // the same one an absent field would have produced - what changes is that it
+                        // was chosen. That is what lets ado-store.ts drop its
+                        // `?? ClosureReason.Resolved` fallback: the fallback can only go once every
+                        // closing row carries a reason, and these are the older half of them.
+                        //
+                        // Measured by writing a bare null here: the only red is
+                        // A_done_work_item_that_was_imported_before_offers_to_close_the_task, and its
+                        // Jira twin A_done_issue_that_was_imported_before_offers_to_close_the_task
+                        // for the same line over there. Nothing downstream can see it yet, which is
+                        // the reason the assertion had to be added rather than found.
+                        ClosureReason = suggestsClosing ? ClosureReason.Resolved : null,
                         // Only for the rows that will use it, which is the same rule WaitingSince
                         // follows one line up - and the reason this is its own field rather than a
                         // loosened WaitingSince: that one is null for every row that is not waiting,
@@ -245,7 +262,16 @@ public static class AdoEndpoints
                     });
                 }
 
-                return TypedResults.Ok(new AdoPreviewResponse { Rows = rows, Total = page.Total });
+                var (reconciled, notice) = await ReconciledRowsAsync(source, settings, imported, fetched);
+
+                rows.AddRange(reconciled);
+
+                return TypedResults.Ok(new AdoPreviewResponse
+                {
+                    Rows = rows,
+                    Total = page.Total,
+                    ReconciliationNotice = notice,
+                });
             }
             catch (SourceException exception)
             {
@@ -305,7 +331,7 @@ public static class AdoEndpoints
             // outcome rather than a rounding error.
             var deadline = AdoDeadline.For(clock.Today, settings.DefaultDeadlineDays);
 
-            var known = await ImportedKeysAsync(db, [.. rows.Select(row => row.Key)]);
+            var known = await ImportedKeysAsync(db);
             var imported = 0;
             var skipped = 0;
 
@@ -342,10 +368,11 @@ public static class AdoEndpoints
                 }
 
                 // StatusFor rather than a literal Open, which is what this said while the value went
-                // unread. Task 6 widens ImportedKeysAsync to carry the status, and a reader who
-                // starts trusting it would otherwise get Open for a row this very loop writes as
+                // unread. The preview now reads the status the lookup carries, and a reader who
+                // trusted a hardcoded Open here would get it for a row this very loop writes as
                 // WaitingFor - a third spelling of the mapping the two above were just merged into.
-                if (!known.TryAdd(row.Key, StatusFor(role)))
+                // The title is trimmed to match what the entity below is given, for the same reason.
+                if (!known.TryAdd(row.Key, new ImportedTask(StatusFor(role), row.Title.Trim())))
                 {
                     skipped++;
                     continue;
@@ -386,6 +413,166 @@ public static class AdoEndpoints
         .Produces<AdoImportResponse>();
 
         return app;
+    }
+
+    /// <summary>
+    /// The rows for the keys the fetch could not speak about, and the notice that stands in for all of
+    /// them when the answer is not to be trusted.
+    ///
+    /// <b>Who gets asked:</b> the keys this source wrote that are still open here and did not come back
+    /// in today's fetch. The ones that came back already have a row. Done is left out because a task
+    /// finished here is settled whatever the source says, and asking anyway would grow the question by
+    /// every task the user has ever completed - which Jira pays for one call at a time.
+    ///
+    /// <b>Every lookup is by the key we asked with</b>, never by a key off the answer. Both sources
+    /// respell keys - Jira canonicalises case, Azure DevOps reads its keys as numbers - and
+    /// ITaskSource.ReconcileAsync makes the caller's spelling the one that counts. Iterating the answer
+    /// instead would silently lose every key that produced no answer at all, which is the outcome this
+    /// whole method exists to report. Measured by looping over <c>answer.Found</c>'s keys rather than
+    /// over the ones asked: it fells
+    /// <c>A_key_the_source_does_not_know_is_shown_as_missing_and_carries_the_local_title</c> and
+    /// <c>A_single_missing_key_is_still_reported_because_all_and_one_are_the_same_there</c> on both
+    /// sources, and nothing else - because a key with an answer is the only kind such a loop can see.
+    /// </summary>
+    private static async Task<(List<AdoPreviewRow> Rows, string? Notice)> ReconciledRowsAsync(
+        AdoTaskSource source,
+        AdoSettings settings,
+        Dictionary<string, ImportedTask> imported,
+        HashSet<string> fetched)
+    {
+        // Ordered so the screen is stable between two previews of the same state. Nothing reads
+        // meaning into the order - a dictionary promises none, and these rows sit after the fetch's.
+        //
+        // Dropping the status test here fells A_task_that_is_done_here_is_never_reconciled and its
+        // Jira twin of the same name, and nothing else: no other fixture holds a task that is done
+        // here and absent from the fetch at the same time.
+        var keys = imported
+            .Where(entry => entry.Value.Status != CoreStatus.Done && !fetched.Contains(entry.Key))
+            .Select(entry => entry.Key)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        if (keys.Count == 0)
+        {
+            return ([], null);
+        }
+
+        var answer = await source.ReconcileAsync(keys);
+        var found = answer.Found.ToDictionary(item => item.Key, StringComparer.Ordinal);
+
+        // The safety net, and it is the reason the feature can be trusted at all. Every key gone at
+        // once is what a lost permission looks like: Jira Data Center hides an unbrowsable issue behind
+        // 404 rather than 403, and a token that may no longer read an Azure DevOps project leaves the
+        // whole batch read omitted. A working list deleted in one go is the rarer reading, so the app
+        // says the likelier cause once instead of printing missingInSource against every task the user
+        // still has open - which reads as an invitation to clear them out by hand.
+        //
+        // Asked on Found alone, though ExternalReconciliation defines an absence as "in neither set".
+        // The two agree on what matters here: a key absent from Found carries no fact any other outcome
+        // could rest on - there is no state, so neither closing branch can fire - so it produces a
+        // missingInSource row whatever StillMine says. Reading the absence off Found is therefore the
+        // same question the row below asks, and the notice stands in for exactly the rows it replaces.
+        //
+        // More than one key, because with one asked all and one are the same answer and a genuinely
+        // deleted item must still be reported. The false negative that leaves is accepted and written
+        // down in the design's section 5.
+        //
+        // Both halves are held, and by different tests. Written as "at least one absence" - the easy
+        // way to write it wrong - this fells A_single_missing_key_is_still_reported_because_all_and_
+        // one_are_the_same_there and A_key_the_source_does_not_know_is_shown_as_missing_and_carries_
+        // the_local_title, on both sources: the deleted item stops being reported, which is the
+        // outcome the reconciliation exists for. Deleted outright it fells
+        // Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission on both
+        // sources instead, and those two are the only ones either way.
+        if (keys.Count > 1 && keys.TrueForAll(key => !found.ContainsKey(key)))
+        {
+            return ([], ErrorCodes.AdoNoneRecognized);
+        }
+
+        var rows = new List<AdoPreviewRow>();
+
+        foreach (var key in keys)
+        {
+            var local = imported[key];
+            var item = found.GetValueOrDefault(key);
+            var role = item is null ? (AdoStateRole?)null : AdoStateRoles.For(item.StatusName, settings);
+
+            // Resolved outranks unassigned, and the order of these two branches is the whole of that
+            // rule. Both outcomes are legal, so swapping them compiles and reads right. An item can be
+            // finished and handed on at the same time, and then "resolved" is the more precise of the
+            // two while the action the user takes is the same either way: it is the label being
+            // decided here, not the tick box.
+            //
+            // Measured by swapping them: the only red is Resolved_outranks_unassigned_when_both_are_
+            // true, once per source. Every other fixture has at most one of the two facts true, so
+            // the order cannot reach them - which is why that test exists rather than being folded
+            // into the two it sits between.
+            //
+            // The unassigned branch tests the item rather than only the set, and that is what keeps
+            // the fourth outcome from being swallowed: a key the source never answered for is in
+            // neither set, so a bare !StillMine would call every deleted item a hand-over.
+            ClosureReason? reason = role == AdoStateRole.Done
+                ? ClosureReason.Resolved
+                : item is not null && !answer.StillMine.Contains(key)
+                    ? ClosureReason.Unassigned
+                    : null;
+
+            rows.Add(new AdoPreviewRow
+            {
+                Key = key,
+                // The source's title where there is one, because it is the fresher of the two, and the
+                // local task's where the source answered nothing at all - there was no answer to take
+                // one from, and a row with no title would say less than the task the user is looking
+                // at. This is the half of the key lookup that grew past the status.
+                Title = item?.Title ?? local.Title,
+                Url = settings.BrowseUrl(key)
+                    ?? throw new SourceException(
+                        ErrorCodes.AdoNotConfigured,
+                        "A reconciled row has no work item URL, which cannot happen once the "
+                            + "collection and the project have both been checked."),
+                Note = item?.Note,
+                // Null on every reconciled item, and that is ExternalReconciliation's rule rather than
+                // this line's: a reconciled row is never imported as new work, so a suggested deadline
+                // is noise on a row whose tick box means "close this one". Read off the item rather
+                // than written as null here, so there is one place the rule lives.
+                Deadline = item?.Deadline,
+                Requester = item?.Requester,
+                // Both null for a key the source does not know, which is why the contract loosened
+                // them: no answer came back to take either from, and an empty string would be a value
+                // saying one thing while its type said another.
+                State = item?.StatusName,
+                WorkItemType = item?.ItemType,
+                IsWaiting = role == AdoStateRole.Waiting,
+                // Never carried on a reconciled row, on the same grounds as the deadline: it travels
+                // so a newly imported waiting task knows when its wait began, and none of these is
+                // imported as new work. Jira's twin has a price attached as well - the field costs one
+                // changelog call per row there - and the two sources answer alike rather than one
+                // paying for what the other leaves out.
+                WaitingSince = null,
+                // True by construction: every key here came out of the imported lookup.
+                AlreadyImported = true,
+                SuggestsClosing = reason is not null,
+                ClosureReason = reason,
+                // Follows the reason and not the suggestion. An unassigned item was never finished -
+                // it stopped being the user's - so there is no completion time to carry and the import
+                // falls back on the clock, which the contract says in so many words.
+                DoneAt = reason == ClosureReason.Resolved ? AsUtc(item?.StatusChangedAt) : null,
+                // Unreachable rather than merely false: a task that is done here is not reconciled at
+                // all, and being done here is the whole of what a reopening rests on.
+                SuggestsReopening = false,
+                ReopenTo = null,
+                // The same rule the fetch's rows follow: a row with something to do never carries a
+                // code, because this field is the row's "nothing will happen here" mark. The two codes
+                // below are the two outcomes that have nothing to offer.
+                Excluded = reason is not null
+                    ? null
+                    : item is null
+                        ? ErrorCodes.AdoMissingInSource
+                        : ErrorCodes.AdoOutsideFilter,
+            });
+        }
+
+        return (rows, null);
     }
 
     /// <summary>
@@ -562,28 +749,35 @@ public static class AdoEndpoints
     }
 
     /// <summary>
-    /// Scoped to this source. A Jira issue, a retro card and an Azure DevOps work item can all carry
-    /// the same key - a work item id is a bare number, so the collision is likelier here than it was
-    /// for Jira - and one counting as another would hide real work behind something unrelated.
-    /// </summary>
-    /// <summary>
-    /// The keys already imported, each with the local task's status.
+    /// Every key this source has imported, each with the local task's status and title.
+    ///
+    /// <b>Scoped to this source and to nothing else.</b> A Jira issue, a retro card and an Azure DevOps
+    /// work item can all carry the same key - a work item id is a bare number, so the collision is
+    /// likelier here than it was for Jira - and one counting as another would hide real work behind
+    /// something unrelated.
     ///
     /// The status is what turns a one-off suggestion into one that stops coming back: a closure is
-    /// only offered while the local task is <em>not</em> done, and a set of keys cannot say that. It
-    /// was a <c>HashSet&lt;string&gt;</c> until the closure suggestion needed the second half.
+    /// only offered while the local task is <em>not</em> done, and a set of keys cannot say that. The
+    /// title is what a reconciled row falls back on when the source answers nothing at all. It was a
+    /// <c>HashSet&lt;string&gt;</c> until the closure suggestion needed the status, and a dictionary of
+    /// statuses until the reconciliation needed the title.
+    ///
+    /// <b>Every key rather than a named list, and that is a trade worth stating.</b> The preview has to
+    /// see what was <em>missing</em> from the fetch, and a lookup narrowed to the keys that came back
+    /// cannot answer that - the whole reconciliation would be blind by construction. What it costs is
+    /// reading the source's finished tasks along with the open ones on every preview and every import,
+    /// which for one person's list is a few hundred rows of two columns. The caller that does not want
+    /// them filters on the status it now has.
     /// </summary>
-    private static async Task<Dictionary<string, CoreStatus>> ImportedKeysAsync(
-        TodoDbContext db, List<string> keys)
+    private static async Task<Dictionary<string, ImportedTask>> ImportedKeysAsync(TodoDbContext db)
     {
         var found = await db.Tasks
-            .Where(t => t.SourceId == AdoTaskSource.Id
-                && t.ExternalKey != null
-                && keys.Contains(t.ExternalKey))
-            .Select(t => new { Key = t.ExternalKey!, t.Status })
+            .Where(t => t.SourceId == AdoTaskSource.Id && t.ExternalKey != null)
+            .Select(t => new { Key = t.ExternalKey!, t.Status, t.Title })
             .ToListAsync();
 
-        return found.ToDictionary(row => row.Key, row => row.Status, StringComparer.Ordinal);
+        return found.ToDictionary(
+            row => row.Key, row => new ImportedTask(row.Status, row.Title), StringComparer.Ordinal);
     }
 
     // The source hands over UTC, because SQLite cannot sort a DateTimeOffset and one must never reach

@@ -506,6 +506,13 @@ public class JiraEndpointsTests : ApiTest
         Assert.True(row.SuggestsClosing);
         Assert.True(row.AlreadyImported);
         Assert.Null(row.Excluded);
+
+        // The reason is decided rather than left out, and this row is where that matters: a body
+        // without "reason" deserialises silently to Resolved, because Reason is a non-nullable enum
+        // whose zero is Resolved and nothing validates it. So an absent reason and a resolved one are
+        // the same thing on the wire, and only a row that carries it lets the client's
+        // `?? ClosureReason.Resolved` fallback be taken away.
+        Assert.Equal("resolved", row.ClosureReason);
         Assert.Equal(new DateTimeOffset(2026, 8, 12, 11, 45, 0, TimeSpan.Zero), row.DoneAt);
     }
 
@@ -722,6 +729,208 @@ public class JiraEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The first of the four reconciliation outcomes. SAAS-6 carries a resolution, which the fetch's
+    /// <c>resolution = Unresolved</c> drops, so nothing but a reconciliation can report it - and the
+    /// user has since called its status finished.
+    ///
+    /// <b>The teeth are the title and doneAt.</b> The title is the source's rather than the one the
+    /// import wrote, so the row cannot have been built from the local task alone; and doneAt is the
+    /// exact changelog entry, which the clock's now could not answer by accident - this suite runs on
+    /// the real clock, so a lost timestamp would read as today.
+    /// </summary>
+    [Fact]
+    public async Task A_key_that_fell_out_of_the_fetch_and_is_done_in_the_source_suggests_closing()
+    {
+        await using var jira = await ConfigureAsync(doneStatuses: ["Løst"]);
+
+        await Import(Reconcilable(FakeJira.ResolvedKey));
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeJira.ResolvedKey);
+
+        Assert.True(row.SuggestsClosing);
+        Assert.Equal("resolved", row.ClosureReason);
+        Assert.Equal("Løst", row.Status);
+        Assert.Equal("Løst i kilden", row.Title);
+        Assert.Equal(new DateTimeOffset(2026, 8, 13, 7, 20, 0, TimeSpan.Zero), row.DoneAt);
+        Assert.Null(row.Excluded);
+    }
+
+    /// <summary>
+    /// The second outcome, and the one the feature was asked for: SAAS-5 is still open but belongs to
+    /// somebody else, so <c>assignee = currentUser()</c> stops answering with it and only the
+    /// ownership question can tell.
+    ///
+    /// <c>doneAt</c> is null and is asserted, the opposite of its sibling above on the same field: the
+    /// issue was never finished, it stopped being the user's, so there is no completion time and the
+    /// import falls back on the clock. The pair says the field follows the reason and not the
+    /// suggestion.
+    /// </summary>
+    [Fact]
+    public async Task A_key_that_is_no_longer_assigned_to_me_suggests_closing_for_that_reason()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.HandedOverKey));
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeJira.HandedOverKey);
+
+        Assert.True(row.SuggestsClosing);
+        Assert.Equal("unassigned", row.ClosureReason);
+        Assert.Equal("Overdraget til en anden", row.Title);
+        Assert.Null(row.DoneAt);
+        Assert.Null(row.Excluded);
+    }
+
+    /// <summary>
+    /// The third outcome, where nothing has changed and the row says so. Same issue as the first, one
+    /// setting apart: with "Løst" out of the done list the role is actionable, so a resolved issue
+    /// that is still the user's is simply one the fetch left out.
+    ///
+    /// <b>That the two differ in the done list alone is what makes this readable</b> - it is the
+    /// resolution clause that keeps SAAS-6 out of the fetch in both, so this cannot be passing because
+    /// the issue never left it.
+    /// </summary>
+    [Fact]
+    public async Task A_key_that_is_still_mine_and_open_is_shown_as_outside_the_filter()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.ResolvedKey));
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeJira.ResolvedKey);
+
+        Assert.Equal(ErrorCodes.JiraOutsideFilter, row.Excluded);
+        Assert.False(row.SuggestsClosing);
+        Assert.Null(row.ClosureReason);
+        Assert.Equal("Løst", row.Status);
+    }
+
+    /// <summary>
+    /// The fourth outcome. Jira answers 404 for a key it does not have, and only a 404 is read as an
+    /// absence - a 403 is raised, because the app's answer to an absence is to talk about closing
+    /// tasks.
+    ///
+    /// <b>The title is the local task's, and that is the assertion this outcome exists for.</b> No
+    /// answer came back to take one from, so the only title there is is the one the import wrote -
+    /// which is why the key lookup had to grow past the status. The status is null for the same
+    /// reason, and it is the field the contract loosened for it.
+    /// </summary>
+    [Fact]
+    public async Task A_key_the_source_does_not_know_is_shown_as_missing_and_carries_the_local_title()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.DeletedKey, "Den der ikke findes mere"));
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeJira.DeletedKey);
+
+        Assert.Equal(ErrorCodes.JiraMissingInSource, row.Excluded);
+        Assert.Equal("Den der ikke findes mere", row.Title);
+        Assert.False(row.SuggestsClosing);
+        Assert.Null(row.Status);
+    }
+
+    /// <summary>
+    /// What keeps the reconciliation off the archive. A task finished here is settled whatever Jira
+    /// says, and asking anyway would grow the question by every task the user has ever completed - and
+    /// Jira pays one call per key.
+    ///
+    /// <b>The second key is the tooth.</b> Without it this would pass just as happily if the
+    /// reconciliation never ran, which is the likelier fault than a filter written the wrong way
+    /// round.
+    /// </summary>
+    [Fact]
+    public async Task A_task_that_is_done_here_is_never_reconciled()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.HandedOverKey, "Den der er færdig her"));
+        await Import(Reconcilable(FakeJira.ResolvedKey, "Den der stadig er åben her"));
+        await FinishAsync("Den der er færdig her");
+
+        var rows = (await Preview()).Rows;
+
+        Assert.DoesNotContain(rows, r => r.Key == FakeJira.HandedOverKey);
+        Assert.Contains(rows, r => r.Key == FakeJira.ResolvedKey);
+    }
+
+    /// <summary>
+    /// The order of the two closing branches, and the only test on this source that can see it: both
+    /// outcomes are legal, so swapping them compiles and reads right. SAAS-5 belongs to somebody else
+    /// <em>and</em> stands in a status the user has since called finished, so both are true at once,
+    /// and resolved is the more precise of the two.
+    ///
+    /// The done list is set after the import rather than in <see cref="ConfigureAsync"/>, because a
+    /// row whose status is already in it would be skipped on the way in, leaving no task to reconcile.
+    ///
+    /// <c>doneAt</c> is asserted beside the reason because it follows the reason rather than the
+    /// suggestion: swapping the branches turns it null in the same move.
+    /// </summary>
+    [Fact]
+    public async Task Resolved_outranks_unassigned_when_both_are_true()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.HandedOverKey));
+        await SetDoneStatusesAsync("I gang");
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == FakeJira.HandedOverKey);
+
+        Assert.True(row.SuggestsClosing);
+        Assert.Equal("resolved", row.ClosureReason);
+        Assert.Equal(new DateTimeOffset(2026, 8, 14, 6, 5, 0, TimeSpan.Zero), row.DoneAt);
+    }
+
+    /// <summary>
+    /// The safety net, and Jira is the source it was written for: Jira Data Center hides an issue you
+    /// may not browse behind <c>404 Issue Does Not Exist</c> rather than a 403, so a lost project
+    /// permission answers exactly like a deleted issue - for every key at once. The app says that once
+    /// instead of printing a row per key claiming Jira has never heard of it.
+    ///
+    /// The false negative is accepted rather than overlooked and is written down in the design's
+    /// section 5: delete both of your only two reconciled issues for real and neither is reported.
+    /// </summary>
+    [Fact]
+    public async Task Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.DeletedKey, "Den ene"));
+        await Import(Reconcilable("SAAS-99", "Den anden"));
+
+        var preview = await Preview();
+
+        Assert.Equal(ErrorCodes.JiraNoneRecognized, preview.ReconciliationNotice);
+        Assert.DoesNotContain(preview.Rows, r => r.Key == FakeJira.DeletedKey);
+        Assert.DoesNotContain(preview.Rows, r => r.Key == "SAAS-99");
+    }
+
+    /// <summary>
+    /// The tooth in the one above, and the reason the boundary is "all of them" rather than "any of
+    /// them": with one key asked, all and one are the same answer, and a single issue that really was
+    /// deleted still has to be reported. Written as "at least one absence" the guard would pass its
+    /// sibling and kill the outcome the reconciliation exists for.
+    ///
+    /// Named as reported rather than as suggested, which is what the plan called it: a key the source
+    /// does not know carries <c>missingInSource</c> and offers nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_single_missing_key_is_still_reported_because_all_and_one_are_the_same_there()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.DeletedKey, "Den eneste"));
+
+        var preview = await Preview();
+
+        Assert.Null(preview.ReconciliationNotice);
+
+        var row = Assert.Single(preview.Rows, r => r.Key == FakeJira.DeletedKey);
+
+        Assert.Equal(ErrorCodes.JiraMissingInSource, row.Excluded);
+    }
+
+    /// <summary>
     /// The completion time is the changelog's, not the clock's. Without the fixture's six-day gap this
     /// would be a test of nothing: PUT /api/tasks/{id} writes the clock's now on every move into Done,
     /// so a closure that lost its timestamp would answer today and look plausible.
@@ -771,15 +980,36 @@ public class JiraEndpointsTests : ApiTest
         => new { key = "SAAS-2", title = "Venter på svar fra kunden", status = "Afventer general" };
 
     /// <summary>
+    /// A row for one of the issues the ordinary fetch cannot reach, so importing it leaves a local
+    /// task the next preview has to reconcile.
+    ///
+    /// The status is <c>I gang</c> whatever the issue says now, and that is the honest sequence rather
+    /// than a trick: the import writes what the client sends, and what the client saw was the status
+    /// before the issue was resolved or handed over. A row carrying a status the user calls finished
+    /// would be skipped on the way in, so there would be no task to reconcile.
+    /// </summary>
+    private static object Reconcilable(string key, string title = "Hentet mens den stadig var min")
+        => new { key, title, status = "I gang" };
+
+    /// <summary>
     /// Finishes the imported task the way the user does, through the task route rather than by writing
     /// a status into the database - so the row the preview then answers about is one the app itself
     /// produced. PUT is a full replacement, and every field it drops on the way is one the preview
     /// never reads: it looks at the source id, the external key and the status.
     /// </summary>
-    private async Task FinishAsync()
+    private Task FinishAsync() => FinishAsync(title: null);
+
+    /// <summary>
+    /// The same thing for a fixture holding more than one task, picked by title. A key would read
+    /// better, but the task list answers the browse URL rather than the external key, and matching a
+    /// key inside a URL would pass for <c>SAAS-5</c> against <c>SAAS-50</c>.
+    /// </summary>
+    private async Task FinishAsync(string? title)
     {
         var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
-        var task = Assert.Single(tasks!.Items);
+        var task = title is null
+            ? Assert.Single(tasks!.Items)
+            : Assert.Single(tasks!.Items, t => t.Title == title);
         var response = await Host.Client.PutAsJsonAsync(
             $"/api/tasks/{task.Id}", new { title = task.Title, status = "done" });
 
@@ -848,11 +1078,14 @@ public class JiraEndpointsTests : ApiTest
 
     private sealed record Connection(string DisplayName);
     private sealed record Statuses(string[] Names);
-    private sealed record PreviewBody(PreviewRow[] Rows, int Total);
+    private sealed record PreviewBody(PreviewRow[] Rows, int Total, string? ReconciliationNotice);
     private sealed record PreviewRow(
-        string Key, string Title, string Status, bool IsWaiting, bool IsDuty,
+        // Status is nullable since the reconciliation arrived: a key the source does not know has
+        // none, because no answer came back to take one from.
+        string Key, string Title, string? Status, bool IsWaiting, bool IsDuty,
         DateTimeOffset? WaitingSince, bool AlreadyImported, bool SuggestsClosing,
-        DateTimeOffset? DoneAt,
+        // A string rather than the contract's enum, for the reason ReopenTo below gives.
+        string? ClosureReason, DateTimeOffset? DoneAt,
         // A string rather than the contract's enum, and for the same reason Excluded is one: what is
         // being asserted is the name on the wire. Reading it into ReopenTarget would let a renamed
         // enum member pass, because the converter would map the new name back to the same value.

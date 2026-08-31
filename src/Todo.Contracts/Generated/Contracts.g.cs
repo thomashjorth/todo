@@ -573,6 +573,13 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("total")]
         public int Total { get; set; }
 
+        /// <summary>
+        /// Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own.
+        /// <br/>It sits on the response rather than on a row because it is the answer to a question no single key can hold: reconciliation asked about more than one key and Jira recognised none of them, which is what a lost project permission looks like when the instance hides an unbrowsable issue behind a 404. See jira.noneRecognized for why that reading beats the other one.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reconciliationNotice")]
+        public string ReconciliationNotice { get; set; }
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -843,6 +850,13 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("total")]
         public int Total { get; set; }
+
+        /// <summary>
+        /// Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own.
+        /// <br/>It sits on the response rather than on a row because it is the answer to a question no single key can hold: reconciliation asked about more than one key and Azure DevOps recognised none of them, which is what a token that may no longer read the project looks like. See ado.noneRecognized for why that reading beats the other one.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reconciliationNotice")]
+        public string ReconciliationNotice { get; set; }
 
     }
 

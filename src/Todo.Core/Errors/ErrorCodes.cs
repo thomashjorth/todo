@@ -77,6 +77,25 @@ public static class ErrorCodes
     public const string JiraMissingInSource = "jira.missingInSource";
 
     /// <summary>
+    /// Not a row's code but the whole preview's: reconciliation asked about more than one key and
+    /// Jira recognised none of them, so the rows those keys would have produced are left out and this
+    /// stands in their place.
+    ///
+    /// It exists because the two readings of that answer are not equally likely. Every key gone at
+    /// once is what a lost project permission looks like — Jira Data Center hides an unbrowsable issue
+    /// behind <c>404 Issue Does Not Exist</c> — while a whole working list deleted in one go is rare.
+    /// So the app names the likelier cause once instead of printing
+    /// <see cref="JiraMissingInSource"/> against every task the user still has open, which reads as
+    /// an invitation to clear them out by hand.
+    ///
+    /// <b>More than one key, because with one asked all and one are the same answer</b> and a single
+    /// deleted issue must still be reported. The false negative that leaves is accepted and written
+    /// down in the design's section 5: really delete both of your only two reconciled issues and
+    /// neither is reported.
+    /// </summary>
+    public const string JiraNoneRecognized = "jira.noneRecognized";
+
+    /// <summary>
     /// The work item type filter is a requirement rather than an optional filter, so an empty list is
     /// refused instead of being read as "every type" - the same rule as
     /// <see cref="JiraProjectKeyRequired"/>, and for the same reason: the absence of a limit is not a
@@ -154,6 +173,15 @@ public static class ErrorCodes
     /// is not one to build a suggestion to close tasks upon.
     /// </summary>
     public const string AdoMissingInSource = "ado.missingInSource";
+
+    /// <summary>
+    /// The counterpart of <see cref="JiraNoneRecognized"/>, which carries the whole reasoning. Azure
+    /// DevOps reaches the same state by a different route: a token that may no longer read the
+    /// project, where the batch read is asked with <c>errorPolicy=omit</c> and every id is therefore
+    /// omitted rather than refused. <b>That route is unmeasured</b> — nobody has put an unauthorised
+    /// token to the instance — which is an argument for the guard rather than against it.
+    /// </summary>
+    public const string AdoNoneRecognized = "ado.noneRecognized";
 
     /// <summary>
     /// A work item type name carrying a quotation mark or a backslash. Those two characters are what

@@ -199,6 +199,27 @@ public sealed class FakeJira : IAsyncDisposable
                 new("2026-08-10T11:30:00.000+0200",
                     [new("status", "Ny SLA", "Afventer general")]),
             ],
+
+            // The reconciliation's pair. Neither issue reaches the ordinary fetch, so neither needed a
+            // history until a reconciled row could suggest a closure - and a closure carries the
+            // moment the source finished with it. Without these two the completion time would be null
+            // whatever the endpoint did, so the assertion on it could not fail and would say nothing.
+            //
+            // SAAS-5 has one although it is the handed-over issue, whose closure carries no timestamp
+            // at all: that is what gives the assertion its teeth. An implementation that fetched the
+            // changelog for every closing row rather than only for the resolved ones would answer this
+            // value instead of null.
+            ["SAAS-5"] =
+            [
+                new("2026-08-14T08:05:00.000+0200",
+                    [new("status", "Ny SLA", "I gang")]),
+            ],
+
+            ["SAAS-6"] =
+            [
+                new("2026-08-13T09:20:00.000+0200",
+                    [new("status", "I gang", "Løst")]),
+            ],
         };
 
     private readonly HttpClient _client;

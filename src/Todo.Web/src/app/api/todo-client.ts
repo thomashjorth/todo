@@ -2941,6 +2941,9 @@ export class JiraPreviewResponse implements IJiraPreviewResponse {
     rows!: JiraPreviewRow[];
     /** What Jira reported as the total, so a truncated page is visible. */
     total!: number;
+    /** Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own.
+It sits on the response rather than on a row because it is the answer to a question no single key can hold: reconciliation asked about more than one key and Jira recognised none of them, which is what a lost project permission looks like when the instance hides an unbrowsable issue behind a 404. See jira.noneRecognized for why that reading beats the other one. */
+    reconciliationNotice?: string | undefined;
 
     constructor(data?: IJiraPreviewResponse) {
         if (data) {
@@ -2962,6 +2965,7 @@ export class JiraPreviewResponse implements IJiraPreviewResponse {
                     this.rows!.push(JiraPreviewRow.fromJS(item));
             }
             this.total = _data["total"];
+            this.reconciliationNotice = _data["reconciliationNotice"];
         }
     }
 
@@ -2980,6 +2984,7 @@ export class JiraPreviewResponse implements IJiraPreviewResponse {
                 data["rows"].push(item ? item.toJSON() : undefined as any);
         }
         data["total"] = this.total;
+        data["reconciliationNotice"] = this.reconciliationNotice;
         return data;
     }
 }
@@ -2988,6 +2993,9 @@ export interface IJiraPreviewResponse {
     rows: JiraPreviewRow[];
     /** What Jira reported as the total, so a truncated page is visible. */
     total: number;
+    /** Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own.
+It sits on the response rather than on a row because it is the answer to a question no single key can hold: reconciliation asked about more than one key and Jira recognised none of them, which is what a lost project permission looks like when the instance hides an unbrowsable issue behind a 404. See jira.noneRecognized for why that reading beats the other one. */
+    reconciliationNotice?: string | undefined;
 }
 
 export class JiraImportRow implements IJiraImportRow {
@@ -3496,6 +3504,9 @@ export class AdoPreviewResponse implements IAdoPreviewResponse {
     rows!: AdoPreviewRow[];
     /** What Azure DevOps reported as the total, so a truncated page is visible. */
     total!: number;
+    /** Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own.
+It sits on the response rather than on a row because it is the answer to a question no single key can hold: reconciliation asked about more than one key and Azure DevOps recognised none of them, which is what a token that may no longer read the project looks like. See ado.noneRecognized for why that reading beats the other one. */
+    reconciliationNotice?: string | undefined;
 
     constructor(data?: IAdoPreviewResponse) {
         if (data) {
@@ -3517,6 +3528,7 @@ export class AdoPreviewResponse implements IAdoPreviewResponse {
                     this.rows!.push(AdoPreviewRow.fromJS(item));
             }
             this.total = _data["total"];
+            this.reconciliationNotice = _data["reconciliationNotice"];
         }
     }
 
@@ -3535,6 +3547,7 @@ export class AdoPreviewResponse implements IAdoPreviewResponse {
                 data["rows"].push(item ? item.toJSON() : undefined as any);
         }
         data["total"] = this.total;
+        data["reconciliationNotice"] = this.reconciliationNotice;
         return data;
     }
 }
@@ -3543,6 +3556,9 @@ export interface IAdoPreviewResponse {
     rows: AdoPreviewRow[];
     /** What Azure DevOps reported as the total, so a truncated page is visible. */
     total: number;
+    /** Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own.
+It sits on the response rather than on a row because it is the answer to a question no single key can hold: reconciliation asked about more than one key and Azure DevOps recognised none of them, which is what a token that may no longer read the project looks like. See ado.noneRecognized for why that reading beats the other one. */
+    reconciliationNotice?: string | undefined;
 }
 
 export class AdoImportRow implements IAdoImportRow {

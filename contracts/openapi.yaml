@@ -1014,6 +1014,19 @@ components:
           type: integer
           format: int32
           description: What Jira reported as the total, so a truncated page is visible.
+        reconciliationNotice:
+          type: string
+          nullable: true
+          example: jira.noneRecognized
+          description: >-
+            Why the reconciliation produced no rows at all, as an error code the frontend translates.
+            Null in the ordinary case, where every reconciled key got a row of its own.
+
+            It sits on the response rather than on a row because it is the answer to a question no
+            single key can hold: reconciliation asked about more than one key and Jira recognised none
+            of them, which is what a lost project permission looks like when the instance hides an
+            unbrowsable issue behind a 404. See jira.noneRecognized for why that reading beats the
+            other one.
     JiraImportRow:
       type: object
       additionalProperties: false
@@ -1287,6 +1300,18 @@ components:
           type: integer
           format: int32
           description: What Azure DevOps reported as the total, so a truncated page is visible.
+        reconciliationNotice:
+          type: string
+          nullable: true
+          example: ado.noneRecognized
+          description: >-
+            Why the reconciliation produced no rows at all, as an error code the frontend translates.
+            Null in the ordinary case, where every reconciled key got a row of its own.
+
+            It sits on the response rather than on a row because it is the answer to a question no
+            single key can hold: reconciliation asked about more than one key and Azure DevOps
+            recognised none of them, which is what a token that may no longer read the project looks
+            like. See ado.noneRecognized for why that reading beats the other one.
     AdoImportRow:
       type: object
       additionalProperties: false
