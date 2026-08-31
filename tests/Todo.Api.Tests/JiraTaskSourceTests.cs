@@ -435,9 +435,12 @@ public class JiraTaskSourceTests
     ///
     /// The reason it must not be added is slice 11's own lesson read the right way round: the fetch
     /// needs a project because without one its JQL asks for everything the token can see, and here
-    /// the key list is already the limit. A refusal with nothing behind it would take the
-    /// reconciliation out for a user who has an ADO project configured and a Jira base URL but no
-    /// project key yet - and the rows it would have explained are ones the app already holds.
+    /// the key list is already the limit. A refusal with nothing behind it is still a refusal.
+    ///
+    /// No harm is claimed beyond that, because none can be reached today: the preview endpoint calls
+    /// FetchAssignedAsync first, which refuses through JqlFor's ProjectKeyOf before reconciling is
+    /// ever entered, so a user without a project key never gets this far either way. What this holds
+    /// is the principle, against the day a caller reaches the reconciliation on its own.
     /// </summary>
     [Fact]
     public async Task Reconciling_asks_for_no_project_key()

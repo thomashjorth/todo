@@ -300,12 +300,13 @@ public sealed partial class JiraTaskSource : ITaskSource
     /// <b>The first assumption fails in two directions, and only one of them is loud.</b> A deleted
     /// issue answering something other than 404 raises where it should have reported - a failure the
     /// user meets immediately, on the case the feature was written for. The other direction is the
-    /// dangerous one: <b>something that is not deleted answering 404.</b> Jira Data Center routinely
-    /// hides an issue the token may not browse behind <c>404 Issue Does Not Exist</c> rather than 403,
-    /// precisely so that a refusal does not confirm the issue exists. If that is how this instance
+    /// dangerous one: <b>something that is not deleted answering 404.</b> Jira Data Center is
+    /// documented to hide an issue the token may not browse behind <c>404 Issue Does Not Exist</c>
+    /// rather than 403, precisely so that a refusal does not confirm the issue exists - unmeasured
+    /// here, like everything else about this status code. If that is how this instance
     /// behaves, the ForbiddenKey fixture is a case that never occurs in practice, <b>one lost project
     /// permission reads as the whole list having been deleted</b>, and the app offers to close all of
-    /// it - quietly and plausibly. Also unmeasured. The bound belongs above this method rather than
+    /// it - quietly and plausibly. The bound belongs above this method rather than
     /// in it, because a source cannot tell the two apart from one key: every key answering 404 at once
     /// is far more likely to be a permission than a mass deletion, and task 6 is where the preview
     /// decides what to do with that.
@@ -337,8 +338,17 @@ public sealed partial class JiraTaskSource : ITaskSource
     /// <b>And there is no guard on an empty key list</b>, where the Azure DevOps sibling opens with
     /// one. Not an omission: the per-key loop makes no call for an empty list by construction, and
     /// the empty-Found return below then skips the search, so a <c>keys.Count</c> guard here would be
-    /// a line no test could fell. The sibling needs its own because its WIQL would go out carrying an
-    /// empty <c>IN ()</c>. See <c>No_keys_is_no_request</c>, which measures the behaviour both ways.
+    /// a line no test could fell.
+    ///
+    /// The sibling opens with one because its guard and its chunking are a single answer: neither half
+    /// fells anything alone - measured again here, deleting that guard by itself leaves the suite
+    /// green, because chunking an empty id list yields no chunk and therefore no WIQL - and only both
+    /// gone let an empty list reach a query. It is written out where that guard stands. The empty
+    /// <c>IN ()</c> it actually risks comes from a <em>non-empty</em> list of non-numeric keys, which
+    /// <c>A_key_that_is_not_a_work_item_id_is_dropped_before_the_query</c> holds and which a
+    /// <c>keys.Count</c> guard could not touch. See
+    /// <c>JiraTaskSourceTests.No_keys_is_no_request</c> for this side - there is one of that name per
+    /// source, and neither measures that the sibling's guard is necessary.
     /// </summary>
     public async Task<ExternalReconciliation> ReconcileAsync(
         IReadOnlyList<string> keys, CancellationToken ct = default)
@@ -397,7 +407,10 @@ public sealed partial class JiraTaskSource : ITaskSource
     ///
     /// No resolution clause and no project clause. This asks one question - is it still mine - and the
     /// key list is what bounds it. A resolved issue has to stay in the answer, because "resolved and
-    /// still mine" is one of the four outcomes and "resolved and handed over" is another.
+    /// still mine" is one of the four outcomes and "resolved and handed over" is another. Adding the
+    /// clause is the tempting symmetry with the fetch, so the guard is named here rather than left to
+    /// be found: <c>Reconciling_finds_a_resolved_issue_the_fetch_cannot_see</c>, whose StillMine
+    /// assertion is the one that goes red for it.
     /// </summary>
     private async Task<HashSet<string>> OwnersAsync(
         JiraSettings settings, List<ExternalTask> found, CancellationToken ct)
