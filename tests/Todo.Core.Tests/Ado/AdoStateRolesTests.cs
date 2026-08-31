@@ -124,8 +124,10 @@ public class AdoStateRolesTests
     }
 
     /// <summary>
-    /// The picker can never offer this name, so no list can ever hold it - see the comment on the done
-    /// branch for the chicken-and-egg that makes it so. Without the built-in answer, reconciling a
+    /// The main assertion: the built-in name answers Done with both lists empty. The claim that makes
+    /// it necessary is about the <em>picker</em>, which can never offer the name - see ClosedState for
+    /// the chicken-and-egg - and not about storage, since PUT /api/settings validates no state name and
+    /// would keep this one if a list arrived carrying it. Without the built-in answer, reconciling a
     /// closed work item reads it as Actionable, meaning "still open", the exact opposite of the truth.
     /// </summary>
     [Fact]
@@ -135,9 +137,12 @@ public class AdoStateRolesTests
     }
 
     /// <summary>
-    /// The one combination that can tell "Closed is hardcoded in the right branch" apart from "Closed
-    /// was simply put in the done list somewhere". The sibling above passes either way, so it is this
-    /// one that makes it honest.
+    /// Measured rather than assumed, and it is not what it looks like: deleting the clause fells the
+    /// sibling above <em>as well</em>, whose done list is empty too. What only this one catches is a
+    /// <b>misplacement</b> - move the clause below the waiting branch and this is the single test that
+    /// goes red, because the waiting list is the only thing that can claim the name first. Both tests
+    /// are load-bearing and neither is the redundant one; read the sibling as "cannot fail" and the
+    /// main assertion is what gets trimmed away.
     /// </summary>
     [Fact]
     public void Closed_is_done_even_when_the_user_called_it_waiting()
@@ -154,5 +159,22 @@ public class AdoStateRolesTests
     public void The_comparison_is_ordinal_for_the_built_in_name_too()
     {
         Assert.Equal(AdoStateRole.Actionable, AdoStateRoles.For("closed", With([])));
+    }
+
+    /// <summary>
+    /// The obvious future mistake, and nothing else in the suite can see it: replacing Equals with
+    /// StartsWith was measured green across all of Todo.Core.Tests. Compound state names are the
+    /// ordinary form in Azure DevOps, and the chicken-and-egg that justifies the built-in name does not
+    /// reach them - BaseQuery excludes the exact spelling only, so a work item in "Closed - Duplicate"
+    /// comes back from it, the picker offers that name, and the user can put it in the done list
+    /// themselves. A prefix rule would take that choice away and answer Done for a name they never
+    /// picked.
+    /// </summary>
+    [Theory]
+    [InlineData("Closed - Duplicate")]
+    [InlineData("Closed as Designed")]
+    public void A_state_that_merely_starts_with_the_built_in_name_is_not_done(string state)
+    {
+        Assert.Equal(AdoStateRole.Actionable, AdoStateRoles.For(state, With([])));
     }
 }

@@ -14,6 +14,12 @@ public static class JiraStatusRoles
     /// Deliberately no trimming or blank filtering here. Those live in JqlFor, where they protect
     /// the query; the names compared here are the ones Jira itself sent back, so a second trim would
     /// be dead code and a question nobody could answer.
+    ///
+    /// And deliberately no built-in status name, where AdoStateRoles answers Done for the literal
+    /// "Closed" whatever the lists say. The asymmetry is a finding rather than an oversight: that name
+    /// is unpickable over there, because the query the picker is built on excludes it. GET
+    /// /api/jira/statuses answers with every status in the project, so a status meaning finished can
+    /// always be chosen here - and a built-in name would be a rule the user could neither see nor undo.
     /// </summary>
     public static JiraStatusRole For(string statusName, JiraSettings settings)
     {

@@ -89,10 +89,16 @@ public sealed class AdoTaskSource : ITaskSource
     /// and the query answered twelve work items. <c>&lt;&gt; 'Closed'</c> rather than a state category,
     /// because the state vocabulary differs per work item type on this instance and Closed is the one
     /// name shared by all of them.
+    ///
+    /// The name comes from <see cref="AdoStateRoles.ClosedState"/> rather than being spelled here as
+    /// well: the same fact spelled twice is invisible to the compiler, and Core answers Done for this
+    /// state on the strength of this very exclusion. AdoTaskSourceTests pins the clause in the wire, so
+    /// an accidental edit here was red already - what the shared constant catches is a deliberate one,
+    /// where the author fixes that test along with the query and is never told Core has an opinion.
     /// </summary>
     private const string BaseQuery =
         "SELECT [System.Id] FROM WorkItems "
-        + "WHERE [System.AssignedTo] = @Me AND [System.State] <> 'Closed'";
+        + "WHERE [System.AssignedTo] = @Me AND [System.State] <> '" + AdoStateRoles.ClosedState + "'";
 
     private const string Ordering = " ORDER BY [System.ChangedDate] DESC";
 

@@ -24,21 +24,35 @@ public static class AdoStateRoles
 {
     /// <summary>
     /// Done without standing in any list, and that is not a convenience. <b>The Azure DevOps picker can
-    /// never offer the name:</b> FetchStatusNamesAsync builds on AdoTaskSource.BaseQuery, which contains
-    /// <c>&lt;&gt; 'Closed'</c>, and the frontend's <c>stateOptions()</c> in
-    /// src/Todo.Web/src/app/settings/settings.ts only puts back the names that are <em>already</em>
-    /// chosen. That is a chicken-and-egg - Closed cannot be picked until it has been picked - so a
-    /// setting here would be one the user was never offered, the same objection that keeps a duty
-    /// branch out of this class.
+    /// never offer the name:</b> FetchStatusNamesAsync builds on AdoTaskSource.BaseQuery, which excludes
+    /// this very state, and the frontend's <c>stateOptions()</c> only puts back the names that are
+    /// <em>already</em> chosen. That is a chicken-and-egg - it cannot be picked until it has been picked
+    /// - so a setting here would be one the user was never offered, the same objection that keeps a duty
+    /// branch out of this class. Note what is <em>not</em> claimed: <c>PUT /api/settings</c> validates no
+    /// state name, so a list can be made to hold this one; no path the user has puts it there.
     ///
     /// Without this name, reconciling against the source reads a closed work item as
     /// <see cref="AdoStateRole.Actionable"/>, meaning "still open", which is the exact opposite of the
     /// truth and is the most ordinary outcome there is. The app asserts it in one place already:
-    /// BaseQuery excludes precisely Closed, on the measured note that it is the one name every work
+    /// BaseQuery excludes precisely this name, on the measured note that it is the one name every work
     /// item type on this instance shares. The rule hereby moves up to the place where the role is
     /// decided, rather than staying implied by a WHERE clause.
+    ///
+    /// Public so that BaseQuery is built from it rather than spelling it a second time: two spellings of
+    /// one fact are invisible to the compiler, the same class of trap as a route template's
+    /// <c>:guid</c> against its parameter type. The half that was guarded already, said out loud so the
+    /// gain is not overstated: AdoTaskSourceTests pins <c>[System.State] &lt;&gt; 'Closed'</c> in the
+    /// wire, so an <em>accidental</em> edit of the query was red before this. What was unguarded is a
+    /// <em>deliberate</em> change - the author fixes that test along with the query, and nothing ever
+    /// tells them that Core has an opinion about the name.
+    ///
+    /// <b>The rule is unobservable today, and that is the trap for whoever reconciles next.</b> No path
+    /// the app drives itself can produce this state, because everything is built on BaseQuery. Reuse
+    /// BaseQuery for a reconciling query, or hydrate without asking for System.State, and this branch
+    /// never fires - with every test still green, because a rule that is never reached fails nothing.
+    /// FetchStatusNamesAsync sits right beside it as a worked example of exactly that reuse.
     /// </summary>
-    private const string ClosedState = "Closed";
+    public const string ClosedState = "Closed";
 
     /// <summary>
     /// Ordinal, and that is the whole of what can go wrong here. Both sides come from the same
@@ -56,7 +70,10 @@ public static class AdoStateRoles
     ///
     /// No trimming. The names compared here are the ones Azure DevOps itself sent back and the ones
     /// SettingsEndpoints trimmed on the way in, so a second trim would be dead code and a question
-    /// nobody could answer - the same note JiraStatusRoles carries.
+    /// nobody could answer - the same note JiraStatusRoles carries. Symmetry is <em>not</em> the reason
+    /// on the built-in side, where the left operand is a literal we wrote: that comparison rests on the
+    /// same untrimmed System.State the list side does, so a source that ever padded the field would
+    /// defeat both halves at once rather than one of them.
     /// </summary>
     public static AdoStateRole For(string? state, AdoSettings settings)
     {
@@ -69,10 +86,12 @@ public static class AdoStateRoles
         // stand in both lists, and a finished work item is not waiting for anybody — reverse these
         // and a closed item keeps standing as waiting, which both hides the closure offer and leaves
         // it labelled as work somebody still owes you. Guessing without the reason falls the other
-        // way, because waiting is the older rule. Closed is answered on this branch too, ahead of the
-        // list rather than beside it, because the reason it is built in - see ClosedState - is the same
-        // reason the order matters: a user who named it waiting must still be told Done, and that one
-        // combination is the only thing that can tell the built-in name apart from a list entry.
+        // way, because waiting is the older rule. The built-in name is answered on this branch for that
+        // same reason, and it was measured rather than reasoned: move the clause below the waiting
+        // branch and every test stays green except the one that names Closed as waiting. What is
+        // load-bearing is the branch, not the operand order inside the || - both operands are pure, so
+        // swapping them is measurably invisible to every test in the suite. Why the name is built in at
+        // all is on ClosedState.
         if (string.Equals(name, ClosedState, StringComparison.Ordinal)
             || settings.DoneStates.Contains(name, StringComparer.Ordinal))
         {
