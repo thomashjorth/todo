@@ -575,6 +575,11 @@ public class JiraEndpointsTests : ApiTest
     /// <summary>
     /// The source fact negated. "I gang" is called finished, so the two places agree - and offering to
     /// reopen something the source has also finished would be the app arguing with itself.
+    ///
+    /// Seen to fail on the mutation that drops the role from the condition, leaving it as
+    /// <c>localStatus is Done</c>: this and its Azure DevOps twin are the only two red in the suite.
+    /// Worth naming, because the near mutations do <em>not</em> reach it - rewriting the role half as
+    /// <c>role == Actionable</c> leaves this green, since "I gang" is in the done list here.
     /// </summary>
     [Fact]
     public async Task A_task_finished_in_both_places_suggests_nothing()
