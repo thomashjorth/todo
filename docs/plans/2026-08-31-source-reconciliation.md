@@ -449,6 +449,17 @@ git commit -m "✨ ADO kan afstemme de nøgler appen allerede har, og en slettet
 Jira svarer 400 på en ukendt nøgle i `key IN (…)`, så den elegante ene-søgning ville tage hele
 afstemningen med sig præcis når den skal fortælle om en slettet sag.
 
+**Og læs `ITaskSource.ReconcileAsync`s dok, som Task 2 skrev til dig.** To fælder fandtes der:
+
+- **Mængderne svarer med *kalderens* stavemåde, ikke kildens.** Jira kanoniserer nøgler — `saas-1`
+  bliver `SAAS-1` i svaret — så bygger du `StillMine` af svarets nøgler, fejler kalderens `Contains`
+  **tavst**, og hver afstemt sag ser ud som om kilden ikke kender den. Altså det udfald der foreslår
+  en lukning. ADO har samme klasse gennem `long`-parsningen (`"0016901"` → `"16901"`) og løste den
+  samme vej.
+- **`Deadline` skal være `null` på en afstemt række.** ADO sætter den bevidst; Jiras `Map` fylder den
+  fra `duedate` i én linje, og den genbruges naturligt. Gør du ingenting, bliver `Found` uden deadline
+  fra ADO og med fra Jira — en asymmetri ingen test i dag kan se.
+
 **Trin 1 — udvid `FakeJira`:** en sag der ikke er tildelt brugeren, en sag hvis nøgle giver **404**,
 og en `/search` der forstår `key IN (…) AND assignee = currentUser()`.
 
