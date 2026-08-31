@@ -38,7 +38,10 @@ modsiger den.
   kode committes.
 - **Ingen `"` i en `git commit -m`-heredoc**, og `@'…'@` er PowerShells here-string — ikke Bash'.
   Verificér et emne med gitmoji på byte-niveau med `od` **gennem Bash-værktøjet**; en PowerShell-pipe
-  tilføjer en BOM der ligner en fejl der ikke findes.
+  tilføjer en BOM der ligner en fejl der ikke findes. **Bytesne er ikke de samme for de tre gitmoji**,
+  og en forventning kopieret fra et doc-trin til et kode-trin ligner en ægte fejl: `✨` er
+  `342 234 250`, `✅` er `342 234 205`, `📝` er `360 237 223 235`. Målt i Task 1, hvor netop den
+  forveksling stod i opgavens egen tekst.
 - **En umappet rute under `/api/` giver ikke 404.** GET giver `200` med `index.html` i kroppen,
   POST og PUT giver `405`.
 - Én Vitest-fil køres med `--include` og en **sti**:
