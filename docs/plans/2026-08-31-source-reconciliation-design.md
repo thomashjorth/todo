@@ -95,6 +95,12 @@ binde i blinde er en pris afstemningen ikke behøver at betale.
 og hvis nøgle ikke kom med i dagens hentning. De øvrige har allerede en række. Mængden er derfor
 afgrænset af din egen arbejdsliste frem for af arkivet, og den er typisk en håndfuld.
 
+**Og opslaget skal bære titlen, ikke kun statussen.** Rettet 2026-08-31 under plan-arbejdet:
+`ImportedKeysAsync` svarer i dag `Dictionary<string, TodoStatus>`, og forgængeren udvidede den netop
+fra en `HashSet` til det — men en `missingInSource`-række har ingen titel fra kilden, fordi der ikke
+kom noget svar at tage den fra. Den eneste titel der findes, er den lokale opgaves. Opslaget bliver
+derfor nøgle → (status, titel), og det er samme slags udvidelse af samme metode, en leverance senere.
+
 ## 4. De to kilders veje er forskellige, og forskellen er den slettede sag
 
 Det er samme slags fund som skive 12's: de to kilder ser ens ud, indtil man spørger dem om noget
@@ -167,6 +173,24 @@ an empty string rather than a branch."* Her **er** den nåelig. Prisen er seks k
 compileren så navngiver: `ado-import.html:103`, `ado-store.ts:139` og `:157`, og Jiras tre tvillinger.
 De to store-kaldesteder ligger i `selectable`/`closable`-mapninger, som pr. konstruktion aldrig ser en
 uforklaret række, så deres værn bliver en filtrering der matcher det de gør i forvejen.
+
+**Og `workItemType` går samme vej, hvad denne tekst først ikke sagde.** Rettet 2026-08-31 under
+plan-arbejdet: ADO-rækken har *to* felter der kun kan udfyldes af et svar fra kilden, og skabelonen
+siger det selv i en kommentar der holder op med at være sand — *"Ingen @if: typen er altid udfyldt"*
+(`ado-import.html:97`). Én nullable og én tvunget tom ville være den værste af de to former, fordi
+inkonsekvensen skjuler hvilken af dem der er den bevidste.
+
+**`AdoClosureRow` og `JiraClosureRow` får `reason` med.** Også rettet 2026-08-31, og det er den
+rettelse der ellers ville have gjort halvdelen af funktionen tavst virkningsløs: `CloseAsync`s første
+vagt er `AdoStateRoles.For(closure.State, settings) != AdoStateRole.Done → spring over`, så en sag der
+er lukket fordi den er **tildelt en anden** — og hvis tilstand derfor er `Active` og ikke i
+færdig-listen — ville blive sprunget over og talt i `skipped`. Serveren skal altså vide *hvorfor*.
+Prisen er at gen-beslutningen bliver **svagere** for `unassigned`: ejerskabet er et faktum fra kilden,
+og importen ringer ikke ud, så serveren kan kun kræve at opgaven findes, hører til kilden og ikke
+allerede er færdig. Det er samme form som `doneAt` og `waitingSince` allerede har, og den er værd at
+sige højt frem for at lade nogen opdage den. `doneAt` er til gengæld **null** for en `unassigned`
+lukning — sagen blev ikke fuldført, den holdt op med at være din — så `CompletedAt` falder tilbage på
+`clock.UtcNow`, hvilket er det rigtige svar og allerede er den kodede adfærd.
 
 `excluded` genbruges til de to uforklarede svar, og det er en ren gevinst: feltet **er** allerede en
 fejlkode, `excludedReason()` oversætter den gennem `errors.<kode>`, og `isBlocked` deaktiverer
