@@ -23,6 +23,24 @@ namespace Todo.Core.Ado;
 public static class AdoStateRoles
 {
     /// <summary>
+    /// Done without standing in any list, and that is not a convenience. <b>The Azure DevOps picker can
+    /// never offer the name:</b> FetchStatusNamesAsync builds on AdoTaskSource.BaseQuery, which contains
+    /// <c>&lt;&gt; 'Closed'</c>, and the frontend's <c>stateOptions()</c> in
+    /// src/Todo.Web/src/app/settings/settings.ts only puts back the names that are <em>already</em>
+    /// chosen. That is a chicken-and-egg - Closed cannot be picked until it has been picked - so a
+    /// setting here would be one the user was never offered, the same objection that keeps a duty
+    /// branch out of this class.
+    ///
+    /// Without this name, reconciling against the source reads a closed work item as
+    /// <see cref="AdoStateRole.Actionable"/>, meaning "still open", which is the exact opposite of the
+    /// truth and is the most ordinary outcome there is. The app asserts it in one place already:
+    /// BaseQuery excludes precisely Closed, on the measured note that it is the one name every work
+    /// item type on this instance shares. The rule hereby moves up to the place where the role is
+    /// decided, rather than staying implied by a WHERE clause.
+    /// </summary>
+    private const string ClosedState = "Closed";
+
+    /// <summary>
     /// Ordinal, and that is the whole of what can go wrong here. Both sides come from the same
     /// instance in the same spelling - the user picks the list from GET /api/ado/states, and the names
     /// come back on the work items - and this instance really does spell one idea two ways: measured
@@ -51,8 +69,12 @@ public static class AdoStateRoles
         // stand in both lists, and a finished work item is not waiting for anybody — reverse these
         // and a closed item keeps standing as waiting, which both hides the closure offer and leaves
         // it labelled as work somebody still owes you. Guessing without the reason falls the other
-        // way, because waiting is the older rule.
-        if (settings.DoneStates.Contains(name, StringComparer.Ordinal))
+        // way, because waiting is the older rule. Closed is answered on this branch too, ahead of the
+        // list rather than beside it, because the reason it is built in - see ClosedState - is the same
+        // reason the order matters: a user who named it waiting must still be told Done, and that one
+        // combination is the only thing that can tell the built-in name apart from a list entry.
+        if (string.Equals(name, ClosedState, StringComparison.Ordinal)
+            || settings.DoneStates.Contains(name, StringComparer.Ordinal))
         {
             return AdoStateRole.Done;
         }

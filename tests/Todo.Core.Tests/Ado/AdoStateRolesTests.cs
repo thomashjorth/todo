@@ -122,4 +122,37 @@ public class AdoStateRolesTests
     {
         Assert.Equal(AdoStateRole.Actionable, AdoStateRoles.For("Resolved", With([], doneStates: [listed])));
     }
+
+    /// <summary>
+    /// The picker can never offer this name, so no list can ever hold it - see the comment on the done
+    /// branch for the chicken-and-egg that makes it so. Without the built-in answer, reconciling a
+    /// closed work item reads it as Actionable, meaning "still open", the exact opposite of the truth.
+    /// </summary>
+    [Fact]
+    public void Closed_is_done_without_being_in_the_done_list()
+    {
+        Assert.Equal(AdoStateRole.Done, AdoStateRoles.For("Closed", With([])));
+    }
+
+    /// <summary>
+    /// The one combination that can tell "Closed is hardcoded in the right branch" apart from "Closed
+    /// was simply put in the done list somewhere". The sibling above passes either way, so it is this
+    /// one that makes it honest.
+    /// </summary>
+    [Fact]
+    public void Closed_is_done_even_when_the_user_called_it_waiting()
+    {
+        Assert.Equal(AdoStateRole.Done, AdoStateRoles.For("Closed", With(["Closed"])));
+    }
+
+    /// <summary>
+    /// The rest of the class compares ordinally, and a built-in exception that was suddenly
+    /// case-insensitive would be one more rule to remember. This one passed before the built-in name
+    /// existed: it guards the fix rather than the state of things before it.
+    /// </summary>
+    [Fact]
+    public void The_comparison_is_ordinal_for_the_built_in_name_too()
+    {
+        Assert.Equal(AdoStateRole.Actionable, AdoStateRoles.For("closed", With([])));
+    }
 }
