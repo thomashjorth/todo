@@ -264,6 +264,14 @@ Task<ExternalReconciliation> ReconcileAsync(
     IReadOnlyList<string> keys, CancellationToken ct = default);
 ```
 
+**Mellemtilstanden mellem Task 2 og Task 3 skal være larmende, ikke tavs.** `ITaskSource` har **to**
+implementeringer — `AdoTaskSource` og `JiraTaskSource` — så metoden på grænsefladen brækker Jira indtil
+Task 3. Giv derfor `JiraTaskSource.ReconcileAsync` en `throw new NotSupportedException` med Task 3
+navngivet i beskeden, **plus en test der påstår at den kaster**. Ikke en tom `ExternalReconciliation`,
+som ville betyde "Jira har intet at afstemme" og gøre hele Jira-halvdelen tavst virkningsløs — samme
+klasse af fejl som rettelse 1 øverst. Testen er vagten: sker Task 3 aldrig, står den som dokumentation
+frem for som et hul, og **Task 3 sletter den som en synlig handling**.
+
 **Trin 2 — udvid `FakeAdo` først**, ellers kan testen ikke skrives. Den skal kunne to nye ting:
 kende et work item der **ikke** er tildelt brugeren, og svare på en batch-læsning med en id den ikke
 har. Sidstnævnte er den vigtigste — uden den kan hullet i `errorPolicy` ikke skrives ned.
