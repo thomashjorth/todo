@@ -47,6 +47,16 @@ modsiger den.
 - **Kør aldrig mod `%APPDATA%\TodoApp\todo.db`**, og dræb aldrig en `Todo.Host` du ikke selv har
   startet — find den på porten, ikke på navnet.
 
+## Sproget i koden er engelsk, og planens kodestumper er det ikke
+
+**Kodekommentarer, XML-docs og testnavne er på engelsk** i hele repoet — læs `AdoStateRoles.cs` som
+det arbejdende eksempel. Dansk er kun brugervendte strenge (`da.json`), `docs/plans/` og `CLAUDE.md`.
+
+**Kodestumperne i denne plan har danske kommentarer**, fordi planen læses på dansk. **Oversæt dem til
+engelsk når du skriver koden.** Formen der skal efterlignes, er husets: kommentaren siger *hvorfor* og
+hvad der blev **målt**, ikke hvad linjen gør — og den siger hvilken vej gættet falder, når begrundelsen
+mangler. Kopiér ikke kommentarerne ordret; skriv dem om, så de siger det samme på engelsk.
+
 ## Tre rettelser til designet, fundet før planen blev skrevet
 
 **Designfilen er allerede rettet** i samme commit som denne plan, så der er ingen Task 0 for dem.
