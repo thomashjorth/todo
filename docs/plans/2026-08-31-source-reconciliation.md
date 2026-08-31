@@ -73,6 +73,16 @@ et tal, en instans' indhold, en påstand om hvad der er "almindeligt". Kan den s
 typesemantik i stedet, så gør det. Og skriv **umålt** hvor noget er umålt; det er stærkere end en
 formulering der lyder målt.
 
+**Og en mutationsmåling skrives som *identiteter*, aldrig som et antal.** Task 2 fandt den skarpeste
+udgave af fælden: en kommentar skrev "denne mutation gør præcis én test rød" — og **samme commit
+tilføjede den anden test der fælder præcis den mutation.** Tallet var sandt i det øjeblik det blev
+målt og falsk da commit'en landede. Ingen mutation kunne afsløre det, fordi påstanden handler om
+suitens sammensætning frem for om koden. Skriv derfor *hvilke* tests der fældes og hvorfor —
+"fælder de tests der spørger om en ikke-tom nøgleliste, men ikke denne, fordi vagten returnerer
+foran den" — så en femte test ikke kan gøre kommentaren forkert. Samme familie som CLAUDE.md's
+regel om tal der forældes, men et niveau dybere: her rådner tallet af *dit eget arbejde i samme
+commit*. **Til Task 12:** den lektion hører i `CLAUDE.md`.
+
 ## Tre rettelser til designet, fundet før planen blev skrevet
 
 **Designfilen er allerede rettet** i samme commit som denne plan, så der er ingen Task 0 for dem.
