@@ -123,6 +123,20 @@ public static class AdoEndpoints
                         && localStatus is { } status
                         && status != CoreStatus.Done;
 
+                    // The mirror image of suggestsClosing, on the same two facts with each of them
+                    // negated: the source is not finished, and the local task is. No reconciliation is
+                    // needed for this half, because the rows it speaks about are the ones the fetch
+                    // has already handed over - they stand here as alreadyImported with nothing to do
+                    // until this rule speaks. Stated that way round on purpose: the converse would not
+                    // hold, since the WIQL also filters on work item type, so a finished task whose
+                    // item has since changed type is out of reach here. That hole is named in the
+                    // design's section 8 and left open there.
+                    //
+                    // IncludeWaiting is deliberately not asked, though every other waiting branch on
+                    // this route asks it: that toggle governs what comes in as new work, and a task
+                    // the user already owns is not held back by a filter for new ones.
+                    var suggestsReopening = role != AdoStateRole.Done && localStatus is CoreStatus.Done;
+
                     rows.Add(new AdoPreviewRow
                     {
                         Key = item.Key,
@@ -177,6 +191,9 @@ public static class AdoEndpoints
                         // loosened WaitingSince: that one is null for every row that is not waiting,
                         // and a finished row never is.
                         DoneAt = suggestsClosing ? AsUtc(item.StatusChangedAt) : null,
+                        SuggestsReopening = suggestsReopening,
+                        // Only where there is a suggestion to explain, the same rule DoneAt follows.
+                        ReopenTo = suggestsReopening ? ReopenTargetFor(role) : null,
                         // Done first, so a finished work item that was never imported is kept out
                         // rather than brought in as a fresh open task. Shown rather than hidden, the
                         // same choice the waiting rows make.
@@ -298,7 +315,7 @@ public static class AdoEndpoints
                     Note = row.Note,
                     Deadline = deadline,
                     Requester = row.Requester,
-                    Status = isWaiting ? CoreStatus.WaitingFor : CoreStatus.Open,
+                    Status = StatusFor(role),
                     // WaitingOn is left unset on purpose. A work item assigned to you that sits in a
                     // waiting state is waiting on somebody who is not in the AssignedTo field, so there
                     // is nobody the app could name here without inventing one.
@@ -355,6 +372,27 @@ public static class AdoEndpoints
                     ErrorCodes.AdoProjectRequired,
                     "An Azure DevOps project is needed, because it is what scopes the query.")
                 : null);
+
+    /// <summary>
+    /// The status a fresh import gives a row in this role, and the one place that mapping is written.
+    /// Only <see cref="AdoStateRole.Waiting"/> parks the task; every other role arrives open.
+    ///
+    /// Extracted when the reopening suggestion needed the same answer: the suggestion says which status
+    /// it would restore, and if it worked that out for itself the two could disagree without the
+    /// compiler or a single test noticing - the same class of trap two spellings of one fact always
+    /// are. Note what this is <em>not</em>: the import's own waiting branches still ask the role
+    /// directly, because they decide whether to write a row at all rather than what to put in it.
+    /// </summary>
+    private static CoreStatus StatusFor(AdoStateRole role)
+        => role == AdoStateRole.Waiting ? CoreStatus.WaitingFor : CoreStatus.Open;
+
+    /// <summary>
+    /// What a reopening would restore, read off <see cref="StatusFor"/> rather than off the role a
+    /// second time - so the suggestion can only ever name a status the import would actually write,
+    /// whatever that mapping becomes.
+    /// </summary>
+    private static ReopenTarget ReopenTargetFor(AdoStateRole role)
+        => StatusFor(role) == CoreStatus.WaitingFor ? ReopenTarget.WaitingFor : ReopenTarget.Open;
 
     private static BadRequest<ApiError>? NoWorkItemTypes(AdoSettings settings)
         => AdoWorkItemTypes.Effective(settings).Count == 0

@@ -101,6 +101,21 @@ public static class JiraEndpoints
                         && localStatus is { } status
                         && status != CoreStatus.Done;
 
+                    // The mirror image of suggestsClosing, on the same two facts with each of them
+                    // negated: the source is not finished, and the local task is. No reconciliation is
+                    // needed for this half, because the rows it speaks about are the ones the fetch
+                    // has already handed over — they stand here as alreadyImported with nothing to do
+                    // until this rule speaks. Stated that way round on purpose: the converse would not
+                    // hold, since the JQL asks for resolution = Unresolved, which is the resolution
+                    // field and not the status - so an issue moved back to "I gang" without its
+                    // resolution being cleared is out of reach here. That hole is named in the
+                    // design's section 8 and left open there.
+                    //
+                    // IncludeWaiting is deliberately not asked, though every other waiting branch on
+                    // this route asks it: that toggle governs what comes in as new work, and a task the
+                    // user already owns is not held back by a filter for new ones.
+                    var suggestsReopening = role != JiraStatusRole.Done && localStatus is CoreStatus.Done;
+
                     rows.Add(new JiraPreviewRow
                     {
                         Key = item.Key,
@@ -139,6 +154,9 @@ public static class JiraEndpoints
                         DoneAt = suggestsClosing
                             ? AsUtc(await source.FetchStatusChangedAtAsync(item.Key))
                             : null,
+                        SuggestsReopening = suggestsReopening,
+                        // Only where there is a suggestion to explain, the same rule DoneAt follows.
+                        ReopenTo = suggestsReopening ? ReopenTargetFor(role) : null,
                         // Done first, so a finished issue that was never imported is kept out rather
                         // than brought in as a fresh open task. Shown rather than hidden, the same
                         // choice the waiting rows make.
@@ -237,10 +255,9 @@ public static class JiraEndpoints
                     Note = row.Note,
                     Deadline = row.Deadline,
                     Requester = row.Requester,
-                    // Only Waiting parks the task. A duty row arrives Open on purpose: imported as
-                    // WaitingFor it would land in "Venter på", away from the deadline sections —
-                    // hiding exactly the work the user holds the duty for.
-                    Status = isWaiting ? CoreStatus.WaitingFor : CoreStatus.Open,
+                    // Only Waiting parks the task, and the duty row's half of that reasoning has moved
+                    // to StatusFor, where the reopening suggestion reads it too.
+                    Status = StatusFor(role),
                     // WaitingOn is left unset on purpose. An issue assigned to you that sits in a
                     // waiting status is waiting on somebody who is not in the assignee field, so
                     // there is nobody the app could name here without inventing one.
@@ -296,6 +313,32 @@ public static class JiraEndpoints
                     ErrorCodes.JiraProjectKeyRequired,
                     "A Jira project key is needed, so the import cannot widen to every project.")
                 : null);
+
+    /// <summary>
+    /// The status a fresh import gives a row in this role, and the one place that mapping is written.
+    /// Only <see cref="JiraStatusRole.Waiting"/> parks the task; every other role arrives open.
+    ///
+    /// <b>A duty row arrives open on purpose</b>, and that is the branch worth knowing: written as
+    /// WaitingFor it would land in "Venter på", away from the deadline sections — hiding exactly the
+    /// work the user holds the duty for. It reads the same way for a reopening: an issue you hold the
+    /// duty for waits for <em>you</em>.
+    ///
+    /// Extracted when the reopening suggestion needed the same answer: the suggestion says which status
+    /// it would restore, and if it worked that out for itself the two could disagree without the
+    /// compiler or a single test noticing. Note what this is <em>not</em>: the import's own waiting
+    /// branches still ask the role directly, because they decide whether to write a row at all rather
+    /// than what to put in it.
+    /// </summary>
+    private static CoreStatus StatusFor(JiraStatusRole role)
+        => role == JiraStatusRole.Waiting ? CoreStatus.WaitingFor : CoreStatus.Open;
+
+    /// <summary>
+    /// What a reopening would restore, read off <see cref="StatusFor"/> rather than off the role a
+    /// second time - so the suggestion can only ever name a status the import would actually write,
+    /// whatever that mapping becomes.
+    /// </summary>
+    private static ReopenTarget ReopenTargetFor(JiraStatusRole role)
+        => StatusFor(role) == CoreStatus.WaitingFor ? ReopenTarget.WaitingFor : ReopenTarget.Open;
 
     /// <summary>
     /// The two facts a closure has to carry, refused with the row codes rather than codes of their

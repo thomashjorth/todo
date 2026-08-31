@@ -519,6 +519,170 @@ public class JiraEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The other direction, walked through the real import and the real task route: the issue is
+    /// imported while it is in progress, the user finishes the task here, and the next preview offers
+    /// to put it back.
+    ///
+    /// No reconciliation is involved. An issue still assigned to the user and still unresolved meets
+    /// the fetch's own conditions, so it is in this page already - standing as alreadyImported with a
+    /// disabled checkbox until this rule speaks. That is why this half costs a condition rather than a
+    /// round trip.
+    ///
+    /// The assertion on <c>reopenTo</c> pins the suggestion to the import's own mapping: "I gang" is
+    /// Actionable, and Open is what the import loop writes for an Actionable row.
+    /// </summary>
+    [Fact]
+    public async Task A_task_finished_here_but_open_in_the_source_suggests_reopening()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+        await FinishAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.True(row.SuggestsReopening);
+        Assert.Equal("open", row.ReopenTo);
+        Assert.True(row.AlreadyImported);
+
+        // Deliberately no Assert.False(row.SuggestsClosing) here, though it reads as the obvious
+        // companion. Measured: with Actionable in the source and Done here, no single change to the
+        // closure rule can make it true - the status is not in the done list and the local task is
+        // done, so two of its three conditions have to be inverted at once. An assertion nothing can
+        // fell is worse than no assertion. Its twin over in A_task_finished_in_both_places_suggests_
+        // nothing is a different fixture and is fellable, and that is where it stands.
+    }
+
+    /// <summary>
+    /// The local fact negated. The task is still open here, so there is nothing to put back - and the
+    /// assertion on <c>alreadyImported</c> is what stops this passing for the wrong reason: without it
+    /// a row that never reached the database at all would answer false just as happily.
+    /// </summary>
+    [Fact]
+    public async Task A_task_that_is_not_finished_here_suggests_nothing()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.True(row.AlreadyImported);
+        Assert.False(row.SuggestsReopening);
+        Assert.Null(row.ReopenTo);
+    }
+
+    /// <summary>
+    /// The source fact negated. "I gang" is called finished, so the two places agree - and offering to
+    /// reopen something the source has also finished would be the app arguing with itself.
+    /// </summary>
+    [Fact]
+    public async Task A_task_finished_in_both_places_suggests_nothing()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+        await FinishAsync();
+        await SetDoneStatusesAsync("I gang");
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.False(row.SuggestsReopening);
+        Assert.Null(row.ReopenTo);
+
+        // And the closure is not offered either, for the older guard's reason: the local task is
+        // already done, so there is nothing left to close. Unlike the same line would be in the
+        // headline test above, this one can fall - measured, by inverting the closure's local-status
+        // condition, which makes it true on exactly this fixture. Jira has no
+        // A_task_that_is_already_done_is_not_offered_again the way Azure DevOps does, so this is the
+        // only Jira assertion on that direction of the closure rule - other Jira tests fall to the
+        // same mutation, but from the other side, by losing an offer rather than gaining one.
+        Assert.False(row.SuggestsClosing);
+    }
+
+    /// <summary>
+    /// The third fact: which status the reopening would restore. "Afventer general" is the waiting
+    /// status, and waitingFor is what the import loop writes for a waiting row - so this holds the
+    /// suggestion to the import's mapping at its other value. Its twin below arranges identically and
+    /// differs in one setting.
+    /// </summary>
+    [Fact]
+    public async Task A_waiting_state_reopens_to_waiting_rather_than_open()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: true);
+
+        await Import(WaitingIssue());
+        await FinishAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-2");
+
+        Assert.True(row.SuggestsReopening);
+        Assert.Equal("waitingFor", row.ReopenTo);
+    }
+
+    /// <summary>
+    /// The decision, and the reason it is a test of its own rather than a line in the one above: the
+    /// two arrange identically and differ in the toggle alone. The toggle governs what comes
+    /// <em>in</em> as new work; a task the user already owns is not held back by a filter for new
+    /// ones, and the status matching the source is waitingFor.
+    ///
+    /// <b>What only this test can catch</b>, stated narrowly because the wide version is not true -
+    /// several tests here fall to a bare <c>settings.IncludeWaiting &amp;&amp;</c> in the condition,
+    /// since most of them run with the toggle off. It is the <em>narrower</em> wrong guess this one is
+    /// alone against: gating only the waiting branch, as in
+    /// <c>role != Waiting || settings.IncludeWaiting</c>. That is the likelier mistake, because the
+    /// toggle means nothing for any other role - and every other reopening test here is Actionable or
+    /// Duty, or has the toggle on, so all of them pass under it. Measured rather than reasoned: with
+    /// that clause added in both endpoints, the whole Api suite goes red on exactly two tests - this
+    /// one and the Azure DevOps twin that says the same thing about the other source.
+    /// </summary>
+    [Fact]
+    public async Task A_waiting_state_reopens_even_when_including_waiting_is_off()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: true);
+
+        await Import(WaitingIssue());
+        await FinishAsync();
+        await TurnIncludeWaitingOffAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-2");
+
+        Assert.True(row.SuggestsReopening);
+        Assert.Equal("waitingFor", row.ReopenTo);
+
+        // The toggle really is off on this preview, rather than the helper having quietly written
+        // nothing: excluded is the older rule reading the same setting, so it answers for the
+        // arrangement. Untouched by the reopening on purpose - that field is what stops a fresh
+        // import, and a reopening is not one.
+        Assert.Equal(ErrorCodes.JiraExcludedWaiting, row.Excluded);
+    }
+
+    /// <summary>
+    /// The role Azure DevOps has no counterpart for, and it needs no decision of its own: the target is
+    /// read off the same mapping the import uses, and that mapping parks only <c>Waiting</c>. So duty
+    /// reopens to open, and the reason it is the right answer rather than merely the derived one is the
+    /// one the import loop already gives - an issue you hold the duty for waits for <em>you</em>, and
+    /// putting it in "Venter på" would hide exactly the work the duty is.
+    ///
+    /// <c>isDuty</c> is asserted because it is what says the role really was Duty: without it a
+    /// settings write that never landed would leave the issue Actionable, which answers open too.
+    /// </summary>
+    [Fact]
+    public async Task A_duty_status_reopens_to_open_because_the_duty_is_the_users_own()
+    {
+        await using var jira = await ConfigureAsync(dutyStatuses: ["I gang"], onDuty: true);
+
+        await Import(InProgressIssue());
+        await FinishAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "SAAS-1");
+
+        Assert.True(row.IsDuty);
+        Assert.True(row.SuggestsReopening);
+        Assert.Equal("open", row.ReopenTo);
+    }
+
+    /// <summary>
     /// The completion time is the changelog's, not the clock's. Without the fixture's six-day gap this
     /// would be a test of nothing: PUT /api/tasks/{id} writes the clock's now on every move into Done,
     /// so a closure that lost its timestamp would answer today and look plausible.
@@ -563,6 +727,44 @@ public class JiraEndpointsTests : ApiTest
     private static object InProgressIssue()
         => new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" };
 
+    /// <summary>SAAS-2, the issue sitting in the status this fixture calls waiting.</summary>
+    private static object WaitingIssue()
+        => new { key = "SAAS-2", title = "Venter på svar fra kunden", status = "Afventer general" };
+
+    /// <summary>
+    /// Finishes the imported task the way the user does, through the task route rather than by writing
+    /// a status into the database - so the row the preview then answers about is one the app itself
+    /// produced. PUT is a full replacement, and every field it drops on the way is one the preview
+    /// never reads: it looks at the source id, the external key and the status.
+    /// </summary>
+    private async Task FinishAsync()
+    {
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+        var task = Assert.Single(tasks!.Items);
+        var response = await Host.Client.PutAsJsonAsync(
+            $"/api/tasks/{task.Id}", new { title = task.Title, status = "done" });
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Turns the waiting toggle off the way the settings route does: <c>PUT /api/settings</c> stores
+    /// the flag as a row when it is on and <b>no row at all</b> when it is off, so removing the row is
+    /// the state the app itself can produce - where a stored "false" would be a value nothing writes.
+    /// SingleAsync rather than SingleOrDefaultAsync, so a caller that never turned it on fails here
+    /// rather than in an assertion about something else.
+    /// </summary>
+    private async Task TurnIncludeWaitingOffAsync()
+    {
+        using var scope = Host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+        var row = await db.Settings.SingleAsync(s => s.Key == SettingKeys.JiraIncludeWaiting);
+
+        db.Settings.Remove(row);
+
+        await db.SaveChangesAsync();
+    }
+
     /// <summary>
     /// Upserts, because an empty list is stored as no row at all — so the row does not exist until
     /// somebody picks a status.
@@ -602,7 +804,12 @@ public class JiraEndpointsTests : ApiTest
     private sealed record PreviewRow(
         string Key, string Title, string Status, bool IsWaiting, bool IsDuty,
         DateTimeOffset? WaitingSince, bool AlreadyImported, bool SuggestsClosing,
-        DateTimeOffset? DoneAt, string? Excluded, string Url);
+        DateTimeOffset? DoneAt,
+        // A string rather than the contract's enum, and for the same reason Excluded is one: what is
+        // being asserted is the name on the wire. Reading it into ReopenTarget would let a renamed
+        // enum member pass, because the converter would map the new name back to the same value.
+        bool SuggestsReopening, string? ReopenTo,
+        string? Excluded, string Url);
     private sealed record ImportBody(int Imported, int Skipped, int Closed);
     private sealed record TaskList(TaskBody[] Items);
 

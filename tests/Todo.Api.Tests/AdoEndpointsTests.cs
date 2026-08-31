@@ -595,6 +595,143 @@ public class AdoEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The other direction, and the whole of what this half adds: the work item is imported while
+    /// Active still means work, the user finishes the task here, and the next preview offers to put it
+    /// back. Walked through the real import and the real task route rather than seeded, so the row
+    /// being answered about is one the app itself produced.
+    ///
+    /// No reconciliation is involved, and that is why this half is cheap: a work item still assigned to
+    /// the user and not Closed meets the fetch's own two conditions, so it is in this page already -
+    /// standing there as alreadyImported with a disabled checkbox until this rule speaks.
+    ///
+    /// The assertion on <c>reopenTo</c> is not decoration. Active is Actionable, and Open is precisely
+    /// what the import loop writes for an Actionable row, so this pins the suggestion to the import's
+    /// own mapping rather than to a second copy of it.
+    /// </summary>
+    [Fact]
+    public async Task A_task_finished_here_but_open_in_the_source_suggests_reopening()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+        await FinishAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "16901");
+
+        Assert.True(row.SuggestsReopening);
+        Assert.Equal("open", row.ReopenTo);
+        Assert.True(row.AlreadyImported);
+
+        // Deliberately no Assert.False(row.SuggestsClosing) here, though it reads as the obvious
+        // companion. Measured: with Actionable in the source and Done here, no single change to the
+        // closure rule can make it true - the state is not in the done list and the local task is
+        // done, so two of its three conditions have to be inverted at once. An assertion nothing can
+        // fell is worse than no assertion. Its twin over in A_task_finished_in_both_places_suggests_
+        // nothing is a different fixture and is fellable, and that is where it stands.
+    }
+
+    /// <summary>
+    /// The local fact negated. The task is still open here, so there is nothing to put back - and the
+    /// assertion on <c>alreadyImported</c> is what stops this passing for the wrong reason: without it
+    /// a row that never reached the database at all would answer false just as happily.
+    /// </summary>
+    [Fact]
+    public async Task A_task_that_is_not_finished_here_suggests_nothing()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "16901");
+
+        Assert.True(row.AlreadyImported);
+        Assert.False(row.SuggestsReopening);
+        Assert.Null(row.ReopenTo);
+    }
+
+    /// <summary>
+    /// The source fact negated. Active is called finished, so the two places agree - and offering to
+    /// reopen something the source has also finished would be the app arguing with itself.
+    /// </summary>
+    [Fact]
+    public async Task A_task_finished_in_both_places_suggests_nothing()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+        await FinishAsync();
+        await SetDoneStatesAsync("Active");
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "16901");
+
+        Assert.False(row.SuggestsReopening);
+        Assert.Null(row.ReopenTo);
+
+        // And the closure is not offered either, for the older guard's reason: the local task is
+        // already done, so there is nothing left to close. Unlike the same line would be in the
+        // headline test above, this one can fall - measured, by inverting the closure's local-status
+        // condition, which makes it true on exactly this fixture.
+        Assert.False(row.SuggestsClosing);
+    }
+
+    /// <summary>
+    /// The third fact: which status the reopening would restore. Blocked is the waiting state, and
+    /// waitingFor is what the import loop writes for a waiting row - so this is the assertion that
+    /// holds the suggestion to the import's mapping at its other value. Its twin below arranges
+    /// identically and differs in one setting.
+    /// </summary>
+    [Fact]
+    public async Task A_waiting_state_reopens_to_waiting_rather_than_open()
+    {
+        await using var ado = await ConfigureAsync(includeWaiting: true);
+
+        await Import(Blocked());
+        await FinishAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "15664");
+
+        Assert.True(row.SuggestsReopening);
+        Assert.Equal("waitingFor", row.ReopenTo);
+    }
+
+    /// <summary>
+    /// The decision, and the reason it is a test of its own rather than a line in the one above: the
+    /// two arrange identically and differ in the toggle alone. The toggle governs what comes
+    /// <em>in</em> as new work; a task the user already owns is not held back by a filter for new
+    /// ones, and the status matching the source is waitingFor.
+    ///
+    /// <b>What only this test can catch</b>, stated narrowly because the wide version is not true -
+    /// several tests here fall to a bare <c>settings.IncludeWaiting &amp;&amp;</c> in the condition,
+    /// since most of them run with the toggle off. It is the <em>narrower</em> wrong guess this one is
+    /// alone against: gating only the waiting branch, as in
+    /// <c>role != Waiting || settings.IncludeWaiting</c>. That is the likelier mistake, because the
+    /// toggle means nothing for any other role - and every other reopening test here is Actionable or
+    /// Duty, or has the toggle on, so all of them pass under it. Measured rather than reasoned: with
+    /// that clause added in both endpoints, the whole Api suite goes red on exactly two tests - this
+    /// one and the Jira twin that says the same thing about the other source.
+    /// </summary>
+    [Fact]
+    public async Task A_waiting_state_reopens_even_when_including_waiting_is_off()
+    {
+        await using var ado = await ConfigureAsync(includeWaiting: true);
+
+        await Import(Blocked());
+        await FinishAsync();
+        await TurnIncludeWaitingOffAsync();
+
+        var row = Assert.Single((await Preview()).Rows, r => r.Key == "15664");
+
+        Assert.True(row.SuggestsReopening);
+        Assert.Equal("waitingFor", row.ReopenTo);
+
+        // The toggle really is off on this preview, rather than the helper having quietly written
+        // nothing: excluded is the older rule reading the same setting, so it answers for the
+        // arrangement. Untouched by the reopening on purpose - that field is what stops a fresh
+        // import, and a reopening is not one.
+        Assert.Equal(ErrorCodes.AdoExcludedWaiting, row.Excluded);
+    }
+
+    /// <summary>
     /// The completion time is the source's, not the clock's, and the fixture is what gives this teeth:
     /// PUT /api/tasks/{id} sets CompletedAt to the clock's now on every move into Done, so a closure
     /// routed through that path - or one that simply forgot the field - would answer 2026-08-20 here.
@@ -694,6 +831,45 @@ public class AdoEndpointsTests : ApiTest
         title: "Som bruger vil jeg kunne filtrere",
         state: "Active",
         workItemType: "User Story");
+
+    /// <summary>
+    /// Work item 15664, the measured Bug, sitting in the state this fixture calls waiting - so the
+    /// shared <see cref="Row"/> defaults already name it and only the state has to be said.
+    /// </summary>
+    private static object Blocked() => Row(state: "Blocked");
+
+    /// <summary>
+    /// Finishes the imported task the way the user does, through the task route rather than by writing
+    /// a status into the database - so the row the preview then answers about is one the app itself
+    /// produced. PUT is a full replacement, and every field it drops on the way is one the preview
+    /// never reads: it looks at the source id, the external key and the status.
+    /// </summary>
+    private async Task FinishAsync()
+    {
+        var task = Assert.Single((await Tasks()).Items);
+        var response = await Host.Client.PutAsJsonAsync(
+            $"/api/tasks/{task.Id}", new { title = task.Title, status = "done" });
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Turns the waiting toggle off the way the settings route does: <c>PUT /api/settings</c> stores
+    /// the flag as a row when it is on and <b>no row at all</b> when it is off, so removing the row is
+    /// the state the app itself can produce - where a stored "false" would be a value nothing writes.
+    /// SingleAsync rather than SingleOrDefaultAsync, so a caller that never turned it on fails here
+    /// rather than in an assertion about something else.
+    /// </summary>
+    private async Task TurnIncludeWaitingOffAsync()
+    {
+        using var scope = Host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+        var row = await db.Settings.SingleAsync(s => s.Key == SettingKeys.AdoIncludeWaiting);
+
+        db.Settings.Remove(row);
+
+        await db.SaveChangesAsync();
+    }
 
     private static object Closure(string key = "16901", string state = "Active")
         => new { key, state, doneAt = "2026-08-15T09:00:00Z" };
@@ -797,7 +973,12 @@ public class AdoEndpointsTests : ApiTest
     private sealed record PreviewRow(
         string Key, string Title, string Url, string? Note, DateOnly? Deadline, string? Requester,
         string State, string WorkItemType, bool IsWaiting, DateTimeOffset? WaitingSince,
-        bool AlreadyImported, bool SuggestsClosing, DateTimeOffset? DoneAt, string? Excluded);
+        bool AlreadyImported, bool SuggestsClosing, DateTimeOffset? DoneAt,
+        // A string rather than the contract's enum, and for the same reason Excluded is one: what is
+        // being asserted is the name on the wire. Reading it into ReopenTarget would let a renamed
+        // enum member pass, because the converter would map the new name back to the same value.
+        bool SuggestsReopening, string? ReopenTo,
+        string? Excluded);
     private sealed record ImportBody(int Imported, int Skipped, int Closed);
     private sealed record TaskList(TaskBody[] Items);
 
