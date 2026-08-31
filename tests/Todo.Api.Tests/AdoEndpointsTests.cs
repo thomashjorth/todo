@@ -634,6 +634,14 @@ public class AdoEndpointsTests : ApiTest
     /// The local fact negated. The task is still open here, so there is nothing to put back - and the
     /// assertion on <c>alreadyImported</c> is what stops this passing for the wrong reason: without it
     /// a row that never reached the database at all would answer false just as happily.
+    ///
+    /// <b>And this fixture is the only one that can see the closure rule lose its role test.</b>
+    /// Imported, open here, Actionable in the source - so dropping <c>role == Done</c> from
+    /// suggestsClosing turns every such row into a closure offer, and measured before the line below
+    /// was added, the whole suite stayed green on that. Note that the headline test says the opposite
+    /// about the same assertion, and the two are not inconsistent: there the local task is
+    /// <em>done</em>, which kills the closure's third condition on its own, so no single change can
+    /// make the flag true. Here the local task is open, and the role is all that stands in the way.
     /// </summary>
     [Fact]
     public async Task A_task_that_is_not_finished_here_suggests_nothing()
@@ -647,6 +655,7 @@ public class AdoEndpointsTests : ApiTest
         Assert.True(row.AlreadyImported);
         Assert.False(row.SuggestsReopening);
         Assert.Null(row.ReopenTo);
+        Assert.False(row.SuggestsClosing);
     }
 
     /// <summary>
@@ -736,18 +745,22 @@ public class AdoEndpointsTests : ApiTest
         Assert.Equal("waitingFor", row.ReopenTo);
 
         // And the row is not excluded, which is the second guard this test carries and the only place
-        // in the suite the collision can be seen. Excluded means "nothing will happen here" twice
-        // over - isBlocked reads it to disable the checkbox, and the label chain shows it first - so a
-        // row offering a reopening must not carry it. Without the rule the row would say it will be
-        // skipped, have its checkbox enabled, and import anyway.
+        // in the suite the collision can be seen. Excluded is the row's "nothing will happen here"
+        // mark, so a row offering a reopening must not carry it. The consequence that exists today is
+        // excludedCount, which would count this row into "N left out" while it is being offered, and
+        // the label chain, which prints excluded first and would put the skip sentence over the
+        // suggestion. The disabled checkbox is tasks 8 and 9's problem, not one this proves.
+        //
+        // That the toggle is off is checked inside TurnIncludeWaitingOffAsync, and it has to be: this
+        // rule makes the row look identical with the toggle on and off, so nothing on it can answer
+        // for the arrangement any more. That is the price of the fix, and why the check moved rather
+        // than being dropped.
+        //
+        // No Assert.True(row.IsWaiting) beside it, and the twin above has none either - the
+        // asymmetry was resolved by removing it rather than by copying it. It cannot fail on its own:
+        // reopenTo is waitingFor exactly when the role is Waiting, so the assertion above it fails
+        // first in every case that would have felled this one.
         Assert.Null(row.Excluded);
-
-        // The row really is in the waiting role, which is what makes waitingFor the right expectation
-        // rather than a value that happened to come out. That the toggle is off is checked inside
-        // TurnIncludeWaitingOffAsync, and it has to be: the rule above makes this row look identical
-        // with the toggle on and off, so nothing on it can answer for the arrangement any more. That
-        // is the price of the fix, and it is why the check moved rather than being dropped.
-        Assert.True(row.IsWaiting);
     }
 
     /// <summary>

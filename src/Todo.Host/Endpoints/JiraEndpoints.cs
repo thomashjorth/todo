@@ -158,18 +158,26 @@ public static class JiraEndpoints
                         // Only where there is a suggestion to explain, the same rule DoneAt follows.
                         ReopenTo = suggestsReopening ? ReopenTargetFor(role) : null,
                         // A row with something to do is never excluded, and that is what the word means
-                        // rather than a special case for the reopening: isBlocked reads this field to
-                        // disable the checkbox, and the label chain shows it first, so a row carrying
-                        // it says "nothing will happen here". Before the reopening existed no row
-                        // could be both, which is why the waiting branch below never needed a guard
-                        // while the done branch did. The twin in AdoEndpoints carries the rest of the
+                        // rather than a special case for the reopening: this field is the row's
+                        // "nothing will happen here" mark. Before the reopening existed no row could
+                        // be both, which is why the waiting branch below never needed a guard while
+                        // the done branch did. The twin in AdoEndpoints carries the rest of the
                         // reasoning, including why this is asked here rather than in the label chain.
                         //
-                        // Only the waiting branch can actually reach it - measured at this endpoint
-                        // with a status in both lists and the toggle off: suggestsClosing true,
-                        // isWaiting false, excluded null. The durable reason does not rest on the
-                        // branch order in JiraStatusRoles.For: role is one enum value, suggestsClosing
-                        // needs Done and isWaiting is Waiting, so the two cannot both hold.
+                        // What it costs today, measured against the frontend that is actually there:
+                        // excludedCount in jira-import.ts counts every row carrying a code into "N
+                        // left out", so a reopening row would be counted as left out while being
+                        // offered, and the label chain would print the skip sentence over the
+                        // suggestion. The checkbox half is a prediction about tasks 8 and 9 rather
+                        // than a fact - isBlocked already answers true for any alreadyImported row.
+                        //
+                        // The suggestsClosing half is inert: measured, replacing this condition with
+                        // suggestsReopening alone leaves zero red. It stands for task 6's two codes.
+                        // It cannot fire today because role is one enum value - suggestsClosing needs
+                        // Done and isWaiting is Waiting - a narrower reason than the branch order in
+                        // JiraStatusRoles.For, which it does not depend on. Measured here with a
+                        // status in both lists and the toggle off: closing true, waiting false,
+                        // excluded null.
                         Excluded = suggestsClosing || suggestsReopening
                             ? null
                             // Done first, so a finished issue that was never imported is kept out
@@ -262,7 +270,11 @@ public static class JiraEndpoints
                     continue;
                 }
 
-                if (!known.TryAdd(row.Key, CoreStatus.Open))
+                // StatusFor rather than a literal Open, which is what this said while the value went
+                // unread. Task 6 widens ImportedKeysAsync to carry the status, and a reader who
+                // starts trusting it would otherwise get Open for a row this very loop writes as
+                // WaitingFor - a third spelling of the mapping the two above were just merged into.
+                if (!known.TryAdd(row.Key, StatusFor(role)))
                 {
                     skipped++;
                     continue;
@@ -356,7 +368,8 @@ public static class JiraEndpoints
     /// <summary>
     /// What a reopening would restore, read off <see cref="StatusFor"/> rather than off the role a
     /// second time - so the suggestion can only ever name a status the import would actually write,
-    /// whatever that mapping becomes.
+    /// whatever that mapping becomes. That is structure rather than a guard, and the twin in
+    /// AdoEndpoints carries the measurement that shows where the difference bites.
     /// </summary>
     private static ReopenTarget ReopenTargetFor(JiraStatusRole role)
         => StatusFor(role) == CoreStatus.WaitingFor ? ReopenTarget.WaitingFor : ReopenTarget.Open;

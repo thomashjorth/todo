@@ -195,23 +195,37 @@ public static class AdoEndpoints
                         // Only where there is a suggestion to explain, the same rule DoneAt follows.
                         ReopenTo = suggestsReopening ? ReopenTargetFor(role) : null,
                         // A row with something to do is never excluded, and that is what the word
-                        // means rather than a special case for the reopening: isBlocked reads this
-                        // field to disable the checkbox, and the label chain shows it first, so a row
-                        // carrying it says "nothing will happen here". Before the reopening existed no
-                        // row could be both, which is why the waiting branch below never needed a
-                        // guard while the done branch did.
+                        // means rather than a special case for the reopening: this field is the row's
+                        // "nothing will happen here" mark. Before the reopening existed no row could
+                        // be both, which is why the waiting branch below never needed a guard while
+                        // the done branch did.
+                        //
+                        // What that costs today, measured against the frontend that is actually
+                        // there rather than the one this comment first described: the visible fault is
+                        // excludedCount in ado-import.ts, which counts every row carrying a code into
+                        // "N left out" - so a reopening row would be counted as left out while being
+                        // offered. The label chain shows excluded first, so it would also print the
+                        // skip sentence over the suggestion.
+                        //
+                        // The checkbox half is a prediction about tasks 8 and 9, not a fact: today
+                        // isBlocked is !selectable && !closable, selectable already drops every
+                        // alreadyImported row, and a reopening row is one - so the box is disabled in
+                        // both worlds and select() refuses it either way. Nothing here makes
+                        // reopenable() unnecessary; it is still the thing that has to be built.
                         //
                         // Asked here rather than in the label chain, whose order has its own reasoning
                         // in the template, and asked once rather than as a !suggestsReopening on the
                         // waiting branch alone: the reconciliation adds two more codes below this, and
                         // a rule at the top is one their author cannot forget.
                         //
-                        // Only the waiting branch can actually reach it - measured at this endpoint
-                        // rather than reasoned from the branch order over in AdoStateRoles.For, with a
-                        // state in both lists and the toggle off: suggestsClosing true, isWaiting
-                        // false, excluded null. The durable reason is narrower than that branch order
-                        // anyway: role is one enum value, suggestsClosing needs Done and isWaiting is
-                        // Waiting, so the two cannot both hold whichever branch wins an overlap.
+                        // The suggestsClosing half is inert, and saying so keeps a green suite from
+                        // being read as proof that it works: measured, replacing this whole condition
+                        // with suggestsReopening alone leaves zero red. It stands for task 6's two
+                        // codes. It cannot fire today because role is one enum value - suggestsClosing
+                        // needs Done and isWaiting is Waiting - which is a narrower reason than the
+                        // branch order in AdoStateRoles.For and does not depend on it. Measured at
+                        // this endpoint with a state in both lists and the toggle off: suggestsClosing
+                        // true, isWaiting false, excluded null.
                         Excluded = suggestsClosing || suggestsReopening
                             ? null
                             // Done first, so a finished work item that was never imported is kept out
@@ -327,7 +341,11 @@ public static class AdoEndpoints
                     continue;
                 }
 
-                if (!known.TryAdd(row.Key, CoreStatus.Open))
+                // StatusFor rather than a literal Open, which is what this said while the value went
+                // unread. Task 6 widens ImportedKeysAsync to carry the status, and a reader who
+                // starts trusting it would otherwise get Open for a row this very loop writes as
+                // WaitingFor - a third spelling of the mapping the two above were just merged into.
+                if (!known.TryAdd(row.Key, StatusFor(role)))
                 {
                     skipped++;
                     continue;
@@ -416,6 +434,13 @@ public static class AdoEndpoints
     /// What a reopening would restore, read off <see cref="StatusFor"/> rather than off the role a
     /// second time - so the suggestion can only ever name a status the import would actually write,
     /// whatever that mapping becomes.
+    ///
+    /// <b>That is structure, not a guard, and the difference is worth knowing.</b> Rewriting this
+    /// method alone to disagree with StatusFor fells six tests - but changing StatusFor <em>and</em>
+    /// un-extracting this in the same edit leaves only A_duty_row_arrives_open_rather_than_waiting
+    /// red, while A_duty_status_reopens_to_open_because_the_duty_is_the_users_own goes green on a
+    /// lie: it claims open while the import would write WaitingFor. What keeps the two honest is that
+    /// there is one expression to change, not a test standing over two.
     /// </summary>
     private static ReopenTarget ReopenTargetFor(AdoStateRole role)
         => StatusFor(role) == CoreStatus.WaitingFor ? ReopenTarget.WaitingFor : ReopenTarget.Open;
