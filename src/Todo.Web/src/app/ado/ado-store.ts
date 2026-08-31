@@ -9,7 +9,26 @@ import {
   AdoImportResponse,
   AdoImportRow,
   AdoPreviewRow,
+  ClosureReason,
 } from '../api/todo-client';
+
+/**
+ * A preview row the source actually answered about, so its state and type are there to send on.
+ *
+ * The two fields became nullable with reconciliation, because a key Azure DevOps does not know has
+ * neither - no answer came back to take them from. Such a row arrives carrying `excluded`, so it is
+ * in neither `selectable` nor `closable` and cannot reach the mappings below; the compiler has no
+ * way to know that, and this is what answers it.
+ *
+ * A filter rather than a `!`, and the reason is what happens when the invariant does break rather
+ * than an appeal to it holding. A `!` would put `undefined` on the wire, the server would refuse the
+ * whole request with `ado.rowStateRequired`, and every other row in it would be lost with the one
+ * that was wrong. Dropping keeps the rest of the request valid and the guard honest.
+ */
+type AnsweredAdoRow = AdoPreviewRow & { state: string; workItemType: string };
+
+const wasAnsweredFor = (row: AdoPreviewRow): row is AnsweredAdoRow =>
+  row.state !== undefined && row.workItemType !== undefined;
 
 @Injectable({ providedIn: 'root' })
 export class AdoStore {
@@ -129,7 +148,7 @@ export class AdoStore {
       return await firstValueFrom(
         this.client.importAdo(
           new AdoImportRequest({
-            rows: rows.map(
+            rows: rows.filter(wasAnsweredFor).map(
               (row) =>
                 new AdoImportRow({
                   key: row.key,
@@ -150,11 +169,23 @@ export class AdoStore {
             closures:
               closures.length === 0
                 ? undefined
-                : closures.map(
+                : closures.filter(wasAnsweredFor).map(
                     (row) =>
                       new AdoClosureRow({
                         key: row.key,
                         state: row.state,
+                        // A suggestion that does not name its reason is one from the rule that
+                        // predates reconciliation - the state stands in the user's done list - and
+                        // that rule is the resolved one. So this reads an absent field rather than
+                        // guessing at it, and it stops being reached once every suggestion names
+                        // its reason.
+                        //
+                        // The same fallback on the receiving side would be the fault this field
+                        // exists to prevent: the server's first guard asks whether the state is in
+                        // the done list, and a work item handed to somebody else stands in one that
+                        // is not - so a server that defaulted to resolved would skip every
+                        // unassigned closure. Do not copy this line across.
+                        reason: row.closureReason ?? ClosureReason.Resolved,
                         doneAt: row.doneAt,
                       }),
                   ),

@@ -20,6 +20,7 @@ interface PreviewRowJson {
   waitingSince?: string;
   alreadyImported: boolean;
   suggestsClosing: boolean;
+  suggestsReopening: boolean;
   doneAt?: string;
   excluded?: string;
 }
@@ -39,6 +40,7 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
     isDuty: false,
     alreadyImported: false,
     suggestsClosing: false,
+    suggestsReopening: false,
     ...overrides,
   };
 

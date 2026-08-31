@@ -125,6 +125,12 @@
     },
     "receipt": "{{imported}} imported, {{skipped}} skipped",
     "suggestsClosing": "Done in Jira — close the task here.",
+    "suggestsClosingResolved": "Done in Jira — close the task here.",
+    "suggestsClosingUnassigned": "Assigned to somebody else in Jira — close the task here.",
+    "suggestsReopening": "Not done in Jira — reopen the task here.",
+    "reopenToOpen": "Reopens as open.",
+    "reopenToWaiting": "Reopens as waiting.",
+    "noStatus": "Jira reported no status.",
     "close": {
       "one": "Close {{count}} task",
       "other": "Close {{count}} tasks"
@@ -166,6 +172,13 @@
     },
     "receipt": "{{imported}} imported, {{skipped}} skipped",
     "suggestsClosing": "Done in Azure DevOps — close the task here.",
+    "suggestsClosingResolved": "Done in Azure DevOps — close the task here.",
+    "suggestsClosingUnassigned": "Assigned to somebody else in Azure DevOps — close the task here.",
+    "suggestsReopening": "Not done in Azure DevOps — reopen the task here.",
+    "reopenToOpen": "Reopens as open.",
+    "reopenToWaiting": "Reopens as waiting.",
+    "noState": "Azure DevOps reported no state.",
+    "noType": "Azure DevOps reported no work item type.",
     "close": {
       "one": "Close {{count}} task",
       "other": "Close {{count}} tasks"
@@ -304,7 +317,9 @@
       "rowStatusRequired": "An issue is missing its status.",
       "statusNameInvalid": "A status name cannot contain a quotation mark or a backslash. Load the statuses again under Settings.",
       "excludedWaiting": "You are waiting for it, and waiting issues are turned off.",
-      "excludedDone": "The issue is done in Jira and was never imported, so it stays out."
+      "excludedDone": "The issue is done in Jira and was never imported, so it stays out.",
+      "outsideFilter": "The issue is still yours and not resolved, but the fetch did not bring it back.",
+      "missingInSource": "Jira does not know the issue. It may be deleted, moved, or outside what the token may read."
     },
     "ado": {
       "notConfigured": "Azure DevOps is not set up. Fill in the collection URL and the token under Settings.",
@@ -320,7 +335,9 @@
       "workItemTypesRequired": "Pick at least one work item type. An empty list does not mean every type.",
       "defaultDeadlineDaysInvalid": "The number of days must be between 0 and 365. Zero means no deadline.",
       "excludedWaiting": "You are waiting for it, and waiting work items are turned off.",
-      "excludedDone": "The work item is done in Azure DevOps and was never imported, so it stays out."
+      "excludedDone": "The work item is done in Azure DevOps and was never imported, so it stays out.",
+      "outsideFilter": "The work item is still yours and not done, but the fetch did not bring it back.",
+      "missingInSource": "Azure DevOps does not know the work item. It may be deleted, moved, or outside what the token may read."
     },
     "review": {
       "weekdayInvalid": "The weekday has to be between Sunday and Saturday.",

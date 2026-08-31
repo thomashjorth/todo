@@ -26,6 +26,7 @@ interface PreviewRowJson {
   waitingSince?: string;
   alreadyImported: boolean;
   suggestsClosing: boolean;
+  suggestsReopening: boolean;
   doneAt?: string;
   excluded?: string;
 }
@@ -43,6 +44,7 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
     isWaiting: false,
     alreadyImported: false,
     suggestsClosing: false,
+    suggestsReopening: false,
     ...overrides,
   };
 
@@ -547,8 +549,13 @@ describe('AdoImport', () => {
     const body = JSON.parse(request.request.body);
 
     expect(body.rows.map((r: { key: string }) => r.key)).toEqual(['15664']);
+    // The reason rides along because the server cannot work it out from the state alone: its first
+    // guard asks whether the state is in the done list, which an unassigned closure's never is.
+    // This fixture names no reason, so the row reads as the resolved one - the only kind the fetch
+    // could suggest before reconciliation - which is what makes that fallback measured rather than
+    // merely written down.
     expect(body.closures).toEqual([
-      { key: '16901', state: 'Resolved', doneAt: '2026-08-15T09:00:00Z' },
+      { key: '16901', state: 'Resolved', reason: 'resolved', doneAt: '2026-08-15T09:00:00Z' },
     ]);
 
     request.flush(new Blob([JSON.stringify({ imported: 1, skipped: 0, closed: 1 })]));

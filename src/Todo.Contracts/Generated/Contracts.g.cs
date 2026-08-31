@@ -427,6 +427,41 @@ namespace Todo.Contracts
 
     }
 
+    /// <summary>
+    /// Why reconciliation offers to close a local task. Shared by both sources rather than duplicated per source, because neither value names anything Jira or Azure DevOps specific: they describe what reconciliation found, and two copies would be two things to keep in step with nothing able to see them drift apart.
+    /// <br/>The reason travels on the closure row as well as the preview row, and that is not a convenience. The import re-takes the decision by looking the state up in the user's done list, and being handed to somebody else is orthogonal to being finished - so an unassigned closure's state need not stand in that list at all, and without the reason every one of them would be skipped and counted as skipped.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ClosureReason
+    {
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"resolved")]
+        [System.Runtime.Serialization.EnumMember(Value = @"resolved")]
+        Resolved = 0,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"unassigned")]
+        [System.Runtime.Serialization.EnumMember(Value = @"unassigned")]
+        Unassigned = 1,
+
+    }
+
+    /// <summary>
+    /// Which status a reopening would put the task back into - the same mapping the import loop already uses for a fresh row, so the suggestion and the import cannot drift apart. Shared by both sources for the same reason ClosureReason is.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum ReopenTarget
+    {
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"open")]
+        [System.Runtime.Serialization.EnumMember(Value = @"open")]
+        Open = 0,
+
+        [System.Text.Json.Serialization.JsonStringEnumMemberName(@"waitingFor")]
+        [System.Runtime.Serialization.EnumMember(Value = @"waitingFor")]
+        WaitingFor = 1,
+
+    }
+
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class JiraPreviewRow
     {
@@ -459,10 +494,9 @@ namespace Todo.Contracts
         public string Requester { get; set; }
 
         /// <summary>
-        /// The Jira status name, shown so the user can see why a row is waiting.
+        /// The Jira status name, shown so the user can see why a row is waiting. Nullable because a reconciled key the source does not know has no status - no answer came back to take one from. Forcing an empty string would be the worse of the two forms: a field whose type says "always there" while its value says otherwise. The row explains the absence itself, through its excluded code.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string Status { get; set; }
 
         /// <summary>
@@ -490,10 +524,30 @@ namespace Todo.Contracts
         public bool SuggestsClosing { get; set; }
 
         /// <summary>
-        /// When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry.
+        /// Which of the two findings the closing suggestion rests on, so the screen can say "resolved in Jira" and "handed to somebody else" in two sentences rather than one that covers neither. Null when suggestsClosing is false — the reason exists only where there is a suggestion to explain.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("closureReason")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ClosureReason>))]
+        public ClosureReason? ClosureReason { get; set; }
+
+        /// <summary>
+        /// When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry, and null as well for an unassigned closure: the issue was never finished, it stopped being yours, so the completion time falls back to the clock.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("doneAt")]
         public System.DateTimeOffset? DoneAt { get; set; }
+
+        /// <summary>
+        /// Whether import should offer to put a locally finished task back into an open status, because the issue is not done in Jira. The mirror image of suggestsClosing and split the same way: this field is the server's decision, reopenTo is what it would lead to, and status is the fact both were taken on. Required rather than nullable, because "no suggestion" is false rather than absent.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("suggestsReopening")]
+        public bool SuggestsReopening { get; set; }
+
+        /// <summary>
+        /// Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reopenTo")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ReopenTarget>))]
+        public ReopenTarget? ReopenTo { get; set; }
 
         /// <summary>
         /// Why import will skip this row, as an error code the frontend translates. Null means it will be imported.
@@ -561,6 +615,14 @@ namespace Todo.Contracts
         public string Key { get; set; }
 
         /// <summary>
+        /// Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason. Required rather than optional: an absent reason would have to default to one of the two, and defaulting to resolved brings back the very skipping this field exists to prevent.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reason")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ClosureReason>))]
+        public ClosureReason Reason { get; set; }
+
+        /// <summary>
         /// The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides whether that means done by looking it up in the user's done list, and takes the decision again rather than trusting a client that may have previewed under an older setting.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("status")]
@@ -572,6 +634,29 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("doneAt")]
         public System.DateTimeOffset? DoneAt { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JiraReopeningRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        /// <summary>
+        /// The Jira status name. Carried for the same reason JiraClosureRow carries it: the server maps it to a status again rather than letting the client name the one it wants, so the suggestion and the import cannot disagree.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Status { get; set; }
+
+        /// <summary>
+        /// When the issue reached its current status, used when that status maps to waiting. The same fact waitingSince carries on an import row, sent the same way and for the same reason: the import deliberately does not call Jira, so it cannot look this up.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
+        public System.DateTimeOffset? WaitingSince { get; set; }
 
     }
 
@@ -588,6 +673,12 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("closures")]
         public System.Collections.Generic.ICollection<JiraClosureRow> Closures { get; set; }
+
+        /// <summary>
+        /// Tasks finished locally whose issue is not done in Jira, to be put back into an open status. Its own list rather than a flag on closures, because the two do opposite things to the same field and a single list would need a discriminator to tell them apart. Optional for the same reason closures is.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reopenings")]
+        public System.Collections.Generic.ICollection<JiraReopeningRow> Reopenings { get; set; }
 
     }
 
@@ -606,6 +697,12 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("closed")]
         public int Closed { get; set; }
+
+        /// <summary>
+        /// How many local tasks were put back into an open status. Its own count rather than folded into imported, because the button now does three things and one number cannot say which of them happened.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reopened")]
+        public int Reopened { get; set; }
 
     }
 
@@ -664,17 +761,15 @@ namespace Todo.Contracts
         public string Requester { get; set; }
 
         /// <summary>
-        /// The work item state, shown so the user can see why a row is waiting.
+        /// The work item state, shown so the user can see why a row is waiting. Nullable because a reconciled key the source does not know has no state - no answer came back to take one from. Forcing an empty string would be the worse of the two forms: a field whose type says "always there" while its value says otherwise. The row explains the absence itself, through its excluded code.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("state")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string State { get; set; }
 
         /// <summary>
-        /// The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter.
+        /// The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter. Nullable for the same reason state is, and nullable together with it rather than one of the two being forced empty: both are filled from the same answer and are absent together, so giving them different forms would leave a reader unable to tell which form was the deliberate one.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("workItemType")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string WorkItemType { get; set; }
 
         /// <summary>
@@ -699,10 +794,30 @@ namespace Todo.Contracts
         public bool SuggestsClosing { get; set; }
 
         /// <summary>
-        /// Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is.
+        /// Which of the two findings the closing suggestion rests on. See the field of the same name on JiraPreviewRow. Null when suggestsClosing is false.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("closureReason")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ClosureReason>))]
+        public ClosureReason? ClosureReason { get; set; }
+
+        /// <summary>
+        /// Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is. Null as well for an unassigned closure: the work item was never finished, it stopped being yours, so the completion time falls back to the clock.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("doneAt")]
         public System.DateTimeOffset? DoneAt { get; set; }
+
+        /// <summary>
+        /// Whether import should offer to put a locally finished task back into an open status. See the field of the same name on JiraPreviewRow: the server's decision, with reopenTo as what it would lead to and state as the fact both were taken on.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("suggestsReopening")]
+        public bool SuggestsReopening { get; set; }
+
+        /// <summary>
+        /// Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reopenTo")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ReopenTarget>))]
+        public ReopenTarget? ReopenTo { get; set; }
 
         /// <summary>
         /// Why import will skip this row, as an error code the frontend translates. Null means it will be imported.
@@ -774,6 +889,14 @@ namespace Todo.Contracts
         public string Key { get; set; }
 
         /// <summary>
+        /// Why this task is being closed. See the field of the same name on JiraClosureRow, and ClosureReason for why the state alone cannot answer it.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reason")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ClosureReason>))]
+        public ClosureReason Reason { get; set; }
+
+        /// <summary>
         /// The work item state. Sent for the same reason AdoImportRow sends it: the server looks it up in the user's done list and takes the decision again rather than trusting the client.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("state")]
@@ -785,6 +908,29 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("doneAt")]
         public System.DateTimeOffset? DoneAt { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AdoReopeningRow
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        /// <summary>
+        /// The work item state. Carried for the same reason AdoClosureRow carries it: the server maps it to a status again rather than letting the client name the one it wants, so the suggestion and the import cannot disagree.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("state")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string State { get; set; }
+
+        /// <summary>
+        /// Microsoft.VSTS.Common.StateChangeDate, used when the state maps to waiting. The same fact waitingSince carries on an import row, sent the same way and for the same reason: the import deliberately does not call Azure DevOps, so it cannot look this up.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("waitingSince")]
+        public System.DateTimeOffset? WaitingSince { get; set; }
 
     }
 
@@ -801,6 +947,12 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("closures")]
         public System.Collections.Generic.ICollection<AdoClosureRow> Closures { get; set; }
+
+        /// <summary>
+        /// Tasks finished locally whose work item is not done in Azure DevOps, to be put back into an open status. See the field of the same name on JiraImportRequest for why it is its own list rather than a flag on closures.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reopenings")]
+        public System.Collections.Generic.ICollection<AdoReopeningRow> Reopenings { get; set; }
 
     }
 
@@ -819,6 +971,12 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("closed")]
         public int Closed { get; set; }
+
+        /// <summary>
+        /// How many local tasks were put back into an open status. See the field of the same name on JiraImportResponse.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reopened")]
+        public int Reopened { get; set; }
 
     }
 

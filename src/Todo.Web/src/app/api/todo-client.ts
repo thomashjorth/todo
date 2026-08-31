@@ -2801,6 +2801,18 @@ export interface IJiraStatusesResponse {
     names: string[];
 }
 
+/** Why reconciliation offers to close a local task. Shared by both sources rather than duplicated per source, because neither value names anything Jira or Azure DevOps specific: they describe what reconciliation found, and two copies would be two things to keep in step with nothing able to see them drift apart. The reason travels on the closure row as well as the preview row, and that is not a convenience. The import re-takes the decision by looking the state up in the user's done list, and being handed to somebody else is orthogonal to being finished - so an unassigned closure's state need not stand in that list at all, and without the reason every one of them would be skipped and counted as skipped. */
+export enum ClosureReason {
+    Resolved = "resolved",
+    Unassigned = "unassigned",
+}
+
+/** Which status a reopening would put the task back into - the same mapping the import loop already uses for a fresh row, so the suggestion and the import cannot drift apart. Shared by both sources for the same reason ClosureReason is. */
+export enum ReopenTarget {
+    Open = "open",
+    WaitingFor = "waitingFor",
+}
+
 export class JiraPreviewRow implements IJiraPreviewRow {
     key!: string;
     title!: string;
@@ -2810,8 +2822,8 @@ export class JiraPreviewRow implements IJiraPreviewRow {
     note?: string | undefined;
     deadline?: string | undefined;
     requester?: string | undefined;
-    /** The Jira status name, shown so the user can see why a row is waiting. */
-    status!: string;
+    /** The Jira status name, shown so the user can see why a row is waiting. Nullable because a reconciled key the source does not know has no status - no answer came back to take one from. Forcing an empty string would be the worse of the two forms: a field whose type says "always there" while its value says otherwise. The row explains the absence itself, through its excluded code. */
+    status?: string | undefined;
     /** Whether the status is in the user's waiting list. */
     isWaiting!: boolean;
     /** Whether this issue came from the duty pool rather than being assigned to the user. The screen labels it, so a pool issue is not mistaken for one of your own. */
@@ -2820,8 +2832,14 @@ export class JiraPreviewRow implements IJiraPreviewRow {
     alreadyImported!: boolean;
     /** Whether import should offer to close the local task, because all three of these hold: the key has been imported before, the status is in the user's done list, and the local task is not done yet. The server's decision rather than three facts for the client to combine — the lists live on the server, and the import takes the decision again. */
     suggestsClosing!: boolean;
-    /** When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry. */
+    /** Which of the two findings the closing suggestion rests on, so the screen can say "resolved in Jira" and "handed to somebody else" in two sentences rather than one that covers neither. Null when suggestsClosing is false — the reason exists only where there is a suggestion to explain. */
+    closureReason?: ClosureReason | undefined;
+    /** When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry, and null as well for an unassigned closure: the issue was never finished, it stopped being yours, so the completion time falls back to the clock. */
     doneAt?: string | undefined;
+    /** Whether import should offer to put a locally finished task back into an open status, because the issue is not done in Jira. The mirror image of suggestsClosing and split the same way: this field is the server's decision, reopenTo is what it would lead to, and status is the fact both were taken on. Required rather than nullable, because "no suggestion" is false rather than absent. */
+    suggestsReopening!: boolean;
+    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. */
+    reopenTo?: ReopenTarget | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
 
@@ -2848,7 +2866,10 @@ export class JiraPreviewRow implements IJiraPreviewRow {
             this.waitingSince = _data["waitingSince"];
             this.alreadyImported = _data["alreadyImported"];
             this.suggestsClosing = _data["suggestsClosing"];
+            this.closureReason = _data["closureReason"];
             this.doneAt = _data["doneAt"];
+            this.suggestsReopening = _data["suggestsReopening"];
+            this.reopenTo = _data["reopenTo"];
             this.excluded = _data["excluded"];
         }
     }
@@ -2874,7 +2895,10 @@ export class JiraPreviewRow implements IJiraPreviewRow {
         data["waitingSince"] = this.waitingSince;
         data["alreadyImported"] = this.alreadyImported;
         data["suggestsClosing"] = this.suggestsClosing;
+        data["closureReason"] = this.closureReason;
         data["doneAt"] = this.doneAt;
+        data["suggestsReopening"] = this.suggestsReopening;
+        data["reopenTo"] = this.reopenTo;
         data["excluded"] = this.excluded;
         return data;
     }
@@ -2889,8 +2913,8 @@ export interface IJiraPreviewRow {
     note?: string | undefined;
     deadline?: string | undefined;
     requester?: string | undefined;
-    /** The Jira status name, shown so the user can see why a row is waiting. */
-    status: string;
+    /** The Jira status name, shown so the user can see why a row is waiting. Nullable because a reconciled key the source does not know has no status - no answer came back to take one from. Forcing an empty string would be the worse of the two forms: a field whose type says "always there" while its value says otherwise. The row explains the absence itself, through its excluded code. */
+    status?: string | undefined;
     /** Whether the status is in the user's waiting list. */
     isWaiting: boolean;
     /** Whether this issue came from the duty pool rather than being assigned to the user. The screen labels it, so a pool issue is not mistaken for one of your own. */
@@ -2899,8 +2923,14 @@ export interface IJiraPreviewRow {
     alreadyImported: boolean;
     /** Whether import should offer to close the local task, because all three of these hold: the key has been imported before, the status is in the user's done list, and the local task is not done yet. The server's decision rather than three facts for the client to combine — the lists live on the server, and the import takes the decision again. */
     suggestsClosing: boolean;
-    /** When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry. */
+    /** Which of the two findings the closing suggestion rests on, so the screen can say "resolved in Jira" and "handed to somebody else" in two sentences rather than one that covers neither. Null when suggestsClosing is false — the reason exists only where there is a suggestion to explain. */
+    closureReason?: ClosureReason | undefined;
+    /** When the issue reached its current status, for a row that suggests closing. Its own field rather than a loosened waitingSince, which means something else: a field that changes meaning with another boolean is one a later reader misreads. Nullable because Jira's changelog may hold no such entry, and null as well for an unassigned closure: the issue was never finished, it stopped being yours, so the completion time falls back to the clock. */
     doneAt?: string | undefined;
+    /** Whether import should offer to put a locally finished task back into an open status, because the issue is not done in Jira. The mirror image of suggestsClosing and split the same way: this field is the server's decision, reopenTo is what it would lead to, and status is the fact both were taken on. Required rather than nullable, because "no suggestion" is false rather than absent. */
+    suggestsReopening: boolean;
+    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. */
+    reopenTo?: ReopenTarget | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
 }
@@ -3022,6 +3052,8 @@ export interface IJiraImportRow {
 
 export class JiraClosureRow implements IJiraClosureRow {
     key!: string;
+    /** Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason. Required rather than optional: an absent reason would have to default to one of the two, and defaulting to resolved brings back the very skipping this field exists to prevent. */
+    reason!: ClosureReason;
     /** The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides whether that means done by looking it up in the user's done list, and takes the decision again rather than trusting a client that may have previewed under an older setting. */
     status!: string;
     /** What the local task's completion time becomes. A fact the client saw, carried the same way waitingSince is — the import deliberately does not call Jira, so it cannot look this up. */
@@ -3039,6 +3071,7 @@ export class JiraClosureRow implements IJiraClosureRow {
     init(_data?: any) {
         if (_data) {
             this.key = _data["key"];
+            this.reason = _data["reason"];
             this.status = _data["status"];
             this.doneAt = _data["doneAt"];
         }
@@ -3054,6 +3087,7 @@ export class JiraClosureRow implements IJiraClosureRow {
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
         data["key"] = this.key;
+        data["reason"] = this.reason;
         data["status"] = this.status;
         data["doneAt"] = this.doneAt;
         return data;
@@ -3062,16 +3096,68 @@ export class JiraClosureRow implements IJiraClosureRow {
 
 export interface IJiraClosureRow {
     key: string;
+    /** Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason. Required rather than optional: an absent reason would have to default to one of the two, and defaulting to resolved brings back the very skipping this field exists to prevent. */
+    reason: ClosureReason;
     /** The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides whether that means done by looking it up in the user's done list, and takes the decision again rather than trusting a client that may have previewed under an older setting. */
     status: string;
     /** What the local task's completion time becomes. A fact the client saw, carried the same way waitingSince is — the import deliberately does not call Jira, so it cannot look this up. */
     doneAt?: string | undefined;
 }
 
+export class JiraReopeningRow implements IJiraReopeningRow {
+    key!: string;
+    /** The Jira status name. Carried for the same reason JiraClosureRow carries it: the server maps it to a status again rather than letting the client name the one it wants, so the suggestion and the import cannot disagree. */
+    status!: string;
+    /** When the issue reached its current status, used when that status maps to waiting. The same fact waitingSince carries on an import row, sent the same way and for the same reason: the import deliberately does not call Jira, so it cannot look this up. */
+    waitingSince?: string | undefined;
+
+    constructor(data?: IJiraReopeningRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.status = _data["status"];
+            this.waitingSince = _data["waitingSince"];
+        }
+    }
+
+    static fromJS(data: any): JiraReopeningRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new JiraReopeningRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["status"] = this.status;
+        data["waitingSince"] = this.waitingSince;
+        return data;
+    }
+}
+
+export interface IJiraReopeningRow {
+    key: string;
+    /** The Jira status name. Carried for the same reason JiraClosureRow carries it: the server maps it to a status again rather than letting the client name the one it wants, so the suggestion and the import cannot disagree. */
+    status: string;
+    /** When the issue reached its current status, used when that status maps to waiting. The same fact waitingSince carries on an import row, sent the same way and for the same reason: the import deliberately does not call Jira, so it cannot look this up. */
+    waitingSince?: string | undefined;
+}
+
 export class JiraImportRequest implements IJiraImportRequest {
     rows!: JiraImportRow[];
     /** Tasks already imported whose issue is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent. */
     closures?: JiraClosureRow[];
+    /** Tasks finished locally whose issue is not done in Jira, to be put back into an open status. Its own list rather than a flag on closures, because the two do opposite things to the same field and a single list would need a discriminator to tell them apart. Optional for the same reason closures is. */
+    reopenings?: JiraReopeningRow[];
 
     constructor(data?: IJiraImportRequest) {
         if (data) {
@@ -3097,6 +3183,11 @@ export class JiraImportRequest implements IJiraImportRequest {
                 for (let item of _data["closures"])
                     this.closures!.push(JiraClosureRow.fromJS(item));
             }
+            if (Array.isArray(_data["reopenings"])) {
+                this.reopenings = [] as any;
+                for (let item of _data["reopenings"])
+                    this.reopenings!.push(JiraReopeningRow.fromJS(item));
+            }
         }
     }
 
@@ -3119,6 +3210,11 @@ export class JiraImportRequest implements IJiraImportRequest {
             for (let item of this.closures)
                 data["closures"].push(item ? item.toJSON() : undefined as any);
         }
+        if (Array.isArray(this.reopenings)) {
+            data["reopenings"] = [];
+            for (let item of this.reopenings)
+                data["reopenings"].push(item ? item.toJSON() : undefined as any);
+        }
         return data;
     }
 }
@@ -3127,6 +3223,8 @@ export interface IJiraImportRequest {
     rows: JiraImportRow[];
     /** Tasks already imported whose issue is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent. */
     closures?: JiraClosureRow[];
+    /** Tasks finished locally whose issue is not done in Jira, to be put back into an open status. Its own list rather than a flag on closures, because the two do opposite things to the same field and a single list would need a discriminator to tell them apart. Optional for the same reason closures is. */
+    reopenings?: JiraReopeningRow[];
 }
 
 export class JiraImportResponse implements IJiraImportResponse {
@@ -3134,6 +3232,8 @@ export class JiraImportResponse implements IJiraImportResponse {
     skipped!: number;
     /** How many local tasks were closed because their issue is done. */
     closed!: number;
+    /** How many local tasks were put back into an open status. Its own count rather than folded into imported, because the button now does three things and one number cannot say which of them happened. */
+    reopened!: number;
 
     constructor(data?: IJiraImportResponse) {
         if (data) {
@@ -3149,6 +3249,7 @@ export class JiraImportResponse implements IJiraImportResponse {
             this.imported = _data["imported"];
             this.skipped = _data["skipped"];
             this.closed = _data["closed"];
+            this.reopened = _data["reopened"];
         }
     }
 
@@ -3164,6 +3265,7 @@ export class JiraImportResponse implements IJiraImportResponse {
         data["imported"] = this.imported;
         data["skipped"] = this.skipped;
         data["closed"] = this.closed;
+        data["reopened"] = this.reopened;
         return data;
     }
 }
@@ -3173,6 +3275,8 @@ export interface IJiraImportResponse {
     skipped: number;
     /** How many local tasks were closed because their issue is done. */
     closed: number;
+    /** How many local tasks were put back into an open status. Its own count rather than folded into imported, because the button now does three things and one number cannot say which of them happened. */
+    reopened: number;
 }
 
 export class AdoConnectionResponse implements IAdoConnectionResponse {
@@ -3268,10 +3372,10 @@ export class AdoPreviewRow implements IAdoPreviewRow {
     /** The deadline the import would set, derived by the server from today plus adoDefaultDeadlineDays. Azure DevOps has no due date field of its own, so the app proposes one. Nullable because adoDefaultDeadlineDays 0 means no deadline. The client shows this value; it does not send it back, and the import derives it again. */
     deadline?: string | undefined;
     requester?: string | undefined;
-    /** The work item state, shown so the user can see why a row is waiting. */
-    state!: string;
-    /** The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter. */
-    workItemType!: string;
+    /** The work item state, shown so the user can see why a row is waiting. Nullable because a reconciled key the source does not know has no state - no answer came back to take one from. Forcing an empty string would be the worse of the two forms: a field whose type says "always there" while its value says otherwise. The row explains the absence itself, through its excluded code. */
+    state?: string | undefined;
+    /** The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter. Nullable for the same reason state is, and nullable together with it rather than one of the two being forced empty: both are filled from the same answer and are absent together, so giving them different forms would leave a reader unable to tell which form was the deliberate one. */
+    workItemType?: string | undefined;
     /** Whether the state is in the user's waiting list. */
     isWaiting!: boolean;
     /** Microsoft.VSTS.Common.StateChangeDate, which arrives with the work item itself — no second call per row, unlike Jira, whose equivalent required the changelog. */
@@ -3279,8 +3383,14 @@ export class AdoPreviewRow implements IAdoPreviewRow {
     alreadyImported!: boolean;
     /** Whether import should offer to close the local task. See the field of the same name on JiraPreviewRow: the server's decision, taken on three facts, and taken again on import. */
     suggestsClosing!: boolean;
-    /** Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is. */
+    /** Which of the two findings the closing suggestion rests on. See the field of the same name on JiraPreviewRow. Null when suggestsClosing is false. */
+    closureReason?: ClosureReason | undefined;
+    /** Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is. Null as well for an unassigned closure: the work item was never finished, it stopped being yours, so the completion time falls back to the clock. */
     doneAt?: string | undefined;
+    /** Whether import should offer to put a locally finished task back into an open status. See the field of the same name on JiraPreviewRow: the server's decision, with reopenTo as what it would lead to and state as the fact both were taken on. */
+    suggestsReopening!: boolean;
+    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. */
+    reopenTo?: ReopenTarget | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
 
@@ -3307,7 +3417,10 @@ export class AdoPreviewRow implements IAdoPreviewRow {
             this.waitingSince = _data["waitingSince"];
             this.alreadyImported = _data["alreadyImported"];
             this.suggestsClosing = _data["suggestsClosing"];
+            this.closureReason = _data["closureReason"];
             this.doneAt = _data["doneAt"];
+            this.suggestsReopening = _data["suggestsReopening"];
+            this.reopenTo = _data["reopenTo"];
             this.excluded = _data["excluded"];
         }
     }
@@ -3333,7 +3446,10 @@ export class AdoPreviewRow implements IAdoPreviewRow {
         data["waitingSince"] = this.waitingSince;
         data["alreadyImported"] = this.alreadyImported;
         data["suggestsClosing"] = this.suggestsClosing;
+        data["closureReason"] = this.closureReason;
         data["doneAt"] = this.doneAt;
+        data["suggestsReopening"] = this.suggestsReopening;
+        data["reopenTo"] = this.reopenTo;
         data["excluded"] = this.excluded;
         return data;
     }
@@ -3349,10 +3465,10 @@ export interface IAdoPreviewRow {
     /** The deadline the import would set, derived by the server from today plus adoDefaultDeadlineDays. Azure DevOps has no due date field of its own, so the app proposes one. Nullable because adoDefaultDeadlineDays 0 means no deadline. The client shows this value; it does not send it back, and the import derives it again. */
     deadline?: string | undefined;
     requester?: string | undefined;
-    /** The work item state, shown so the user can see why a row is waiting. */
-    state: string;
-    /** The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter. */
-    workItemType: string;
+    /** The work item state, shown so the user can see why a row is waiting. Nullable because a reconciled key the source does not know has no state - no answer came back to take one from. Forcing an empty string would be the worse of the two forms: a field whose type says "always there" while its value says otherwise. The row explains the absence itself, through its excluded code. */
+    state?: string | undefined;
+    /** The work item type, shown because state names differ per type and because the type decides whether the row passes the adoWorkItemTypes filter. Nullable for the same reason state is, and nullable together with it rather than one of the two being forced empty: both are filled from the same answer and are absent together, so giving them different forms would leave a reader unable to tell which form was the deliberate one. */
+    workItemType?: string | undefined;
     /** Whether the state is in the user's waiting list. */
     isWaiting: boolean;
     /** Microsoft.VSTS.Common.StateChangeDate, which arrives with the work item itself — no second call per row, unlike Jira, whose equivalent required the changelog. */
@@ -3360,8 +3476,14 @@ export interface IAdoPreviewRow {
     alreadyImported: boolean;
     /** Whether import should offer to close the local task. See the field of the same name on JiraPreviewRow: the server's decision, taken on three facts, and taken again on import. */
     suggestsClosing: boolean;
-    /** Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is. */
+    /** Which of the two findings the closing suggestion rests on. See the field of the same name on JiraPreviewRow. Null when suggestsClosing is false. */
+    closureReason?: ClosureReason | undefined;
+    /** Microsoft.VSTS.Common.StateChangeDate for a row that suggests closing. Its own field rather than a loosened waitingSince, which the preview nulls for every row that is not waiting — and a finished row never is. Null as well for an unassigned closure: the work item was never finished, it stopped being yours, so the completion time falls back to the clock. */
     doneAt?: string | undefined;
+    /** Whether import should offer to put a locally finished task back into an open status. See the field of the same name on JiraPreviewRow: the server's decision, with reopenTo as what it would lead to and state as the fact both were taken on. */
+    suggestsReopening: boolean;
+    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. */
+    reopenTo?: ReopenTarget | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
 }
@@ -3485,6 +3607,8 @@ export interface IAdoImportRow {
 
 export class AdoClosureRow implements IAdoClosureRow {
     key!: string;
+    /** Why this task is being closed. See the field of the same name on JiraClosureRow, and ClosureReason for why the state alone cannot answer it. */
+    reason!: ClosureReason;
     /** The work item state. Sent for the same reason AdoImportRow sends it: the server looks it up in the user's done list and takes the decision again rather than trusting the client. */
     state!: string;
     /** What the local task's completion time becomes, carried the same way waitingSince is. The import deliberately does not call Azure DevOps, so it cannot look this up. */
@@ -3502,6 +3626,7 @@ export class AdoClosureRow implements IAdoClosureRow {
     init(_data?: any) {
         if (_data) {
             this.key = _data["key"];
+            this.reason = _data["reason"];
             this.state = _data["state"];
             this.doneAt = _data["doneAt"];
         }
@@ -3517,6 +3642,7 @@ export class AdoClosureRow implements IAdoClosureRow {
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
         data["key"] = this.key;
+        data["reason"] = this.reason;
         data["state"] = this.state;
         data["doneAt"] = this.doneAt;
         return data;
@@ -3525,16 +3651,68 @@ export class AdoClosureRow implements IAdoClosureRow {
 
 export interface IAdoClosureRow {
     key: string;
+    /** Why this task is being closed. See the field of the same name on JiraClosureRow, and ClosureReason for why the state alone cannot answer it. */
+    reason: ClosureReason;
     /** The work item state. Sent for the same reason AdoImportRow sends it: the server looks it up in the user's done list and takes the decision again rather than trusting the client. */
     state: string;
     /** What the local task's completion time becomes, carried the same way waitingSince is. The import deliberately does not call Azure DevOps, so it cannot look this up. */
     doneAt?: string | undefined;
 }
 
+export class AdoReopeningRow implements IAdoReopeningRow {
+    key!: string;
+    /** The work item state. Carried for the same reason AdoClosureRow carries it: the server maps it to a status again rather than letting the client name the one it wants, so the suggestion and the import cannot disagree. */
+    state!: string;
+    /** Microsoft.VSTS.Common.StateChangeDate, used when the state maps to waiting. The same fact waitingSince carries on an import row, sent the same way and for the same reason: the import deliberately does not call Azure DevOps, so it cannot look this up. */
+    waitingSince?: string | undefined;
+
+    constructor(data?: IAdoReopeningRow) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.state = _data["state"];
+            this.waitingSince = _data["waitingSince"];
+        }
+    }
+
+    static fromJS(data: any): AdoReopeningRow {
+        data = typeof data === 'object' ? data : {};
+        let result = new AdoReopeningRow();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["state"] = this.state;
+        data["waitingSince"] = this.waitingSince;
+        return data;
+    }
+}
+
+export interface IAdoReopeningRow {
+    key: string;
+    /** The work item state. Carried for the same reason AdoClosureRow carries it: the server maps it to a status again rather than letting the client name the one it wants, so the suggestion and the import cannot disagree. */
+    state: string;
+    /** Microsoft.VSTS.Common.StateChangeDate, used when the state maps to waiting. The same fact waitingSince carries on an import row, sent the same way and for the same reason: the import deliberately does not call Azure DevOps, so it cannot look this up. */
+    waitingSince?: string | undefined;
+}
+
 export class AdoImportRequest implements IAdoImportRequest {
     rows!: AdoImportRow[];
     /** Tasks already imported whose work item is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent. */
     closures?: AdoClosureRow[];
+    /** Tasks finished locally whose work item is not done in Azure DevOps, to be put back into an open status. See the field of the same name on JiraImportRequest for why it is its own list rather than a flag on closures. */
+    reopenings?: AdoReopeningRow[];
 
     constructor(data?: IAdoImportRequest) {
         if (data) {
@@ -3560,6 +3738,11 @@ export class AdoImportRequest implements IAdoImportRequest {
                 for (let item of _data["closures"])
                     this.closures!.push(AdoClosureRow.fromJS(item));
             }
+            if (Array.isArray(_data["reopenings"])) {
+                this.reopenings = [] as any;
+                for (let item of _data["reopenings"])
+                    this.reopenings!.push(AdoReopeningRow.fromJS(item));
+            }
         }
     }
 
@@ -3582,6 +3765,11 @@ export class AdoImportRequest implements IAdoImportRequest {
             for (let item of this.closures)
                 data["closures"].push(item ? item.toJSON() : undefined as any);
         }
+        if (Array.isArray(this.reopenings)) {
+            data["reopenings"] = [];
+            for (let item of this.reopenings)
+                data["reopenings"].push(item ? item.toJSON() : undefined as any);
+        }
         return data;
     }
 }
@@ -3590,6 +3778,8 @@ export interface IAdoImportRequest {
     rows: AdoImportRow[];
     /** Tasks already imported whose work item is now done, to be closed locally. Optional rather than required, so a client that only imports sends what it always sent. */
     closures?: AdoClosureRow[];
+    /** Tasks finished locally whose work item is not done in Azure DevOps, to be put back into an open status. See the field of the same name on JiraImportRequest for why it is its own list rather than a flag on closures. */
+    reopenings?: AdoReopeningRow[];
 }
 
 export class AdoImportResponse implements IAdoImportResponse {
@@ -3597,6 +3787,8 @@ export class AdoImportResponse implements IAdoImportResponse {
     skipped!: number;
     /** How many local tasks were closed because their work item is done. */
     closed!: number;
+    /** How many local tasks were put back into an open status. See the field of the same name on JiraImportResponse. */
+    reopened!: number;
 
     constructor(data?: IAdoImportResponse) {
         if (data) {
@@ -3612,6 +3804,7 @@ export class AdoImportResponse implements IAdoImportResponse {
             this.imported = _data["imported"];
             this.skipped = _data["skipped"];
             this.closed = _data["closed"];
+            this.reopened = _data["reopened"];
         }
     }
 
@@ -3627,6 +3820,7 @@ export class AdoImportResponse implements IAdoImportResponse {
         data["imported"] = this.imported;
         data["skipped"] = this.skipped;
         data["closed"] = this.closed;
+        data["reopened"] = this.reopened;
         return data;
     }
 }
@@ -3636,6 +3830,8 @@ export interface IAdoImportResponse {
     skipped: number;
     /** How many local tasks were closed because their work item is done. */
     closed: number;
+    /** How many local tasks were put back into an open status. See the field of the same name on JiraImportResponse. */
+    reopened: number;
 }
 
 export class SettingsRequest implements ISettingsRequest {

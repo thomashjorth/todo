@@ -125,6 +125,12 @@
     },
     "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
     "suggestsClosing": "Løst i Jira — luk opgaven her.",
+    "suggestsClosingResolved": "Løst i Jira — luk opgaven her.",
+    "suggestsClosingUnassigned": "Tildelt en anden i Jira — luk opgaven her.",
+    "suggestsReopening": "Ikke færdig i Jira — genåbn opgaven her.",
+    "reopenToOpen": "Genåbnes som åben.",
+    "reopenToWaiting": "Genåbnes som ventende.",
+    "noStatus": "Jira oplyste ingen status.",
     "close": {
       "one": "Luk {{count}} opgave",
       "other": "Luk {{count}} opgaver"
@@ -166,6 +172,13 @@
     },
     "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
     "suggestsClosing": "Løst i Azure DevOps — luk opgaven her.",
+    "suggestsClosingResolved": "Løst i Azure DevOps — luk opgaven her.",
+    "suggestsClosingUnassigned": "Tildelt en anden i Azure DevOps — luk opgaven her.",
+    "suggestsReopening": "Ikke færdig i Azure DevOps — genåbn opgaven her.",
+    "reopenToOpen": "Genåbnes som åben.",
+    "reopenToWaiting": "Genåbnes som ventende.",
+    "noState": "Azure DevOps oplyste ingen tilstand.",
+    "noType": "Azure DevOps oplyste ingen sagstype.",
     "close": {
       "one": "Luk {{count}} opgave",
       "other": "Luk {{count}} opgaver"
@@ -304,7 +317,9 @@
       "rowStatusRequired": "En sag mangler sin status.",
       "statusNameInvalid": "Et statusnavn må ikke indeholde anførselstegn eller backslash. Hent statusserne igen under Indstillinger.",
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra.",
-      "excludedDone": "Sagen er løst i Jira og er ikke hentet før, så den hentes ikke."
+      "excludedDone": "Sagen er løst i Jira og er ikke hentet før, så den hentes ikke.",
+      "outsideFilter": "Sagen er stadig din og ikke løst, men kom ikke med i hentningen.",
+      "missingInSource": "Jira kender ikke sagen. Den kan være slettet, flyttet eller uden for tokenets rettigheder."
     },
     "ado": {
       "notConfigured": "Azure DevOps er ikke sat op. Udfyld samlingens URL og token under Indstillinger.",
@@ -320,7 +335,9 @@
       "workItemTypesRequired": "Vælg mindst én sagstype. En tom liste betyder ikke alle typer.",
       "defaultDeadlineDaysInvalid": "Antallet af dage skal være mellem 0 og 365. Nul betyder ingen deadline.",
       "excludedWaiting": "Du venter på den, og ventende sager er slået fra.",
-      "excludedDone": "Sagen er løst i Azure DevOps og er ikke hentet før, så den hentes ikke."
+      "excludedDone": "Sagen er løst i Azure DevOps og er ikke hentet før, så den hentes ikke.",
+      "outsideFilter": "Sagen er stadig din og ikke løst, men kom ikke med i hentningen.",
+      "missingInSource": "Azure DevOps kender ikke sagen. Den kan være slettet, flyttet eller uden for tokenets rettigheder."
     },
     "review": {
       "weekdayInvalid": "Ugedagen skal være mellem søndag og lørdag.",

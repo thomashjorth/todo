@@ -49,6 +49,27 @@ public static class ErrorCodes
     public const string JiraExcludedDone = "jira.excludedDone";
 
     /// <summary>
+    /// Reconciliation asked about a key that is still assigned to you and still unresolved, so
+    /// nothing has changed and there is nothing to suggest - it simply did not come back in the
+    /// fetch. Shown rather than hidden, the same choice <see cref="JiraExcludedWaiting"/> makes: a
+    /// row that vanished would leave "the app said nothing" meaning both "nothing changed" and "I
+    /// could not work it out", and that is the difference between a feature you trust and one you
+    /// check by hand afterwards.
+    /// </summary>
+    public const string JiraOutsideFilter = "jira.outsideFilter";
+
+    /// <summary>
+    /// Reconciliation asked about a key and Jira answered with neither the issue nor an ownership -
+    /// deleted, moved, or outside what the token may read. Shown rather than acted on, because the
+    /// absence cannot say which of those it was: Jira Data Center is documented to hide an issue you
+    /// may not browse behind <c>404 Issue Does Not Exist</c> rather than a 403, so a lost permission
+    /// and a deleted issue would arrive as the same answer. <b>That behaviour is unmeasured against
+    /// this user's instance</b> - see the note above <c>JiraTaskSource.ReconcileAsync</c> - which is
+    /// an argument for reporting the absence rather than against it.
+    /// </summary>
+    public const string JiraMissingInSource = "jira.missingInSource";
+
+    /// <summary>
     /// The work item type filter is a requirement rather than an optional filter, so an empty list is
     /// refused instead of being read as "every type" - the same rule as
     /// <see cref="JiraProjectKeyRequired"/>, and for the same reason: the absence of a limit is not a
@@ -111,6 +132,21 @@ public static class ErrorCodes
     /// imported, kept out rather than brought in as a fresh open task.
     /// </summary>
     public const string AdoExcludedDone = "ado.excludedDone";
+
+    /// <summary>
+    /// The counterpart of <see cref="JiraOutsideFilter"/>: a work item that is still assigned to you
+    /// and still open, which the fetch nonetheless left out - the type filter and the state clause
+    /// both narrow it.
+    /// </summary>
+    public const string AdoOutsideFilter = "ado.outsideFilter";
+
+    /// <summary>
+    /// The counterpart of <see cref="JiraMissingInSource"/>: a work item the batch read did not
+    /// return. What a token that may not read the project answers instead is <b>unmeasured</b>, and
+    /// that is the reason the absence is reported rather than acted on - an answer nobody has seen
+    /// is not one to build a suggestion to close tasks upon.
+    /// </summary>
+    public const string AdoMissingInSource = "ado.missingInSource";
 
     /// <summary>
     /// A work item type name carrying a quotation mark or a backslash. Those two characters are what

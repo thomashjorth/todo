@@ -9,7 +9,17 @@ import {
   JiraImportResponse,
   JiraImportRow,
   JiraPreviewRow,
+  ClosureReason,
 } from '../api/todo-client';
+
+/**
+ * A preview row the source actually answered about, so its status is there to send on. The
+ * counterpart of AdoStore's guard, and it asks about one field rather than two only because a Jira
+ * row has one such field - see that one for why this is a filter rather than a `!`.
+ */
+type AnsweredJiraRow = JiraPreviewRow & { status: string };
+
+const wasAnsweredFor = (row: JiraPreviewRow): row is AnsweredJiraRow => row.status !== undefined;
 
 @Injectable({ providedIn: 'root' })
 export class JiraStore {
@@ -118,7 +128,7 @@ export class JiraStore {
       return await firstValueFrom(
         this.client.importJira(
           new JiraImportRequest({
-            rows: rows.map(
+            rows: rows.filter(wasAnsweredFor).map(
               (row) =>
                 new JiraImportRow({
                   key: row.key,
@@ -138,11 +148,14 @@ export class JiraStore {
             closures:
               closures.length === 0
                 ? undefined
-                : closures.map(
+                : closures.filter(wasAnsweredFor).map(
                     (row) =>
                       new JiraClosureRow({
                         key: row.key,
                         status: row.status,
+                        // See AdoStore for why an absent reason reads as resolved, and why the same
+                        // fallback must not be written on the receiving side.
+                        reason: row.closureReason ?? ClosureReason.Resolved,
                         doneAt: row.doneAt,
                       }),
                   ),
