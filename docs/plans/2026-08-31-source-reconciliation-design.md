@@ -167,10 +167,17 @@ mere præcise af de to, og den handling brugeren skal tage er den samme — så 
 afgøres, ikke fluebenet. Byttes de om, får en løst sag den svagere forklaring.
 
 **`excluded` og en handling udelukker hinanden, og det er en regel frem for en oprydning.** Tilføjet
-2026-08-31 under Task 5, som afdækkede modsigelsen. `excluded` er rækkens *"der sker ingenting"*-mærke:
-`isBlocked` læser det for at slå fluebenet fra, og mærkatkæden viser det **først**. En række der
-foreslår en genåbning har noget at gøre — så bar den også `excluded`, ville brugeren se "springes
-over" på en række hvis flueben er **slået til** og som **importerer**.
+2026-08-31 under Task 5, som afdækkede modsigelsen. `excluded` er rækkens *"der sker ingenting"*-mærke,
+og en række der foreslår en genåbning har noget at gøre.
+
+**Konsekvensen i dag er en fejltælling, og det er værd at sige præcist** — den første formulering her
+sagde at fluebenet ville stå slået til og rækken importere, og **det er målt forkert**: `selectable`
+filtrerer `alreadyImported` fra, en genåbningsrække *er* importeret før, så den er ude af `selectable`
+uanset `excluded`, og `isBlocked` er `true` i begge verdener. Det der faktisk går galt, er
+`excludedCount`: rækken tælles med i "N udeladt", altså en synlig fejltælling om en række der ikke
+udelades. Flueben-halvdelen er en **forudsigelse om Task 8/9**, hvor `reopenable()` kommer til — og
+netop derfor må den ikke stå som en nutid, for en forfatter der læser "isBlocked klarer det allerede"
+springer over at bygge den.
 
 Det kunne ikke ske før, og grunden er værd at kende: `excludedDone` er vagtet af `localStatus is null`,
 altså kun for rækker der aldrig er importeret, mens `excludedWaiting` **ikke** er vagtet — den sættes
