@@ -21,14 +21,22 @@ import {
  * way to know that, and this is what answers it.
  *
  * A filter rather than a `!`, and the reason is what happens when the invariant does break rather
- * than an appeal to it holding. A `!` would put `undefined` on the wire, the server would refuse the
+ * than an appeal to it holding. A `!` would put nothing on the wire, the server would refuse the
  * whole request with `ado.rowStateRequired`, and every other row in it would be lost with the one
  * that was wrong. Dropping keeps the rest of the request valid and the guard honest.
+ *
+ * `!= null` rather than `!== undefined`, and that is load-bearing rather than sloppy: the host
+ * serialises a null instead of omitting the property, which TaskEndpointsTests measures in so many
+ * words - every task without one carries `"externalUrl":null` - and Todo.Contracts sets no
+ * DefaultIgnoreCondition. The generated client assigns straight across in `init`, so an absent state
+ * reaches this predicate as `null`, not `undefined`, even though the generated type only admits
+ * `string | undefined`. Strict equality would therefore answer true for exactly the row this exists
+ * to catch, and the narrowing below would be a lie. Do not tidy it back.
  */
 type AnsweredAdoRow = AdoPreviewRow & { state: string; workItemType: string };
 
 const wasAnsweredFor = (row: AdoPreviewRow): row is AnsweredAdoRow =>
-  row.state !== undefined && row.workItemType !== undefined;
+  row.state != null && row.workItemType != null;
 
 @Injectable({ providedIn: 'root' })
 export class AdoStore {
@@ -177,14 +185,22 @@ export class AdoStore {
                         // A suggestion that does not name its reason is one from the rule that
                         // predates reconciliation - the state stands in the user's done list - and
                         // that rule is the resolved one. So this reads an absent field rather than
-                        // guessing at it, and it stops being reached once every suggestion names
-                        // its reason.
+                        // guessing at it.
                         //
                         // The same fallback on the receiving side would be the fault this field
                         // exists to prevent: the server's first guard asks whether the state is in
-                        // the done list, and a work item handed to somebody else stands in one that
-                        // is not - so a server that defaulted to resolved would skip every
+                        // the done list, and being handed to somebody else is orthogonal to being
+                        // finished - so a server that defaulted to resolved would skip every
                         // unassigned closure. Do not copy this line across.
+                        //
+                        // It masks the same fault from this end, which is why it is temporary
+                        // rather than defensive. Once task 6 sets the reason, an unassigned row
+                        // that loses it turns silently into a resolved one, the server skips it,
+                        // and it is counted in `skipped` - exactly what the field was added to
+                        // stop, reintroduced from the sending side. Nothing enforces the
+                        // "it stops being reached" this comment used to claim: `reason: required`
+                        // puts the compiler on the argument being present, not on its being right.
+                        // <b>Task 6 is where this line becomes a hard failure or goes away.</b>
                         reason: row.closureReason ?? ClosureReason.Resolved,
                         doneAt: row.doneAt,
                       }),

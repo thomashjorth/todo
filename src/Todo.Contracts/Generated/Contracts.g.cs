@@ -430,6 +430,7 @@ namespace Todo.Contracts
     /// <summary>
     /// Why reconciliation offers to close a local task. Shared by both sources rather than duplicated per source, because neither value names anything Jira or Azure DevOps specific: they describe what reconciliation found, and two copies would be two things to keep in step with nothing able to see them drift apart.
     /// <br/>The reason travels on the closure row as well as the preview row, and that is not a convenience. The import re-takes the decision by looking the state up in the user's done list, and being handed to somebody else is orthogonal to being finished - so an unassigned closure's state need not stand in that list at all, and without the reason every one of them would be skipped and counted as skipped.
+    /// <br/>The price is that the server's re-decision is weaker for unassigned than for resolved, and that is a cost rather than an oversight. Ownership is a fact only the source can settle, and the import deliberately makes no call to Jira or Azure DevOps, so there is nothing here to check it against - the state, which is what the server can check, is exactly the thing an unassigned closure says nothing with. What is left is what the server can still require: that the task exists, that it belongs to this source, and that it is not already done. The same shape doneAt and waitingSince already have, and worth stating so nobody reads the shorter guard as a missing one.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum ClosureReason
@@ -524,7 +525,7 @@ namespace Todo.Contracts
         public bool SuggestsClosing { get; set; }
 
         /// <summary>
-        /// Which of the two findings the closing suggestion rests on, so the screen can say "resolved in Jira" and "handed to somebody else" in two sentences rather than one that covers neither. Null when suggestsClosing is false — the reason exists only where there is a suggestion to explain.
+        /// Which of the two findings the closing suggestion rests on, so the screen can say "resolved in Jira" and "handed to somebody else" in two sentences rather than one that covers neither. Null when suggestsClosing is false — the reason exists only where there is a suggestion to explain. See ClosureReason for what an unassigned reason costs the server's re-decision on the way back in, which is the half of this field a reader of the import needs.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("closureReason")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ClosureReason>))]

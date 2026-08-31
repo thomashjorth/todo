@@ -552,8 +552,9 @@ describe('AdoImport', () => {
     // The reason rides along because the server cannot work it out from the state alone: its first
     // guard asks whether the state is in the done list, which an unassigned closure's never is.
     // This fixture names no reason, so the row reads as the resolved one - the only kind the fetch
-    // could suggest before reconciliation - which is what makes that fallback measured rather than
-    // merely written down.
+    // could suggest before reconciliation - which is what makes the fallback measured here. Only
+    // here: no spec under jira/ asserts on the closures its store sends, so the twin in JiraStore
+    // is unmeasured, and this assertion covers ADO alone.
     expect(body.closures).toEqual([
       { key: '16901', state: 'Resolved', reason: 'resolved', doneAt: '2026-08-15T09:00:00Z' },
     ]);

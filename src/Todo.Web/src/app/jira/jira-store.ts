@@ -15,11 +15,13 @@ import {
 /**
  * A preview row the source actually answered about, so its status is there to send on. The
  * counterpart of AdoStore's guard, and it asks about one field rather than two only because a Jira
- * row has one such field - see that one for why this is a filter rather than a `!`.
+ * row has one such field - see that one for why this is a filter rather than a `!`, and for why the
+ * comparison is `!= null` rather than `!== undefined`: an absent status arrives as a serialised
+ * null, so strict equality would pass the very row this rejects.
  */
 type AnsweredJiraRow = JiraPreviewRow & { status: string };
 
-const wasAnsweredFor = (row: JiraPreviewRow): row is AnsweredJiraRow => row.status !== undefined;
+const wasAnsweredFor = (row: JiraPreviewRow): row is AnsweredJiraRow => row.status != null;
 
 @Injectable({ providedIn: 'root' })
 export class JiraStore {
@@ -153,8 +155,12 @@ export class JiraStore {
                       new JiraClosureRow({
                         key: row.key,
                         status: row.status,
-                        // See AdoStore for why an absent reason reads as resolved, and why the same
-                        // fallback must not be written on the receiving side.
+                        // See AdoStore for why an absent reason reads as resolved, why the same
+                        // fallback must not be written on the receiving side, and why task 6 is
+                        // where this line becomes a hard failure or goes away. Note that the twin
+                        // is covered by ado-import.spec.ts and this one is not: no spec under
+                        // jira/ asserts on the closures it puts on the wire, so this branch is
+                        // unmeasured.
                         reason: row.closureReason ?? ClosureReason.Resolved,
                         doneAt: row.doneAt,
                       }),
