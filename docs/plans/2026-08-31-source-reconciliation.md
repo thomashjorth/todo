@@ -104,7 +104,10 @@ Spørg brugeren om de tre svar, før Task 2 og Task 3 skrives. **Læg ikke et to
 — sæt det i `$env:NAVN` først.
 
 1. **ADO: gør `&errorPolicy=omit` det vi tror?** Bed batch-læsningen om en id der ikke findes, med og
-   uden flaget, og se om svaret er 404 for hele forespørgslen eller de øvrige rækker.
+   uden flaget, og se om svaret er en fejl for hele forespørgslen eller de øvrige rækker. **Uden**
+   flaget er svaret målt til **400** med de ugyldige id'er navngivet (2026-08-20, står i `FakeAdo` og
+   i `AdoTaskSource.Explanation`); det er *med* flaget der er umålt. Designet sagde 404 indtil Task 2,
+   og det var et gæt skrevet ved siden af et målt tal.
 2. **Jira: svarer `issue/{key}` 404 på en slettet sag** — og ikke 400 eller 403? Og fejler
    `key IN (…)` virkelig med 400 på en ukendt nøgle? Den anden halvdel er hele begrundelsen for at
    Jira går pr. nøgle frem for i én søgning.
@@ -278,7 +281,8 @@ har. Sidstnævnte er den vigtigste — uden den kan hullet i `errorPolicy` ikke 
 
 - Læg et work item ind som `@Me`-WIQL'en **ikke** svarer med, men som batch-læsningen kender.
 - Lad `MapGet("/{collection}/_apis/wit/workitems")` læse `errorPolicy` fra query'en: mangler den, svar
-  **404** når en id er ukendt; er den `omit`, udelad rækken og svar 200 med resten.
+  **400** med de ugyldige id'er navngivet, når en id er ukendt — det er den målte form, ikke 404; er
+  flaget `omit`, udelad rækken og svar 200 med resten.
 - Gem den seneste WIQL i `WiqlRequests`, som allerede findes, så testen kan påstå at `IN`-formen og
   `@Me` faktisk gik ud.
 
@@ -315,7 +319,7 @@ public async Task Reconciling_finds_a_closed_work_item_the_fetch_cannot_see()
 public async Task An_unknown_key_is_an_absence_rather_than_a_failure()
 {
     // Den slettede sag er et af de fire udfald, ikke en fejl. Uden errorPolicy=omit svarer ADO
-    // 404 for HELE batch-læsningen, så én slettet sag ville vælte hver forhåndsvisning.
+    // 400 for HELE batch-læsningen, så én slettet sag ville vælte hver forhåndsvisning.
     await using var fake = await FakeAdo.StartAsync();
     var source = fake.SourceFor();
 
@@ -423,7 +427,7 @@ har været — og den nye adfærd er begrænset til den ene kalder der har brug 
 
 **Trin 7 — se vagten fælde.** Fjern `omitMissing: true` fra kaldet og kør
 `An_unknown_key_is_an_absence_rather_than_a_failure` alene. Forventet: den fejler med en
-`SourceException` fra 404'eren. Sæt tilbage.
+`SourceException` fra 400'eren, med de ugyldige id'er navngivet. Sæt tilbage.
 
 **Trin 8 — commit.**
 

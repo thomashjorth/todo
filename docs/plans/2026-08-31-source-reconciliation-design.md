@@ -111,9 +111,17 @@ funktionen findes for at fortælle om.
 giver `StillMine`, og `HydrateAsync` — batch-læsningen der findes — giver `Found`. Batch-læsning efter
 id er uafhængig af både tildeling og tilstand, så et `Closed` work item tildelt en anden kommer med.
 WIQL'en kan ikke fejle på en ukendt id: den matcher blot ingenting. **Batch-læsningen kan**, og skal
-derfor have `&errorPolicy=omit` med — uden den svarer `?ids=` 404 for *hele* forespørgslen, hvis bare
-én id er slettet, og hver forhåndsvisning vælter på én slettet sag. Klumpestørrelsen er den
-eksisterende `BatchSize` på 200.
+derfor have `&errorPolicy=omit` med — uden den fejler `?ids=` for *hele* forespørgslen, hvis bare én
+id er slettet, og hver forhåndsvisning vælter på én slettet sag. Klumpestørrelsen er den eksisterende
+`BatchSize` på 200.
+
+**Og fejlkoden er en 400, ikke en 404 — rettet 2026-08-31, fordi repoet allerede havde målingen.**
+Denne tekst sagde 404 indtil Task 2 blev bygget, og det var et gæt skrevet ved siden af et målt tal:
+`FakeAdo` og `AdoTaskSource.Explanation` bærer begge en måling fra 2026-08-20, hvor svaret er **400**
+med de ugyldige id'er navngivet i beskeden. Konklusionen er uændret — hele forespørgslen fejler, så
+flaget skal med — men forskellen er værd at holde fast i, fordi den er hele grunden til at den falske
+server skal udsende fremmedsystemets *faktiske* format: havde `FakeAdo` fået lov at udsende designets
+404, ville testen have målt vores egen antagelse og ikke andet.
 
 **Jira: ét kald pr. nøgle, og derefter ét til.** `GET issue/{key}` pr. nøgle, hvor **404 *er* svaret**
 "kender den ikke", giver `Found`. Derefter **én** JQL `key IN (<dem der findes>) AND assignee =
@@ -248,7 +256,8 @@ modsiger sig selv.
 Tre, og de to første er den slags der afgør om koden virker mod din instans:
 
 1. **Gør `&errorPolicy=omit` det jeg tror?** Bed batch-læsningen om en id der ikke findes, med og uden
-   flaget, og se om svaret er 404 for hele forespørgslen eller de øvrige rækker.
+   flaget, og se om svaret er en fejl for hele forespørgslen eller de øvrige rækker. Uden flaget er
+   svaret målt til **400** med de ugyldige id'er navngivet; det er *med* flaget der er umålt.
 2. **Svarer Jiras `issue/{key}` 404 på en slettet sag** — og ikke 400 eller 403? Og fejler `key IN`
    virkelig på en ukendt nøgle? Den anden halvdel er hele begrundelsen for at Jira går pr. nøgle.
 3. **Er `WHERE [System.Id] IN (…)` gyldig WIQL** på denne server? Billig at afvise, dyr at antage.
