@@ -1025,6 +1025,23 @@ denne leverance:
 - ADO's tilstandsvælger kan aldrig tilbyde `Closed`, og hvorfor.
 - `key IN (…)` fejler på en ukendt Jira-nøgle, og det er derfor de to kilder afstemmer forskelligt.
 - `CloseAsync`s vagt og hvorfor gen-beslutningen er svagere for `unassigned`.
+- **En mutationsmåling skrives som identiteter, aldrig som et antal** — et antal rådner af arbejdet i
+  *samme* commit. Målt tre gange i Tasks 2 og 3.
+- **Alle nøgler fraværende betyder en mistet rettighed, ikke en massesletning**, fordi Jira DC skjuler
+  en ubrowsbar sag bag 404.
+
+**Og den ene der er større end leverancen — undersøg den, frem for at skrive den ned på tro.**
+Hosten serialiserer `null` frem for at udelade feltet (målt:
+`ReviewEndpointsTests.Wire_format_uses_the_names_the_contract_declares` påstår
+`"lastCompletedAt":null`), mens **NSwag typer et nullable felt som `T | undefined`** og dermed slet
+ikke kan udtrykke den `null` der faktisk kommer. Konsekvensen er at **enhver `=== undefined` mod et
+nullable genereret felt i hele frontenden er potentielt forkert** — den er sand for `undefined` og
+falsk for det `null` wiren bærer. Task 4 fandt én sådan fejl og rettede den til `!= null`.
+
+Grep efter `=== undefined` og `!== undefined` i `src\Todo.Web\src\app` og afgør pr. sted om feltet er
+nullable på kontrakten. Er der flere, hører de i deres egen opgave frem for i denne — men **tallet skal
+måles**, og lektionen hører i `CLAUDE.md` uanset hvad det er, fordi den er usynlig for både compileren
+og typetjekkeren.
 
 Skriv **ikke** noget der forældes, og ikke noget `git log --stat` allerede har.
 
