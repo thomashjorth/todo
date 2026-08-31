@@ -592,11 +592,21 @@ powershell -ExecutionPolicy Bypass -File scripts\generate-api.ps1
 dotnet test Todo.sln --filter "FullyQualifiedName~ContractDrift|FullyQualifiedName~GeneratedCodeFreshness|FullyQualifiedName~ErrorCodeTranslation"
 ```
 
-**Trin 5 — forvent rødt i frontenden nu**, og det er meningen: `state`/`status`/`workItemType` er
-blevet nullable, så `ado-store.ts:139`, `:157`, `ado-import.html:103` og Jiras tre tvillinger skal
-navngives af compileren. **Det er den eneste ting compileren kan se i hele leverancen** — de seks
-håndskrevne wire-fixtures er usynlige for den. Lad rødt stå til Task 8 og 9; commit ikke en halv
-frontend.
+**Trin 5 — frontenden bliver rød, og den skal gøres grøn igen i *denne* opgave.** Det stod her som
+"lad rødt stå til Task 8 og 9", og det var forkert af to grunde, rettet 2026-08-31 inden opgaven blev
+sendt afsted: sætningen modsagde sin egen næste sætning, og vigtigere — **Angular-bygningen kører inde
+i `dotnet test`**, så en rød frontend gør hele suiten rød og efterlader en commit der ikke bygger.
+Repoets disciplin er at hver opgave committer grønt.
+
+Nullabiliteten er **den eneste ting compileren kan se i hele leverancen** — de seks håndskrevne
+wire-fixtures er usynlige for den — så lad den navngive kaldestederne, og ret dem. Afgrænsningen er
+vigtig: **kun det der skal til for at det compilerer og består**, altså `state`/`status` på vej ind i
+`AdoImportRow`/`JiraImportRow` i de fire store-kaldesteder. Mærkatkæden, `reopenable()`, de tre tal og
+de nye `@if`-grene hører i Task 8 og 9 og skal **ikke** foregribes her.
+
+Bemærk at skabelonernes `{{ 'ado.stateValue' | transloco: { value: row.state } }}` formentlig **ikke**
+er en compilerfejl — transloco-parametrene er løst typede — så de to steder kan stå urørte til Task 9.
+Mål det frem for at antage det; er de røde, så ret dem minimalt.
 
 **Trin 6 — commit** kontrakten, koderne, oversættelserne og den genererede klient sammen. De hører
 sammen, og en generering committet for sig er en commit der ikke bygger.
