@@ -849,6 +849,13 @@ compileren) og et `new AdoPreviewRow(...)` (målt). Læg de nye felter **begge**
 `jira-store.spec.ts`, `jira-import.spec.ts` og `ado-import.spec.ts` — seks håndskrevne wire-fixtures
 i alt, hvoraf ingen afstemmes mod kontrakten.
 
+**Og luk det hul Task 4 fandt: Jiras lukke-wire har ingen frontend-dækning overhovedet.**
+`grep closures src/Todo.Web/src/app/jira/` finder ingen assertion, så Jira-storens lukkekrop er helt
+umålt, mens ADO-tvillingen er dækket af `ado-import.spec.ts`. Konsekvensen er værd at forstå: hver
+gang et felt kommer på lukkerækken, er ADO-siden målt og Jira-siden ikke — og de to stores er
+skrevet som tvillinger, så en divergens ser ud som en tilpasning. Tre-listes-testen her er det
+naturlige sted, og den skal skrives for **begge** kilder frem for kun den ene.
+
 **Trin 2 — kør og se dem fejle:**
 
 ```
