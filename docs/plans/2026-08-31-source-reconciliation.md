@@ -762,6 +762,21 @@ public async Task A_single_missing_key_is_still_suggested_because_all_and_one_ar
 Den anden er tanden i den første: uden den kan grænsen skrives som "≥ 1 fravær" og bestå, hvilket
 ville slå den ægte slettede sag ihjel — altså det udfald funktionen findes for.
 
+**Tre rettelser, fundet mens Task 6 blev kørt.** De står her frem for at være slettet, fordi
+begrundelsen ovenfor ellers ville overleve som den forkerte.
+
+1. **"Appen tilbyder at lukke alt" findes ikke.** Tabellen gør en fraværende nøgle til
+   `excluded: <kilde>.missingInSource`, og `ErrorCodes.JiraMissingInSource` siger *shown rather than
+   acted on* — et fravær har aldrig kunnet foreslå en lukning, så grænsen kan ikke være det der
+   forhindrer den. Konklusionen holder, argumentet gjorde ikke; hvad grænsen faktisk sparer, er en
+   skærm med én "kilden kender den ikke"-række pr. åben opgave. Designets afsnit 5 er rettet.
+2. **Den anden test hedder `A_single_missing_key_is_still_reported_because_all_and_one_are_the_same_there`.**
+   Navnet ovenfor sagde *suggested*, og af samme grund som punkt 1 er det ikke sandt: rækken vises,
+   den foreslår ingenting.
+3. **Linjen bor på svaret.** `reconciliationNotice`, nullable streng, på `AdoPreviewResponse` og
+   `JiraPreviewResponse`, med de to nye koder `ado.noneRecognized` og `jira.noneRecognized`. Se
+   designets afsnit 5 for hvorfor en syntetisk række ikke kunne bære den.
+
 **Trin 3 — kør og se dem fejle.**
 
 **Trin 4 — implementér.** Efter hentningens løkke: find de lokale nøgler der ikke er `Done` og ikke

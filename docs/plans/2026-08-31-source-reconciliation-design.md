@@ -200,21 +200,43 @@ foreslås ingenting.** Tilføjet 2026-08-31 under Task 3, hvor risikoen blev må
 Jiras egen adfærd: **Jira DC skjuler rutinemæssigt en sag du ikke må browse bag
 `404 Issue Does Not Exist` frem for bag en 403**, netop for ikke at afsløre at sagen findes. Mister
 du en projektrettighed — eller udløber tokenet på en måde der giver 404 frem for 401 — svarer hver
-eneste nøgle "kender den ikke", og uden reglen læser appen det som at **hele din liste er slettet**
-og tilbyder at lukke alt. Det er værre end den fejl afstemningen findes for at rette.
+eneste nøgle "kender den ikke", og appen har da ingen anden viden end fraværet.
 
-Grænsen er derfor: **alle nøgler fraværende og mere end én nøgle spurgt → ingen forslag**, og i stedet
-en linje der siger at kilden ikke genkendte noget. En massesletning af hele din arbejdsliste er
+**Men begrundelsen stod forkert her, og rettelsen er værd at kende, fordi den ellers ville have
+overlevet i repoets hukommelse.** Sætningen sagde at appen uden reglen ville læse svaret som at
+"hele din liste er slettet" og **tilbyde at lukke alt**. Det tilbud findes ikke: tabellen ovenfor
+gør en fraværende nøgle til `excluded: <kilde>.missingInSource`, altså rækkens *"der sker ingenting
+her"*-mærke, og `ErrorCodes.JiraMissingInSource` siger det ordret — *shown rather than acted on*.
+Fraværet har aldrig kunnet foreslå en lukning, så reglen kan ikke være det der forhindrer den.
+Fundet under Task 6, hvor rækkerne blev bygget.
+
+**Hvad reglen så er værd, sagt på det den faktisk gør:** uden den maler skærmen én række pr. nøgle,
+hver med sætningen om at kilden ikke kender opgaven — for *hver* opgave du har åben fra den kilde.
+Det er en opfordring til at rydde op i hånden, og den rammer præcis på den dag en rettighed forsvandt
+og intet er sket med sagerne. Med reglen siger appen det én gang, som det den mest sandsynligt er.
+Konklusionen er altså uændret, og kun argumentet var forkert — den slags der er nævnt i plandokumentets
+afsnit om begrundelser der hviler på et ben der kan rådne.
+
+Grænsen er: **alle nøgler fraværende og mere end én nøgle spurgt → ingen afstemte rækker**, og i
+stedet en linje der siger at kilden ikke genkendte noget. En massesletning af hele din arbejdsliste er
 sjældnere end en mistet rettighed, så det sikre gæt er rettigheden. Reglen hører i forhåndsvisningen,
 altså ved siden af de fire udfald i tabellen ovenfor, og den gælder **begge** kilder — ADO har samme
 klasse gennem et token der ikke må læse projektet. Bemærk at én nøgle spurgt er undtaget: der er
-"alle" og "én" det samme, og en enkelt slettet sag skal stadig kunne foreslås lukket.
+"alle" og "én" det samme, og en enkelt slettet sag skal stadig kunne **vises** — ikke foreslås lukket,
+af samme grund som ovenfor.
+
+**Linjen bor på svaret, ikke på en række**, og det er afgjort i Task 6, hvor designet ikke afgjorde
+det: `AdoPreviewResponse` og `JiraPreviewResponse` får `reconciliationNotice`, en nullable streng med
+en fejlkode frontenden oversætter — `ado.noneRecognized` og `jira.noneRecognized`, samme mønster som
+`excluded`. En række kunne ikke bære den: udsagnet handler om **mængden** af nøgler og ikke om nogen
+enkelt af dem, og en syntetisk række skulle desuden have en nøgle, en titel og en `url`, som alle tre
+ville være opfundne.
 
 **Og reglens falske negativ skal siges højt, for den findes.** Sletter du rent faktisk *begge* dine
-to eneste afstemte sager, foreslås ingen af dem — grænsen kan ikke skelne det fra en mistet
+to eneste afstemte sager, vises ingen af dem — grænsen kan ikke skelne det fra en mistet
 rettighed, fordi de to ser identiske ud fra kildens svar. Det er accepteret frem for overset: prisen
-er et manglende forslag, som du selv kan lukke opgaverne uden, mod den anden vejs pris, som er et
-tilbud om at lukke **hele** din liste. Ved store N forsvinder problemet af sig selv, fordi en
+er en manglende oplysning om to sager, mod den anden vejs pris, som er en skærm fuld af rækker der
+beder dig rydde op i noget der ikke er sket. Ved store N forsvinder problemet af sig selv, fordi en
 massesletning bliver usandsynlig; det er kun ved to og tre at reglen koster noget, og der er den
 billig.
 
