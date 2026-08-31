@@ -544,9 +544,11 @@ public sealed class FakeAdo : IAsyncDisposable
             }
 
             // Measured 2026-08-20: unknown ids are a 400 naming which ones, not a silently shorter
-            // list. Worth noting against the design, which predicted a 404 here - the code is what
-            // the real instance answered, and the difference costs the source nothing either way,
-            // because both fail the whole request rather than part of it.
+            // list. The design said 404 here until this was built, and it has since been corrected -
+            // that was a guess written beside a number the repo had already measured. The conclusion
+            // never moved, because either code fails the whole request rather than part of it, but
+            // the episode is why a fake must emit the foreign system's actual shape: had this been
+            // allowed to answer the design's 404, the test would have measured our own assumption.
             //
             // errorPolicy=omit is the way out, and it is UNMEASURED against the real instance:
             // nobody has yet asked that server for a missing id with the flag on. What stands here is
