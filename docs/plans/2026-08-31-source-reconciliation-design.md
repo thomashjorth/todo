@@ -132,6 +132,16 @@ JQL bagefter kan derimod ikke fejle, fordi den kun nævner nøgler vi lige har s
 er den kendte: Jira betaler i forvejen ét changelog-kald pr. ventende række, så N små kald er samme
 omkostningsmodel og ikke en ny.
 
+**Men "én JQL" er ikke det samme som ét kald, og forskellen er en fejl der ligner en funktion.**
+Tilføjet 2026-08-31 under Task 3, hvor det blev fundet. Sætningen ovenfor gælder forespørgsels*teksten*
+— Jira lofter `maxResults`, så en upagineret læsning taber hver ejer efter første side ned i
+*i `Found`, men ikke i `StillMine`*, og det udfald er nøjagtigt det appen læser som **tildelt en
+anden** og tilbyder at lukke. Fejlen er derfor ikke en manglende række men et forkert forslag om at
+lukke noget der stadig er dit, og den viser sig først når afstemningsmængden vokser forbi sidens
+størrelse. Ejerskabssøgningen skal gennem **samme pager som hentningen** — udtrukket som `SearchAsync`
+i Task 3 — og det er den ene ting ved formen der ikke kan læses ud af "ét kald pr. nøgle, derefter ét
+til".
+
 Bemærk at asymmetrien også løser et andet problem for Jira: `/search` kaldes her som et **GET**, og en
 JQL med 300 nøgler er omkring 4 kB URL — tæt på Jira DC's grænse for en forespørgselslinje. Den ene
 JQL nævner kun de nøgler afstemningen faktisk fandt.
