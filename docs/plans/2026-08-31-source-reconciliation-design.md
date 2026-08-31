@@ -166,6 +166,19 @@ Rækkefølgen er bærende: **færdig slår ikke-tildelt.** Er sagen både løst 
 mere præcise af de to, og den handling brugeren skal tage er den samme — så det er mærkaten der
 afgøres, ikke fluebenet. Byttes de om, får en løst sag den svagere forklaring.
 
+**`excluded` og en handling udelukker hinanden, og det er en regel frem for en oprydning.** Tilføjet
+2026-08-31 under Task 5, som afdækkede modsigelsen. `excluded` er rækkens *"der sker ingenting"*-mærke:
+`isBlocked` læser det for at slå fluebenet fra, og mærkatkæden viser det **først**. En række der
+foreslår en genåbning har noget at gøre — så bar den også `excluded`, ville brugeren se "springes
+over" på en række hvis flueben er **slået til** og som **importerer**.
+
+Det kunne ikke ske før, og grunden er værd at kende: `excludedDone` er vagtet af `localStatus is null`,
+altså kun for rækker der aldrig er importeret, mens `excludedWaiting` **ikke** er vagtet — den sættes
+af `isWaiting && !includeWaiting` alene. Det var harmløst, så længe en allerede importeret ventende
+række ingenting kunne. Med genåbningen kan den. Reglen er derfor at **`excluded` ikke sættes på en
+række der foreslår noget**, og den løser det i den ende hvor betydningen bor, frem for ved at bytte om
+på mærkatkæden — kædens rækkefølge har sin egen begrundelse i skabelonen og skal blive stående.
+
 Genåbningen er `suggestsReopening`, sat når opgaven er `Done` her og kildens rolle **ikke** er `Done`.
 `reopenTo` er den status en frisk import ville have givet den: rollen `Waiting` giver `waitingFor`,
 alt andet giver `open`. Det er ikke en ny mapning — det er den `AdoEndpoints`' importløkke bruger i
