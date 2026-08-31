@@ -326,6 +326,13 @@ public class JiraTaskSourceTests
     /// The fetch is run here as well rather than the exclusion being taken on trust: "the fetch
     /// cannot see it" is half of what this measures, and the read carrying the status back is the
     /// other half, because that status is what will let JiraStatusRoles call the issue done.
+    ///
+    /// <b>The third assertion is the one with teeth</b>, and it was missing until a review measured
+    /// its absence: a resolved issue that is <em>still yours</em> has to stay in StillMine, because
+    /// the four outcomes read "found and mine" as resolved and "found and not mine" as handed over.
+    /// Add <c>AND resolution = Unresolved</c> to the ownership JQL and, without this line, the whole
+    /// suite stays green while every resolved-but-still-mine issue is reported as somebody else's -
+    /// a wrong suggestion rather than a missing one, which is the harder kind to notice.
     /// </summary>
     [Fact]
     public async Task Reconciling_finds_a_resolved_issue_the_fetch_cannot_see()
@@ -338,6 +345,33 @@ public class JiraTaskSourceTests
 
         Assert.DoesNotContain(FakeJira.ResolvedKey, page.Items.Select(item => item.Key));
         Assert.Equal("Løst", Assert.Single(answer.Found).StatusName);
+        Assert.Equal(FakeJira.ResolvedKey, Assert.Single(answer.StillMine));
+    }
+
+    /// <summary>
+    /// The pool is what the duty rotation is for: a status in the duty list brings in an issue that
+    /// is <em>not</em> assigned to you, which is the one thing the widened query does that the
+    /// ordinary one cannot. Both directions are asserted from the same fixture, so this says the
+    /// switch decides it rather than that the issue is always there.
+    ///
+    /// It lives here rather than beside the JQL tests because it measures the answer instead of the
+    /// query text, and those are two different guards on the same clause: the grouped literal in
+    /// <c>On_duty_the_query_also_asks_for_the_pool</c> holds JQL's precedence, and this holds that a
+    /// foreign-owned issue reaches the answer at all. Measured to be independent - dropping the
+    /// parentheses from JqlFor fells that one and leaves this green, because FakeJira reads clauses
+    /// where they appear rather than parsing precedence.
+    /// </summary>
+    [Fact]
+    public async Task On_duty_the_pool_brings_in_an_issue_that_is_not_mine()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var onDuty = await jira.SourceFor("SAAS", duty: ["I gang"], onDuty: true).FetchAssignedAsync();
+        var offDuty = await jira.SourceFor("SAAS", duty: ["I gang"], onDuty: false)
+            .FetchAssignedAsync();
+
+        Assert.Contains(FakeJira.HandedOverKey, onDuty.Items.Select(item => item.Key));
+        Assert.DoesNotContain(FakeJira.HandedOverKey, offDuty.Items.Select(item => item.Key));
     }
 
     /// <summary>
@@ -347,6 +381,11 @@ public class JiraTaskSourceTests
     /// Three assertions, and the third is what makes the name true: without it a source that never
     /// asked about the second key at all would pass, because "not in Found and not in StillMine" is
     /// also what silence looks like.
+    ///
+    /// The middle one cannot fail on its own and is not pretending to. StillMine is built by
+    /// filtering Found's own keys, so a key absent from Found is absent from StillMine by
+    /// construction - what the line does is spell out the two-set reading at the place a reader meets
+    /// it. Cheap, and honest as long as nobody counts it as a guard.
     /// </summary>
     [Fact]
     public async Task A_deleted_issue_is_asked_for_by_key_and_answers_404()
@@ -381,7 +420,34 @@ public class JiraTaskSourceTests
         var exception = await Assert.ThrowsAsync<SourceException>(
             () => jira.SourceFor("SAAS").ReconcileAsync([FakeJira.ForbiddenKey]));
 
+        // The code alone would be satisfied by any refusal at all, 404 excepted, so the status is
+        // asserted too: this is about where the 404 line falls, not about errors reaching the user.
         Assert.Equal(ErrorCodes.JiraRefused, exception.Code);
+        Assert.Contains("403", exception.Message);
+    }
+
+    /// <summary>
+    /// Reconciling asks for no project key, and this is what keeps that a decision rather than an
+    /// accident: the fetch refuses without one, the guard is one call away in ProjectKeyOf, and
+    /// adding it here is the natural thing for someone tidying the two paths into a shape. Measured
+    /// before it was written - <c>ProjectKeyOf(settings);</c> at the top of ReconcileAsync leaves the
+    /// whole suite green, because every other test in this file configures a project key.
+    ///
+    /// The reason it must not be added is slice 11's own lesson read the right way round: the fetch
+    /// needs a project because without one its JQL asks for everything the token can see, and here
+    /// the key list is already the limit. A refusal with nothing behind it would take the
+    /// reconciliation out for a user who has an ADO project configured and a Jira base URL but no
+    /// project key yet - and the rows it would have explained are ones the app already holds.
+    /// </summary>
+    [Fact]
+    public async Task Reconciling_asks_for_no_project_key()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var answer = await jira.SourceFor(projectKey: "  ").ReconcileAsync([FakeJira.MineKey]);
+
+        Assert.Equal(FakeJira.MineKey, Assert.Single(answer.Found).Key);
+        Assert.Equal(FakeJira.MineKey, Assert.Single(answer.StillMine));
     }
 
     /// <summary>
@@ -398,6 +464,10 @@ public class JiraTaskSourceTests
     ///
     /// This note said the opposite until that mutation was run - that nothing here could see a guard
     /// at all. It read the two halves as one and was wrong about the half that matters.
+    ///
+    /// <c>Assert.Empty(answer.StillMine)</c> follows from the line above it, here and in
+    /// <c>Nothing_found_asks_no_ownership_question</c>: StillMine is filtered out of Found's own
+    /// keys, so an empty Found cannot leave anything in it. It is here to read, not to catch.
     /// </summary>
     [Fact]
     public async Task No_keys_is_no_request()

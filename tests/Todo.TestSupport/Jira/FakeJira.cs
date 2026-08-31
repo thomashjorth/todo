@@ -79,13 +79,20 @@ public sealed class FakeJira : IAsyncDisposable
     /// waiting status, and every optional field absent - and are the three the ordinary fetch
     /// answers, in the order its ORDER BY duedate leaves them.
     ///
-    /// The last two are the reconciliation's pair, and neither can reach the fetch: one belongs to
-    /// somebody else and one carries a resolution, so <see cref="Matches"/>'s assignee and resolution
-    /// clauses are what keep them out. That is why they can live here rather than in a fixture of
-    /// their own - and it turns the assertions that count what the fetch answered, in
-    /// JiraTaskSourceTests.Every_page_is_read_rather_than_only_the_first and in JiraEndpointsTests'
-    /// preview, into a guard on those two clauses being honoured rather than arithmetic over this
-    /// array.
+    /// The last two are the reconciliation's pair, and neither can reach the <em>ordinary</em> fetch:
+    /// one belongs to somebody else and one carries a resolution, so <see cref="Matches"/>'s assignee
+    /// and resolution clauses are what keep them out. That is why they can live here rather than in a
+    /// fixture of their own - and it turns the assertions that count what the fetch answered, in
+    /// JiraTaskSourceTests.Every_page_is_read_rather_than_only_the_first and
+    /// JiraEndpointsTests.The_preview_reports_the_total_the_source_gave, into a guard on those two
+    /// clauses being honoured rather than arithmetic over this array.
+    ///
+    /// <b>SAAS-5 does reach a duty-widened one</b>, and that qualifier is measured rather than
+    /// careful wording: its status is "I gang", so a caller that puts that status in the duty list
+    /// while on duty gets it in the answer - which is the whole point of the pool, and which
+    /// <c>On_duty_the_pool_brings_in_an_issue_that_is_not_mine</c> measures. TaskEndpointsTests'
+    /// wire-format test is configured exactly that way, so this issue joined that preview the day it
+    /// was added here. Nothing there counts rows, so nothing said so.
     /// </summary>
     private static readonly IssueBody[] Issues =
     [
@@ -233,6 +240,12 @@ public sealed class FakeJira : IAsyncDisposable
     /// a changelog read, so the two were the same list and the name was accidentally true. Reads
     /// that do not expand belong in <see cref="IssueRequests"/> instead; conflating them would make
     /// an existing <c>Assert.Empty</c> mean something it was never written to mean.
+    ///
+    /// <b>Nothing fells this split today</b> - measured, by recording every read here again: the
+    /// suite stays green, because the only unexpanded reads are the reconciliation's and no test yet
+    /// runs one through a preview. The reads that would collide with it arrive with task 6, which is
+    /// when <c>Assert.Empty(jira.ChangelogRequests)</c> in JiraEndpointsTests would otherwise quietly
+    /// stop being about changelogs. Written ahead of that rather than after it.
     /// </summary>
     public List<string> ChangelogRequests { get; } = [];
 
@@ -417,6 +430,10 @@ public sealed class FakeJira : IAsyncDisposable
             // 403 is a failure to raise.
             if (Forbidden.Contains(key))
             {
+                // Constructed, and the odd one out in this file: every other message here is Jira's
+                // own English. Nobody has seen what this instance answers for an issue the token may
+                // not read - or whether it answers 403 at all, see the 404 below - so a made-up
+                // Danish sentence is the honest form. Nothing asserts on the words.
                 return Results.Json(
                     new ErrorBody(["Du har ikke rettigheder til at se sagen"]),
                     Json,
@@ -477,10 +494,18 @@ public sealed class FakeJira : IAsyncDisposable
     /// The JQL evaluated clause by clause. Each is honoured when it is there and ignored when it is
     /// not, so the fetch, the duty widening and the reconciliation all go through one matcher.
     ///
-    /// The parentheses in the duty form are why the assignee clause is not simply a filter: the
-    /// source writes <c>(assignee = currentUser() OR status IN (…))</c>, so an issue belonging to
-    /// somebody else is still in the pool's answer. A fake that ignored the disjunction would let a
-    /// source drop the parentheses and stay green, which is the fault slice 11 measured.
+    /// The assignee clause is not simply a filter, because the duty form widens it: the source writes
+    /// <c>(assignee = currentUser() OR status IN (…))</c>, so an issue belonging to somebody else is
+    /// still in the pool's answer. <see cref="InPool"/> is what lets that happen here, and
+    /// <c>On_duty_the_pool_brings_in_an_issue_that_is_not_mine</c> is what holds it.
+    ///
+    /// <b>It does not guard the parentheses, and this note said it did until that was measured.</b>
+    /// Clauses are read where they appear rather than parsed for precedence, so
+    /// <c>status IN (…)</c> matches the same whether or not it sits inside brackets - dropping them
+    /// from JqlFor leaves this matcher answering identically, and the only thing that goes red is
+    /// <c>On_duty_the_query_also_asks_for_the_pool</c>, on the grouped literal it asserts. That
+    /// literal is the guard on precedence; this is the guard on a foreign-owned issue reaching the
+    /// answer at all.
     /// </summary>
     private static bool Matches(string jql, IssueBody issue)
     {

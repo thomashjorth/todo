@@ -293,24 +293,52 @@ public sealed partial class JiraTaskSource : ITaskSource
     /// 403, and that a <c>key IN</c> list naming an unknown key really does fail. Nobody has put
     /// either question to that server. A green suite therefore says the source asks per key, keeps an
     /// unfound key out of the JQL and reads the answers correctly - it does not say Jira answers this
-    /// way. If the first assumption is wrong, a deleted issue raises instead of being reported and the
-    /// preview fails on the case the feature was written for; if the second is wrong, this shape is
-    /// merely more expensive than it needed to be. The delivery's own history is the argument for
-    /// labelling rather than asserting: Azure DevOps' batch read was predicted to answer 404 and
-    /// measured at 400.
+    /// way. If the second assumption is wrong, this shape is merely more expensive than it needed to
+    /// be. The delivery's own history is the argument for labelling rather than asserting: Azure
+    /// DevOps' batch read was predicted to answer 404 and measured at 400.
+    ///
+    /// <b>The first assumption fails in two directions, and only one of them is loud.</b> A deleted
+    /// issue answering something other than 404 raises where it should have reported - a failure the
+    /// user meets immediately, on the case the feature was written for. The other direction is the
+    /// dangerous one: <b>something that is not deleted answering 404.</b> Jira Data Center routinely
+    /// hides an issue the token may not browse behind <c>404 Issue Does Not Exist</c> rather than 403,
+    /// precisely so that a refusal does not confirm the issue exists. If that is how this instance
+    /// behaves, the ForbiddenKey fixture is a case that never occurs in practice, <b>one lost project
+    /// permission reads as the whole list having been deleted</b>, and the app offers to close all of
+    /// it - quietly and plausibly. Also unmeasured. The bound belongs above this method rather than
+    /// in it, because a source cannot tell the two apart from one key: every key answering 404 at once
+    /// is far more likely to be a permission than a mass deletion, and task 6 is where the preview
+    /// decides what to do with that.
     ///
     /// <b>Both sets answer in the caller's spelling of a key, never Jira's.</b> Jira canonicalises an
     /// issue key's case, so a set built out of the response would fail the caller's own Contains
     /// silently and every reconciled issue would read as one the source does not know - which is the
     /// outcome that offers to close the task. Each read therefore keeps the key it was asked with, and
     /// the search's answer is matched back against those keys case-insensitively instead of being
-    /// copied out of the response. Case is the only canonicalisation allowed for; anything else Jira
-    /// might do to a key lands in neither set, which is the same silent wrong direction.
+    /// copied out of the response. That is this source's obligation rather than the contract's, and
+    /// the two implementations meet it differently: Azure DevOps deliberately does not preserve the
+    /// caller's spelling, because it reads its keys as numbers - see ITaskSource.ReconcileAsync, which
+    /// names <c>0016901</c> coming back as <c>16901</c> as a caller's problem rather than a bug.
+    ///
+    /// Case is the only canonicalisation allowed for, and a <b>moved</b> issue is the one other thing
+    /// Jira does to a key: ask for OLD-1 after the issue has moved projects and Jira answers 200 with
+    /// <c>"key":"SAAS-1"</c>. Measured against a fake taught that behaviour: the row lands in Found
+    /// under OLD-1 while the search answers SAAS-1, so it is in <em>one</em> set and not neither - and
+    /// the app reads "found but not mine" as handed to somebody else, on an issue that is still the
+    /// user's. Left as it is rather than fixed with a second lookup: a project move is rare, the wrong
+    /// suggestion is one the user can decline, and the mapping that would close it is the same
+    /// response-keyed indirection this method exists to avoid.
     ///
     /// <b>No project key is required.</b> The fetch demands one because without it its JQL would ask
     /// for every project the token can see - slice 11's lesson that an absent limit is not a neutral
     /// default. Here the <c>key IN</c> list is the limit, so demanding a setting this query does not
     /// use would be a refusal with nothing behind it.
+    ///
+    /// <b>And there is no guard on an empty key list</b>, where the Azure DevOps sibling opens with
+    /// one. Not an omission: the per-key loop makes no call for an empty list by construction, and
+    /// the empty-Found return below then skips the search, so a <c>keys.Count</c> guard here would be
+    /// a line no test could fell. The sibling needs its own because its WIQL would go out carrying an
+    /// empty <c>IN ()</c>. See <c>No_keys_is_no_request</c>, which measures the behaviour both ways.
     /// </summary>
     public async Task<ExternalReconciliation> ReconcileAsync(
         IReadOnlyList<string> keys, CancellationToken ct = default)
