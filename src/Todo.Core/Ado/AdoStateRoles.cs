@@ -40,11 +40,8 @@ public static class AdoStateRoles
     ///
     /// Public so that BaseQuery is built from it rather than spelling it a second time: two spellings of
     /// one fact are invisible to the compiler, the same class of trap as a route template's
-    /// <c>:guid</c> against its parameter type. The half that was guarded already, said out loud so the
-    /// gain is not overstated: AdoTaskSourceTests pins <c>[System.State] &lt;&gt; 'Closed'</c> in the
-    /// wire, so an <em>accidental</em> edit of the query was red before this. What was unguarded is a
-    /// <em>deliberate</em> change - the author fixes that test along with the query, and nothing ever
-    /// tells them that Core has an opinion about the name.
+    /// <c>:guid</c> against its parameter type. What that does and does not buy is written out on
+    /// BaseQuery, which is where somebody editing the query is standing when they need it.
     ///
     /// <b>The rule is unobservable today, and that is the trap for whoever reconciles next.</b> No path
     /// the app drives itself can produce this state, because everything is built on BaseQuery. Reuse

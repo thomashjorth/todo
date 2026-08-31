@@ -163,17 +163,27 @@ public class AdoStateRolesTests
 
     /// <summary>
     /// The obvious future mistake, and nothing else in the suite can see it: replacing Equals with
-    /// StartsWith was measured green across all of Todo.Core.Tests. Compound state names are the
-    /// ordinary form in Azure DevOps, and the chicken-and-egg that justifies the built-in name does not
-    /// reach them - BaseQuery excludes the exact spelling only, so a work item in "Closed - Duplicate"
-    /// comes back from it, the picker offers that name, and the user can put it in the done list
-    /// themselves. A prefix rule would take that choice away and answer Done for a name they never
-    /// picked.
+    /// StartsWith was measured green across all of Todo.Core.Tests before this test existed, and so was
+    /// EndsWith. Why a widened comparison is wrong rests on the operator rather than on what the
+    /// instance happens to hold: WIQL's <c>&lt;&gt;</c> compares whole strings, so every spelling but
+    /// the exact one survives BaseQuery's exclusion, reaches FetchStatusNamesAsync, is offered by the
+    /// picker, and can be put in the done list by the user. A widened rule takes that choice away and
+    /// answers Done for a name they never picked.
+    ///
+    /// Whether names like these occur on the real instance is <b>unmeasured</b>, and nothing in this
+    /// repo could measure it - FakeAdo interprets the type clause only, as its own comment says. The
+    /// twelve work items measured 2026-08-20 held New, Active, Blocked, In Progress and PO Review, none
+    /// of which contains another state name; both values below are invented for their shape rather than
+    /// reported from anywhere. That is precisely why the argument above is built so it does not need
+    /// them to be common.
+    ///
+    /// The two values are not interchangeable. The first is the only one that catches StartsWith, the
+    /// second the only one that catches EndsWith, and either catches Contains.
     /// </summary>
     [Theory]
     [InlineData("Closed - Duplicate")]
-    [InlineData("Closed as Designed")]
-    public void A_state_that_merely_starts_with_the_built_in_name_is_not_done(string state)
+    [InlineData("Reopened - was Closed")]
+    public void A_state_that_merely_contains_the_built_in_name_is_not_done(string state)
     {
         Assert.Equal(AdoStateRole.Actionable, AdoStateRoles.For(state, With([])));
     }
