@@ -295,32 +295,297 @@ public class JiraTaskSourceTests
     }
 
     /// <summary>
-    /// The guard on the intermediate state between task 2 and task 3, and it is a guard rather than a
-    /// note: ITaskSource has two implementations, so ReconcileAsync had to land on both at once, and
-    /// the tempting way to fill this one in is an empty <c>ExternalReconciliation</c>. That reads as
-    /// "Jira has nothing to reconcile", which no caller and no type can tell from the truth - the
-    /// whole Jira half of the feature would do nothing while the suite stayed green.
+    /// Reconciling in one answer, and the reason the whole feature exists. Both issues come back from
+    /// the per-key reads, because reading an issue by key is independent of who it is assigned to,
+    /// and only one comes back from the ownership search, because that one asks currentUser().
     ///
-    /// So it throws, and this says so. If task 3 never happens, this stands as documentation of a
-    /// hole instead of the hole standing unmarked; when task 3 does happen, deleting this test is a
-    /// visible act in the diff rather than a silent one.
+    /// Both halves are asserted because they fail differently: Found says the source can still see an
+    /// issue the fetch has lost, StillMine says it can tell the two apart. A source that answered
+    /// every key it was handed as still mine would pass on the count alone.
     ///
-    /// The message is asserted on as well as the type, because <see cref="NotSupportedException"/>
-    /// says nothing on its own about who is supposed to fix it or when — and naming task 3 is what
-    /// makes deleting this test part of that task rather than a loose end.
-    ///
-    /// It asserted on an empty SearchRequests too, until that was spotted as an assertion that cannot
-    /// fail: the method is a bare throw expression, so no code path exists on which a request could
-    /// have gone out. It said nothing and it is gone.
+    /// The Single is what carries StillMine's extent rather than a tidier DoesNotContain: Contains
+    /// and DoesNotContain together say nothing about what else is in the set, which is the hole two
+    /// mutations found on the Azure DevOps side of this pair.
     /// </summary>
     [Fact]
-    public async Task Reconciling_against_jira_throws_until_it_is_built()
+    public async Task Reconciling_finds_an_issue_that_is_no_longer_assigned_to_me()
     {
         await using var jira = await FakeJira.StartAsync();
 
-        var exception = await Assert.ThrowsAsync<NotSupportedException>(
-            () => jira.SourceFor("SAAS").ReconcileAsync(["SAAS-1"]));
+        var answer = await jira.SourceFor("SAAS")
+            .ReconcileAsync([FakeJira.HandedOverKey, FakeJira.MineKey]);
 
-        Assert.Contains("task 3", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(2, answer.Found.Count);
+        Assert.Equal(FakeJira.MineKey, Assert.Single(answer.StillMine));
+    }
+
+    /// <summary>
+    /// The other thing the fetch drops. <c>resolution = Unresolved</c> is in the fetch's JQL and not
+    /// in the reconciliation's, so a resolved issue is invisible to one and ordinary to the other.
+    ///
+    /// The fetch is run here as well rather than the exclusion being taken on trust: "the fetch
+    /// cannot see it" is half of what this measures, and the read carrying the status back is the
+    /// other half, because that status is what will let JiraStatusRoles call the issue done.
+    /// </summary>
+    [Fact]
+    public async Task Reconciling_finds_a_resolved_issue_the_fetch_cannot_see()
+    {
+        await using var jira = await FakeJira.StartAsync();
+        var source = jira.SourceFor("SAAS");
+
+        var page = await source.FetchAssignedAsync();
+        var answer = await source.ReconcileAsync([FakeJira.ResolvedKey]);
+
+        Assert.DoesNotContain(FakeJira.ResolvedKey, page.Items.Select(item => item.Key));
+        Assert.Equal("Løst", Assert.Single(answer.Found).StatusName);
+    }
+
+    /// <summary>
+    /// The deleted issue is one of the legal outcomes rather than a failure, and 404 is how Jira says
+    /// so - which is why <c>GetOrNullAsync</c> exists beside GetAsync instead of a flag on it.
+    ///
+    /// Three assertions, and the third is what makes the name true: without it a source that never
+    /// asked about the second key at all would pass, because "not in Found and not in StillMine" is
+    /// also what silence looks like.
+    /// </summary>
+    [Fact]
+    public async Task A_deleted_issue_is_asked_for_by_key_and_answers_404()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var answer = await jira.SourceFor("SAAS")
+            .ReconcileAsync([FakeJira.MineKey, FakeJira.DeletedKey]);
+
+        Assert.Equal(FakeJira.MineKey, Assert.Single(answer.Found).Key);
+        Assert.DoesNotContain(FakeJira.DeletedKey, answer.StillMine);
+        Assert.Contains(FakeJira.DeletedKey, jira.IssueRequests);
+    }
+
+    /// <summary>
+    /// The line 404 must not be read on the wrong side of. A refusal is not an absence: absence means
+    /// "the source does not know it", which the app answers by offering to close the task, so
+    /// swallowing every error the way a 404 is swallowed would turn one expired permission into an
+    /// invitation to close everything it covered.
+    ///
+    /// This is the assertion that separates <c>GetOrNullAsync</c> from a method answering null for
+    /// every failure, and seeing that line takes a status which is neither 200 nor 404 - which a key
+    /// the token may read can never produce, however many tests read one. Seen to fail on exactly
+    /// that mutation, <c>answer.Success ? answer.Body : null</c>, where the reconciliation answers an
+    /// empty result and nothing is thrown at all.
+    /// </summary>
+    [Fact]
+    public async Task A_forbidden_issue_is_a_failure_rather_than_an_absence()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var exception = await Assert.ThrowsAsync<SourceException>(
+            () => jira.SourceFor("SAAS").ReconcileAsync([FakeJira.ForbiddenKey]));
+
+        Assert.Equal(ErrorCodes.JiraRefused, exception.Code);
+    }
+
+    /// <summary>
+    /// The empty set is the ordinary state: when the fetch brought everything back, there is nothing
+    /// left to reconcile.
+    ///
+    /// Two different halves keep the network quiet here, and only one of them is a guard. No read
+    /// goes out because a loop over an empty list makes no call, which is construction rather than a
+    /// decision - so a <c>keys.Count</c> guard like the Azure DevOps sibling's would be a line no
+    /// test here could fell, and there is none. No search goes out because Found is then empty, which
+    /// <em>is</em> a guard: seen to fail on deleting it, together with
+    /// <c>Nothing_found_asks_no_ownership_question</c>, both on an ownership search that went out
+    /// naming <c>key IN ()</c>.
+    ///
+    /// This note said the opposite until that mutation was run - that nothing here could see a guard
+    /// at all. It read the two halves as one and was wrong about the half that matters.
+    /// </summary>
+    [Fact]
+    public async Task No_keys_is_no_request()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var answer = await jira.SourceFor("SAAS").ReconcileAsync([]);
+
+        Assert.Empty(answer.Found);
+        Assert.Empty(answer.StillMine);
+        Assert.Empty(jira.IssueRequests);
+        Assert.Empty(jira.SearchRequests);
+    }
+
+    /// <summary>
+    /// N reads for N keys, which is the price of the per-key shape and therefore the thing that must
+    /// actually happen. A loop that stopped after the first key fails worse here than on the fetch
+    /// side: a key nobody asked about lands in neither set, which ExternalReconciliation defines as
+    /// "the source does not know it", so the app would offer to close a live task for every key past
+    /// the first.
+    ///
+    /// The request list carries it rather than the count of Found, because the list says the calls
+    /// went out in the order the keys arrived - and Found could in principle be filled from anywhere.
+    ///
+    /// Seen to fail under <c>keys.Take(1)</c>, which fells three others for reasons worth knowing
+    /// apart: <c>Reconciling_finds_an_issue_that_is_no_longer_assigned_to_me</c> because Found then
+    /// holds one row of two, <c>A_deleted_issue_is_asked_for_by_key_and_answers_404</c> because the
+    /// deleted key is the second one and is never asked about, and
+    /// <c>Every_page_of_the_ownership_search_is_read_rather_than_only_the_first</c> because two of its
+    /// three keys never reach the search. What survives says as much as what falls: a test handing in
+    /// a single key cannot see this mutation at all, which is why the two that do are written with
+    /// more than one.
+    /// </summary>
+    [Fact]
+    public async Task Every_key_is_asked_for_rather_than_only_the_first()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var answer = await jira.SourceFor("SAAS").ReconcileAsync(
+            [FakeJira.MineKey, FakeJira.HandedOverKey, FakeJira.ResolvedKey]);
+
+        Assert.Equal(
+            [FakeJira.MineKey, FakeJira.HandedOverKey, FakeJira.ResolvedKey], jira.IssueRequests);
+        Assert.Equal(3, answer.Found.Count);
+    }
+
+    /// <summary>
+    /// The whole reason Jira's shape is not Azure DevOps'. A key IN list naming a key Jira does not
+    /// know is a 400 for the entire query, so a reconciliation built as one search would die on the
+    /// deleted issue - the very case it exists to report. Only the keys that just answered 200 may go
+    /// in, and this is where that is visible: the fake answers whatever it is asked, so nothing in
+    /// the answer could show it.
+    ///
+    /// FakeJira does refuse an unknown key in a key IN list, so building the JQL out of every key
+    /// fells this on the exception rather than on the assertion - and takes
+    /// <c>A_deleted_issue_is_asked_for_by_key_and_answers_404</c> with it, because a throw is not one
+    /// of that test's outcomes either. Seen to fail exactly that way:
+    /// <c>SourceException : Jira answered 400 for search: An issue with key 'SAAS-7' does not exist
+    /// for field 'key'.</c>
+    ///
+    /// Both refusals are the design's assumption about the real instance rather than a measurement of
+    /// it; FakeJira's search route says so where it is written, and so does ReconcileAsync.
+    /// </summary>
+    [Fact]
+    public async Task The_ownership_search_never_names_a_key_that_was_not_found()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        await jira.SourceFor("SAAS").ReconcileAsync([FakeJira.MineKey, FakeJira.DeletedKey]);
+
+        Assert.Single(jira.SearchRequests);
+        Assert.Contains(FakeJira.MineKey, jira.LastJql);
+        Assert.DoesNotContain(FakeJira.DeletedKey, jira.LastJql);
+        Assert.Contains("assignee = currentUser()", jira.LastJql);
+    }
+
+    /// <summary>
+    /// The edge of the same rule. With nothing found there is no key left to name, and
+    /// <c>key IN ()</c> is a JQL syntax error - the same empty-IN fault the duty clause has its own
+    /// guard against, one clause over.
+    ///
+    /// The last assertion is what stops this passing for the wrong reason: without it, a source that
+    /// never asked about anything would satisfy every other line here.
+    ///
+    /// Seen to fail on deleting the source's empty-Found guard, together with
+    /// <c>No_keys_is_no_request</c>: the search then goes out carrying <c>key IN ()</c>. Note what
+    /// the fake does <em>not</em> do with that - an empty IN list names no unknown key, so it is
+    /// answered rather than refused, and only the request having been made at all shows it. Against
+    /// the real instance it is a syntax error.
+    /// </summary>
+    [Fact]
+    public async Task Nothing_found_asks_no_ownership_question()
+    {
+        await using var jira = await FakeJira.StartAsync();
+
+        var answer = await jira.SourceFor("SAAS").ReconcileAsync([FakeJira.DeletedKey]);
+
+        Assert.Empty(answer.Found);
+        Assert.Empty(answer.StillMine);
+        Assert.Empty(jira.SearchRequests);
+        Assert.Equal([FakeJira.DeletedKey], jira.IssueRequests);
+    }
+
+    /// <summary>
+    /// Both sets answer in the spelling the caller used, and seeing that takes a key spelled
+    /// differently from Jira's own - which is what this hands in and what nothing else has reason to.
+    /// Jira canonicalises a key's case - ask for saas-1 and SAAS-1 comes back - so a source building
+    /// either set out of the response's keys hands back a set the caller's own Contains cannot find.
+    /// It fails silently and it fails in the worst direction: every reconciled issue would read as
+    /// one the source does not know, which is the outcome that offers to close the task.
+    ///
+    /// Both sets are asserted because they are filled by different code: Found by the per-key read,
+    /// StillMine by the search. The title is asserted too, so this cannot pass on a source that
+    /// simply echoed the key it was handed without ever resolving it.
+    ///
+    /// What it rests on is FakeJira answering the issue's own spelling; that line is marked in the
+    /// fake as load-bearing for this test, because removing it would leave both spellings identical
+    /// and every assertion here true of nothing.
+    ///
+    /// Seen to fail by handing the search's own answer back as StillMine, which is the shorter way to
+    /// write it: <c>Assert.Equal() Failure: Strings differ / Expected: "saas-1" / Actual: "SAAS-1"</c>.
+    /// </summary>
+    [Fact]
+    public async Task The_sets_answer_with_the_key_the_caller_handed_in()
+    {
+        await using var jira = await FakeJira.StartAsync();
+        var asked = FakeJira.MineKey.ToLowerInvariant();
+
+        var answer = await jira.SourceFor("SAAS").ReconcileAsync([asked]);
+
+        var found = Assert.Single(answer.Found);
+
+        Assert.Equal(asked, found.Key);
+        Assert.Equal("Kunden kan ikke logge ind", found.Title);
+        Assert.Equal(asked, Assert.Single(answer.StillMine));
+    }
+
+    /// <summary>
+    /// A reconciled row carries no deadline, and that is the contract's rule rather than each
+    /// source's: the row is never imported as new work, so a suggested deadline is noise on a row
+    /// whose tick box means "close this one". Azure DevOps passes null because it has no due date to
+    /// carry at all; Jira has one and has to clear it, or the two sources would answer differently
+    /// with nothing saying which was meant.
+    ///
+    /// The fetched row is asserted first, and that is the tooth: without it, a fixture that simply
+    /// had no due date would pass against an implementation that clears nothing.
+    ///
+    /// Seen to fail by dropping <c>Deadline = null</c> from the reconciled row, which is how this is
+    /// naturally got wrong: Map fills the field from duedate already, so writing nothing is what
+    /// inherits it.
+    /// </summary>
+    [Fact]
+    public async Task A_reconciled_row_carries_no_deadline()
+    {
+        await using var jira = await FakeJira.StartAsync();
+        var source = jira.SourceFor("SAAS");
+
+        var fetched = Assert.Single(
+            (await source.FetchAssignedAsync()).Items, item => item.Key == FakeJira.MineKey);
+        var reconciled = Assert.Single((await source.ReconcileAsync([FakeJira.MineKey])).Found);
+
+        Assert.NotNull(fetched.Deadline);
+        Assert.Null(reconciled.Deadline);
+    }
+
+    /// <summary>
+    /// One JQL, but not necessarily one page. Jira caps maxResults at its own limit and says what it
+    /// used, so a search that read the first page only would answer a short list of owners - and
+    /// every key past it would land in Found without landing in StillMine, which is the app's word
+    /// for "handed to somebody else". A silent offer to close live tasks, again, from the opposite
+    /// direction to the per-key loop.
+    ///
+    /// Three keys against a page size of two is two rounds, and the second is the one an unpaged read
+    /// never makes. It goes through the same pager as FetchAssignedAsync, so what this adds to
+    /// <c>Every_page_is_read_rather_than_only_the_first</c> is that the ownership search uses it -
+    /// and the two fall together when the pager stops after one page, which is what a shared rule
+    /// looks like from a mutation. What only this one can see is the ownership search leaving that
+    /// pager for a single unpaged read of its own.
+    /// </summary>
+    [Fact]
+    public async Task Every_page_of_the_ownership_search_is_read_rather_than_only_the_first()
+    {
+        await using var jira = await FakeJira.StartAsync(pageSize: 2);
+
+        var answer = await jira.SourceFor("SAAS")
+            .ReconcileAsync([FakeJira.MineKey, "SAAS-2", "SAAS-3"]);
+
+        Assert.Equal(3, answer.StillMine.Count);
+        Assert.Equal(2, jira.SearchRequests.Count);
     }
 }

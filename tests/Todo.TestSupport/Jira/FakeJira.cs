@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -29,6 +30,41 @@ public sealed class FakeJira : IAsyncDisposable
     /// <summary>Not a credential. It exists so a test can assert which token was sent.</summary>
     public const string Token = "fake-pat";
 
+    /// <summary>
+    /// The ordinary issue: open, the user's own, and carrying a due date. Named rather than spelled
+    /// per test because what matters about it is those three facts and not its number - and the due
+    /// date is what lets a reconciled row show its deadline was cleared rather than never there.
+    /// </summary>
+    public const string MineKey = "SAAS-1";
+
+    /// <summary>
+    /// Assigned to somebody else, which is the case reconciling exists for at all: the fetch's
+    /// <c>assignee = currentUser()</c> cannot see it, while a read by key can. Constructed rather than
+    /// measured, and who it belongs to is this fake's own knowledge rather than a field - see
+    /// <see cref="NotMine"/>.
+    /// </summary>
+    public const string HandedOverKey = "SAAS-5";
+
+    /// <summary>
+    /// The other thing the fetch cannot see, and still the user's own: an issue with a resolution,
+    /// which <c>resolution = Unresolved</c> drops. Its status is one the default picker offers, so a
+    /// caller can put it in the done list the way a user would.
+    /// </summary>
+    public const string ResolvedKey = "SAAS-6";
+
+    /// <summary>
+    /// A key no issue here has. The deleted issue, which the reconciliation exists to report rather
+    /// than an error it may die on.
+    /// </summary>
+    public const string DeletedKey = "SAAS-7";
+
+    /// <summary>
+    /// A key that answers 403. The other side of the design's unmeasured assumption that a deleted
+    /// issue answers 404: a refusal must not be read as an absence, because the app's answer to an
+    /// absence is to offer to close the task.
+    /// </summary>
+    public const string ForbiddenKey = "SAAS-8";
+
     private const string Loopback = "http://127.0.0.1:0";
     private const string Owner = "Thomas";
 
@@ -39,12 +75,21 @@ public sealed class FakeJira : IAsyncDisposable
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     /// <summary>
-    /// Three issues covering the mapping cases: everything filled in, a waiting status, and every
-    /// optional field absent. In the order the JQL's ORDER BY duedate leaves them.
+    /// The issues this Jira holds. Three of them cover the mapping cases - everything filled in, a
+    /// waiting status, and every optional field absent - and are the three the ordinary fetch
+    /// answers, in the order its ORDER BY duedate leaves them.
+    ///
+    /// The last two are the reconciliation's pair, and neither can reach the fetch: one belongs to
+    /// somebody else and one carries a resolution, so <see cref="Matches"/>'s assignee and resolution
+    /// clauses are what keep them out. That is why they can live here rather than in a fixture of
+    /// their own - and it turns the assertions that count what the fetch answered, in
+    /// JiraTaskSourceTests.Every_page_is_read_rather_than_only_the_first and in JiraEndpointsTests'
+    /// preview, into a guard on those two clauses being honoured rather than arithmetic over this
+    /// array.
     /// </summary>
     private static readonly IssueBody[] Issues =
     [
-        new("SAAS-1", new IssueFieldsBody(
+        new(MineKey, new IssueFieldsBody(
             "Kunden kan ikke logge ind", "*vigtigt*", "2026-08-20",
             new PersonBody("Anna Andersen"), new StatusBody("I gang"))),
         new("SAAS-2", new IssueFieldsBody(
@@ -52,7 +97,58 @@ public sealed class FakeJira : IAsyncDisposable
             new PersonBody("Bo Bertelsen"), new StatusBody("Afventer general"))),
         new("SAAS-3", new IssueFieldsBody(
             "Uden noget som helst", null, null, null, new StatusBody("I gang"))),
+        new(HandedOverKey, new IssueFieldsBody(
+            "Overdraget til en anden", null, null,
+            new PersonBody("Bo Bertelsen"), new StatusBody("I gang"))),
+        new(ResolvedKey, new IssueFieldsBody(
+            "Løst i kilden", null, null,
+            new PersonBody("Anna Andersen"), new StatusBody("Løst"))),
     ];
+
+    /// <summary>
+    /// Who an issue belongs to and whether it has a resolution, held here rather than served as
+    /// fields - and that is the real shape rather than a shortcut. <c>currentUser()</c> and
+    /// <c>Unresolved</c> are resolved by the server, and <see cref="JiraTaskSource"/> asks only for
+    /// summary, description, duedate, reporter and status, so neither fact ever reaches the wire for
+    /// it to read. A fake that served them would invite a source to compare a name, which is the one
+    /// thing the two-set answer exists to avoid.
+    /// </summary>
+    private static readonly HashSet<string> NotMine =
+        new([HandedOverKey], StringComparer.OrdinalIgnoreCase);
+
+    private static readonly HashSet<string> Resolved =
+        new([ResolvedKey], StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Keys the token may not read. Constructed, because nobody has put the question to the real
+    /// instance: the design assumes a deleted issue answers 404, and this is what says a source may
+    /// not treat every failure that way.
+    /// </summary>
+    private static readonly HashSet<string> Forbidden =
+        new([ForbiddenKey], StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The JQL clauses this fake evaluates. Each is read where the source writes it rather than
+    /// recognised as a whole query, so one matcher serves the fetch, the duty widening and the
+    /// reconciliation alike.
+    ///
+    /// <c>key IN (…)</c> is the reconciliation's own narrowing and holds bare keys where the duty
+    /// clause holds quoted status names. The word boundary matters: without it <c>key</c> would also
+    /// fire inside a longer word, and JQL has several.
+    /// </summary>
+    private static readonly Regex KeyClause = new(
+        @"\bkey\s+IN\s+\(([^)]*)\)", RegexOptions.IgnoreCase);
+
+    private static readonly Regex StatusClause = new(
+        @"\bstatus\s+IN\s+\(([^)]*)\)", RegexOptions.IgnoreCase);
+
+    private static readonly Regex StatusName = new("\"([^\"]*)\"");
+
+    private static readonly Regex AssignedToMe = new(
+        @"assignee\s*=\s*currentUser\(\)", RegexOptions.IgnoreCase);
+
+    private static readonly Regex Unresolved = new(
+        @"resolution\s*=\s*Unresolved", RegexOptions.IgnoreCase);
 
     /// <summary>
     /// One changelog per issue key. The created values are strings rather than DateTimeOffsets on
@@ -130,8 +226,18 @@ public sealed class FakeJira : IAsyncDisposable
     /// <summary>The raw query string of every search, so a caller can count the pages it asked for.</summary>
     public List<string> SearchRequests { get; } = [];
 
-    /// <summary>The issue key of every changelog read.</summary>
+    /// <summary>
+    /// The issue key of every read that asked for the changelog, which is what its callers mean by
+    /// it: "was a changelog call paid for this row". Narrowed to the expanded reads when the
+    /// reconciliation started reading the same route without expanding - before that every read was
+    /// a changelog read, so the two were the same list and the name was accidentally true. Reads
+    /// that do not expand belong in <see cref="IssueRequests"/> instead; conflating them would make
+    /// an existing <c>Assert.Empty</c> mean something it was never written to mean.
+    /// </summary>
     public List<string> ChangelogRequests { get; } = [];
+
+    /// <summary>The issue key of every read of one issue, expanded or not.</summary>
+    public List<string> IssueRequests { get; } = [];
 
     /// <summary>
     /// The raw query string of the most recent issue read. Jira only carries the changelog when the
@@ -257,13 +363,35 @@ public sealed class FakeJira : IAsyncDisposable
         app.MapGet("/rest/api/2/search", (HttpRequest request) =>
         {
             SearchRequests.Add(request.QueryString.Value ?? string.Empty);
-            LastJql = request.Query["jql"].ToString();
+
+            var jql = request.Query["jql"].ToString();
+
+            LastJql = jql;
+
+            // The reason Jira reconciles per key instead of in one search, modelled rather than
+            // described: an issue key nobody knows is a 400 for the whole query, so a single deleted
+            // issue would take the reconciliation down on the very case it exists to report.
+            //
+            // UNMEASURED against the real instance - nobody has yet put a made-up key in a key IN
+            // list there - so this is the design's assumption written where it can be seen rather
+            // than dressed up as a measurement. What a green suite then says is that the source never
+            // names an unfound key; it does not say Jira would have refused one.
+            var unknown = Named(jql).FirstOrDefault(key => !Knows(key));
+
+            if (unknown is not null)
+            {
+                return Results.Json(
+                    new ErrorBody([$"An issue with key '{unknown}' does not exist for field 'key'."]),
+                    Json,
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
 
             var startAt = int.TryParse(request.Query["startAt"], out var asked) ? asked : 0;
+            var matching = Issues.Where(issue => Matches(jql, issue)).ToArray();
 
             return Results.Json(
                 new SearchBody(
-                    startAt, _pageSize, Issues.Length, [.. Issues.Skip(startAt).Take(_pageSize)]),
+                    startAt, _pageSize, matching.Length, [.. matching.Skip(startAt).Take(_pageSize)]),
                 Json);
         });
 
@@ -272,24 +400,116 @@ public sealed class FakeJira : IAsyncDisposable
         // issue with no history rather than an error, and every waiting date would be null.
         app.MapGet("/rest/api/2/issue/{key}", (string key, HttpRequest request) =>
         {
-            ChangelogRequests.Add(key);
+            IssueRequests.Add(key);
             LastIssueQuery = request.QueryString.Value ?? string.Empty;
 
             var expanded = request.Query["expand"].ToString()
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Contains("changelog", StringComparer.OrdinalIgnoreCase);
 
+            if (expanded)
+            {
+                ChangelogRequests.Add(key);
+            }
+
+            // Before the lookup, so a refusal cannot be mistaken for a key this Jira does not have.
+            // The two answers mean opposite things to a reconciliation: 404 is an outcome to report,
+            // 403 is a failure to raise.
+            if (Forbidden.Contains(key))
+            {
+                return Results.Json(
+                    new ErrorBody(["Du har ikke rettigheder til at se sagen"]),
+                    Json,
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            var issue = Find(key);
+
+            // 404 for a key this Jira has never heard of, which is the answer the whole per-key shape
+            // turns on. "Has heard of" is the issues plus the changelog fixtures, because SAAS-4 is a
+            // changelog with no issue behind it - deliberately, since JiraTaskSourceTests pins how
+            // many issues the fetch answers - and it would otherwise start answering 404 to the
+            // changelog tests that have always read it.
+            if (issue is null && !Changelogs.ContainsKey(key))
+            {
+                return Results.Json(
+                    new ErrorBody(["Issue Does Not Exist"]),
+                    Json,
+                    statusCode: StatusCodes.Status404NotFound);
+            }
+
+            // The issue's own spelling of the key rather than the caller's, because that is what Jira
+            // does: ask for saas-1 and SAAS-1 comes back. Load-bearing for
+            // The_sets_answer_with_the_key_the_caller_handed_in - remove it and that test passes on
+            // nothing, because both spellings would then be the same string.
+            //
+            // Fields are answered whole rather than projected to the fields parameter. The real
+            // server answers only what was asked for, so this fake is the more generous of the two,
+            // and what that costs is that nothing here can see a source asking for a field name that
+            // does not exist. The search route above has always answered whole issues; projecting one
+            // of the two routes only would be a rule with a hole in it rather than a rule.
             return Results.Json(
                 new IssueDetailBody(
-                    key,
+                    issue?.Key ?? key,
+                    issue?.Fields,
                     expanded ? new ChangelogBody(Changelog(key)) : null),
                 Json);
         });
     }
 
     /// <summary>
-    /// An unknown key answers an empty history rather than a 404: nothing here needs to meet an
-    /// issue that does not exist, and a 404 would be a different measurement in a different test.
+    /// The issue behind a key, found the way Jira finds one: a key is not case sensitive. Null for a
+    /// changelog fixture with no issue behind it, which is what SAAS-4 is.
+    /// </summary>
+    private static IssueBody? Find(string key) => Issues.FirstOrDefault(
+        candidate => string.Equals(candidate.Key, key, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Whether this Jira has anything at all under that key - an issue or a changelog.</summary>
+    private static bool Knows(string key) => Find(key) is not null || Changelogs.ContainsKey(key);
+
+    /// <summary>The keys a <c>key IN (…)</c> clause names, or none when the query has no such clause.</summary>
+    private static string[] Named(string jql) => KeyClause.Match(jql) is { Success: true } clause
+        ? clause.Groups[1].Value.Split(
+            ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        : [];
+
+    /// <summary>
+    /// The JQL evaluated clause by clause. Each is honoured when it is there and ignored when it is
+    /// not, so the fetch, the duty widening and the reconciliation all go through one matcher.
+    ///
+    /// The parentheses in the duty form are why the assignee clause is not simply a filter: the
+    /// source writes <c>(assignee = currentUser() OR status IN (…))</c>, so an issue belonging to
+    /// somebody else is still in the pool's answer. A fake that ignored the disjunction would let a
+    /// source drop the parentheses and stay green, which is the fault slice 11 measured.
+    /// </summary>
+    private static bool Matches(string jql, IssueBody issue)
+    {
+        if (Named(jql) is { Length: > 0 } named
+            && !named.Contains(issue.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (Unresolved.IsMatch(jql) && Resolved.Contains(issue.Key))
+        {
+            return false;
+        }
+
+        return !AssignedToMe.IsMatch(jql)
+            || !NotMine.Contains(issue.Key)
+            || InPool(jql, issue);
+    }
+
+    private static bool InPool(string jql, IssueBody issue) =>
+        StatusClause.Match(jql) is { Success: true } pool
+        && StatusName.Matches(pool.Groups[1].Value).Any(
+            name => string.Equals(
+                name.Groups[1].Value, issue.Fields.Status.Name, StringComparison.Ordinal));
+
+    /// <summary>
+    /// A key with no changelog answers an empty history rather than a 404. The 404 belongs to the
+    /// issue itself and is decided by the caller above; an issue that exists and never changed status
+    /// has an empty history, which is what SAAS-3 is.
     /// </summary>
     private static HistoryBody[] Changelog(string key) =>
         Changelogs.TryGetValue(key, out var histories) ? histories : [];
@@ -334,7 +554,13 @@ public sealed class FakeJira : IAsyncDisposable
         PersonBody? Reporter,
         StatusBody Status);
 
-    private sealed record IssueDetailBody(string Key, ChangelogBody? Changelog);
+    /// <summary>
+    /// One issue read on its own. It carries the fields as well as the changelog, because the
+    /// reconciliation reads this route for the state and the title rather than for the history - the
+    /// same body the search answers, plus the changelog when it was expanded.
+    /// </summary>
+    private sealed record IssueDetailBody(
+        string Key, IssueFieldsBody? Fields, ChangelogBody? Changelog);
 
     private sealed record ChangelogBody(HistoryBody[] Histories);
 

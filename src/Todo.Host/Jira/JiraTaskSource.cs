@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -25,6 +26,11 @@ public sealed partial class JiraTaskSource : ITaskSource
     /// <summary>
     /// Only the fields that are actually mapped. Jira returns every field of every issue otherwise,
     /// which on this project is a few hundred kilobytes per page of nothing anyone reads.
+    ///
+    /// The reconciliation's ownership search asks for this same list although it reads none of it -
+    /// its answer is the issue key, which Jira puts beside fields rather than inside them. A shorter
+    /// list would be a second constant to keep true for a saving nobody has measured, and asking for
+    /// nothing is the expensive case rather than the cheap one.
     /// </summary>
     private const string Fields = "summary,description,duedate,reporter,status";
 
@@ -103,11 +109,37 @@ public sealed partial class JiraTaskSource : ITaskSource
     {
         var settings = await _settings(ct);
 
-        // Built before the loop, so a status name that cannot go in a query is refused before any
+        // Built before the search, so a status name that cannot go in a query is refused before any
         // request goes out rather than after the first page has already been read.
         var jql = JqlFor(settings);
 
-        var items = new List<ExternalTask>();
+        var (issues, total) = await SearchAsync(settings, jql, ct);
+
+        return new ExternalTaskPage([.. issues.Select(Map)], total);
+    }
+
+    /// <summary>
+    /// One JQL read to the end of its pages. Classic paging, measured 2026-08-18: startAt,
+    /// maxResults, total and issues, rather than Cloud's nextPageToken.
+    ///
+    /// Shared by the fetch and by the reconciliation's ownership question, and the sharing is
+    /// load-bearing rather than tidy: a missed page fails differently on the two sides and silently
+    /// on both. The fetch would import a short list; the ownership search would leave the owners it
+    /// never read out of StillMine, which the app reads as "assigned to somebody else" and offers to
+    /// close. Jira caps maxResults at its own limit and reports what it used, so the page size here
+    /// is a request rather than a promise and neither caller may assume one page is enough.
+    ///
+    /// Total is re-read on every page rather than only the first, which is what the loop has always
+    /// done: Jira answers it per page, and the last word is the one the caller shows.
+    ///
+    /// An empty page ends the read even when total claims there is more. Advancing by the count means
+    /// an instance that answers inconsistently would otherwise ask for the same offset forever, and a
+    /// hung import is worse than a short one.
+    /// </summary>
+    private async Task<(List<IssueBody> Issues, int Total)> SearchAsync(
+        JiraSettings settings, string jql, CancellationToken ct)
+    {
+        var issues = new List<IssueBody>();
         var startAt = 0;
         var total = 0;
 
@@ -118,20 +150,17 @@ public sealed partial class JiraTaskSource : ITaskSource
                 + $"&maxResults={PageSize}&fields={Fields}";
 
             var page = Read<SearchBody>(await GetAsync(settings, "search", query, ct));
-            var issues = page?.Issues ?? [];
+            var got = page?.Issues ?? [];
 
             total = page?.Total ?? 0;
 
-            // An empty page ends the read even when total claims there is more. Advancing by the
-            // count means an instance that answers inconsistently would otherwise ask for the same
-            // offset forever, and a hung import is worse than a short one.
-            if (issues.Count == 0)
+            if (got.Count == 0)
             {
                 break;
             }
 
-            items.AddRange(issues.Select(Map));
-            startAt += issues.Count;
+            issues.AddRange(got);
+            startAt += got.Count;
 
             if (startAt >= total)
             {
@@ -139,7 +168,7 @@ public sealed partial class JiraTaskSource : ITaskSource
             }
         }
 
-        return new ExternalTaskPage(items, total);
+        return (issues, total);
     }
 
     /// <summary>
@@ -244,22 +273,126 @@ public sealed partial class JiraTaskSource : ITaskSource
     }
 
     /// <summary>
-    /// Not built yet — task 3 of the source reconciliation delivery is where Jira gets its half, and
-    /// the shape is not Azure DevOps': one <c>GET issue/{key}</c> per key, where a 404 <em>is</em> the
-    /// answer "does not know it", and then one JQL naming only the keys that answered.
+    /// What Jira says about keys the app already holds: one <c>GET issue/{key}</c> for each of them,
+    /// and then one JQL naming only the keys that answered. A 404 <em>is</em> an answer here - the
+    /// key is one the source does not know - which is why <see cref="GetOrNullAsync"/> stands beside
+    /// <see cref="GetAsync"/> rather than being a flag on it.
     ///
-    /// Throwing rather than answering an empty <see cref="ExternalReconciliation"/>, and the
-    /// difference is not stylistic. An empty answer reads as "Jira has nothing to reconcile", which is
-    /// a lie the type cannot distinguish from the truth, and it would leave the whole Jira half of the
-    /// feature silently doing nothing while every test stayed green. JiraTaskSourceTests holds the
-    /// guard that this throws; task 3 deletes it as a visible act.
+    /// <b>The shape is not Azure DevOps', and the difference is the deleted issue.</b> The elegant
+    /// form - one search naming every key - is the most fragile one available: Jira answers 400 for
+    /// the whole query when a <c>key IN</c> list names an issue it does not know, so one deleted issue
+    /// would take the reconciliation down on the very case it exists to report. The search that
+    /// follows the reads cannot fail that way, because every key in it has just answered 200. The
+    /// price is a known one rather than a new one: Jira already pays a changelog call per waiting row,
+    /// so N small reads is the same cost model. It also keeps the URL short, which matters because
+    /// /search is a GET here and a JQL naming hundreds of keys approaches Data Center's limit on a
+    /// request line.
+    ///
+    /// <b>Unmeasured against the real instance, in two places</b>, and they are the two the shape
+    /// rests on: that <c>GET issue/{key}</c> answers <b>404</b> for a deleted issue rather than 400 or
+    /// 403, and that a <c>key IN</c> list naming an unknown key really does fail. Nobody has put
+    /// either question to that server. A green suite therefore says the source asks per key, keeps an
+    /// unfound key out of the JQL and reads the answers correctly - it does not say Jira answers this
+    /// way. If the first assumption is wrong, a deleted issue raises instead of being reported and the
+    /// preview fails on the case the feature was written for; if the second is wrong, this shape is
+    /// merely more expensive than it needed to be. The delivery's own history is the argument for
+    /// labelling rather than asserting: Azure DevOps' batch read was predicted to answer 404 and
+    /// measured at 400.
+    ///
+    /// <b>Both sets answer in the caller's spelling of a key, never Jira's.</b> Jira canonicalises an
+    /// issue key's case, so a set built out of the response would fail the caller's own Contains
+    /// silently and every reconciled issue would read as one the source does not know - which is the
+    /// outcome that offers to close the task. Each read therefore keeps the key it was asked with, and
+    /// the search's answer is matched back against those keys case-insensitively instead of being
+    /// copied out of the response. Case is the only canonicalisation allowed for; anything else Jira
+    /// might do to a key lands in neither set, which is the same silent wrong direction.
+    ///
+    /// <b>No project key is required.</b> The fetch demands one because without it its JQL would ask
+    /// for every project the token can see - slice 11's lesson that an absent limit is not a neutral
+    /// default. Here the <c>key IN</c> list is the limit, so demanding a setting this query does not
+    /// use would be a refusal with nothing behind it.
     /// </summary>
-    public Task<ExternalReconciliation> ReconcileAsync(
-        IReadOnlyList<string> keys, CancellationToken ct = default) =>
-        throw new NotSupportedException(
-            "Reconciling against Jira arrives in task 3 of the source reconciliation delivery. "
-            + "Until then this throws rather than answering an empty reconciliation, which would "
-            + "read as 'nothing has changed' and hide the whole feature.");
+    public async Task<ExternalReconciliation> ReconcileAsync(
+        IReadOnlyList<string> keys, CancellationToken ct = default)
+    {
+        var settings = await _settings(ct);
+        var found = new List<ExternalTask>();
+
+        foreach (var key in keys)
+        {
+            // Only a 404 is an absence. Anything else - a 403 on an issue the token may not read, a
+            // 500 from the instance - is raised, because absence is what the app answers by offering
+            // to close the task, and one expired permission must not read as "all of this is gone".
+            var body = await GetOrNullAsync(
+                settings, $"issue/{Uri.EscapeDataString(key)}", $"fields={Fields}", ct);
+
+            if (body is null || Read<IssueBody>(body) is not { } issue)
+            {
+                continue;
+            }
+
+            // The key as the caller wrote it, and no deadline. Both are the contract's rules rather
+            // than this source's, and ExternalReconciliation's two bullets are these two overrides:
+            // Map fills the deadline from duedate for the fetch, so here it has to be cleared rather
+            // than inherited - Azure DevOps has no due date to carry and passes null anyway, and one
+            // source carrying one while the other does not is an asymmetry nothing else would notice.
+            found.Add(Map(issue) with { Key = key, Deadline = null });
+        }
+
+        // Nothing answered, so there is no key left to name - and asking anyway would emit
+        // key IN (), a JQL syntax error, the same fault JqlFor guards against one clause over. Not a
+        // case that cannot happen: the deleted issue is ordinary here, and a list holding one is the
+        // whole of it.
+        if (found.Count == 0)
+        {
+            return new ExternalReconciliation([], new HashSet<string>(StringComparer.Ordinal));
+        }
+
+        var owned = await OwnersAsync(settings, found, ct);
+
+        return new ExternalReconciliation(
+            found,
+            new HashSet<string>(
+                found.Select(item => item.Key).Where(owned.Contains), StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Which of the found keys are still assigned to the user, asked as one JQL. <c>currentUser()</c>
+    /// is Jira's own word for the question, so the answer is the server's rather than a comparison
+    /// made here - and it has to be: MyselfBody binds a display name and nothing else, so comparing on
+    /// one would break the day somebody corrects a surname.
+    ///
+    /// The keys go in unquoted and unescaped, and nothing hostile can reach the clause: every one of
+    /// them has just been resolved by Jira itself through <c>GET issue/{key}</c>, and a key Jira
+    /// cannot parse is a 404 that never gets this far. That is a property of the flow rather than of
+    /// what keys happen to look like.
+    ///
+    /// No resolution clause and no project clause. This asks one question - is it still mine - and the
+    /// key list is what bounds it. A resolved issue has to stay in the answer, because "resolved and
+    /// still mine" is one of the four outcomes and "resolved and handed over" is another.
+    /// </summary>
+    private async Task<HashSet<string>> OwnersAsync(
+        JiraSettings settings, List<ExternalTask> found, CancellationToken ct)
+    {
+        var jql = $"key IN ({string.Join(", ", found.Select(item => item.Key))}) "
+            + "AND assignee = currentUser()";
+
+        var (issues, _) = await SearchAsync(settings, jql, ct);
+
+        // Case-insensitive, because what comes back is Jira's spelling of a key and what goes out is
+        // the caller's. This set is only ever asked about; nothing is read out of it.
+        var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var issue in issues)
+        {
+            if (issue.Key is { } key)
+            {
+                owned.Add(key);
+            }
+        }
+
+        return owned;
+    }
 
     /// <summary>
     /// Bound as a string and parsed here rather than typed as a DateTimeOffset on the DTO. Measured
@@ -329,6 +462,48 @@ public sealed partial class JiraTaskSource : ITaskSource
     }
 
     private async Task<string> GetAsync(
+        JiraSettings settings, string path, string? query, CancellationToken ct) =>
+        Interpret(path, await SendAsync(settings, path, query, ct));
+
+    /// <summary>
+    /// The same read, except that a <b>404 answers null</b> instead of raising. Its own method rather
+    /// than a flag on <see cref="GetAsync"/>, so that no later caller can pass a true it had not
+    /// thought about and swallow a 404 that meant something: /myself, the project's status list and
+    /// the changelog all have paths that can answer 404 for reasons their callers would want to hear.
+    ///
+    /// Every other failure still raises, and that line is the whole of this method. Absence is what
+    /// the reconciliation reports as "the source does not know this key", which the app answers by
+    /// offering to close the task - so a 403 read as an absence would turn one expired permission
+    /// into an invitation to close everything it covered.
+    /// </summary>
+    private async Task<string?> GetOrNullAsync(
+        JiraSettings settings, string path, string? query, CancellationToken ct)
+    {
+        var answer = await SendAsync(settings, path, query, ct);
+
+        return answer.Status == HttpStatusCode.NotFound ? null : Interpret(path, answer);
+    }
+
+    /// <summary>
+    /// A failure becomes a SourceException carrying the status code and Jira's own words, and nothing
+    /// of the request: the token is on the request, and slice 11's whole settings design is about it
+    /// not getting out.
+    /// </summary>
+    private static string Interpret(string path, Answer answer) => answer.Success
+        ? answer.Body
+        : throw new SourceException(
+            ErrorCodes.JiraRefused,
+            $"Jira answered {(int)answer.Status} for {path}{Explanation(answer.Body)}.");
+
+    /// <summary>
+    /// The request itself, reporting what Jira said rather than deciding what it meant. Success is
+    /// HttpClient's own verdict rather than a status range written out again here, so the two readers
+    /// above cannot come to disagree with it about what counts as one.
+    ///
+    /// Being unreachable is not a status and stays an exception: there is no answer to interpret, and
+    /// a caller willing to read a 404 as an absence must not read a dead host as one too.
+    /// </summary>
+    private async Task<Answer> SendAsync(
         JiraSettings settings, string path, string? query, CancellationToken ct)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, UriFor(settings, path, query));
@@ -357,18 +532,10 @@ public sealed partial class JiraTaskSource : ITaskSource
 
         using (response)
         {
-            var body = await response.Content.ReadAsStringAsync(ct);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                // The status code and Jira's own words, and nothing of the request: the token is
-                // on the request, and slice 11's whole settings design is about it not getting out.
-                throw new SourceException(
-                    ErrorCodes.JiraRefused,
-                    $"Jira answered {(int)response.StatusCode} for {path}{Explanation(body)}.");
-            }
-
-            return body;
+            return new Answer(
+                response.IsSuccessStatusCode,
+                response.StatusCode,
+                await response.Content.ReadAsStringAsync(ct));
         }
     }
 
@@ -424,6 +591,13 @@ public sealed partial class JiraTaskSource : ITaskSource
 
     [GeneratedRegex("^[A-Z][A-Z0-9_]*$")]
     private static partial Regex ProjectKeyPattern();
+
+    /// <summary>
+    /// One answer from Jira, before anybody has decided whether it is a failure. The status rides
+    /// along beside the verdict because a 404 means an absence to one caller and a failure to
+    /// another - which is the whole reason this type exists rather than the body alone.
+    /// </summary>
+    private sealed record Answer(bool Success, HttpStatusCode Status, string Body);
 
     private sealed record MyselfBody(string? DisplayName);
 
