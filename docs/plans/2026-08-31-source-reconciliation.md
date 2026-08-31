@@ -60,6 +60,19 @@ engelsk når du skriver koden.** Formen der skal efterlignes, er husets: komment
 hvad der blev **målt**, ikke hvad linjen gør — og den siger hvilken vej gættet falder, når begrundelsen
 mangler. Kopiér ikke kommentarerne ordret; skriv dem om, så de siger det samme på engelsk.
 
+**Og en begrundelse må ikke hvile på et ben ingen har målt.** Task 1's to gennemgange fandt den fejl
+**tre gange i én opgave**, hver gang med en konklusion der var rigtig og et argument der ikke var: en
+test-doc påstod at søskenden "består uanset hvad" (sletning fælder begge); en kodekommentar påstod at
+operandrækkefølgen i et `||` var bærende (den er usynlig for hver test); og en theory begrundede sig
+med at sammensatte ADO-tilstandsnavne er almindelige (de tolv målte var enkeltord, og navnene i
+eksemplet er `System.Reason`-værdier). Hver gang lå det holdbare argument lige ved siden af — for den
+sidste: `<>` sammenligner hele strenge, hvilket gælder uanset hvad instansen indeholder.
+
+**Reglen der følger:** når du skriver en begrundelse, så spørg om den hviler på noget der kan rådne —
+et tal, en instans' indhold, en påstand om hvad der er "almindeligt". Kan den skrives på operator- eller
+typesemantik i stedet, så gør det. Og skriv **umålt** hvor noget er umålt; det er stærkere end en
+formulering der lyder målt.
+
 ## Tre rettelser til designet, fundet før planen blev skrevet
 
 **Designfilen er allerede rettet** i samme commit som denne plan, så der er ingen Task 0 for dem.
