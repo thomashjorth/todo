@@ -754,6 +754,19 @@ ville slå den ægte slettede sag ihjel — altså det udfald funktionen findes 
 kom med, kald `ReconcileAsync`, og byg en række pr. nøgle efter designets tabel i afsnit 5.
 `Deadline` er `null` på alle fire; `Excluded` bærer koden for de to uforklarede.
 
+**Og sæt `closureReason` på *hentningens* rækker også, ikke kun de afstemte.** Afgjort her frem for
+i Task 6, fordi Task 4's gennemgang målte hvorfor det er nødvendigt: **serveren kan ikke skelne et
+fraværende `reason` fra `resolved`.** `Reason` er en ikke-nullable enum hvor `Resolved = 0`,
+`[Required]` er inert (der er ingen validering konfigureret i `TodoHost.cs`, og `RequiredAttribute`
+på en ikke-nullable enum kan aldrig fejle), og `ValidateClosure` tjekker kun `Key` og `State`. Et
+body uden `"reason"` deserialiserer derfor tavst til `Resolved`.
+
+Konsekvensen er at klientens `?? ClosureReason.Resolved`-fallback ikke kan fjernes, før **hver**
+`suggestsClosing`-række bærer en grund — også de der kommer af den gamle regel, hvor tilstanden står
+i færdig-listen. De er `resolved`, så værdien er den samme; forskellen er at den så er **besluttet**
+frem for ramt ved et tilfælde. Sæt den, og lad Task 8 erstatte fallbacket med et `hasReason`-
+type-prædikat ved siden af `wasAnsweredFor` — det arbejdende eksempel står i samme fil.
+
 **Trin 5 — kør igen, alle grønne.**
 
 **Trin 6 — se vagten fælde.** Byt de to lukkegrene om, så `unassigned` afgøres først, og kør:
@@ -896,9 +909,20 @@ begrundelsen i skabelonen som den allerede står ved `suggestsClosing`.
 `suggestsClosing` deler sig i to sætninger efter `closureReason`.
 
 **Trin 2 — de to felter der nu kan mangle.** Type- og tilstandslinjen får hver sin `@if` med en
-`@else` der siger det højt (`ado.noType`, `ado.noState`). **Ret kommentaren ved typelinjen** — den
+`@else` der siger det højt (`ado.noType`, `jira.noStatus`). **Ret kommentaren ved typelinjen** — den
 siger i dag *"Ingen @if: typen er altid udfyldt"*, og det holder op med at være sandt. En kommentar
 der lyver er værre end ingen, og Tailwind udtrækker desuden klassenavne fra kommentarer.
+
+**Trin 2b — slet de to forældreløse nøgler, og det er den eneste mærkning der kan findes.** Task 4
+beholdt `ado.suggestsClosing` og `jira.suggestsClosing` ved siden af de nye
+`suggestsClosingResolved`, med **byte-identisk** tekst, fordi skabelonerne brugte dem endnu. Når
+mærkatkæden i trin 1 er skrevet, er de døde: `da.json:127` og `:174`, `en.json:127` og `:174`.
+
+**Ingen vagt kan se en forældreløs nøgle.** `translations.spec.ts` sammenligner nøglemængderne mellem
+de to filer, og de er *enige* om de døde nøgler; `ErrorCodeTranslationTests` kræver kun at `errors.*`
+findes. JSON kan ikke bære en kommentar, så **denne linje i planen er hele mærkningen** — glemmes den,
+bliver de stående for evigt. Grep efter `suggestsClosing'` og `suggestsClosing"` i `src\Todo.Web` og
+bekræft nul træffere uden for de nye navne, før du sletter.
 
 **Trin 3 — byg og kør Vitest samlet.**
 
