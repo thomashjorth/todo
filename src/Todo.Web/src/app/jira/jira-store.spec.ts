@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { API_BASE_URL, JiraPreviewRow } from '../api/todo-client';
+import { API_BASE_URL, IJiraPreviewRow, JiraPreviewRow } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { JiraStore } from './jira-store';
 
@@ -12,13 +12,18 @@ interface PreviewRowJson {
   note?: string;
   deadline?: string;
   requester?: string;
-  status: string;
+  // Nullable for the reason AdoStore's fixture spells out: this interface describes the wire, the
+  // status became nullable with reconciliation, and a null is serialised rather than omitted. Typed
+  // `string` it could not express the row the store's guard drops.
+  status?: string | null;
   isWaiting: boolean;
   isDuty: boolean;
   waitingSince?: string;
   alreadyImported: boolean;
   suggestsClosing: boolean;
+  closureReason?: string;
   suggestsReopening: boolean;
+  reopenTo?: string;
   doneAt?: string;
   excluded?: string;
 }
@@ -40,6 +45,15 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
 
 function json(body: unknown): Blob {
   return new Blob([JSON.stringify(body)]);
+}
+
+/**
+ * See AdoStore's spec for why this cast exists: the generated interface types a nullable field as
+ * `string | undefined` while the host sends a real `null`, and saying so once here is what keeps a
+ * null-carrying fixture on the `flush` path production uses.
+ */
+function constructed(overrides: Partial<PreviewRowJson> = {}): JiraPreviewRow {
+  return new JiraPreviewRow(row(overrides) as IJiraPreviewRow);
 }
 
 describe('JiraStore', () => {
@@ -160,7 +174,7 @@ describe('JiraStore', () => {
   });
 
   it('should empty the list when the preview fails, so no stale rows can be imported', async () => {
-    store.rows.set([new JiraPreviewRow(row({ key: 'SAAS-9' }))]);
+    store.rows.set([constructed({ key: 'SAAS-9' })]);
     store.total.set(1);
 
     const previewed = store.preview();
@@ -225,12 +239,42 @@ describe('JiraStore', () => {
   // waiting list, because that setting lives on the server.
   it('should not send its own opinion about whether a row is waiting', async () => {
     const imported = store.import([
-      new JiraPreviewRow(row({ key: 'SAAS-1', isWaiting: true, status: 'Afventer general' })),
+      constructed({ key: 'SAAS-1', isWaiting: true, status: 'Afventer general' }),
     ]);
 
     const request = http.expectOne('/api/jira/import');
     expect(Object.keys(JSON.parse(request.request.body).rows[0])).not.toContain('isWaiting');
     request.flush(json({ imported: 1, skipped: 0 }));
+    await imported;
+  });
+
+  /**
+   * The twin of AdoStore's, and it is here because until now no spec under jira/ asserted on the
+   * closures this store puts on the wire at all - so its guard and its reason fallback were both
+   * unmeasured while the ADO ones were measured. See the ADO spec for why the fixture goes through
+   * flush rather than the generated constructor, and why there are two closures rather than one.
+   */
+  it('should drop a closable row whose status the source never answered with', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/jira/preview').flush(
+      json({
+        total: 2,
+        rows: [
+          row({ key: 'SAAS-9', status: 'Løst', alreadyImported: true, suggestsClosing: true }),
+          row({ key: 'SAAS-10', status: null, alreadyImported: true, suggestsClosing: true }),
+        ],
+      }),
+    );
+    await previewed;
+
+    expect(store.closable().map((r) => r.key)).toEqual(['SAAS-9', 'SAAS-10']);
+
+    const imported = store.import([], store.closable());
+    const request = http.expectOne('/api/jira/import');
+    expect(JSON.parse(request.request.body).closures).toEqual([
+      { key: 'SAAS-9', status: 'Løst', reason: 'resolved' },
+    ]);
+    request.flush(json({ imported: 0, skipped: 0, closed: 1 }));
     await imported;
   });
 

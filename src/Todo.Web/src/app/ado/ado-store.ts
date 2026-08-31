@@ -26,9 +26,12 @@ import {
  * that was wrong. Dropping keeps the rest of the request valid and the guard honest.
  *
  * `!= null` rather than `!== undefined`, and that is load-bearing rather than sloppy: the host
- * serialises a null instead of omitting the property, which TaskEndpointsTests measures in so many
- * words - every task without one carries `"externalUrl":null` - and Todo.Contracts sets no
- * DefaultIgnoreCondition. The generated client assigns straight across in `init`, so an absent state
+ * serialises a null instead of omitting the property, which ReviewEndpointsTests asserts on the raw
+ * body - `"lastCompletedAt":null` in Wire_format_uses_the_names_the_contract_declares - and
+ * Todo.Contracts sets no DefaultIgnoreCondition. (TaskEndpointsTests says the same thing in a
+ * comment about `"externalUrl":null`, but its assertion only looks for a value that <em>is</em>
+ * there, so it would pass either way; the review one is the measured leg to stand on.)
+ * The generated client assigns straight across in `init`, so an absent state
  * reaches this predicate as `null`, not `undefined`, even though the generated type only admits
  * `string | undefined`. Strict equality would therefore answer true for exactly the row this exists
  * to catch, and the narrowing below would be a lie. Do not tidy it back.
@@ -200,7 +203,14 @@ export class AdoStore {
                         // stop, reintroduced from the sending side. Nothing enforces the
                         // "it stops being reached" this comment used to claim: `reason: required`
                         // puts the compiler on the argument being present, not on its being right.
-                        // <b>Task 6 is where this line becomes a hard failure or goes away.</b>
+                        //
+                        // Task 6 is where this line has to change, and the mechanism is a guard
+                        // rather than a deletion: `closureReason` stays nullable in the contract, so
+                        // the compiler will still demand a fallback or a `!` here, and the docblock
+                        // at the top of this file argues against the `!`. Put a `hasReason`
+                        // predicate beside `wasAnsweredFor` and let a row with no reason be dropped
+                        // the way an unanswered one is - loudly, rather than relabelled. Deleting
+                        // the fallback outright needs `closureReason` to become required first.
                         reason: row.closureReason ?? ClosureReason.Resolved,
                         doneAt: row.doneAt,
                       }),

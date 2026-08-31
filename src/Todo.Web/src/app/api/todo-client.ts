@@ -2838,7 +2838,8 @@ export class JiraPreviewRow implements IJiraPreviewRow {
     doneAt?: string | undefined;
     /** Whether import should offer to put a locally finished task back into an open status, because the issue is not done in Jira. The mirror image of suggestsClosing and split the same way: this field is the server's decision, reopenTo is what it would lead to, and status is the fact both were taken on. Required rather than nullable, because "no suggestion" is false rather than absent. */
     suggestsReopening!: boolean;
-    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. */
+    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false.
+Note where the analogy with closureReason stops, because it stops at the one place that matters: a reason is carried back on the closure row, and this is deliberately not carried back on the reopening row — JiraReopeningRow sends the status and lets the server map it again. The two are not arbitrary opposites. A reason has to travel because the server cannot recompute it: ownership is not visible in the status. This can be recomputed, from the status and the user's own lists, and re-deriving it is what keeps the suggestion and the import from disagreeing. Mirroring the closure row here would send a decision where the server already has the fact. */
     reopenTo?: ReopenTarget | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
@@ -2929,7 +2930,8 @@ export interface IJiraPreviewRow {
     doneAt?: string | undefined;
     /** Whether import should offer to put a locally finished task back into an open status, because the issue is not done in Jira. The mirror image of suggestsClosing and split the same way: this field is the server's decision, reopenTo is what it would lead to, and status is the fact both were taken on. Required rather than nullable, because "no suggestion" is false rather than absent. */
     suggestsReopening: boolean;
-    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. */
+    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false.
+Note where the analogy with closureReason stops, because it stops at the one place that matters: a reason is carried back on the closure row, and this is deliberately not carried back on the reopening row — JiraReopeningRow sends the status and lets the server map it again. The two are not arbitrary opposites. A reason has to travel because the server cannot recompute it: ownership is not visible in the status. This can be recomputed, from the status and the user's own lists, and re-deriving it is what keeps the suggestion and the import from disagreeing. Mirroring the closure row here would send a decision where the server already has the fact. */
     reopenTo?: ReopenTarget | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
@@ -3052,7 +3054,8 @@ export interface IJiraImportRow {
 
 export class JiraClosureRow implements IJiraClosureRow {
     key!: string;
-    /** Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason. Required rather than optional: an absent reason would have to default to one of the two, and defaulting to resolved brings back the very skipping this field exists to prevent. */
+    /** Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason.
+What `required` buys is a compiler on the sending side: the generated TypeScript makes it a mandatory constructor argument, so a client cannot forget it. It buys nothing on the receiving side, and that is measured rather than assumed — the generated property is a non-nullable enum whose first member is `resolved`, the `[Required]` attribute is inert because the host runs no validation pipeline (and could never fail on a non-nullable enum anyway), and the hand-written closure validation asks about the key and the status only. A body with no `reason` therefore deserialises silently to `resolved`. The server cannot tell that case from a genuine resolved closure, so the guarantee has to come from every producer setting the field — not from this keyword. */
     reason!: ClosureReason;
     /** The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides whether that means done by looking it up in the user's done list, and takes the decision again rather than trusting a client that may have previewed under an older setting. */
     status!: string;
@@ -3096,7 +3099,8 @@ export class JiraClosureRow implements IJiraClosureRow {
 
 export interface IJiraClosureRow {
     key: string;
-    /** Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason. Required rather than optional: an absent reason would have to default to one of the two, and defaulting to resolved brings back the very skipping this field exists to prevent. */
+    /** Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason.
+What `required` buys is a compiler on the sending side: the generated TypeScript makes it a mandatory constructor argument, so a client cannot forget it. It buys nothing on the receiving side, and that is measured rather than assumed — the generated property is a non-nullable enum whose first member is `resolved`, the `[Required]` attribute is inert because the host runs no validation pipeline (and could never fail on a non-nullable enum anyway), and the hand-written closure validation asks about the key and the status only. A body with no `reason` therefore deserialises silently to `resolved`. The server cannot tell that case from a genuine resolved closure, so the guarantee has to come from every producer setting the field — not from this keyword. */
     reason: ClosureReason;
     /** The Jira status name. Sent for the same reason JiraImportRow sends it: the server decides whether that means done by looking it up in the user's done list, and takes the decision again rather than trusting a client that may have previewed under an older setting. */
     status: string;
@@ -3232,7 +3236,7 @@ export class JiraImportResponse implements IJiraImportResponse {
     skipped!: number;
     /** How many local tasks were closed because their issue is done. */
     closed!: number;
-    /** How many local tasks were put back into an open status. Its own count rather than folded into imported, because the button now does three things and one number cannot say which of them happened. */
+    /** How many local tasks were put back into an open status. Its own count rather than folded into imported, because once the reopening lands the button will do three things and one number cannot say which of them happened. */
     reopened!: number;
 
     constructor(data?: IJiraImportResponse) {
@@ -3275,7 +3279,7 @@ export interface IJiraImportResponse {
     skipped: number;
     /** How many local tasks were closed because their issue is done. */
     closed: number;
-    /** How many local tasks were put back into an open status. Its own count rather than folded into imported, because the button now does three things and one number cannot say which of them happened. */
+    /** How many local tasks were put back into an open status. Its own count rather than folded into imported, because once the reopening lands the button will do three things and one number cannot say which of them happened. */
     reopened: number;
 }
 
@@ -3389,7 +3393,7 @@ export class AdoPreviewRow implements IAdoPreviewRow {
     doneAt?: string | undefined;
     /** Whether import should offer to put a locally finished task back into an open status. See the field of the same name on JiraPreviewRow: the server's decision, with reopenTo as what it would lead to and state as the fact both were taken on. */
     suggestsReopening!: boolean;
-    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. */
+    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. See the field of the same name on JiraPreviewRow for where the analogy with closureReason stops: this one is not carried back on the reopening row, because the server can re-derive it and a reason it cannot. */
     reopenTo?: ReopenTarget | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;
@@ -3482,7 +3486,7 @@ export interface IAdoPreviewRow {
     doneAt?: string | undefined;
     /** Whether import should offer to put a locally finished task back into an open status. See the field of the same name on JiraPreviewRow: the server's decision, with reopenTo as what it would lead to and state as the fact both were taken on. */
     suggestsReopening: boolean;
-    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. */
+    /** Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. See the field of the same name on JiraPreviewRow for where the analogy with closureReason stops: this one is not carried back on the reopening row, because the server can re-derive it and a reason it cannot. */
     reopenTo?: ReopenTarget | undefined;
     /** Why import will skip this row, as an error code the frontend translates. Null means it will be imported. */
     excluded?: string | undefined;

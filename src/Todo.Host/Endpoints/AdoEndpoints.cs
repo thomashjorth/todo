@@ -151,9 +151,13 @@ public static class AdoEndpoints
                         Deadline = item.Deadline,
                         Requester = item.Requester,
                         State = item.StatusName,
-                        // Null only for a source that reports no type, and Jira is that source. Here
-                        // the WIQL matched on System.WorkItemType and the batch asked for it, so a null
-                        // is unreachable - which is why this is an empty string rather than a branch.
+                        // Null only for a source that reports no type, and Jira is that source. On
+                        // this fetch path the WIQL matched on System.WorkItemType and the batch asked
+                        // for it, so a null is unreachable here - which is why this is an empty string
+                        // rather than a branch. Note that the contract now calls the field nullable,
+                        // and that is not a contradiction: a reconciled row can carry no type at all,
+                        // because no answer came back to take one from. The narrow claim is about this
+                        // loop, not about the field.
                         WorkItemType = item.ItemType ?? string.Empty,
                         IsWaiting = isWaiting,
                         // Read off the row rather than fetched. Microsoft.VSTS.Common.StateChangeDate

@@ -545,6 +545,7 @@ namespace Todo.Contracts
 
         /// <summary>
         /// Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false.
+        /// <br/>Note where the analogy with closureReason stops, because it stops at the one place that matters: a reason is carried back on the closure row, and this is deliberately not carried back on the reopening row — JiraReopeningRow sends the status and lets the server map it again. The two are not arbitrary opposites. A reason has to travel because the server cannot recompute it: ownership is not visible in the status. This can be recomputed, from the status and the user's own lists, and re-deriving it is what keeps the suggestion and the import from disagreeing. Mirroring the closure row here would send a decision where the server already has the fact.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("reopenTo")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ReopenTarget>))]
@@ -616,7 +617,8 @@ namespace Todo.Contracts
         public string Key { get; set; }
 
         /// <summary>
-        /// Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason. Required rather than optional: an absent reason would have to default to one of the two, and defaulting to resolved brings back the very skipping this field exists to prevent.
+        /// Why this task is being closed, because the server cannot work it out from the status alone — see ClosureReason.
+        /// <br/>What `required` buys is a compiler on the sending side: the generated TypeScript makes it a mandatory constructor argument, so a client cannot forget it. It buys nothing on the receiving side, and that is measured rather than assumed — the generated property is a non-nullable enum whose first member is `resolved`, the `[Required]` attribute is inert because the host runs no validation pipeline (and could never fail on a non-nullable enum anyway), and the hand-written closure validation asks about the key and the status only. A body with no `reason` therefore deserialises silently to `resolved`. The server cannot tell that case from a genuine resolved closure, so the guarantee has to come from every producer setting the field — not from this keyword.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("reason")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -700,7 +702,7 @@ namespace Todo.Contracts
         public int Closed { get; set; }
 
         /// <summary>
-        /// How many local tasks were put back into an open status. Its own count rather than folded into imported, because the button now does three things and one number cannot say which of them happened.
+        /// How many local tasks were put back into an open status. Its own count rather than folded into imported, because once the reopening lands the button will do three things and one number cannot say which of them happened.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("reopened")]
         public int Reopened { get; set; }
@@ -814,7 +816,7 @@ namespace Todo.Contracts
         public bool SuggestsReopening { get; set; }
 
         /// <summary>
-        /// Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false.
+        /// Which status the reopening would restore, shown so the suggestion says what it will do. Null when suggestsReopening is false. See the field of the same name on JiraPreviewRow for where the analogy with closureReason stops: this one is not carried back on the reopening row, because the server can re-derive it and a reason it cannot.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("reopenTo")]
         [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ReopenTarget>))]

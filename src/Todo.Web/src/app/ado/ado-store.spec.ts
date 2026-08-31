@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { AdoPreviewRow, API_BASE_URL } from '../api/todo-client';
+import { AdoPreviewRow, API_BASE_URL, IAdoPreviewRow } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { AdoStore } from './ado-store';
 
@@ -17,13 +17,19 @@ interface PreviewRowJson {
   note?: string;
   deadline?: string;
   requester?: string;
-  state: string;
-  workItemType: string;
+  // Nullable, and spelled that way rather than as `string`, because the wire is what this
+  // interface describes: reconciliation made both fields nullable, and the host serialises a null
+  // instead of omitting the property. A fixture typed `string` cannot express the row the store's
+  // own guard exists to drop, which is how that guard would go unmeasured.
+  state?: string | null;
+  workItemType?: string | null;
   isWaiting: boolean;
   waitingSince?: string;
   alreadyImported: boolean;
   suggestsClosing: boolean;
+  closureReason?: string;
   suggestsReopening: boolean;
+  reopenTo?: string;
   doneAt?: string;
   excluded?: string;
 }
@@ -45,6 +51,16 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
 
 function json(body: unknown): Blob {
   return new Blob([JSON.stringify(body)]);
+}
+
+/**
+ * The wire fixture handed to the generated constructor, which is the one place the two disagree: the
+ * generated interface types a nullable field as `string | undefined`, while the host sends a real
+ * `null`. The cast says that once, here, rather than at each call site - and it is why a test that
+ * needs a null goes through `flush` instead, taking the path production takes.
+ */
+function constructed(overrides: Partial<PreviewRowJson> = {}): AdoPreviewRow {
+  return new AdoPreviewRow(row(overrides) as IAdoPreviewRow);
 }
 
 describe('AdoStore', () => {
@@ -167,7 +183,7 @@ describe('AdoStore', () => {
   });
 
   it('should empty the list when the preview fails, so no stale rows can be imported', async () => {
-    store.rows.set([new AdoPreviewRow(row({ key: '17170' }))]);
+    store.rows.set([constructed({ key: '17170' })]);
     store.total.set(1);
 
     const previewed = store.preview();
@@ -239,9 +255,7 @@ describe('AdoStore', () => {
    */
   it('should send neither its own opinion about waiting nor the proposed deadline', async () => {
     const imported = store.import([
-      new AdoPreviewRow(
-        row({ key: '15664', state: 'Blocked', isWaiting: true, deadline: '2026-08-23' }),
-      ),
+      constructed({ key: '15664', state: 'Blocked', isWaiting: true, deadline: '2026-08-23' }),
     ]);
 
     const request = http.expectOne('/api/ado/import');
@@ -252,6 +266,44 @@ describe('AdoStore', () => {
     expect(keys).toContain('state');
     expect(keys).toContain('workItemType');
     request.flush(json({ imported: 1, skipped: 0 }));
+    await imported;
+  });
+
+  /**
+   * A body the server should not send: a row that suggests closing while naming no state. The guard
+   * exists to make that harmless rather than to trust it away, so this measures it.
+   *
+   * It goes through preview and flush rather than `new AdoPreviewRow(...)` on purpose. The generated
+   * type admits only `string | undefined`, so a null could not be constructed through it at all -
+   * while the wire really does carry one, because the host serialises nulls rather than omitting
+   * them. This is the path production takes: JSON, then the client's own `init`.
+   *
+   * Two closures rather than one, and that is the assertion's teeth: the answered row has to survive
+   * the same filter that drops the other. With one row the list would be empty either way, and the
+   * test would pass against a guard that dropped everything.
+   */
+  it('should drop a closable row whose state the source never answered with', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/ado/preview').flush(
+      json({
+        total: 2,
+        rows: [
+          row({ key: '16901', state: 'Resolved', alreadyImported: true, suggestsClosing: true }),
+          row({ key: '17165', state: null, alreadyImported: true, suggestsClosing: true }),
+        ],
+      }),
+    );
+    await previewed;
+
+    // Both are closable as far as the store is concerned - the flag is what it filters on.
+    expect(store.closable().map((r) => r.key)).toEqual(['16901', '17165']);
+
+    const imported = store.import([], store.closable());
+    const request = http.expectOne('/api/ado/import');
+    expect(JSON.parse(request.request.body).closures).toEqual([
+      { key: '16901', state: 'Resolved', reason: 'resolved' },
+    ]);
+    request.flush(json({ imported: 0, skipped: 0, closed: 1 }));
     await imported;
   });
 

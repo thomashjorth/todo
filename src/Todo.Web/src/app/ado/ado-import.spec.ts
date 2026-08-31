@@ -20,13 +20,16 @@ interface PreviewRowJson {
   note?: string;
   deadline?: string;
   requester?: string;
-  state: string;
-  workItemType: string;
+  // Nullable, because this interface describes the wire and reconciliation made both fields so.
+  state?: string | null;
+  workItemType?: string | null;
   isWaiting: boolean;
   waitingSince?: string;
   alreadyImported: boolean;
   suggestsClosing: boolean;
+  closureReason?: string;
   suggestsReopening: boolean;
+  reopenTo?: string;
   doneAt?: string;
   excluded?: string;
 }

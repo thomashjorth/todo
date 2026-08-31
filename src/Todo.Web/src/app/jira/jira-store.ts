@@ -3,13 +3,13 @@ import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../api/api-error-message';
 import {
+  ClosureReason,
   JiraClient,
   JiraClosureRow,
   JiraImportRequest,
   JiraImportResponse,
   JiraImportRow,
   JiraPreviewRow,
-  ClosureReason,
 } from '../api/todo-client';
 
 /**

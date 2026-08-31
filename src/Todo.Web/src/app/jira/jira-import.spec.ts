@@ -14,13 +14,16 @@ interface PreviewRowJson {
   note?: string;
   deadline?: string;
   requester?: string;
-  status: string;
+  // Nullable, because this interface describes the wire and reconciliation made the status so.
+  status?: string | null;
   isWaiting: boolean;
   isDuty: boolean;
   waitingSince?: string;
   alreadyImported: boolean;
   suggestsClosing: boolean;
+  closureReason?: string;
   suggestsReopening: boolean;
+  reopenTo?: string;
   doneAt?: string;
   excluded?: string;
 }

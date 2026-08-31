@@ -49,6 +49,10 @@ public static class ErrorCodes
     public const string JiraExcludedDone = "jira.excludedDone";
 
     /// <summary>
+    /// Both an error code and the value of <c>excluded</c> on a preview row, so the frontend
+    /// translates it with the same function it uses for <c>ApiError.code</c> - see
+    /// <see cref="JiraExcludedWaiting"/>.
+    ///
     /// Reconciliation asked about a key that is still assigned to you and still unresolved, so
     /// nothing has changed and there is nothing to suggest - it simply did not come back in the
     /// fetch. Shown rather than hidden, the same choice <see cref="JiraExcludedWaiting"/> makes: a
@@ -59,6 +63,9 @@ public static class ErrorCodes
     public const string JiraOutsideFilter = "jira.outsideFilter";
 
     /// <summary>
+    /// Both an error code and the value of <c>excluded</c> on a preview row, like its sibling
+    /// <see cref="JiraOutsideFilter"/>.
+    ///
     /// Reconciliation asked about a key and Jira answered with neither the issue nor an ownership -
     /// deleted, moved, or outside what the token may read. Shown rather than acted on, because the
     /// absence cannot say which of those it was: Jira Data Center is documented to hide an issue you
