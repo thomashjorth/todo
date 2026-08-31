@@ -698,6 +698,20 @@ git commit -m "✨ Forhåndsvisningen foreslår at genåbne en opgave kilden ikk
 - Ret: `src/Todo.Host/Endpoints/AdoEndpoints.cs`, `src/Todo.Host/Endpoints/JiraEndpoints.cs`
 - Test: `tests/Todo.Api.Tests/AdoEndpointsTests.cs`, `tests/Todo.Api.Tests/JiraEndpointsTests.cs`
 
+**Læs først: `excluded` kan ikke længere bevise en opsætning, og det hul er nyt.** Task 5 lagde reglen
+om at en række med en handling ikke bærer `excluded` — og opdagede i samme ombæring at dens egen test
+brugte `excluded == excludedWaiting` til at bevise at kontakten var slukket. Efter reglen ser rækken
+**identisk ud** med kontakten tændt og slukket, så den påstand kunne ikke længere holde. Den flyttede
+til `TurnIncludeWaitingOffAsync`, som læser indstillingen tilbage gennem appen og påstår
+`"adoIncludeWaiting":false` i den rå JSON.
+
+Konsekvensen for dig: **enhver test der læner sig på `excluded` for at bevise en opsætning, har samme
+hul på en foreslående række.** Du lægger to nye koder på det felt, så spørg for hver test du skriver
+om `excluded` er *det den måler* eller kun *det den bruger til at vide at fixturet virkede* — og i det
+andet tilfælde, læs opsætningen tilbage gennem appen i stedet. Bemærk også at et mellemled ikke er nok:
+Task 5's første rettelse var `Assert.True(row.IsWaiting)`, som **heller ikke** viser kontaktens
+tilstand, fordi `isWaiting` er ren rolle.
+
 **Trin 1 — udvid nøgleopslaget først.** `ImportedKeysAsync` skal svare nøgle → (status, titel), og
 den skal hente **alle** nøgler for kilden frem for kun de hentede — forhåndsvisningen skal jo kunne
 se hvad der *manglede*. Importens kalder bruger samme metode; den ekstra mængde er hele appens
