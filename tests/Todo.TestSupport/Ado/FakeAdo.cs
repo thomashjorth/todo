@@ -98,6 +98,12 @@ public sealed class FakeAdo : IAsyncDisposable
     public const string UnknownKey = "999999";
 
     /// <summary>
+    /// Where the filler work items' ids start, clear of every fixed one. Its own constant so that
+    /// <see cref="FillerKeys"/> and the constructor cannot drift apart.
+    /// </summary>
+    private const int FillerBase = 20000;
+
+    /// <summary>
     /// Explicit rather than inherited from the hosting defaults, so the property names this fake
     /// answers with are decided here and cannot drift with a framework default. Nulls are left out
     /// rather than written, because a field a work item type does not have is <em>absent</em> from the
@@ -227,6 +233,11 @@ public sealed class FakeAdo : IAsyncDisposable
     /// The reconciliation's own narrowing. Its <c>IN</c> list holds bare numbers where the type
     /// filter's holds quoted names, and the <c>SELECT [System.Id] FROM</c> at the front of every
     /// query is not a match: the operator has to follow the field for the pattern to fire.
+    ///
+    /// This branch was dead when it was written, and it took a review to notice: with it disabled the
+    /// whole file stayed green, because no test pinned how <em>large</em> StillMine was. It is live
+    /// now that Reconciling_finds_a_work_item_that_is_no_longer_assigned_to_me asserts on a set of
+    /// one - measured, disabling it again answers ten ids to a caller that asked about two.
     /// </summary>
     private static readonly Regex IdClause = new(
         @"\[System\.Id\]\s+IN\s+\(([^)]*)\)", RegexOptions.IgnoreCase);
@@ -270,7 +281,7 @@ public sealed class FakeAdo : IAsyncDisposable
         // so the only honest way to measure that it reads every chunk is to have more than 200 of them.
         // Making the source's chunk size a test hook would have measured the hook instead.
         var filled = Enumerable.Range(0, filler).Select(index => new WorkItemBody(
-            20000 + index,
+            FillerBase + index,
             new FieldsBody(
                 $"Fyld {index.ToString(CultureInfo.InvariantCulture)}",
                 "Active",
@@ -415,6 +426,18 @@ public sealed class FakeAdo : IAsyncDisposable
             WorkItemTypes: workItemTypes ?? AdoDefaults.WorkItemTypes,
             DefaultDeadlineDays: defaultDeadlineDays),
         Clock(today));
+
+    /// <summary>
+    /// The keys of the first <paramref name="count"/> filler work items, for a caller that asked for
+    /// filler and now wants to hand those very ids back - which is what a reconciliation does, and
+    /// why it needs more than two hundred of something to cross the chunk size at all.
+    /// </summary>
+    public static IReadOnlyList<string> FillerKeys(int count) =>
+    [
+        .. Enumerable
+            .Range(FillerBase, count)
+            .Select(id => id.ToString(CultureInfo.InvariantCulture)),
+    ];
 
     private static IClock Clock(DateOnly? today) => new FixedClock(today ?? Today);
 

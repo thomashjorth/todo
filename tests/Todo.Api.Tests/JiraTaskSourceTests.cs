@@ -306,7 +306,12 @@ public class JiraTaskSourceTests
     /// visible act in the diff rather than a silent one.
     ///
     /// The message is asserted on as well as the type, because <see cref="NotSupportedException"/>
-    /// says nothing on its own about who is supposed to fix it or when.
+    /// says nothing on its own about who is supposed to fix it or when — and naming task 3 is what
+    /// makes deleting this test part of that task rather than a loose end.
+    ///
+    /// It asserted on an empty SearchRequests too, until that was spotted as an assertion that cannot
+    /// fail: the method is a bare throw expression, so no code path exists on which a request could
+    /// have gone out. It said nothing and it is gone.
     /// </summary>
     [Fact]
     public async Task Reconciling_against_jira_throws_until_it_is_built()
@@ -317,6 +322,5 @@ public class JiraTaskSourceTests
             () => jira.SourceFor("SAAS").ReconcileAsync(["SAAS-1"]));
 
         Assert.Contains("task 3", exception.Message, StringComparison.Ordinal);
-        Assert.Empty(jira.SearchRequests);
     }
 }

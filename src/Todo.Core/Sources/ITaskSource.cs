@@ -49,6 +49,14 @@ public interface ITaskSource
     /// A key the source does not know must be answered as an <em>absence from both sets</em> rather
     /// than as an exception. The deleted item is one of the outcomes this method exists to report, so
     /// throwing would fail the whole preview on the very case it was written for.
+    ///
+    /// That puts an obligation on the caller, because absence is not self-describing: it reads as
+    /// "gone from the source", and the app's answer to gone is to offer to close the task. So pass
+    /// only keys this source itself wrote — filter on <see cref="SourceId"/> — and pass them in the
+    /// spelling it wrote them in. A key an implementation cannot interpret is absent for that reason
+    /// instead, and the caller cannot tell the two apart; Azure DevOps reads its keys as numbers, so
+    /// <c>0016901</c> comes back as <c>16901</c> and the caller's own spelling is in neither set.
+    /// Either way a live item is reported as deleted.
     /// </summary>
     Task<ExternalReconciliation> ReconcileAsync(
         IReadOnlyList<string> keys, CancellationToken ct = default);

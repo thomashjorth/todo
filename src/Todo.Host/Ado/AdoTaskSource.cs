@@ -196,7 +196,7 @@ public sealed class AdoTaskSource : ITaskSource
     {
         var settings = await _settings(ct);
         var ids = await QueryIdsAsync(settings, BaseQuery + Ordering, ct);
-        var items = await HydrateAsync(settings, ids, StateField, ct);
+        var items = await HydrateAsync(settings, ids, StateField, ct: ct);
 
         return
         [
@@ -223,7 +223,7 @@ public sealed class AdoTaskSource : ITaskSource
         var wiql = AssignedQuery(settings);
 
         var ids = await QueryIdsAsync(settings, wiql, ct);
-        var items = await HydrateAsync(settings, ids, ItemFields, ct);
+        var items = await HydrateAsync(settings, ids, ItemFields, ct: ct);
 
         // The deadline is the same for every row and is derived once: it is a function of today and a
         // setting, not of the work item. Azure DevOps has no due date field at all - decision A.
@@ -279,10 +279,20 @@ public sealed class AdoTaskSource : ITaskSource
 
     /// <summary>
     /// What Azure DevOps says about keys the app already holds, in two calls that are both reuse. The
-    /// WIQL answers ownership — <c>[System.Id] IN (…) AND [System.AssignedTo] = @Me</c>, where an id
-    /// nobody has matches nothing rather than failing — and the batch read answers state, because
-    /// reading by id is independent of both assignment and state. That independence is the whole
-    /// mechanism: it is how a work item the fetch cannot see comes back at all.
+    /// WIQL answers ownership — <c>[System.Id] IN (…) AND [System.AssignedTo] = @Me</c> — and the
+    /// batch read answers state, because reading by id is independent of both assignment and state.
+    /// That independence is the whole mechanism: it is how a work item the fetch cannot see comes
+    /// back at all.
+    ///
+    /// <b>Unmeasured against the real instance, in two places.</b> Nobody has yet put either question
+    /// to that server: that <c>WHERE [System.Id] IN (…)</c> is valid WIQL there at all, and that an id
+    /// nobody has simply matches nothing rather than failing the query the way the batch read does.
+    /// A green suite therefore says the source asks this and reads the answer correctly — it does not
+    /// say the server answers it. If the second assumption is wrong,
+    /// <c>An_unknown_key_is_an_absence_rather_than_a_failure</c> is wrong against the real instance
+    /// and the feature falls over on the one case it was written for. The delivery's own history is
+    /// the argument for labelling rather than asserting: a 404 was predicted for the batch read and a
+    /// 400 was measured.
     ///
     /// <b>The query is deliberately not built out of <see cref="BaseQuery"/>.</b> BaseQuery carries
     /// <c>&lt;&gt; 'Closed'</c>, so reusing it would drop a resolved work item out of the ownership
@@ -300,9 +310,15 @@ public sealed class AdoTaskSource : ITaskSource
         IReadOnlyList<string> keys, CancellationToken ct = default)
     {
         // The ordinary state rather than an edge case: when the fetch brought everything back, this
-        // is what the caller passes. Here to save the settings read and to say so out loud - it is
-        // NOT what keeps the network quiet, measured by deleting it, after which all 47 tests stayed
-        // green because an empty key list chunks into no rounds either way.
+        // is what the caller passes.
+        //
+        // It IS what keeps the network quiet for an empty list, and the measurement that says so had
+        // to be taken twice, because the first one was a compound mutation read as a simple one:
+        // deleting this guard alone leaves the whole of AdoTaskSourceTests green, and replacing the
+        // chunking below with one unchunked round alone turns exactly one test red - but it is not
+        // this test, because that mutation is unreachable from an empty list while this guard returns
+        // in front of it. Only both together fell No_keys_is_no_request. So neither half is redundant
+        // and neither half is the whole answer.
         if (keys.Count == 0)
         {
             return new ExternalReconciliation([], new HashSet<string>(StringComparer.Ordinal));
@@ -327,12 +343,18 @@ public sealed class AdoTaskSource : ITaskSource
         var found = new List<ExternalTask>();
 
         // Chunked here even though HydrateAsync chunks internally, because the WIQL has no chunking
-        // of its own and its IN list is the half that would grow without a bound. Measured by
-        // replacing this with one unchunked round: an empty key list then emits
-        // WHERE [System.Id] IN (), a WIQL syntax error against the real server, and both of the "no
-        // request" tests go red naming exactly that query. The size is the existing BatchSize, whose
-        // own note is worth reading before the number is trusted - the cap is Azure DevOps'
-        // documented one rather than one measured here.
+        // of its own and its IN list is the half that would otherwise grow without a bound. Measured
+        // by replacing this with one unchunked round: a key list holding nothing numeric then emits
+        // WHERE [System.Id] IN (), a WIQL syntax error against the real server, and
+        // A_key_that_is_not_a_work_item_id_is_dropped_before_the_query goes red naming that query.
+        // That is one test, not two - see the guard above for why the empty list cannot reach here.
+        //
+        // Every chunk is asked, and a loop that stopped after the first would be worse here than on
+        // the fetch side: a key nobody asked about lands in neither Found nor StillMine, which this
+        // contract defines as "the source does not know it" - so the app would offer to close live
+        // tasks by the hundred. The size is the existing BatchSize, whose own note is worth reading
+        // before the number is trusted: the cap is Azure DevOps' documented one rather than one
+        // measured here.
         foreach (var chunk in ids.Chunk(BatchSize))
         {
             var stillMine = await QueryIdsAsync(
@@ -351,7 +373,7 @@ public sealed class AdoTaskSource : ITaskSource
             // new task, so a suggested deadline would be noise on a row whose tick box means "close
             // this one".
             found.AddRange(
-                (await HydrateAsync(settings, [.. chunk], ItemFields, ct, omitMissing: true))
+                (await HydrateAsync(settings, [.. chunk], ItemFields, omitMissing: true, ct: ct))
                     .Select(item => Map(item, deadline: null)));
         }
 
@@ -455,8 +477,8 @@ public sealed class AdoTaskSource : ITaskSource
         AdoSettings settings,
         List<long> ids,
         string fields,
-        CancellationToken ct,
-        bool omitMissing = false)
+        bool omitMissing = false,
+        CancellationToken ct = default)
     {
         var items = new List<WorkItemBody>();
         var policy = omitMissing ? "&errorPolicy=omit" : string.Empty;
@@ -669,11 +691,12 @@ public sealed class AdoTaskSource : ITaskSource
     ///
     /// <list type="bullet">
     /// <item>UriBuilder does <b>not</b> un-escape the <c>%20</c> in the collection name. It keeps it in
-    /// the path and in the query alike, and rebuilding this method around one leaves all 36 tests
-    /// green. Slice 11 measured a JQL <em>query string</em>; that does not carry over to a path.</item>
+    /// the path and in the query alike, and rebuilding this method around one leaves the whole of
+    /// AdoTaskSourceTests green. Slice 11 measured a JQL <em>query string</em>; that does not carry
+    /// over to a path.</item>
     /// <item>Interpolating the base Uri does un-escape - <c>Uri.ToString()</c> gives
     /// <c>/Fake Collection</c> - and it still changes nothing, because <c>new Uri(...)</c> re-escapes
-    /// the literal space on the way back in. Also measured: 36 green.</item>
+    /// the literal space on the way back in. Also measured: green throughout.</item>
     /// <item>What is observable is <b>double</b> escaping. Escaping a path that already carries
     /// <c>%20</c> sends <c>Fake%2520Collection</c>, and that is the one fault the raw-target assertion
     /// in AdoTaskSourceTests can catch.</item>

@@ -636,6 +636,13 @@ public class AdoTaskSourceTests
     /// Both halves are asserted because they fail differently: Found says the source can still see an
     /// item the fetch has lost, StillMine says it can tell the two apart. A source that answered
     /// every key it was handed as still mine would pass on the first assertion alone.
+    ///
+    /// <b>The Single is what carries StillMine's extent, and it is not a tidier way to write
+    /// DoesNotContain.</b> Contains and DoesNotContain together say nothing about what else is in the
+    /// set, and two mutations proved that hole rather than argued it: turning off FakeAdo's own
+    /// narrowing of <c>[System.Id] IN</c>, and making the source leak an id nobody asked about into
+    /// the clause, each left the entire file green. Found was pinned by its count all along; StillMine
+    /// was not pinned by anything.
     /// </summary>
     [Fact]
     public async Task Reconciling_finds_a_work_item_that_is_no_longer_assigned_to_me()
@@ -645,8 +652,7 @@ public class AdoTaskSourceTests
         var answer = await ado.SourceFor().ReconcileAsync([FakeAdo.HandedOverKey, FakeAdo.MineKey]);
 
         Assert.Equal(2, answer.Found.Count);
-        Assert.Contains(FakeAdo.MineKey, answer.StillMine);
-        Assert.DoesNotContain(FakeAdo.HandedOverKey, answer.StillMine);
+        Assert.Equal(FakeAdo.MineKey, Assert.Single(answer.StillMine));
     }
 
     /// <summary>
@@ -738,12 +744,14 @@ public class AdoTaskSourceTests
     /// server the first of those is a WIQL syntax error, so it has to not happen rather than merely
     /// not matter.
     ///
-    /// Seen to fail on the shape that invites it, which is a tempting simplification rather than a
-    /// contrived mutation: one unchunked round instead of one per chunk, on the grounds that
-    /// HydrateAsync already chunks internally. That emits <c>WHERE [System.Id] IN ()</c> for an empty
-    /// key list, and this names the query in its failure. Note what does <em>not</em> fell it —
-    /// deleting the source's own <c>keys.Count == 0</c> guard leaves all 47 green, because an empty
-    /// list chunks into no rounds anyway.
+    /// <b>It takes a two-part mutation to fell this, and the first attempt to write that down was
+    /// wrong.</b> Measured in three runs: the unchunked shape alone turns exactly one test red, and
+    /// it is the sibling below rather than this one; deleting the source's <c>keys.Count == 0</c>
+    /// guard alone turns none red; only both together fell this. The reason is in the source and was
+    /// there to be read - the guard returns in front of the chunking, so an empty key list can never
+    /// reach the unchunked form. The original note claimed the unchunked shape alone did it, which
+    /// was a compound mutation reported as a simple one: the guard was still deleted from the run
+    /// before.
     /// </summary>
     [Fact]
     public async Task No_keys_is_no_request()
@@ -768,8 +776,10 @@ public class AdoTaskSourceTests
     /// the dropping happened before the query rather than after it.
     ///
     /// Seen to fail on both of the ways this is naturally got wrong: <c>long.Parse</c> in place of
-    /// the TryParse, which throws <c>FormatException</c> on the key rather than dropping it, and the
-    /// unchunked shape described on the test above, which sends the query anyway.
+    /// the TryParse, which throws <c>FormatException</c> on the key rather than dropping it, and one
+    /// unchunked round in place of the per-chunk loop, which sends <c>WHERE [System.Id] IN ()</c>
+    /// anyway. This is the test the unchunked shape fells on its own — the sibling above needs that
+    /// mutation <em>and</em> the source's empty-list guard gone, because the guard returns first.
     /// </summary>
     [Fact]
     public async Task A_key_that_is_not_a_work_item_id_is_dropped_before_the_query()
@@ -805,7 +815,45 @@ public class AdoTaskSourceTests
 
         Assert.Collection(
             ado.BatchRequests,
-            fetch => Assert.DoesNotContain("errorPolicy", fetch),
+            // Pinned whole rather than by the absence of one word, which is the cheap half of this
+            // test. Measured: deleting &fields= from the hydration altogether left every test green,
+            // because FakeAdo.Projected answers every field when it is asked for none - so nothing
+            // else in the suite could see the batch read's query string at all.
+            fetch => Assert.Equal(
+                "?ids=17170,15664,17165,16901,17162"
+                + "&fields=System.Title,System.State,System.WorkItemType,System.CreatedBy,"
+                + "System.Description,Microsoft.VSTS.TCM.ReproSteps,"
+                + "Microsoft.VSTS.Common.StateChangeDate"
+                + "&api-version=7.1",
+                fetch),
             reconciliation => Assert.Contains("errorPolicy=omit", reconciliation));
+    }
+
+    /// <summary>
+    /// Every chunk is asked, and the failure this guards is worse than the fetch side's. There a loop
+    /// that stopped after the first chunk silently imported the newest few work items; here a key
+    /// nobody asked about lands in <em>neither</em> Found nor StillMine, which
+    /// <see cref="ExternalReconciliation"/> defines as "the source does not know it" — so the app
+    /// would offer to close a live task for every key past the first chunk. Measured on the clean
+    /// source and under <c>.Chunk(BatchSize).Take(1)</c>, which the rest of the file cannot see.
+    ///
+    /// WiqlRequests is the half the fetch side's guard has not got: the fetch pages the hydration
+    /// only, because WIQL is not paged there, while here the IN list is chunked too and is the half
+    /// that would grow without a bound.
+    /// </summary>
+    [Fact]
+    public async Task Every_chunk_of_the_reconciliation_is_asked_rather_than_only_the_first()
+    {
+        // 205 keys against a chunk size of 200 is two rounds, and the second is the one a loop that
+        // stopped early never makes. Filler work items rather than the fixed ones, because crossing
+        // the real chunk size is the point and making that size a test hook would measure the hook.
+        await using var ado = await FakeAdo.StartAsync(filler: 205);
+
+        var answer = await ado.SourceFor().ReconcileAsync(FakeAdo.FillerKeys(205));
+
+        Assert.Equal(205, answer.Found.Count);
+        Assert.Equal(205, answer.StillMine.Count);
+        Assert.Equal(2, ado.WiqlRequests.Count);
+        Assert.Equal(2, ado.BatchRequests.Count);
     }
 }
