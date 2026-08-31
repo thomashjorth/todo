@@ -744,14 +744,20 @@ public class AdoTaskSourceTests
     /// server the first of those is a WIQL syntax error, so it has to not happen rather than merely
     /// not matter.
     ///
-    /// <b>It takes a two-part mutation to fell this, and the first attempt to write that down was
-    /// wrong.</b> Measured in three runs: the unchunked shape alone turns exactly one test red, and
-    /// it is the sibling below rather than this one; deleting the source's <c>keys.Count == 0</c>
-    /// guard alone turns none red; only both together fell this. The reason is in the source and was
-    /// there to be read - the guard returns in front of the chunking, so an empty key list can never
-    /// reach the unchunked form. The original note claimed the unchunked shape alone did it, which
-    /// was a compound mutation reported as a simple one: the guard was still deleted from the run
-    /// before.
+    /// <b>It takes a two-part mutation to fell this one.</b> Measured in three runs, reverting
+    /// between each: the unchunked shape alone fells the sibling below and
+    /// <c>Every_chunk_of_the_reconciliation_…</c>, but not this test; deleting the source's
+    /// <c>keys.Count == 0</c> guard alone fells nothing at all; only both together fell this. The
+    /// reason is in the source and was there to be read — the guard returns in front of the chunking,
+    /// so an empty key list can never reach the unchunked form.
+    ///
+    /// <b>Which tests fall, not how many.</b> This note has been wrong twice on a count and never on
+    /// the mechanism. First it claimed the unchunked shape alone did it, which was a compound
+    /// mutation reported as a simple one — the guard was still deleted from the run before. Then the
+    /// correction said "exactly one test", and the very commit that wrote it added
+    /// <c>Every_chunk_of_the_reconciliation_…</c>, which fells that same mutation and made it two.
+    /// A count is a fact about the suite on the day it was written; an identity is a fact about the
+    /// code.
     /// </summary>
     [Fact]
     public async Task No_keys_is_no_request()
@@ -778,8 +784,10 @@ public class AdoTaskSourceTests
     /// Seen to fail on both of the ways this is naturally got wrong: <c>long.Parse</c> in place of
     /// the TryParse, which throws <c>FormatException</c> on the key rather than dropping it, and one
     /// unchunked round in place of the per-chunk loop, which sends <c>WHERE [System.Id] IN ()</c>
-    /// anyway. This is the test the unchunked shape fells on its own — the sibling above needs that
-    /// mutation <em>and</em> the source's empty-list guard gone, because the guard returns first.
+    /// anyway. This is one of the tests the unchunked shape fells on its own, alongside
+    /// <c>Every_chunk_of_the_reconciliation_…</c> — while <c>No_keys_is_no_request</c> above needs
+    /// that mutation <em>and</em> the source's empty-list guard gone, because the guard returns
+    /// first.
     /// </summary>
     [Fact]
     public async Task A_key_that_is_not_a_work_item_id_is_dropped_before_the_query()
@@ -849,7 +857,7 @@ public class AdoTaskSourceTests
         // the real chunk size is the point and making that size a test hook would measure the hook.
         await using var ado = await FakeAdo.StartAsync(filler: 205);
 
-        var answer = await ado.SourceFor().ReconcileAsync(FakeAdo.FillerKeys(205));
+        var answer = await ado.SourceFor().ReconcileAsync(ado.FillerKeys());
 
         Assert.Equal(205, answer.Found.Count);
         Assert.Equal(205, answer.StillMine.Count);

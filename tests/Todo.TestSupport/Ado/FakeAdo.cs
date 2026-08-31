@@ -98,8 +98,9 @@ public sealed class FakeAdo : IAsyncDisposable
     public const string UnknownKey = "999999";
 
     /// <summary>
-    /// Where the filler work items' ids start, clear of every fixed one. Its own constant so that
-    /// <see cref="FillerKeys"/> and the constructor cannot drift apart.
+    /// Where the filler work items' ids start, clear of every fixed one above. Only the constructor
+    /// reads it: <see cref="FillerKeys"/> reads the ids back off the items it seeded rather than
+    /// recomputing them from here, so the two cannot disagree about where the range begins.
     /// </summary>
     private const int FillerBase = 20000;
 
@@ -428,15 +429,24 @@ public sealed class FakeAdo : IAsyncDisposable
         Clock(today));
 
     /// <summary>
-    /// The keys of the first <paramref name="count"/> filler work items, for a caller that asked for
+    /// The keys of the filler work items this instance actually holds, for a caller that asked for
     /// filler and now wants to hand those very ids back - which is what a reconciliation does, and
     /// why it needs more than two hundred of something to cross the chunk size at all.
+    ///
+    /// An instance method reading <see cref="_items"/> rather than a static one taking a count, so
+    /// the number lives in the <c>filler:</c> argument alone. The static form let the two drift, and
+    /// silently: <c>StartAsync(filler: 205)</c> asked with 300 keys is <b>green</b>, because the 95
+    /// nobody seeded fall out of the WIQL and are omitted from the batch read. No production rule
+    /// becomes unmeasurable that way - it is a typo waiting to be written - but a fixture that can be
+    /// wrong without saying so is the thing this file exists not to be. It also turns
+    /// <see cref="FillerBase"/>'s claim to be clear of every fixed id from an assertion into a
+    /// construction, because these ids are read back rather than recomputed.
     /// </summary>
-    public static IReadOnlyList<string> FillerKeys(int count) =>
+    public IReadOnlyList<string> FillerKeys() =>
     [
-        .. Enumerable
-            .Range(FillerBase, count)
-            .Select(id => id.ToString(CultureInfo.InvariantCulture)),
+        .. _items
+            .Skip(Measured.Length)
+            .Select(item => item.Id.ToString(CultureInfo.InvariantCulture)),
     ];
 
     private static IClock Clock(DateOnly? today) => new FixedClock(today ?? Today);

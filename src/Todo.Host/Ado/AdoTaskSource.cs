@@ -312,13 +312,17 @@ public sealed class AdoTaskSource : ITaskSource
         // The ordinary state rather than an edge case: when the fetch brought everything back, this
         // is what the caller passes.
         //
-        // It IS what keeps the network quiet for an empty list, and the measurement that says so had
-        // to be taken twice, because the first one was a compound mutation read as a simple one:
-        // deleting this guard alone leaves the whole of AdoTaskSourceTests green, and replacing the
-        // chunking below with one unchunked round alone turns exactly one test red - but it is not
-        // this test, because that mutation is unreachable from an empty list while this guard returns
-        // in front of it. Only both together fell No_keys_is_no_request. So neither half is redundant
-        // and neither half is the whole answer.
+        // It IS what keeps the network quiet for an empty list, and only together with the chunking
+        // below: deleting this guard alone fells nothing, and replacing the chunking with one
+        // unchunked round alone fells other tests but never No_keys_is_no_request, because an empty
+        // list cannot reach that mutation while this guard returns in front of it. Both together are
+        // what fell it. Neither half is redundant, and neither half is the whole answer.
+        //
+        // Named rather than counted, and that is the lesson rather than the note: this comment has
+        // been wrong twice about "how many go red", once because a compound mutation was read as a
+        // simple one and once because the commit that corrected it added another test that fells the
+        // same mutation. Which tests fall and why is the claim that stays true when the next caller
+        // arrives; how many is not.
         if (keys.Count == 0)
         {
             return new ExternalReconciliation([], new HashSet<string>(StringComparer.Ordinal));
@@ -347,7 +351,8 @@ public sealed class AdoTaskSource : ITaskSource
         // by replacing this with one unchunked round: a key list holding nothing numeric then emits
         // WHERE [System.Id] IN (), a WIQL syntax error against the real server, and
         // A_key_that_is_not_a_work_item_id_is_dropped_before_the_query goes red naming that query.
-        // That is one test, not two - see the guard above for why the empty list cannot reach here.
+        // No_keys_is_no_request does not - see the guard above for why an empty list cannot reach
+        // here.
         //
         // Every chunk is asked, and a loop that stopped after the first would be worse here than on
         // the fetch side: a key nobody asked about lands in neither Found nor StillMine, which this
