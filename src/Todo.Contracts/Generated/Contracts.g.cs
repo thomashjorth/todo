@@ -557,6 +557,13 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("excluded")]
         public string Excluded { get; set; }
 
+        /// <summary>
+        /// Whether this row came from reconciliation rather than from today's fetch, and the client cannot work it out for itself: a reconciled row that suggests a resolved closure is byte-identical on the wire to a fetched one.
+        /// <br/>It is on the row because two things need it and neither could get it from a count. The screen says "showing N of total", where total is what the source reported about the fetch alone - so N has to be the rows that are not reconciled, or the line reads "showing 4 of 3". And the label chain needs to say why a row is there at all, which is a different sentence for a row the fetch handed over and a row the app went looking for.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reconciled")]
+        public bool Reconciled { get; set; }
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -575,7 +582,7 @@ namespace Todo.Contracts
 
         /// <summary>
         /// Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own.
-        /// <br/>It sits on the response rather than on a row because it is the answer to a question no single key can hold: reconciliation asked about more than one key and Jira recognised none of them, which is what a lost project permission looks like when the instance hides an unbrowsable issue behind a 404. See jira.noneRecognized for why that reading beats the other one.
+        /// <br/>It sits on the response rather than on a row because it answers for the whole set of reconciled keys, which no single row can. Two things reach it. jira.noneRecognized means more than one key was asked about and Jira recognised none of them, which is what a lost project permission looks like when the instance hides an unbrowsable issue behind a 404. Any other code means the reconciliation could not be carried out at all - jira.refused for an issue the token may not read, jira.unreachable for an instance that did not answer - and the field carries it so the fetch's own rows survive a question asked about something else. Both readings are the same sentence to the client: the reconciliation has nothing to say, and here is why.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("reconciliationNotice")]
         public string ReconciliationNotice { get; set; }
@@ -835,6 +842,12 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("excluded")]
         public string Excluded { get; set; }
 
+        /// <summary>
+        /// Whether this row came from reconciliation rather than from today's fetch. See the field of the same name on JiraPreviewRow: the client cannot derive it, the "showing N of total" line needs it because total counts the fetch alone, and the label chain needs it to say why the row is there.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("reconciled")]
+        public bool Reconciled { get; set; }
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -852,8 +865,7 @@ namespace Todo.Contracts
         public int Total { get; set; }
 
         /// <summary>
-        /// Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own.
-        /// <br/>It sits on the response rather than on a row because it is the answer to a question no single key can hold: reconciliation asked about more than one key and Azure DevOps recognised none of them, which is what a token that may no longer read the project looks like. See ado.noneRecognized for why that reading beats the other one.
+        /// Why the reconciliation produced no rows at all, as an error code the frontend translates. Null in the ordinary case, where every reconciled key got a row of its own. See the field of the same name on JiraPreviewResponse: ado.noneRecognized means more than one key was asked about and none was recognised, and any other code means the reconciliation could not be carried out at all - ado.refused, ado.unreachable - with the fetch's own rows kept either way.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("reconciliationNotice")]
         public string ReconciliationNotice { get; set; }

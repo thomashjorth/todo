@@ -187,6 +187,18 @@ public static class AdoEndpoints
                         // timestamp was unreadable. The fallback is for a source with no such field.
                         WaitingSince = isWaiting ? AsUtc(item.StatusChangedAt) : null,
                         AlreadyImported = localStatus is not null,
+                        // This loop is the fetch, so false throughout. Not derivable by the client:
+                        // a reconciled row suggesting a resolved closure is byte-identical to one
+                        // from here, and total counts only what the fetch answered - so without this
+                        // the screen says "showing 4 of 3" the moment anything is reconciled.
+                        //
+                        // Both values are held, and by different tests. Flipped to true here, five go
+                        // red: A_reconciled_row_says_so_because_the_total_counts_only_the_fetch and
+                        // A_refused_key_costs_the_reconciliation_rather_than_the_whole_preview on
+                        // both sources, plus TaskEndpointsTests.Wire_format_uses_the_names_the_
+                        // contract_declares, which reads "reconciled":false off the raw body. Flipped
+                        // to false on the reconciled row instead, only the first pair goes red.
+                        Reconciled = false,
                         SuggestsClosing = suggestsClosing,
                         // Decided rather than left out, and the server cannot tell the two apart: a
                         // closure body without "reason" deserialises to Resolved, because Reason is a
@@ -262,7 +274,38 @@ public static class AdoEndpoints
                     });
                 }
 
-                var (reconciled, notice) = await ReconciledRowsAsync(source, settings, imported, fetched);
+                // Its own catch, and the fetch's rows are what it protects. The outer handler turns a
+                // SourceException into a 400 for the whole response, which was right while the only
+                // call was the fetch itself - but by here the fetch has already succeeded, and taking
+                // its rows down because one reconciled key was refused loses work that is on the
+                // screen for a question asked about something else.
+                //
+                // The path this closes was introduced by the reconciliation and did not exist before
+                // it: one local task whose work item the token has lost access to made the whole
+                // import screen answer 400 until the user found and deleted that task. Worth naming
+                // the irony, because it is what makes the shape obvious in hindsight - noneRecognized
+                // exists so a lost permission cannot ruin the screen, and it only covers the 404
+                // shape; the 403 shape took the screen down completely.
+                //
+                // The code goes in the notice rather than into a field of its own: ado.refused and
+                // ado.unreachable are already translated in both language files, and the notice
+                // already means "the reconciliation has nothing to say and here is why".
+                //
+                // Measured by deleting this catch and letting the outer one have it:
+                // A_refused_key_costs_the_reconciliation_rather_than_the_whole_preview goes red on
+                // both sources with "Expected: OK / Actual: BadRequest", and nothing else moves.
+                List<AdoPreviewRow> reconciled;
+                string? notice;
+
+                try
+                {
+                    (reconciled, notice) =
+                        await ReconciledRowsAsync(source, settings, imported, fetched);
+                }
+                catch (SourceException exception)
+                {
+                    (reconciled, notice) = ([], exception.Code);
+                }
 
                 rows.AddRange(reconciled);
 
@@ -456,11 +499,6 @@ public static class AdoEndpoints
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        if (keys.Count == 0)
-        {
-            return ([], null);
-        }
-
         var answer = await source.ReconcileAsync(keys);
         var found = answer.Found.ToDictionary(item => item.Key, StringComparer.Ordinal);
 
@@ -481,18 +519,24 @@ public static class AdoEndpoints
         // deleted item must still be reported. The false negative that leaves is accepted and written
         // down in the design's section 5.
         //
-        // All three parts are held, and each by a different test. Deleted outright, this fells
-        // Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission on both
-        // sources. Written as "at least one absence" with the count test dropped as well, it fells
-        // A_single_missing_key_is_still_reported_because_all_and_one_are_the_same_there and
-        // A_key_the_source_does_not_know_is_shown_as_missing_and_carries_the_local_title instead.
+        // Three parts, each with its own guard, and each measured by changing that part alone. A
+        // compound mutation is what let the third one hide in the first place, so they are written
+        // out one at a time:
         //
-        // TrueForAll swapped for Exists with the count kept is the one that hid: it left the whole Api
-        // suite green until
-        // One_missing_key_among_answered_ones_still_shows_every_row_because_the_notice_needs_all_of_them
-        // was written for it, and that test is now the only red on both sources. Worth knowing which
-        // way that fault points, because it is the opposite of what the rule is for: one genuinely
-        // deleted item beside one ordinary key would hide every reconciliation row behind this line.
+        //   the whole line deleted        -> Every_key_missing_at_once_suggests_nothing_because_it_
+        //                                    is_more_likely_a_permission
+        //   Count > 1 dropped, all kept   -> A_single_missing_key_is_still_reported_because_all_and_
+        //                                    one_are_the_same_there and A_key_the_source_does_not_
+        //                                    know_is_shown_as_missing_and_carries_the_local_title
+        //   TrueForAll -> Exists, count kept
+        //                                 -> One_missing_key_among_answered_ones_still_shows_every_
+        //                                    row_because_the_notice_needs_all_of_them
+        //
+        // each on both sources, and nothing else red in any of the three. The last one is the one
+        // that hid: it left the whole Api suite green until that test was written for it. Worth
+        // knowing which way that fault points, because it is the opposite of what the rule is for -
+        // one genuinely deleted item beside one ordinary key would hide every reconciliation row
+        // behind this line, the closing offers and the reopenings with them.
         if (keys.Count > 1 && keys.TrueForAll(key => !found.ContainsKey(key)))
         {
             return ([], ErrorCodes.AdoNoneRecognized);
@@ -560,6 +604,9 @@ public static class AdoEndpoints
                 WaitingSince = null,
                 // True by construction: every key here came out of the imported lookup.
                 AlreadyImported = true,
+                // And this is the half alreadyImported cannot say: a fetched row can be imported
+                // too. This one says the fetch did not answer with it and the app went looking.
+                Reconciled = true,
                 SuggestsClosing = reason is not null,
                 ClosureReason = reason,
                 // Follows the reason and not the suggestion. An unassigned item was never finished -
@@ -775,17 +822,23 @@ public static class AdoEndpoints
     /// see what was <em>missing</em> from the fetch, and a lookup narrowed to the keys that came back
     /// cannot answer that - the whole reconciliation would be blind by construction. What it costs is
     /// reading the source's finished tasks along with the open ones on every preview and every import,
-    /// which for one person's list is a few hundred rows of two columns. The caller that does not want
-    /// them filters on the status it now has.
+    /// which for one person's list is a few hundred rows of three narrow columns. The caller that does
+    /// not want the finished ones filters on the status it now has.
     ///
-    /// <b>One consequence of that widening is worth knowing rather than acting on.</b>
+    /// <b><see cref="Enumerable.DistinctBy{TSource, TKey}(IEnumerable{TSource}, Func{TSource, TKey},
+    /// IEqualityComparer{TKey}?)"/> is a guard rather than tidiness.</b>
     /// <c>IX_Tasks_SourceId_ExternalKey</c> is not unique, so nothing in the database stops two tasks
-    /// sharing a key - and <c>ToDictionary</c> throws on the second. That was true before as well, but
-    /// only reachable through a key the fetch had just answered with; now every preview and every
-    /// import for this source touches the whole set. No path through the app can produce a duplicate,
-    /// since the import's own <c>TryAdd</c> is what writes them, so this is a wider exposure of an
-    /// unreachable fault rather than a new one. A unique constraint would be its own migration and
-    /// does not belong in the delivery that noticed this.
+    /// sharing a key, and <c>ToDictionary</c> answers a duplicate with an ArgumentException nothing
+    /// here catches - a 500 on every preview <em>and</em> every import for this source, with no way
+    /// back from inside the app. Reading every key rather than a named list is what widened that from
+    /// a key the fetch had just answered with to the whole set, which is why the line is here and not
+    /// in the delivery that wrote the lookup.
+    ///
+    /// No path through the app produces a duplicate today - the import's own <c>TryAdd</c> is what
+    /// writes them - so this closes a fault that is currently unreachable rather than one anybody has
+    /// met. The real answer is a unique index, which is its own migration and does not belong here.
+    /// Which of two rows survives is deliberately not decided: with no way to have two, there is no
+    /// right one to prefer, and pretending otherwise would be a rule nothing could check.
     /// </summary>
     private static async Task<Dictionary<string, ImportedTask>> ImportedKeysAsync(TodoDbContext db)
     {
@@ -794,8 +847,10 @@ public static class AdoEndpoints
             .Select(t => new { Key = t.ExternalKey!, t.Status, t.Title })
             .ToListAsync();
 
-        return found.ToDictionary(
-            row => row.Key, row => new ImportedTask(row.Status, row.Title), StringComparer.Ordinal);
+        return found
+            .DistinctBy(row => row.Key, StringComparer.Ordinal)
+            .ToDictionary(
+                row => row.Key, row => new ImportedTask(row.Status, row.Title), StringComparer.Ordinal);
     }
 
     // The source hands over UTC, because SQLite cannot sort a DateTimeOffset and one must never reach

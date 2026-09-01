@@ -173,6 +173,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "isWaiting": true,
               "waitingSince": "2026-08-05T09:12:00Z",
               "alreadyImported": false,
+              "reconciled": false,
               "suggestsClosing": false,
               "excluded": "jira.excludedWaiting"
             },
@@ -183,6 +184,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "status": "I gang",
               "isWaiting": false,
               "alreadyImported": true,
+              "reconciled": false,
               "suggestsClosing": false
             }
           ],
@@ -211,6 +213,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "isWaiting": false,
               "isDuty": true,
               "alreadyImported": false,
+              "reconciled": false,
               "suggestsClosing": false
             }
           ],
@@ -263,6 +266,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "workItemType": "Bug",
               "isWaiting": false,
               "alreadyImported": true,
+              "reconciled": false,
               "suggestsClosing": true,
               "doneAt": "2026-08-15T09:00:00Z"
             },
@@ -274,6 +278,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "workItemType": "Task",
               "isWaiting": false,
               "alreadyImported": false,
+              "reconciled": false,
               "suggestsClosing": false,
               "excluded": "ado.excludedDone"
             }
@@ -294,6 +299,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "isWaiting": true,
               "waitingSince": "2026-08-05T09:12:00Z",
               "alreadyImported": false,
+              "reconciled": false,
               "suggestsClosing": false,
               "excluded": "ado.excludedWaiting"
             },
@@ -306,6 +312,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "workItemType": "Task",
               "isWaiting": false,
               "alreadyImported": true,
+              "reconciled": false,
               "suggestsClosing": false
             }
           ],
@@ -331,6 +338,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "workItemType": "Bug",
               "isWaiting": false,
               "alreadyImported": false,
+              "reconciled": false,
               "suggestsClosing": false
             }
           ],

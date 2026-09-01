@@ -98,6 +98,18 @@ public sealed class FakeAdo : IAsyncDisposable
     public const string UnknownKey = "999999";
 
     /// <summary>
+    /// An id the batch read answers 403 for, checked before <c>errorPolicy</c> is even looked at -
+    /// because a refusal is not an invalid id, and reading it as one would turn a permission the user
+    /// lost into a work item the app says is gone.
+    ///
+    /// Constructed rather than measured, the same as <see cref="Jira.FakeJira.ForbiddenKey"/>, and it
+    /// exists for the same reason: what has to be provable is that a refusal <em>anywhere</em> in the
+    /// reconciliation leaves the fetch's own rows standing. Before that guard, one such key answered
+    /// 400 for the entire preview.
+    /// </summary>
+    public const string ForbiddenKey = "17142";
+
+    /// <summary>
     /// Where the filler work items' ids start, clear of every fixed one above. Only the constructor
     /// reads it: <see cref="FillerKeys"/> reads the ids back off the items it seeded rather than
     /// recomputing them from here, so the two cannot disagree about where the range begins.
@@ -560,6 +572,19 @@ public sealed class FakeAdo : IAsyncDisposable
             // the episode is why a fake must emit the foreign system's actual shape: had this been
             // allowed to answer the design's 404, the test would have measured our own assumption.
             //
+            // Asked before errorPolicy, and that order is the point: a refusal is not an invalid id,
+            // so no flag may turn it into a silent omission. Read as an absence it would say a work
+            // item the user simply cannot see any more is gone.
+            if (asked.Contains(long.Parse(ForbiddenKey, CultureInfo.InvariantCulture)))
+            {
+                return Results.Json(
+                    new ErrorBody(
+                        $"TF401019: The Git repository or work item {ForbiddenKey} is not accessible "
+                        + "with the credentials supplied."),
+                    Json,
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
             // errorPolicy=omit is the way out, and it is UNMEASURED against the real instance:
             // nobody has yet asked that server for a missing id with the flag on. What stands here is
             // our own assumption of what it does, so a green test says the source sends the flag and

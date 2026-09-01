@@ -64,7 +64,8 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
               "requester": "Mette Kirkegaard",
               "status": "I gang",
               "isWaiting": false,
-              "alreadyImported": false
+              "alreadyImported": false,
+              "reconciled": false
             },
             {
               "key": "SAAS-2",
@@ -74,6 +75,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
               "isWaiting": true,
               "waitingSince": "2026-08-05T09:12:00Z",
               "alreadyImported": false,
+              "reconciled": false,
               "excluded": "jira.excludedWaiting"
             },
             {
@@ -82,7 +84,8 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
               "url": "https://jira.test/browse/SAAS-3",
               "status": "I gang",
               "isWaiting": false,
-              "alreadyImported": true
+              "alreadyImported": true,
+              "reconciled": false
             }
           ],
           "total": 3
@@ -107,7 +110,8 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
               "status": "Afventer general",
               "isWaiting": false,
               "isDuty": true,
-              "alreadyImported": false
+              "alreadyImported": false,
+              "reconciled": false
             }
           ],
           "total": 1

@@ -148,6 +148,9 @@ public static class JiraEndpoints
                             ? AsUtc(await source.FetchStatusChangedAtAsync(item.Key))
                             : null,
                         AlreadyImported = localStatus is not null,
+                        // This loop is the fetch, so false throughout - see the twin in AdoEndpoints
+                        // for why the client cannot work it out and why the count line needs it.
+                        Reconciled = false,
                         SuggestsClosing = suggestsClosing,
                         // Decided rather than left out, and the server cannot tell the two apart: a
                         // closure body without "reason" deserialises to Resolved, because Reason is a
@@ -208,7 +211,22 @@ public static class JiraEndpoints
                     });
                 }
 
-                var (reconciled, notice) = await ReconciledRowsAsync(source, settings, imported, fetched);
+                // Its own catch, and the fetch's rows are what it protects - the twin in AdoEndpoints
+                // carries the reasoning. Jira is the source that makes it urgent: only a 404 is read
+                // as an absence, so an issue the token may not browse raises, and one such local task
+                // would otherwise answer 400 for the whole screen until the user found and deleted it.
+                List<JiraPreviewRow> reconciled;
+                string? notice;
+
+                try
+                {
+                    (reconciled, notice) =
+                        await ReconciledRowsAsync(source, settings, imported, fetched);
+                }
+                catch (SourceException exception)
+                {
+                    (reconciled, notice) = ([], exception.Code);
+                }
 
                 rows.AddRange(reconciled);
 
@@ -363,11 +381,6 @@ public static class JiraEndpoints
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        if (keys.Count == 0)
-        {
-            return ([], null);
-        }
-
         var answer = await source.ReconcileAsync(keys);
         var found = answer.Found.ToDictionary(item => item.Key, StringComparer.Ordinal);
 
@@ -431,6 +444,9 @@ public static class JiraEndpoints
                 WaitingSince = null,
                 // True by construction: every key here came out of the imported lookup.
                 AlreadyImported = true,
+                // And this is the half alreadyImported cannot say: a fetched row can be imported
+                // too. This one says the fetch did not answer with it and the app went looking.
+                Reconciled = true,
                 SuggestsClosing = reason is not null,
                 ClosureReason = reason,
                 // Follows the reason and not the suggestion, and the call is paid only where the answer
@@ -613,11 +629,12 @@ public static class JiraEndpoints
     /// The status is what stops a closure suggestion from coming back once it has been accepted, the
     /// title is what a reconciled row falls back on when Jira answers nothing at all, and the reason
     /// this reads <em>every</em> key rather than a named list is that the preview has to see what was
-    /// missing from the fetch. The twin in AdoEndpoints carries the trade in full, including the one
-    /// consequence worth knowing: <c>IX_Tasks_SourceId_ExternalKey</c> is not unique, so a duplicate
-    /// key would now throw here on every preview and import for this source rather than only on a key
-    /// the fetch had just answered with. No path through the app produces one - the import's own
-    /// <c>TryAdd</c> is what writes them - so the exposure widened without a new fault appearing.
+    /// missing from the fetch. The twin in AdoEndpoints carries the trade in full, and the
+    /// <c>DistinctBy</c> with it: <c>IX_Tasks_SourceId_ExternalKey</c> is not unique, and without that
+    /// line a duplicate key would be an uncaught ArgumentException - a 500 on every preview and every
+    /// import for this source - where before the widening it needed a key the fetch had just answered
+    /// with. No path through the app produces one, so the guard closes a fault nobody can currently
+    /// reach.
     /// </summary>
     private static async Task<Dictionary<string, ImportedTask>> ImportedKeysAsync(TodoDbContext db)
     {
@@ -626,8 +643,10 @@ public static class JiraEndpoints
             .Select(t => new { Key = t.ExternalKey!, t.Status, t.Title })
             .ToListAsync();
 
-        return found.ToDictionary(
-            row => row.Key, row => new ImportedTask(row.Status, row.Title), StringComparer.Ordinal);
+        return found
+            .DistinctBy(row => row.Key, StringComparer.Ordinal)
+            .ToDictionary(
+                row => row.Key, row => new ImportedTask(row.Status, row.Title), StringComparer.Ordinal);
     }
 
     // The source hands over UTC, because SQLite cannot sort a DateTimeOffset and one must never

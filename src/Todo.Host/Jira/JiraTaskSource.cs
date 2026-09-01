@@ -317,8 +317,13 @@ public sealed partial class JiraTaskSource : ITaskSource
     ///
     /// <b>Both sets answer in the caller's spelling of a key, never Jira's.</b> Jira canonicalises an
     /// issue key's case, so a set built out of the response would fail the caller's own Contains
-    /// silently and every reconciled issue would read as one the source does not know - which is the
-    /// outcome that offers to close the task. Each read therefore keeps the key it was asked with, and
+    /// silently and every reconciled issue would read as one that is no longer the user's - which is
+    /// the outcome that offers to close the task. The two halves of that sentence have to be kept in
+    /// step, and were not until it was checked: it is <see cref="StillMine"/> that this hypothesis
+    /// builds out of the response, leaving the issue in Found and out of the ownership set, which the
+    /// preview reads as handed on. Build <em>Found</em> out of the response instead and the outcome is
+    /// missingInSource, an excluded row rather than a suggestion. Each read therefore keeps the key it
+    /// was asked with, and
     /// the search's answer is matched back against those keys case-insensitively instead of being
     /// copied out of the response. That is this source's obligation rather than the contract's, and
     /// the two implementations meet it differently: Azure DevOps deliberately does not preserve the

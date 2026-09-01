@@ -23,6 +23,10 @@ interface PreviewRowJson {
   suggestsClosing: boolean;
   closureReason?: string;
   suggestsReopening: boolean;
+  // Required on the contract, and spelled here because nothing else would notice if it went missing:
+  // the `as I*PreviewRow` cast in this file's generated-row helper accepts an object without it, so
+  // even the compiler-visible fixture is blind to a new required field. Measured when it was added.
+  reconciled: boolean;
   reopenTo?: string;
   doneAt?: string;
   excluded?: string;
@@ -39,6 +43,9 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
     alreadyImported: false,
     suggestsClosing: false,
     suggestsReopening: false,
+    // The ordinary row came from the fetch. The reconciled ones set it true, and the screen's
+    // "showing N of total" line counts on the difference - total is the fetch's number alone.
+    reconciled: false,
     ...overrides,
   };
 }
@@ -60,7 +67,9 @@ interface PreviewJson {
 }
 
 function previewJson(body: Omit<PreviewJson, 'reconciliationNotice'> & Partial<PreviewJson>): Blob {
-  return json({ reconciliationNotice: null, ...body });
+  // The default goes on after the spread rather than before it, so a caller passing an explicit
+  // undefined gets the null the host sends rather than deleting the key back out of the body.
+  return json({ ...body, reconciliationNotice: body.reconciliationNotice ?? null });
 }
 
 /**

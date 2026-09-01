@@ -108,6 +108,22 @@ public class TaskEndpointsTests : TaskApiTest
         // Measured — with the name-only form the preview row's Url could be dropped entirely and
         // this test stayed green, which is the same hole isDuty had before it asserted on true.
         Assert.Contains("\"url\":\"http", previewJson);
+
+        // The reconciliation's two additions, and both are asserted here because nothing else can
+        // see the wire itself: the drift test compares paths and verbs, and every C# and TypeScript
+        // reader binds a name it could have renamed on the way in.
+        //
+        // The notice is the one that needed saying out loud. Its own tests read it into a `string?`
+        // and assert null, which passes both on a real null and on a field that is not there at all -
+        // and the TypeScript wire fixtures spell `reconciliationNotice: null` on the strength of the
+        // host serialising a null rather than omitting the property. This line is what makes that
+        // true rather than assumed.
+        Assert.Contains("\"reconciliationNotice\":null", previewJson);
+
+        // At false, which is its interesting value here: this preview has nothing reconciled, and a
+        // row that simply lost the field would read as false to every client. The true side is held
+        // by A_reconciled_row_says_so_because_the_total_counts_only_the_fetch on both sources.
+        Assert.Contains("\"reconciled\":false", previewJson);
     }
 
     [Fact]

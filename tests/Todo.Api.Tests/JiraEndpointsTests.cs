@@ -959,6 +959,57 @@ public class JiraEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// A refused key costs the reconciliation and nothing else, and Jira is the source that makes it
+    /// urgent: only a 404 is read as an absence, so an issue the token may not browse raises. The
+    /// fetch has already succeeded by then, so letting the exception out would answer 400 for the
+    /// whole screen - one local task, and the import screen is unusable until the user finds and
+    /// deletes exactly that task.
+    ///
+    /// <b>The 200 is the assertion</b>, and the surviving rows are what it is for.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_key_costs_the_reconciliation_rather_than_the_whole_preview()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.ForbiddenKey, "Den tokenet ikke må læse"));
+
+        var response = await Host.Client.PostAsync("/api/jira/preview", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var preview = (await response.Content.ReadFromJsonAsync<PreviewBody>())!;
+
+        // The code travels in the notice rather than as a 400, and jira.refused is already translated
+        // in both language files - so the screen can say what happened without a code of its own.
+        Assert.Equal(ErrorCodes.JiraRefused, preview.ReconciliationNotice);
+
+        Assert.NotEmpty(preview.Rows);
+        Assert.DoesNotContain(preview.Rows, r => r.Reconciled);
+    }
+
+    /// <summary>
+    /// The flag the "showing N of total" line needs, at both its values in one preview - the twin in
+    /// AdoEndpointsTests carries the reasoning. The arithmetic is asserted rather than the flag alone,
+    /// because the arithmetic is the thing that was wrong.
+    /// </summary>
+    [Fact]
+    public async Task A_reconciled_row_says_so_because_the_total_counts_only_the_fetch()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.HandedOverKey));
+
+        var preview = await Preview();
+        var reconciled = Assert.Single(preview.Rows, r => r.Key == FakeJira.HandedOverKey);
+
+        Assert.True(reconciled.Reconciled);
+        Assert.Contains(preview.Rows, r => !r.Reconciled);
+        Assert.Equal(preview.Total, preview.Rows.Count(r => !r.Reconciled));
+        Assert.True(preview.Rows.Length > preview.Total);
+    }
+
+    /// <summary>
     /// The completion time is the changelog's, not the clock's. Without the fixture's six-day gap this
     /// would be a test of nothing: PUT /api/tasks/{id} writes the clock's now on every move into Done,
     /// so a closure that lost its timestamp would answer today and look plausible.
@@ -1111,7 +1162,7 @@ public class JiraEndpointsTests : ApiTest
         // Status is nullable since the reconciliation arrived: a key the source does not know has
         // none, because no answer came back to take one from.
         string Key, string Title, string? Status, bool IsWaiting, bool IsDuty,
-        DateTimeOffset? WaitingSince, bool AlreadyImported, bool SuggestsClosing,
+        DateTimeOffset? WaitingSince, bool AlreadyImported, bool Reconciled, bool SuggestsClosing,
         // A string rather than the contract's enum, for the reason ReopenTo below gives.
         string? ClosureReason, DateTimeOffset? DoneAt,
         // A string rather than the contract's enum, and for the same reason Excluded is one: what is

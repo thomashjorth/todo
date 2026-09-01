@@ -91,7 +91,8 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
               "state": "Active",
               "workItemType": "Bug",
               "isWaiting": false,
-              "alreadyImported": false
+              "alreadyImported": false,
+              "reconciled": false
             },
             {
               "key": "16901",
@@ -102,6 +103,7 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
               "isWaiting": true,
               "waitingSince": "2026-08-05T09:12:00Z",
               "alreadyImported": false,
+              "reconciled": false,
               "excluded": "ado.excludedWaiting"
             },
             {
@@ -112,7 +114,8 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
               "state": "PO Review",
               "workItemType": "Task",
               "isWaiting": false,
-              "alreadyImported": true
+              "alreadyImported": true,
+              "reconciled": false
             }
           ],
           "total": 3
@@ -139,7 +142,8 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
               "state": "Active",
               "workItemType": "Bug",
               "isWaiting": false,
-              "alreadyImported": false
+              "alreadyImported": false,
+              "reconciled": false
             }
           ],
           "total": 1

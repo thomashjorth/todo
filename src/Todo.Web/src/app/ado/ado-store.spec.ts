@@ -29,6 +29,10 @@ interface PreviewRowJson {
   suggestsClosing: boolean;
   closureReason?: string;
   suggestsReopening: boolean;
+  // Required on the contract, and spelled here because nothing else would notice if it went missing:
+  // the `as I*PreviewRow` cast in this file's generated-row helper accepts an object without it, so
+  // even the compiler-visible fixture is blind to a new required field. Measured when it was added.
+  reconciled: boolean;
   reopenTo?: string;
   doneAt?: string;
   excluded?: string;
@@ -45,6 +49,9 @@ function row(overrides: Partial<PreviewRowJson> = {}): PreviewRowJson {
     alreadyImported: false,
     suggestsClosing: false,
     suggestsReopening: false,
+    // The ordinary row came from the fetch. The reconciled ones set it true, and the screen's
+    // "showing N of total" line counts on the difference - total is the fetch's number alone.
+    reconciled: false,
     ...overrides,
   };
 }
@@ -64,7 +71,11 @@ function json(body: unknown): Blob {
  * reader task 8 builds would have been measured against a body the server no longer sends.
  *
  * Defaulted to null rather than left out, because null is what the host actually serialises: the
- * ordinary preview says the field is there and empty, not that it is absent.
+ * ordinary preview says the field is there and empty, not that it is absent. Measured rather than
+ * assumed, and the measurement is named because the obvious one does not hold - the C# tests read
+ * the field into a `string?` and assert null, which passes on an absent property just as happily.
+ * `TaskEndpointsTests.Wire_format_uses_the_names_the_contract_declares` asserts the raw
+ * `"reconciliationNotice":null` in the response body, and that is the one this rests on.
  */
 interface PreviewJson {
   total: number;
@@ -73,7 +84,9 @@ interface PreviewJson {
 }
 
 function previewJson(body: Omit<PreviewJson, 'reconciliationNotice'> & Partial<PreviewJson>): Blob {
-  return json({ reconciliationNotice: null, ...body });
+  // The default goes on after the spread rather than before it, so a caller passing an explicit
+  // undefined gets the null the host sends rather than deleting the key back out of the body.
+  return json({ ...body, reconciliationNotice: body.reconciliationNotice ?? null });
 }
 
 /**

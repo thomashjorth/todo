@@ -1028,6 +1028,65 @@ public class AdoEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// A refused key costs the reconciliation and nothing else. The fetch has already succeeded by the
+    /// time the reconciliation runs, so letting its exception out of the route would answer 400 for
+    /// the whole screen - and the reconciliation introduced that path: before it, nothing after the
+    /// fetch could throw.
+    ///
+    /// <b>The 200 is the assertion</b>, and the rows behind it are what it is for. One local task
+    /// whose work item the token has lost access to would otherwise make the import screen unusable
+    /// until the user found and deleted exactly that task, with nothing on the screen to say which.
+    /// The irony is worth keeping: noneRecognized was built so a lost permission could not ruin the
+    /// screen, and it covers only the 404 shape.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_key_costs_the_reconciliation_rather_than_the_whole_preview()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.ForbiddenKey, "Den tokenet ikke må læse"));
+
+        var response = await Host.Client.PostAsync("/api/ado/preview", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var preview = (await response.Content.ReadFromJsonAsync<PreviewBody>())!;
+
+        // The code travels in the notice rather than as a 400, and ado.refused is already translated
+        // in both language files - so the screen can say what happened without a code of its own.
+        Assert.Equal(ErrorCodes.AdoRefused, preview.ReconciliationNotice);
+
+        // And the fetch's own rows are still there, which is the whole reason for the catch.
+        Assert.NotEmpty(preview.Rows);
+        Assert.DoesNotContain(preview.Rows, r => r.Reconciled);
+    }
+
+    /// <summary>
+    /// The flag the "showing N of total" line needs, at both its values in one preview. The client
+    /// cannot derive it: a reconciled row that suggests a resolved closure is byte-identical on the
+    /// wire to a fetched one, and <c>total</c> counts only what Azure DevOps answered - so without the
+    /// flag the line reads "showing 4 of 3" as soon as anything is reconciled.
+    ///
+    /// The arithmetic is asserted rather than the flag alone, because that is the thing that was
+    /// wrong: rows minus reconciled has to equal the total the source reported.
+    /// </summary>
+    [Fact]
+    public async Task A_reconciled_row_says_so_because_the_total_counts_only_the_fetch()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.HandedOverKey));
+
+        var preview = await Preview();
+        var reconciled = Assert.Single(preview.Rows, r => r.Key == FakeAdo.HandedOverKey);
+
+        Assert.True(reconciled.Reconciled);
+        Assert.Contains(preview.Rows, r => !r.Reconciled);
+        Assert.Equal(preview.Total, preview.Rows.Count(r => !r.Reconciled));
+        Assert.True(preview.Rows.Length > preview.Total);
+    }
+
+    /// <summary>
     /// The completion time is the source's, not the clock's, and the fixture is what gives this teeth:
     /// PUT /api/tasks/{id} sets CompletedAt to the clock's now on every move into Done, so a closure
     /// routed through that path - or one that simply forgot the field - would answer 2026-08-20 here.
@@ -1333,7 +1392,7 @@ public class AdoEndpointsTests : ApiTest
         // Nullable since the reconciliation arrived: a key the source does not know has neither, and
         // no answer came back to take one from.
         string? State, string? WorkItemType, bool IsWaiting, DateTimeOffset? WaitingSince,
-        bool AlreadyImported, bool SuggestsClosing,
+        bool AlreadyImported, bool Reconciled, bool SuggestsClosing,
         // A string rather than the contract's enum, for the reason ReopenTo below gives.
         string? ClosureReason, DateTimeOffset? DoneAt,
         // A string rather than the contract's enum, and for the same reason Excluded is one: what is
