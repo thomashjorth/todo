@@ -1111,6 +1111,47 @@ det. Sæt tilbage.
 git commit -m "✅ Kontrastvagten maler afstemningens fire nye grene i begge temaer"
 ```
 
+### Målt i Task 11, hvor virkeligheden gik en anden vej end planen
+
+**"Fire nye grene" var for lavt, og optællingen er nu gjort.** **Ni nye elementer** —
+`{ado,jira}-reconciliation-notice`, `{ado,jira}-suggests-reopening`, `{ado,jira}-reopen-to`,
+`ado-no-type`, `ado-no-state`, `jira-no-status` — og **ti nye tekster i elementer der fandtes i
+forvejen**: den overdragne lukkesætning, de to nye `excluded`-koder, knappens genåbn-led og
+kvitteringens genåbnede sætning, alle fem pr. kilde. Sytten af de nitten er iscenesat. De to der
+ikke er, er kvitteringens sætning: samme element, samme klassepar, allerede målt — der er ingen ny
+farve at se.
+
+**Og planen nævnte ikke det største hul: Jiras lukkesætning var aldrig malet.** `The_Jira_screens`
+havde ingen `suggestsClosing`-række overhovedet, så `jira-suggests-closing` var en farve ingen test
+havde set — også den *løste*, som er ældre end denne leverance. `ReconciledIssues` bærer nu begge.
+
+**Trin 1b fandt et felt mere end planen sagde.** Ud over `suggestsReopening` på alle otte rækker
+manglede `isDuty` på `BlockedIssues`' to — og filens egen kommentar påstod at feltet var skrevet ud
+netop dér. Gennemgang felt for felt frem for efter en liste er derfor det der skal stå i Task 12.
+
+**Trin 1c fældede præcis én ting, og den er en identitet:**
+`ado-import.spec.ts > AdoImport > should offer a finished work item for closing, ticked, beside a
+row that stays blocked`, med `TypeError: Cannot read properties of null (reading 'textContent')`.
+**Nul E2E** faldt. To fixtures mere bar en lukkerække uden grund uden at læse mærkaten — den samme
+i `jira-import.spec.ts` og en i `ado-import.spec.ts` — og de er rettet med, fordi de ellers ville
+have skiftet til *importeret tidligere* i stilhed.
+
+**Trin 3, fem mutationer, én ad gangen, hver med sin identitet** (lys/mørk, samme tekst begge
+temaer):
+
+| mutation | fældede | lys | mørk |
+| --- | --- | --- | --- |
+| `ado-suggests-reopening` | `span[ado-suggests-reopening] text "Ikke færdig i Azure DevOps — genåbn opga"` | 2,60:1 | 2,35:1 |
+| `ado-no-type` | `span[ado-no-type] text "Azure DevOps oplyste ingen sagstype."` | 2,60:1 | 2,35:1 |
+| `jira-suggests-closing` | to poster: `"Løst i Jira — luk opgaven her."` og `"Tildelt en anden i Jira — luk opgaven he"` | 2,60:1 | 2,35:1 |
+| `jira-reconciliation-notice` | `p[jira-reconciliation-notice] text "Jira genkendte ingen af de opgaver der s"` | 2,60:1 | 2,35:1 |
+| `ado-reopen-to` | to poster: `"Genåbnes som ventende."` og `"Genåbnes som åben."` | 2,60:1 | 2,35:1 |
+
+Den anden kilde var **grøn** i hver af de fem kørsler, hvilket er halvdelen af beviset: mærkaten
+måles af den teori den hører til og ikke af den anden. Bemærk at to af mutationerne fælder **to**
+poster — det er de to tekster ét element bærer, og det er den eneste måde at se at begge grene blev
+renderet.
+
 ---
 
 ## Task 12: Wire-format, dokumentation og tallene
