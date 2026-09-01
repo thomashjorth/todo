@@ -43,6 +43,15 @@ public sealed class AdoImportScreen(TodoApp app)
 
     public ILocator NoneAssigned => Page.GetByTestId("ado-none-assigned");
 
+    /// <summary>
+    /// Why the reconciliation had nothing to say. On the response rather than on a row — it answers
+    /// for the whole set of reconciled keys, which no single row can — and it stands <em>in place of</em>
+    /// those rows, so it is page-wide rather than scoped. Above the split between "nothing is assigned
+    /// to you" and the list, because a refused reconciliation over an empty fetch is where it matters
+    /// most.
+    /// </summary>
+    public ILocator ReconciliationNotice => Page.GetByTestId("ado-reconciliation-notice");
+
     public ILocator Error => Page.GetByTestId("ado-import-error");
 
     public ILocator ImportButton => Page.GetByTestId("ado-import");
@@ -54,10 +63,23 @@ public sealed class AdoImportScreen(TodoApp app)
     public ILocator Row(string text) => Rows.Filter(new() { HasText = text });
 
     /// <summary>
-    /// The work item type on a row. New against Jira, and deliberately not a branch: the type is
-    /// always filled in, because the query matched on it and the batch asked for it.
+    /// The work item type on a row. New against Jira, and a branch since the reconciliation: the fetch
+    /// always fills the type in, because the query matched on it and the batch asked for it, but a
+    /// reconciled key Azure DevOps does not know brings back no answer to take one from.
     /// </summary>
     public static ILocator TypeIn(ILocator row) => row.GetByTestId("ado-type");
+
+    /// <summary>
+    /// Says the type is missing rather than leaving the line out, because "Type: " with nothing after
+    /// it cannot be told from a line the screen forgot to fill in. Its twin is
+    /// <see cref="NoStateIn"/>, and the two are always absent together — both come off the same
+    /// answer.
+    /// </summary>
+    public static ILocator NoTypeIn(ILocator row) => row.GetByTestId("ado-no-type");
+
+    public static ILocator StateIn(ILocator row) => row.GetByTestId("ado-state");
+
+    public static ILocator NoStateIn(ILocator row) => row.GetByTestId("ado-no-state");
 
     /// <summary>
     /// The deadline the import would set. One half of a branch no Jira screen has — the other half is

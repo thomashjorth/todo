@@ -32,6 +32,13 @@ public sealed class JiraImportScreen(TodoApp app)
 
     public ILocator NoneAssigned => Page.GetByTestId("jira-none-assigned");
 
+    /// <summary>
+    /// Why the reconciliation had nothing to say. See the twin in <see cref="AdoImportScreen"/>: it
+    /// answers for the whole set of reconciled keys and stands in place of their rows, so it is
+    /// page-wide rather than scoped to one.
+    /// </summary>
+    public ILocator ReconciliationNotice => Page.GetByTestId("jira-reconciliation-notice");
+
     public ILocator Error => Page.GetByTestId("jira-import-error");
 
     public ILocator ImportButton => Page.GetByTestId("jira-import");
@@ -50,6 +57,41 @@ public sealed class JiraImportScreen(TodoApp app)
 
     public static ILocator AlreadyImportedIn(ILocator row)
         => row.GetByTestId("jira-already-imported");
+
+    /// <summary>
+    /// The Jira status on a row, and a branch since the reconciliation: a key Jira does not know
+    /// brings back no answer to take a status from.
+    /// </summary>
+    public static ILocator StatusIn(ILocator row) => row.GetByTestId("jira-status");
+
+    /// <summary>
+    /// Says the status is missing rather than leaving the line out — "Status: " with nothing after it
+    /// cannot be told from a line the screen forgot to fill in. The Azure DevOps twin has two of
+    /// these; a Jira row has no type line, so there is only the one.
+    /// </summary>
+    public static ILocator NoStatusIn(ILocator row) => row.GetByTestId("jira-no-status");
+
+    /// <summary>
+    /// The offer to close a task whose issue is finished, or has been handed to somebody else. One
+    /// testid with two sentences, so the guard and the journey keep pointing at the same element. It
+    /// takes the place of <see cref="AlreadyImportedIn"/> rather than sitting beside it — a row that
+    /// offers a closure was necessarily imported before.
+    /// </summary>
+    public static ILocator SuggestsClosingIn(ILocator row) => row.GetByTestId("jira-suggests-closing");
+
+    /// <summary>
+    /// The offer to put a locally finished task back into an open status. Its own testid rather than
+    /// sharing the closing one: the two say opposite things, and a locator matching either could not
+    /// tell a screen offering the wrong one from a screen offering the right one.
+    /// </summary>
+    public static ILocator SuggestsReopeningIn(ILocator row)
+        => row.GetByTestId("jira-suggests-reopening");
+
+    /// <summary>
+    /// Which status the reopening would restore. Its own element rather than a clause inside the
+    /// sentence above, because it is the half that can be wrong on its own.
+    /// </summary>
+    public static ILocator ReopenToIn(ILocator row) => row.GetByTestId("jira-reopen-to");
 
     /// <summary>
     /// The label saying a row came from the shared duty pool. Scoped to the row, because it is the

@@ -234,6 +234,121 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         """;
 
     /// <summary>
+    /// The reconciliation's own rows, which no other answer in this file can produce: the fetch does
+    /// not hand these over, the app went looking for them. Six branches live here and nowhere else —
+    /// the resolved and the handed-on closing sentences, the two codes for a reconciled row with
+    /// nothing to offer, the missing status, and the reopening with the status it would restore.
+    ///
+    /// The resolved sentence is in here rather than in a fetched row on purpose: the Jira theory has
+    /// never staged a closing row at all, so that colour was unpainted until this fixture. Azure
+    /// DevOps' twin leaves it out, because <c>DoneWorkItems</c> already paints it from the fetch.
+    ///
+    /// <c>total</c> is 2 rather than 6, and that is the wire being honest rather than a slip: the
+    /// source's number counts the fetch alone, and only the two reopening rows came from it. The
+    /// screen's own line says "Viser 2 af 2 sager." for that reason.
+    /// </summary>
+    private const string ReconciledIssues = """
+        {
+          "rows": [
+            {
+              "key": "SAAS-9",
+              "title": "Ret regningen",
+              "url": "https://jira.test/browse/SAAS-9",
+              "status": "Løst",
+              "isWaiting": false,
+              "isDuty": false,
+              "alreadyImported": true,
+              "reconciled": true,
+              "suggestsClosing": true,
+              "closureReason": "resolved",
+              "doneAt": "2026-08-15T09:00:00Z",
+              "suggestsReopening": false
+            },
+            {
+              "key": "SAAS-12",
+              "title": "Overdrag driftsvagten",
+              "url": "https://jira.test/browse/SAAS-12",
+              "status": "I gang",
+              "isWaiting": false,
+              "isDuty": false,
+              "alreadyImported": true,
+              "reconciled": true,
+              "suggestsClosing": true,
+              "closureReason": "unassigned",
+              "doneAt": null,
+              "suggestsReopening": false
+            },
+            {
+              "key": "SAAS-13",
+              "title": "Ryd op i byggeserveren",
+              "url": "https://jira.test/browse/SAAS-13",
+              "status": "I gang",
+              "isWaiting": false,
+              "isDuty": false,
+              "alreadyImported": true,
+              "reconciled": true,
+              "suggestsClosing": false,
+              "suggestsReopening": false,
+              "excluded": "jira.outsideFilter"
+            },
+            {
+              "key": "SAAS-14",
+              "title": "Skriv releasenoterne",
+              "url": "https://jira.test/browse/SAAS-14",
+              "status": null,
+              "isWaiting": false,
+              "isDuty": false,
+              "alreadyImported": true,
+              "reconciled": true,
+              "suggestsClosing": false,
+              "suggestsReopening": false,
+              "excluded": "jira.missingInSource"
+            },
+            {
+              "key": "SAAS-15",
+              "title": "Opdater afhængighederne",
+              "url": "https://jira.test/browse/SAAS-15",
+              "status": "I gang",
+              "isWaiting": false,
+              "isDuty": false,
+              "alreadyImported": true,
+              "reconciled": false,
+              "suggestsClosing": false,
+              "suggestsReopening": true,
+              "reopenTo": "open"
+            },
+            {
+              "key": "SAAS-16",
+              "title": "Gennemgå sikkerhedsrapporten",
+              "url": "https://jira.test/browse/SAAS-16",
+              "status": "Venter på kunde",
+              "isWaiting": true,
+              "isDuty": false,
+              "waitingSince": "2026-08-05T09:12:00Z",
+              "alreadyImported": true,
+              "reconciled": false,
+              "suggestsClosing": false,
+              "suggestsReopening": true,
+              "reopenTo": "waitingFor"
+            }
+          ],
+          "total": 2
+        }
+        """;
+
+    /// <summary>
+    /// The reconciliation refused, over a fetch that answered with nothing. Two branches at once, and
+    /// this is the state the notice was placed above the empty-list sentence for: a refusal on top of
+    /// an empty fetch is where it says the most, and inside the list's branch it would have been
+    /// invisible in exactly that case.
+    ///
+    /// A real answer rather than a convenient one: the notice sits on the response and the server
+    /// returns no reconciled rows with it, while the fetch's own rows — none, here — survive.
+    /// </summary>
+    private const string NoticeWithNoIssues =
+        """{ "rows": [], "total": 0, "reconciliationNotice": "jira.noneRecognized" }""";
+
+    /// <summary>
     /// Enough for <see cref="Todo.Core.Ado.AdoSettings.BrowseUrl"/> to produce a link, and spelled with
     /// the space the real collection has. Nothing in this suite ever calls it.
     /// </summary>
@@ -363,6 +478,100 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
           "total": 1
         }
         """;
+
+    /// <summary>
+    /// The Azure DevOps twin of <see cref="ReconciledIssues"/>, and it carries one branch Jira's does
+    /// not: a row this source could not answer for has <em>two</em> lines to fill in, the state and
+    /// the work item type, because they come off the same answer and are absent together.
+    ///
+    /// No resolved closure here — <see cref="DoneWorkItems"/> already paints that sentence from the
+    /// fetch, and staging it twice would measure the same colour under the same ancestors.
+    ///
+    /// The two reopening rows differ in what they would restore, which is a text and not a colour:
+    /// they share one element and one class pair. Both are staged all the same, because the sentence
+    /// the user reads is the thing the screen can get wrong, and a guard that never rendered one of
+    /// them could not say the branch was measured.
+    /// </summary>
+    private const string ReconciledWorkItems = """
+        {
+          "rows": [
+            {
+              "key": "17242",
+              "title": "Overdrag driftsvagten",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/17242",
+              "state": "Active",
+              "workItemType": "Task",
+              "isWaiting": false,
+              "alreadyImported": true,
+              "reconciled": true,
+              "suggestsClosing": true,
+              "closureReason": "unassigned",
+              "doneAt": null,
+              "suggestsReopening": false
+            },
+            {
+              "key": "17243",
+              "title": "Ryd op i byggeserveren",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/17243",
+              "state": "Active",
+              "workItemType": "User Story",
+              "isWaiting": false,
+              "alreadyImported": true,
+              "reconciled": true,
+              "suggestsClosing": false,
+              "suggestsReopening": false,
+              "excluded": "ado.outsideFilter"
+            },
+            {
+              "key": "17244",
+              "title": "Skriv releasenoterne",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/17244",
+              "state": null,
+              "workItemType": null,
+              "isWaiting": false,
+              "alreadyImported": true,
+              "reconciled": true,
+              "suggestsClosing": false,
+              "suggestsReopening": false,
+              "excluded": "ado.missingInSource"
+            },
+            {
+              "key": "17245",
+              "title": "Opdater afhængighederne",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/17245",
+              "deadline": "2026-08-20",
+              "state": "Active",
+              "workItemType": "Bug",
+              "isWaiting": false,
+              "alreadyImported": true,
+              "reconciled": false,
+              "suggestsClosing": false,
+              "suggestsReopening": true,
+              "reopenTo": "open"
+            },
+            {
+              "key": "17246",
+              "title": "Gennemgå sikkerhedsrapporten",
+              "url": "https://ado.test/Fake%20Collection/Saas/_workitems/edit/17246",
+              "deadline": "2026-08-20",
+              "state": "Blocked",
+              "workItemType": "Task",
+              "isWaiting": true,
+              "waitingSince": "2026-08-05T09:12:00Z",
+              "alreadyImported": true,
+              "reconciled": false,
+              "suggestsClosing": false,
+              "suggestsReopening": true,
+              "reopenTo": "waitingFor"
+            }
+          ],
+          "total": 2
+        }
+        """;
+
+    /// <summary>The Azure DevOps twin of <see cref="NoticeWithNoIssues"/>.</summary>
+    private const string NoticeWithNoWorkItems =
+        """{ "rows": [], "total": 0, "reconciliationNotice": "ado.noneRecognized" }""";
 
     private static readonly FixedClock Clock = new(new DateOnly(2026, 8, 17));
 
@@ -803,6 +1012,19 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(jira.Error).ToHaveCountAsync(0);
         await Snapshot();
 
+        // The reconciliation's notice, over that same empty answer. Two lines at once, and the pairing
+        // is the point rather than a saving: the notice sits above the split between "nothing is
+        // assigned to you" and the list, so this is the state it was placed there for. It is not the
+        // red line above either — the preview did not fail, and a snapshot taken while both were on
+        // screen is the only one that can say the two do not collide.
+        answer = (200, NoticeWithNoIssues);
+
+        await jira.PreviewAsync();
+        await Assertions.Expect(jira.ReconciliationNotice).ToContainTextAsync("genkendte ingen");
+        await Assertions.Expect(jira.NoneAssigned).ToHaveTextAsync("Ingen sager er tildelt dig.");
+        await Assertions.Expect(jira.Error).ToHaveCountAsync(0);
+        await Snapshot();
+
         // Every row blocked: both reasons on their own row, both sentences under the count, and the
         // Import button in its disabled colours — which are a pair of their own.
         answer = (200, BlockedIssues);
@@ -819,6 +1041,55 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(JiraImportScreen.AlreadyImportedIn(jira.Row("Skriv testene")))
             .ToHaveTextAsync("importeret tidligere");
         await Assertions.Expect(jira.ImportButton).ToBeDisabledAsync();
+        await Snapshot();
+
+        // The reconciliation's own rows, which the fetch cannot produce and no answer above stages.
+        // Six colours live in this one preview: the two closing sentences, the two codes for a
+        // reconciled row with nothing to offer, the missing status, and the reopening with the status
+        // it would restore.
+        //
+        // The closing sentences are asserted whole rather than by a fragment, and that is what makes
+        // them tell each other apart: "luk opgaven her" ends both of them, so a toContain on it would
+        // pass on a chain that printed one sentence over both rows.
+        answer = (200, ReconciledIssues);
+
+        await jira.PreviewAsync();
+        await Assertions.Expect(jira.Rows).ToHaveCountAsync(6);
+        await Assertions.Expect(jira.Showing).ToHaveTextAsync("Viser 2 af 2 sager.");
+
+        var resolved = jira.Row("Ret regningen");
+        var handedOn = jira.Row("Overdrag driftsvagten");
+        var stillMine = jira.Row("Ryd op i byggeserveren");
+        var unknownKey = jira.Row("Skriv releasenoterne");
+        var backToOpen = jira.Row("Opdater afhængighederne");
+        var backToWaiting = jira.Row("Gennemgå sikkerhedsrapporten");
+
+        await Assertions.Expect(JiraImportScreen.SuggestsClosingIn(resolved))
+            .ToHaveTextAsync("Løst i Jira — luk opgaven her.");
+        await Assertions.Expect(JiraImportScreen.SuggestsClosingIn(handedOn))
+            .ToHaveTextAsync("Tildelt en anden i Jira — luk opgaven her.");
+        await Assertions.Expect(JiraImportScreen.ExcludedIn(stillMine))
+            .ToContainTextAsync("kom ikke med i hentningen");
+        await Assertions.Expect(JiraImportScreen.ExcludedIn(unknownKey))
+            .ToContainTextAsync("kender ikke sagen");
+
+        // The absence said out loud, which is what the row without an answer has instead of a status.
+        // Both halves, because a screen that dropped the line altogether would leave the guard nothing
+        // to measure and nothing to complain about.
+        await Assertions.Expect(JiraImportScreen.NoStatusIn(unknownKey))
+            .ToHaveTextAsync("Jira oplyste ingen status.");
+        await Assertions.Expect(JiraImportScreen.StatusIn(unknownKey)).ToHaveCountAsync(0);
+
+        await Assertions.Expect(JiraImportScreen.SuggestsReopeningIn(backToOpen))
+            .ToHaveTextAsync("Ikke færdig i Jira — genåbn opgaven her.");
+        await Assertions.Expect(JiraImportScreen.ReopenToIn(backToOpen))
+            .ToHaveTextAsync("Genåbnes som åben.");
+        await Assertions.Expect(JiraImportScreen.ReopenToIn(backToWaiting))
+            .ToHaveTextAsync("Genåbnes som ventende.");
+
+        // The button under a fourth sentence: two clauses joined, which no earlier answer produces.
+        await Assertions.Expect(jira.ImportButton)
+            .ToHaveTextAsync("Luk 2 opgaver · Genåbn 2 opgaver");
         await Snapshot();
 
         // One row that can be imported, which is what enables the button — a different colour from
@@ -1007,6 +1278,16 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(ado.Error).ToHaveCountAsync(0);
         await Snapshot();
 
+        // The reconciliation's notice over that same empty answer — the state it was placed above the
+        // empty-list sentence for. See the Jira twin for why the two are measured together.
+        preview = (200, NoticeWithNoWorkItems);
+
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.ReconciliationNotice).ToContainTextAsync("genkendte ingen");
+        await Assertions.Expect(ado.NoneAssigned).ToHaveTextAsync("Ingen sager er tildelt dig.");
+        await Assertions.Expect(ado.Error).ToHaveCountAsync(0);
+        await Snapshot();
+
         // Every row blocked: both reasons on their own row, both sentences under the count, and the
         // Import button in its disabled colours — which are a pair of their own. This answer is also
         // where the waiting pair and the no-deadline half get their only colour.
@@ -1068,6 +1349,51 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(AdoImportScreen.ExcludedIn(ado.Row("Luk den gamle sag")))
             .ToContainTextAsync("løst i Azure DevOps");
         await Assertions.Expect(ado.ImportButton).ToHaveTextAsync("Luk 1 opgave");
+        await Snapshot();
+
+        // The reconciliation's own rows. Five colours the fetch cannot produce: the handed-on closing
+        // sentence, the two codes for a reconciled row with nothing to offer, the pair of lines a row
+        // without an answer has instead of a type and a state, and the reopening with the status it
+        // would restore.
+        preview = (200, ReconciledWorkItems);
+
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.Rows).ToHaveCountAsync(5);
+        await Assertions.Expect(ado.Showing).ToHaveTextAsync("Viser 2 af 2 sager.");
+
+        var handedOn = ado.Row("Overdrag driftsvagten");
+        var stillMine = ado.Row("Ryd op i byggeserveren");
+        var unknownKey = ado.Row("Skriv releasenoterne");
+        var backToOpen = ado.Row("Opdater afhængighederne");
+        var backToWaiting = ado.Row("Gennemgå sikkerhedsrapporten");
+
+        // Whole rather than by a fragment: "luk opgaven her" ends both closing sentences, so a
+        // toContain on it would pass on a chain that printed the resolved one over this row.
+        await Assertions.Expect(AdoImportScreen.SuggestsClosingIn(handedOn))
+            .ToHaveTextAsync("Tildelt en anden i Azure DevOps — luk opgaven her.");
+        await Assertions.Expect(AdoImportScreen.ExcludedIn(stillMine))
+            .ToContainTextAsync("kom ikke med i hentningen");
+        await Assertions.Expect(AdoImportScreen.ExcludedIn(unknownKey))
+            .ToContainTextAsync("kender ikke sagen");
+
+        // Both absences said out loud, and both halves of each pair: a screen that dropped the line
+        // rather than filling it in would leave the guard nothing to measure and no complaint to make.
+        await Assertions.Expect(AdoImportScreen.NoTypeIn(unknownKey))
+            .ToHaveTextAsync("Azure DevOps oplyste ingen sagstype.");
+        await Assertions.Expect(AdoImportScreen.NoStateIn(unknownKey))
+            .ToHaveTextAsync("Azure DevOps oplyste ingen tilstand.");
+        await Assertions.Expect(AdoImportScreen.TypeIn(unknownKey)).ToHaveCountAsync(0);
+        await Assertions.Expect(AdoImportScreen.StateIn(unknownKey)).ToHaveCountAsync(0);
+
+        await Assertions.Expect(AdoImportScreen.SuggestsReopeningIn(backToOpen))
+            .ToHaveTextAsync("Ikke færdig i Azure DevOps — genåbn opgaven her.");
+        await Assertions.Expect(AdoImportScreen.ReopenToIn(backToOpen))
+            .ToHaveTextAsync("Genåbnes som åben.");
+        await Assertions.Expect(AdoImportScreen.ReopenToIn(backToWaiting))
+            .ToHaveTextAsync("Genåbnes som ventende.");
+
+        // The button under a fourth sentence: two clauses joined, which no earlier answer produces.
+        await Assertions.Expect(ado.ImportButton).ToHaveTextAsync("Luk 1 opgave · Genåbn 2 opgaver");
         await Snapshot();
 
         preview = (200, OneImportableWorkItem);
