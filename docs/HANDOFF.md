@@ -267,10 +267,16 @@ tokenet i kommandolinjen**; sæt det i `$env:ADO_PAT` først og referér det.
   ingen af dem.
 - **`src/Todo.Web/README.md` er Angulars standardfil** og anbefaler `ng serve`/`ng test`, som ikke er
   den her app's kommandoer. Harmløs, men vildledende.
-- **E2E-suiten er set flakke én gang** (2026-08-21): 46 af 47 på en kørsel, alle 47 på den næste og
-  de to derefter, med samme kode. Testen blev **ikke** identificeret — udskriften var filtreret, og
-  navnet gik tabt. Det står her, så en rød E2E der bliver grøn af sig selv ikke koster en time; sker
-  det igen, så gem hele udskriften frem for at filtrere den, og noter navnet her.
+- **E2E-suiten er set flakke to gange, og anden gang har et navn.** Første gang (2026-08-21): 46 af
+  47 på en kørsel, alle 47 på den næste og de to derefter, med samme kode; testen blev **ikke**
+  identificeret, fordi udskriften var filtreret. Anden gang (2026-09-01): 82 af 83 inde i
+  `Check.cmd`, og den røde var
+  `DeferUntilJourneyTests.A_task_starting_tomorrow_sits_in_Udskudt_survives_an_edit_and_returns_when_cleared`.
+  Den bestod alene umiddelbart efter, og hele suiten bestod 83 af 83 på næste fulde kørsel — samme
+  kode, ingen rettelse imellem. **Fejlteksten gik tabt igen**, fordi udskriften var filtreret til
+  resultatlinjerne; det er anden gang det koster, så gem hele udskriften. Begge gange var det inde i
+  en fuld kørsel og aldrig alene, hvilket er det eneste mønster der er to datapunkter for. Det står
+  her, så en rød E2E der bliver grøn af sig selv ikke koster en time.
 
 ## Sådan køres en skive
 
