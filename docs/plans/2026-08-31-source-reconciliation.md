@@ -91,6 +91,14 @@ alle-fraværende-grænse med en mutation der droppede `Count > 1` **og** byttede
 `Exists` — den fældede n=1-testene, så grænsen så vogtet ud, mens dens skelnende halvdel var helt
 uvogtet og hele suiten grøn.
 
+**Og en frontend-mutation skal bygges igen når den *rulles tilbage*, ikke kun når den lægges på.**
+Målt i Task 10, og fælden er `CLAUDE.md`s kendte stale-bundle-fælde **vendt om**: agenten gendannede
+`ado-import.html` med `git checkout --`, byggede ikke `wwwroot` igen, og E2E kørte derfor videre på den
+**forrige mutations** bundle. Resultatet var ikke en tavs grøn, men en **plausibel falsk konklusion** —
+"afstemningen fodrer også genåbningen" — som læste helt rigtigt og var forkert. Den er farligere end
+den kendte retning, fordi et rødt resultat læses som information frem for som en fejl i opsætningen.
+**Til Task 12:** hører i `CLAUDE.md` ved det eksisterende stale-bundle-afsnit.
+
 **Og oprydningen efter en mutation har sin egen fælde, ramt to gange her.** `git checkout --` kaster
 **enhver** ucommittet ændring i filen væk, ikke kun mutationen. Task 7 mistede en hel implementering
 på det, og Task 9 mistede en runde kommentarrettelser — den anden gang netop fordi mutationen og
