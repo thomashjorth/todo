@@ -291,6 +291,25 @@ rollen er `Waiting`. Svaret får `reopened` ved siden af `imported`, `skipped` o
 
 Og importen bliver ved med **ikke** at ringe til ADO eller Jira.
 
+**Og rækken bærer `reconciled`, fordi de to slags ellers ikke kan skelnes.** Tilføjet 2026-09-01, da
+Task 6's gennemgang målte konsekvensen: afstemningsrækkerne lægges i **samme** `rows`-liste, mens
+`total` bliver ved at være kildens tal for **hentningen** — så skærmens "Viser N af M sager" blev
+målt til `Viser 4 af 3 sager.` første gang en afstemningsrække dukkede op. Frontenden kan ikke selv
+regne sig ud af det: en afstemt `resolved`-række er på wiren **identisk** med en hentet
+(`alreadyImported`, `suggestsClosing`, `closureReason` er de samme).
+
+`reconciled` er derfor et påkrævet boolsk felt på begge forhåndsvisningsrækker, og det køber to ting:
+linjen bliver `shown = rows.filter(r => !r.reconciled).length` uden aritmetik nogen skal huske, og
+mærkatkæden får en fri diskriminator til at sige *hvorfor* rækken er der — den faldt ud af
+hentningen frem for at komme med i den.
+
+**`reconciliationNotice` bærer også en afvisning, ikke kun "ingen genkendt".** Samme gennemgang målte,
+at en enkelt nøgle kilden svarer **403** på, vælter hele forhåndsvisningen med en 400 — hentningens
+egne rækker kastes væk med den. Afstemningen er en **tilføjelse** til hentningen og må ikke tage den
+med sig ned: en `SourceException` derfra fanges, rækkerne udelades, og koden lægges i
+`reconciliationNotice`. Bemærk at det er samme fejl feltet i forvejen fandtes for — en mistet
+rettighed — blot ad 403-vejen frem for 404-vejen, og at 404-vejen var den eneste der var tænkt på.
+
 ## 7. Skærmen
 
 Mærkatkæden får to led mere, og rækkefølgen er bærende af samme grund som forgængerens var — en
