@@ -1088,6 +1088,14 @@ denne leverance:
   en ubrowsbar sag bag 404.
 - **De fem "compiler-synlige" fixture-steder er det ikke for et nyt *required* felt**, og det
   modsiger et afsnit `CLAUDE.md` allerede har. Se nedenfor — det er den vigtigste af rettelserne.
+- **`ng test`s typetjek er *bredere* end `CLAUDE.md` siger**, og det er en rettelse i den milde
+  retning. Filen siger at `angular-compiler`-pluginnet compilerer *"komponenterne og deres
+  skabeloner"*, hvilket læses som at en spec mod en almindelig service er utjekket. Målt i Task 8:
+  `AdoStore` er en ren `@Injectable`, og `store.reopenable()` fejlede alligevel som
+  `TS2339 … from [plugin angular-compiler]` — altså **som en bygning**, før nogen assertion kørte.
+  Skriv det som det er: pluginnet typetjekker spec-filens kald mod alt det compilerer, ikke kun mod
+  komponenter. Afsnittets hovedpointe står — typerne *inde i* spec-filen er stadig utjekkede uden
+  `tsc` — men grænsen ligger et andet sted end beskrevet.
 
 **Og ret `CLAUDE.md`s opgørelse over compiler-synlige fixtures — den er målt forkert.** Afsnittet
 påstår at *"Kun **fem** steder i **fire** filer er compiler-synlige"*, og at et nyt `required` felt
