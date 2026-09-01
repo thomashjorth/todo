@@ -566,4 +566,179 @@ describe('JiraImport', () => {
       expect(checkboxes(screen.element)[0].disabled).toBe(true);
     });
   });
+
+  /**
+   * Two sentences rather than one, and the twin of the ADO one. Both rows carry `suggestsClosing`, so
+   * a chain reading that boolean alone would print one sentence over both. Asserted whole rather than
+   * by a fragment: the resolved sentence is byte-identical to the one that predates the split, so a
+   * `toContain` on "luk opgaven her" would pass on either.
+   */
+  it('should tell a resolved closure apart from one handed to somebody else', async () => {
+    const { element } = await preview({
+      total: 0,
+      rows: [
+        row({
+          key: 'SAAS-9',
+          title: 'Ret regningen',
+          status: 'Løst',
+          alreadyImported: true,
+          suggestsClosing: true,
+          closureReason: 'resolved',
+          doneAt: '2026-08-15T09:00:00Z',
+          reconciled: true,
+        }),
+        row({
+          key: 'SAAS-12',
+          title: 'Den en anden overtog',
+          status: 'I gang',
+          alreadyImported: true,
+          suggestsClosing: true,
+          closureReason: 'unassigned',
+          reconciled: true,
+        }),
+      ],
+    });
+
+    const [resolved, handedOn] = rows(element);
+
+    expect(
+      resolved.querySelector('[data-testid="jira-suggests-closing"]')!.textContent!.trim(),
+    ).toBe('Løst i Jira — luk opgaven her.');
+    expect(
+      handedOn.querySelector('[data-testid="jira-suggests-closing"]')!.textContent!.trim(),
+    ).toBe('Tildelt en anden i Jira — luk opgaven her.');
+  });
+
+  /**
+   * The reopening's label and the status it would restore. The contract puts `reopenTo` on the row so
+   * the suggestion says what it will do, and nothing read it until here. Both rows are
+   * `alreadyImported`, which is what gives the last assertion teeth.
+   */
+  it('should say a reopening is on offer and which status it would restore', async () => {
+    const { element } = await preview({
+      total: 2,
+      rows: [
+        row({
+          key: 'SAAS-10',
+          title: 'Den er ikke færdig endda',
+          status: 'I gang',
+          alreadyImported: true,
+          suggestsReopening: true,
+          reopenTo: 'open',
+        }),
+        row({
+          key: 'SAAS-13',
+          title: 'Den der venter på nogen',
+          status: 'Afventer general',
+          alreadyImported: true,
+          suggestsReopening: true,
+          reopenTo: 'waitingFor',
+        }),
+      ],
+    });
+
+    const [toOpen, toWaiting] = rows(element);
+
+    expect(toOpen.querySelector('[data-testid="jira-suggests-reopening"]')!.textContent).toContain(
+      'Ikke færdig i Jira',
+    );
+
+    // Two rows rather than one, differing only in `reopenTo`: with a single row a template that
+    // hard-wired either sentence would pass.
+    expect(toOpen.querySelector('[data-testid="jira-reopen-to"]')!.textContent!.trim()).toBe(
+      'Genåbnes som åben.',
+    );
+    expect(toWaiting.querySelector('[data-testid="jira-reopen-to"]')!.textContent!.trim()).toBe(
+      'Genåbnes som ventende.',
+    );
+
+    for (const one of [toOpen, toWaiting]) {
+      expect(one.querySelector('[data-testid="jira-already-imported"]')).toBeNull();
+    }
+  });
+
+  /**
+   * The field reconciliation made nullable. Jira has one where Azure DevOps has two — there is no
+   * type line here — and a status left blank cannot be told apart from one the screen forgot to fill
+   * in. The answered row beside it is the other half: without it, a template that had dropped the
+   * line altogether would pass.
+   */
+  it('should say out loud that the source reported no status', async () => {
+    const { element } = await preview({
+      total: 1,
+      rows: [
+        row({ key: 'SAAS-1' }),
+        row({
+          key: 'SAAS-11',
+          title: 'Den Jira ikke kender',
+          status: null,
+          alreadyImported: true,
+          reconciled: true,
+          excluded: 'jira.missingInSource',
+        }),
+      ],
+    });
+
+    const [answered, unknown] = rows(element);
+
+    expect(answered.querySelector('[data-testid="jira-status"]')!.textContent).toContain(
+      'Status: I gang',
+    );
+    expect(answered.querySelector('[data-testid="jira-no-status"]')).toBeNull();
+
+    expect(unknown.querySelector('[data-testid="jira-no-status"]')!.textContent!.trim()).toBe(
+      'Jira oplyste ingen status.',
+    );
+    expect(unknown.querySelector('[data-testid="jira-status"]')).toBeNull();
+  });
+
+  /**
+   * The notice the server puts on the response when the reconciliation had nothing to say. Not folded
+   * into the error line: the preview did not fail, and the fetch's own rows are on screen and worth
+   * keeping — which is the second assertion here.
+   */
+  it('should say why the reconciliation had nothing to say, and drop it on the next preview', async () => {
+    const screen = await preview({
+      total: 1,
+      rows: [row({ key: 'SAAS-1' })],
+      reconciliationNotice: 'jira.noneRecognized',
+    });
+
+    expect(
+      screen.element.querySelector('[data-testid="jira-reconciliation-notice"]')!.textContent,
+    ).toContain('genkendte ingen af de opgaver');
+    expect(rows(screen.element)).toHaveLength(1);
+    expect(screen.element.querySelector('[data-testid="jira-import-error"]')).toBeNull();
+
+    // Gone again on the next preview, which a one-shot fixture cannot see: a notice left standing
+    // would explain a reconciliation that has since succeeded.
+    screen.element.querySelector<HTMLButtonElement>('[data-testid="jira-preview"]')!.click();
+    const again = await vi.waitFor(() => screen.http.expectOne('/api/jira/preview'));
+    again.flush(new Blob([JSON.stringify({ total: 1, rows: [row({ key: 'SAAS-1' })] })]));
+
+    await vi.waitFor(() => {
+      screen.fixture.detectChanges();
+      expect(screen.element.querySelector('[data-testid="jira-reconciliation-notice"]')).toBeNull();
+    });
+  });
+
+  /**
+   * Where the notice sits. Above the branch choosing between "nothing is assigned to you" and the
+   * list, because a refused reconciliation on top of an empty fetch is exactly where it matters most
+   * — and a notice inside the list's branch would be invisible there while looking right everywhere
+   * else. The code is a plain refusal rather than noneRecognized because the reconciliation catches
+   * its own SourceException and puts the code here too.
+   */
+  it('should still explain a refused reconciliation when the fetch itself answered with nothing', async () => {
+    const { element } = await preview({
+      total: 0,
+      rows: [],
+      reconciliationNotice: 'jira.refused',
+    });
+
+    expect(element.querySelector('[data-testid="jira-none-assigned"]')).not.toBeNull();
+    expect(
+      element.querySelector('[data-testid="jira-reconciliation-notice"]')!.textContent,
+    ).toContain('afviste tokenet');
+  });
 });

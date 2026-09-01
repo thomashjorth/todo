@@ -124,7 +124,6 @@
       "other": "Import {{count}} issues"
     },
     "receipt": "{{imported}} imported, {{skipped}} skipped",
-    "suggestsClosing": "Done in Jira — close the task here.",
     "suggestsClosingResolved": "Done in Jira — close the task here.",
     "suggestsClosingUnassigned": "Assigned to somebody else in Jira — close the task here.",
     "suggestsReopening": "Not done in Jira — reopen the task here.",
@@ -178,7 +177,6 @@
       "other": "Import {{count}} work items"
     },
     "receipt": "{{imported}} imported, {{skipped}} skipped",
-    "suggestsClosing": "Done in Azure DevOps — close the task here.",
     "suggestsClosingResolved": "Done in Azure DevOps — close the task here.",
     "suggestsClosingUnassigned": "Assigned to somebody else in Azure DevOps — close the task here.",
     "suggestsReopening": "Not done in Azure DevOps — reopen the task here.",

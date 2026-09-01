@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { JiraPreviewRow } from '../api/todo-client';
+import { ClosureReason, JiraPreviewRow, ReopenTarget } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
 import { pluralKey } from '../i18n/plural-key';
 import { SettingsStore } from '../settings/settings-store';
@@ -26,6 +26,13 @@ export class JiraImport {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly pluralKey = pluralKey;
+
+  /**
+   * The one enum member each template branch compares against - see the twin in ado-import.ts for why
+   * a string literal will not do under strictTemplates.
+   */
+  protected readonly unassigned = ClosureReason.Unassigned;
+  protected readonly waitingFor = ReopenTarget.WaitingFor;
 
   /**
    * True once a preview came back without an error. It is what tells "Jira has nothing assigned to

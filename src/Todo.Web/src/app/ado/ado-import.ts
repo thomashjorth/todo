@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { AdoPreviewRow } from '../api/todo-client';
+import { AdoPreviewRow, ClosureReason, ReopenTarget } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
 import { pluralKey } from '../i18n/plural-key';
 import { SettingsStore } from '../settings/settings-store';
@@ -26,6 +26,15 @@ export class AdoImport {
   private readonly transloco = inject(TranslocoService);
 
   protected readonly pluralKey = pluralKey;
+
+  /**
+   * The one enum member each template branch compares against, exposed the way task-detail.ts exposes
+   * TodoStatus.WaitingFor. A string enum cannot be compared to a string literal under
+   * strictTemplates - the two types have no overlap - so the alternative is an untyped comparison,
+   * which is what these two lines buy their way out of.
+   */
+  protected readonly unassigned = ClosureReason.Unassigned;
+  protected readonly waitingFor = ReopenTarget.WaitingFor;
 
   /**
    * True once a preview came back without an error. It is what tells "Azure DevOps has nothing

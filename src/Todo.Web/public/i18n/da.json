@@ -124,7 +124,6 @@
       "other": "Importér {{count}} sager"
     },
     "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
-    "suggestsClosing": "Løst i Jira — luk opgaven her.",
     "suggestsClosingResolved": "Løst i Jira — luk opgaven her.",
     "suggestsClosingUnassigned": "Tildelt en anden i Jira — luk opgaven her.",
     "suggestsReopening": "Ikke færdig i Jira — genåbn opgaven her.",
@@ -178,7 +177,6 @@
       "other": "Importér {{count}} sager"
     },
     "receipt": "{{imported}} importeret, {{skipped}} sprunget over",
-    "suggestsClosing": "Løst i Azure DevOps — luk opgaven her.",
     "suggestsClosingResolved": "Løst i Azure DevOps — luk opgaven her.",
     "suggestsClosingUnassigned": "Tildelt en anden i Azure DevOps — luk opgaven her.",
     "suggestsReopening": "Ikke færdig i Azure DevOps — genåbn opgaven her.",

@@ -748,4 +748,193 @@ describe('AdoImport', () => {
     expect(checkboxes(element)[0].disabled).toBe(true);
     expect(importButton(element).disabled).toBe(true);
   });
+
+  /**
+   * Two sentences rather than one, because the two findings are not the same news: a finished work
+   * item says the work is over, and one handed to somebody else says it stopped being yours. Both
+   * rows carry `suggestsClosing`, so a chain reading that boolean alone would print one sentence over
+   * both — which is what this measures. The texts are asserted whole rather than by a fragment: the
+   * resolved one is byte-identical to the sentence that predates the split, and a `toContain` on
+   * "luk opgaven her" would pass on either of them.
+   */
+  it('should tell a resolved closure apart from one handed to somebody else', async () => {
+    const { element } = await preview({
+      total: 0,
+      rows: [
+        row({
+          key: '16901',
+          title: 'Ret regningen',
+          state: 'Resolved',
+          alreadyImported: true,
+          suggestsClosing: true,
+          closureReason: 'resolved',
+          doneAt: '2026-08-15T09:00:00Z',
+          reconciled: true,
+        }),
+        row({
+          key: '17170',
+          title: 'Den en anden overtog',
+          state: 'Active',
+          alreadyImported: true,
+          suggestsClosing: true,
+          closureReason: 'unassigned',
+          reconciled: true,
+        }),
+      ],
+    });
+
+    const [resolved, handedOn] = rows(element);
+
+    expect(
+      resolved.querySelector('[data-testid="ado-suggests-closing"]')!.textContent!.trim(),
+    ).toBe('Løst i Azure DevOps — luk opgaven her.');
+    expect(
+      handedOn.querySelector('[data-testid="ado-suggests-closing"]')!.textContent!.trim(),
+    ).toBe('Tildelt en anden i Azure DevOps — luk opgaven her.');
+  });
+
+  /**
+   * The reopening's own label, and the status it would restore beside it — the contract puts
+   * `reopenTo` on the row so the suggestion says what it will do, and nothing read it until here.
+   *
+   * Both rows are `alreadyImported`, which is what gives the last assertion teeth: a reopening
+   * candidate is imported-before by definition, so a chain asking that first would swallow this
+   * branch and print "importeret tidligere" over an offer the user is meant to act on.
+   */
+  it('should say a reopening is on offer and which status it would restore', async () => {
+    const { element } = await preview({
+      total: 2,
+      rows: [
+        row({
+          key: '17170',
+          title: 'Den er ikke færdig endda',
+          state: 'Active',
+          alreadyImported: true,
+          suggestsReopening: true,
+          reopenTo: 'open',
+        }),
+        row({
+          key: '16901',
+          title: 'Den der venter på nogen',
+          state: 'Blocked',
+          alreadyImported: true,
+          suggestsReopening: true,
+          reopenTo: 'waitingFor',
+        }),
+      ],
+    });
+
+    const [toOpen, toWaiting] = rows(element);
+
+    expect(toOpen.querySelector('[data-testid="ado-suggests-reopening"]')!.textContent).toContain(
+      'Ikke færdig i Azure DevOps',
+    );
+
+    // Two rows rather than one, and they differ only in `reopenTo`: with a single row a template
+    // that hard-wired either sentence would pass.
+    expect(toOpen.querySelector('[data-testid="ado-reopen-to"]')!.textContent!.trim()).toBe(
+      'Genåbnes som åben.',
+    );
+    expect(toWaiting.querySelector('[data-testid="ado-reopen-to"]')!.textContent!.trim()).toBe(
+      'Genåbnes som ventende.',
+    );
+
+    for (const one of [toOpen, toWaiting]) {
+      expect(one.querySelector('[data-testid="ado-already-imported"]')).toBeNull();
+    }
+  });
+
+  /**
+   * The two fields reconciliation made nullable. A key Azure DevOps does not know answered with
+   * neither, and a line left blank cannot be told apart from one the screen forgot to fill in — so
+   * both absences are said out loud. The answered row beside it is the other half: without it, a
+   * template that had dropped the two lines altogether would pass.
+   */
+  it('should say out loud that the source reported no type and no state', async () => {
+    const { element } = await preview({
+      total: 1,
+      rows: [
+        row({ key: '15664' }),
+        row({
+          key: '17165',
+          title: 'Den kilden ikke kender',
+          state: null,
+          workItemType: null,
+          alreadyImported: true,
+          reconciled: true,
+          excluded: 'ado.missingInSource',
+        }),
+      ],
+    });
+
+    const [answered, unknown] = rows(element);
+
+    expect(answered.querySelector('[data-testid="ado-type"]')!.textContent).toContain('Type: Bug');
+    expect(answered.querySelector('[data-testid="ado-state"]')!.textContent).toContain(
+      'Tilstand: Active',
+    );
+    expect(answered.querySelector('[data-testid="ado-no-type"]')).toBeNull();
+    expect(answered.querySelector('[data-testid="ado-no-state"]')).toBeNull();
+
+    expect(unknown.querySelector('[data-testid="ado-no-type"]')!.textContent!.trim()).toBe(
+      'Azure DevOps oplyste ingen sagstype.',
+    );
+    expect(unknown.querySelector('[data-testid="ado-no-state"]')!.textContent!.trim()).toBe(
+      'Azure DevOps oplyste ingen tilstand.',
+    );
+    expect(unknown.querySelector('[data-testid="ado-type"]')).toBeNull();
+    expect(unknown.querySelector('[data-testid="ado-state"]')).toBeNull();
+  });
+
+  /**
+   * The notice the server puts on the response when the reconciliation had nothing to say. It is not
+   * folded into the error line: the preview did not fail, and the fetch's own rows are on screen and
+   * worth keeping — which is the second assertion here.
+   */
+  it('should say why the reconciliation had nothing to say, and drop it on the next preview', async () => {
+    const screen = await preview({
+      total: 1,
+      rows: [row({ key: '15664' })],
+      reconciliationNotice: 'ado.noneRecognized',
+    });
+
+    expect(
+      screen.element.querySelector('[data-testid="ado-reconciliation-notice"]')!.textContent,
+    ).toContain('genkendte ingen af de opgaver');
+    expect(rows(screen.element)).toHaveLength(1);
+    expect(screen.element.querySelector('[data-testid="ado-import-error"]')).toBeNull();
+
+    // Gone again on the next preview, which a one-shot fixture cannot see: a notice left standing
+    // would explain a reconciliation that has since succeeded.
+    screen.element.querySelector<HTMLButtonElement>('[data-testid="ado-preview"]')!.click();
+    const again = await vi.waitFor(() => screen.http.expectOne('/api/ado/preview'));
+    again.flush(new Blob([JSON.stringify({ total: 1, rows: [row({ key: '15664' })] })]));
+
+    await vi.waitFor(() => {
+      screen.fixture.detectChanges();
+      expect(screen.element.querySelector('[data-testid="ado-reconciliation-notice"]')).toBeNull();
+    });
+  });
+
+  /**
+   * Where the notice sits, and the state that decides it. It stands above the branch choosing between
+   * "nothing is assigned to you" and the list, because a refused reconciliation on top of an empty
+   * fetch is exactly where it matters most — and a notice placed inside the list's branch would be
+   * invisible in that state while looking right in every other one.
+   *
+   * The code is a plain refusal rather than noneRecognized on purpose: the reconciliation catches its
+   * own SourceException and puts the code here, so ado.refused reaches this line as well.
+   */
+  it('should still explain a refused reconciliation when the fetch itself answered with nothing', async () => {
+    const { element } = await preview({
+      total: 0,
+      rows: [],
+      reconciliationNotice: 'ado.refused',
+    });
+
+    expect(element.querySelector('[data-testid="ado-none-assigned"]')).not.toBeNull();
+    expect(
+      element.querySelector('[data-testid="ado-reconciliation-notice"]')!.textContent,
+    ).toContain('afviste tokenet');
+  });
 });

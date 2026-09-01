@@ -46,6 +46,30 @@
 }
 
 @if (previewed()) {
+  <!-- Hvorfor afstemningen ikke havde noget at sige, oversat gennem errors.<kode> — samme vej som en
+       rækkes excluded og som apiErrorMessage, så notitsen ikke får sin egen mekanik. Ikke foldet ind i
+       fejllinjen ovenfor: forhåndsvisningen fejlede ikke, og hentningens egne rækker står på skærmen
+       og er værd at beholde.
+
+       Over splittet mellem "ingen sager er tildelt dig" og listen, ikke inde i listens gren: en
+       nægtet afstemning oven på en tom hentning er præcis dér notitsen betyder mest, og inde i
+       @else-grenen ville den være usynlig netop der, mens den så rigtig ud i enhver anden tilstand.
+
+       Linjen står *i stedet for* afstemningsrækkerne — men det er en serverregel, ikke en
+       skabelonregel, og der er med vilje ingen @if her der skjuler rækker når notitsen står. Reglen
+       bor i AdoEndpoints.ReconciledRowsAsync, som returnerer ([], kode), og vagterne er
+       Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission og
+       One_missing_key_among_answered_ones_still_shows_every_row_because_the_notice_needs_all_of_them.
+       Samme regel to steder ville drive fra hinanden uden at nogen kunne se det. -->
+  @if (store.reconciliationMessage(); as notice) {
+    <p
+      data-testid="ado-reconciliation-notice"
+      class="mt-3 text-sm text-gray-700 dark:text-gray-300"
+    >
+      {{ notice }}
+    </p>
+  }
+
   @if (noneAssigned()) {
     <p data-testid="ado-none-assigned" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
       {{ 'ado.noneAssigned' | transloco }}
@@ -95,13 +119,40 @@
               <!-- Typen står før tilstanden, og den står der overhovedet, fordi et tilstandsnavn
                    ikke betyder det samme på tværs af typer: en Test Suite bruger In Progress hvor en
                    Bug bruger Active. Uden typen kan brugeren ikke afgøre om tilstanden er den hun
-                   valgte som ventende. Ingen @if: typen er altid udfyldt. -->
-              <span data-testid="ado-type" class="block text-xs text-gray-500 dark:text-gray-400">{{
-                'ado.typeValue' | transloco: { value: row.workItemType }
-              }}</span>
-              <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-                'ado.stateValue' | transloco: { value: row.state }
-              }}</span>
+                   valgte som ventende.
+
+                   Begge felter har en @if, og det er nyt: afstemningen kan spørge om en nøgle kilden
+                   ikke kender, og så kom der intet svar at tage hverken type eller tilstand fra.
+                   Fraværet siges højt frem for at efterlade en tom linje — "Type: " uden noget efter
+                   kan ikke skelnes fra en linje skærmen glemte at udfylde. Sandhedstest frem for
+                   != null: hentningens egen løkke skriver en tom streng når Azure DevOps ikke
+                   oplyser en type, og den skal læses som et fravær og ikke som en værdi. -->
+              @if (row.workItemType) {
+                <span
+                  data-testid="ado-type"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'ado.typeValue' | transloco: { value: row.workItemType } }}</span
+                >
+              } @else {
+                <span
+                  data-testid="ado-no-type"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'ado.noType' | transloco }}</span
+                >
+              }
+              @if (row.state) {
+                <span
+                  data-testid="ado-state"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'ado.stateValue' | transloco: { value: row.state } }}</span
+                >
+              } @else {
+                <span
+                  data-testid="ado-no-state"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'ado.noState' | transloco }}</span
+                >
+              }
               <!-- Foreslået, ikke hentet, og begge grene siges højt: er dagantallet nul, kommer
                    sagen ind uden deadline, og en linje der bare mangler kan ikke skelnes fra en
                    indstilling der ikke virkede. -->
@@ -165,15 +216,56 @@
                   class="block text-xs font-medium text-gray-700 dark:text-gray-300"
                   >{{ excludedReason(row) }}</span
                 >
-                <!-- Foran alreadyImported, ikke efter: en række der foreslår en lukning *er* også
-                   importeret tidligere, så den anden gren ville sluge den. Mærkaten havner i
-                   afkrydsningsfeltets tilgængelige navn, fordi rækken er en <label> — her en
-                   gevinst, for navnet kommer til at sige hvad fluebenet gør. -->
+                <!-- Begge forslag foran alreadyImported, ikke efter: en række der foreslår en
+                   lukning eller en genåbning *er* pr. definition også importeret tidligere, så den
+                   sidste gren ville sluge dem begge og skrive "importeret tidligere" over et tilbud
+                   brugeren skal handle på. Mærkaten havner i afkrydsningsfeltets tilgængelige navn,
+                   fordi rækken er en <label> — her en gevinst, for navnet kommer til at sige hvad
+                   fluebenet gør.
+
+                   To sætninger frem for én, fordi de to fund ikke er samme nyhed: løst betyder at
+                   arbejdet er forbi, overdraget at det ikke længere er dit. Ét testid med to tekster,
+                   så E2E-rejsen og kontrastvagten bliver ved at pege på det samme element — og fordi
+                   den løste sætning er byte-identisk med den der stod før opsplitningen, er de to
+                   ærlige frem for tilfældigvis stadig grønne.
+
+                   Fallbacket til den løste sætning er *uopnåeligt i drift*: serveren sætter altid
+                   closureReason når suggestsClosing er sand — AdoEndpoints.cs:217 på hentningens vej
+                   og :622 på afstemningens. Grenen findes udelukkende fordi de iscenesatte rækker i
+                   ContrastTests og E2E ikke bærer feltet. Læs den altså ikke som at serveren nogle
+                   gange udelader grunden, og byg ikke noget på det. En @switch uden @default ville
+                   tegne ingenting for en manglende grund, hvilket er en synlig fejl frem for en
+                   mild. -->
               } @else if (row.suggestsClosing) {
                 <span
                   data-testid="ado-suggests-closing"
                   class="block text-xs font-medium text-blue-700 dark:text-blue-300"
-                  >{{ 'ado.suggestsClosing' | transloco }}</span
+                  >{{
+                    (row.closureReason === unassigned
+                      ? 'ado.suggestsClosingUnassigned'
+                      : 'ado.suggestsClosingResolved'
+                    ) | transloco
+                  }}</span
+                >
+                <!-- Genåbningen står efter lukningen og før alreadyImported. Rækkefølgen mellem de to
+                   forslag er uden betydning — serveren sætter aldrig begge på én række — mens deres
+                   plads foran alreadyImported er bærende. -->
+              } @else if (row.suggestsReopening) {
+                <span
+                  data-testid="ado-suggests-reopening"
+                  class="block text-xs font-medium text-blue-700 dark:text-blue-300"
+                  >{{ 'ado.suggestsReopening' | transloco }}</span
+                >
+                <!-- Hvad forslaget fører til, som kontrakten lover om reopenTo: forslaget skal sige
+                     hvad det gør. Samme uopnåelige fallback som grunden ovenfor, af samme grund —
+                     serveren sætter reopenTo når og kun når suggestsReopening er sand. -->
+                <span
+                  data-testid="ado-reopen-to"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{
+                    (row.reopenTo === waitingFor ? 'ado.reopenToWaiting' : 'ado.reopenToOpen')
+                      | transloco
+                  }}</span
                 >
               } @else if (row.alreadyImported) {
                 <span

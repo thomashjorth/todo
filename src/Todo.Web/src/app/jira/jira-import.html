@@ -48,6 +48,20 @@
 }
 
 @if (previewed()) {
+  <!-- Hvorfor afstemningen ikke havde noget at sige, oversat gennem errors.<kode> — samme vej som en
+       rækkes excluded. Over splittet mellem "ingen sager er tildelt dig" og listen, ikke inde i
+       listens gren: en nægtet afstemning oven på en tom hentning er præcis dér notitsen betyder mest.
+       At linjen står i stedet for afstemningsrækkerne er en serverregel og ikke en skabelonregel —
+       se tvillingen i ado-import.html for de to vagter der ejer den. -->
+  @if (store.reconciliationMessage(); as notice) {
+    <p
+      data-testid="jira-reconciliation-notice"
+      class="mt-3 text-sm text-gray-700 dark:text-gray-300"
+    >
+      {{ notice }}
+    </p>
+  }
+
   @if (noneAssigned()) {
     <p data-testid="jira-none-assigned" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
       {{ 'jira.noneAssigned' | transloco }}
@@ -94,9 +108,24 @@
               <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
                 row.title
               }}</span>
-              <span class="block text-xs text-gray-500 dark:text-gray-400">{{
-                'jira.statusValue' | transloco: { value: row.status }
-              }}</span>
+              <!-- En @if, fordi feltet nu kan mangle: afstemningen kan spørge om en nøgle Jira ikke
+                   kender, og så kom der intet svar at tage en status fra. Fraværet siges højt frem
+                   for at efterlade en tom linje — "Status: " uden noget efter kan ikke skelnes fra en
+                   linje skærmen glemte at udfylde. Azure DevOps' tvilling har to af dem; her er der
+                   kun status, for Jira-rækken har ingen typelinje. -->
+              @if (row.status) {
+                <span
+                  data-testid="jira-status"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'jira.statusValue' | transloco: { value: row.status } }}</span
+                >
+              } @else {
+                <span
+                  data-testid="jira-no-status"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{ 'jira.noStatus' | transloco }}</span
+                >
+              }
               @if (row.deadline) {
                 <span class="block text-xs text-gray-500 dark:text-gray-400">{{
                   'jira.deadlineValue' | transloco: { value: row.deadline | deadlineDate }
@@ -120,15 +149,43 @@
                   class="block text-xs font-medium text-gray-700 dark:text-gray-300"
                   >{{ excludedReason(row) }}</span
                 >
-                <!-- Foran alreadyImported, ikke efter: en række der foreslår en lukning *er* også
-                   importeret tidligere, så den anden gren ville sluge den. Mærkaten havner i
-                   afkrydsningsfeltets tilgængelige navn, fordi rækken er en <label> — her en
-                   gevinst, for navnet kommer til at sige hvad fluebenet gør. -->
+                <!-- Begge forslag foran alreadyImported, ikke efter: en række der foreslår en
+                   lukning eller en genåbning *er* pr. definition også importeret tidligere, så den
+                   sidste gren ville sluge dem begge. Mærkaten havner i afkrydsningsfeltets
+                   tilgængelige navn, fordi rækken er en <label> — her en gevinst, for navnet kommer
+                   til at sige hvad fluebenet gør. Se tvillingen i ado-import.html for hele
+                   begrundelsen, opsplitningen i to sætninger iberegnet.
+
+                   Fallbacket til den løste sætning er uopnåeligt i drift: serveren sætter altid
+                   closureReason når suggestsClosing er sand — JiraEndpoints' to steder, samme par som
+                   AdoEndpoints.cs:217 og :622. Grenen findes udelukkende fordi de iscenesatte rækker
+                   i ContrastTests og E2E ikke bærer feltet. -->
               } @else if (row.suggestsClosing) {
                 <span
                   data-testid="jira-suggests-closing"
                   class="block text-xs font-medium text-blue-700 dark:text-blue-300"
-                  >{{ 'jira.suggestsClosing' | transloco }}</span
+                  >{{
+                    (row.closureReason === unassigned
+                      ? 'jira.suggestsClosingUnassigned'
+                      : 'jira.suggestsClosingResolved'
+                    ) | transloco
+                  }}</span
+                >
+              } @else if (row.suggestsReopening) {
+                <span
+                  data-testid="jira-suggests-reopening"
+                  class="block text-xs font-medium text-blue-700 dark:text-blue-300"
+                  >{{ 'jira.suggestsReopening' | transloco }}</span
+                >
+                <!-- Hvad forslaget fører til, som kontrakten lover om reopenTo: forslaget skal sige
+                     hvad det gør. -->
+                <span
+                  data-testid="jira-reopen-to"
+                  class="block text-xs text-gray-500 dark:text-gray-400"
+                  >{{
+                    (row.reopenTo === waitingFor ? 'jira.reopenToWaiting' : 'jira.reopenToOpen')
+                      | transloco
+                  }}</span
                 >
               } @else if (row.alreadyImported) {
                 <span
