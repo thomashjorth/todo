@@ -261,6 +261,7 @@ public static class JiraEndpoints
 
             var rows = request.Rows ?? [];
             var closures = request.Closures ?? [];
+            var reopenings = request.Reopenings ?? [];
 
             foreach (var row in rows)
             {
@@ -275,6 +276,14 @@ public static class JiraEndpoints
             foreach (var closure in closures)
             {
                 if (ValidateClosure(closure) is { } invalid)
+                {
+                    return invalid;
+                }
+            }
+
+            foreach (var reopening in reopenings)
+            {
+                if (ValidateReopening(reopening) is { } invalid)
                 {
                     return invalid;
                 }
@@ -341,6 +350,7 @@ public static class JiraEndpoints
             }
 
             var closed = await CloseAsync(db, settings, clock, closures, () => skipped++);
+            var reopened = await ReopenAsync(db, settings, reopenings, () => skipped++);
 
             await db.SaveChangesAsync();
 
@@ -349,6 +359,7 @@ public static class JiraEndpoints
                 Imported = imported,
                 Skipped = skipped,
                 Closed = closed,
+                Reopened = reopened,
             });
         })
         .WithName("importJira")
@@ -546,6 +557,74 @@ public static class JiraEndpoints
     }
 
     /// <summary>
+    /// The same two facts and the same two codes a closure is refused for. A reopening carries no
+    /// reason, because its target is derived from the status through <see cref="StatusFor"/> - there
+    /// is nothing the client could tell the server that the server does not already work out.
+    /// </summary>
+    private static BadRequest<ApiError>? ValidateReopening(JiraReopeningRow reopening)
+    {
+        if (string.IsNullOrWhiteSpace(reopening.Key))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.JiraRowKeyRequired, "Every row needs a key.");
+        }
+
+        return string.IsNullOrWhiteSpace(reopening.Status)
+            ? ApiErrors.BadRequest(
+                ErrorCodes.JiraRowStatusRequired, "Every row needs its Jira status name.")
+            : null;
+    }
+
+    /// <summary>
+    /// Reopens the local tasks the source is not finished with, and answers how many. The twin of
+    /// AdoEndpoints.ReopenAsync, which carries the full reasoning; the short version is that every
+    /// decision is taken again, that being done here is the one condition inverted from the closure's,
+    /// and that the status comes from <see cref="StatusFor"/> so the suggestion and the import cannot
+    /// name different things.
+    /// </summary>
+    private static async Task<int> ReopenAsync(
+        TodoDbContext db,
+        JiraSettings settings,
+        ICollection<JiraReopeningRow> reopenings,
+        Action skip)
+    {
+        if (reopenings.Count == 0)
+        {
+            return 0;
+        }
+
+        var keys = reopenings.Select(reopening => reopening.Key).ToList();
+        var tasks = await db.Tasks
+            .Where(t => t.SourceId == JiraTaskSource.Id
+                && t.ExternalKey != null
+                && keys.Contains(t.ExternalKey))
+            .ToDictionaryAsync(t => t.ExternalKey!, t => t, StringComparer.Ordinal);
+
+        var reopened = 0;
+
+        foreach (var reopening in reopenings)
+        {
+            var role = JiraStatusRoles.For(reopening.Status, settings);
+
+            if (role == JiraStatusRole.Done
+                || !tasks.TryGetValue(reopening.Key, out var task)
+                || task.Status != CoreStatus.Done)
+            {
+                skip();
+                continue;
+            }
+
+            task.Status = StatusFor(role);
+            task.CompletedAt = null;
+            task.WaitingSince = role == JiraStatusRole.Waiting
+                ? reopening.WaitingSince?.UtcDateTime
+                : null;
+            reopened++;
+        }
+
+        return reopened;
+    }
+
+    /// <summary>
     /// Closes the local tasks whose issue is finished, and answers how many. The twin of
     /// AdoEndpoints.CloseAsync, which carries the full reasoning; the short version is that every
     /// decision is taken again here, and that the completion time cannot come from
@@ -574,7 +653,15 @@ public static class JiraEndpoints
 
         foreach (var closure in closures)
         {
-            if (JiraStatusRoles.For(closure.Status, settings) != JiraStatusRole.Done
+            // Conditional on the reason, and AdoEndpoints.CloseAsync carries the full reasoning: an
+            // issue handed to somebody else is still in an open status, so an unconditional status
+            // check would skip every unassigned closure and count it, leaving the feature looking
+            // finished while doing nothing. The price is the same too - ownership is a fact only the
+            // source can settle, and the import makes no call.
+            var statusSaysDone =
+                JiraStatusRoles.For(closure.Status, settings) == JiraStatusRole.Done;
+
+            if ((closure.Reason == ClosureReason.Resolved && !statusSaysDone)
                 || !tasks.TryGetValue(closure.Key, out var task)
                 || task.Status == CoreStatus.Done)
             {

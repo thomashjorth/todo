@@ -347,6 +347,7 @@ public static class AdoEndpoints
 
             var rows = request.Rows ?? [];
             var closures = request.Closures ?? [];
+            var reopenings = request.Reopenings ?? [];
 
             foreach (var row in rows)
             {
@@ -363,6 +364,14 @@ public static class AdoEndpoints
             foreach (var closure in closures)
             {
                 if (ValidateClosure(closure) is { } invalid)
+                {
+                    return invalid;
+                }
+            }
+
+            foreach (var reopening in reopenings)
+            {
+                if (ValidateReopening(reopening) is { } invalid)
                 {
                     return invalid;
                 }
@@ -441,6 +450,7 @@ public static class AdoEndpoints
             }
 
             var closed = await CloseAsync(db, settings, clock, closures, () => skipped++);
+            var reopened = await ReopenAsync(db, settings, reopenings, () => skipped++);
 
             await db.SaveChangesAsync();
 
@@ -449,6 +459,7 @@ public static class AdoEndpoints
                 Imported = imported,
                 Skipped = skipped,
                 Closed = closed,
+                Reopened = reopened,
             });
         })
         .WithName("importAdo")
@@ -714,6 +725,84 @@ public static class AdoEndpoints
     }
 
     /// <summary>
+    /// The same two facts and the same two codes a closure is refused for. A reopening carries no
+    /// reason: the closure needs one because ownership is a fact the server cannot recompute, while a
+    /// reopening's target is derived from the state through <see cref="StatusFor"/> - so there is
+    /// nothing here the client could tell the server that the server does not already work out.
+    /// </summary>
+    private static BadRequest<ApiError>? ValidateReopening(AdoReopeningRow reopening)
+    {
+        if (string.IsNullOrWhiteSpace(reopening.Key))
+        {
+            return ApiErrors.BadRequest(ErrorCodes.AdoRowKeyRequired, "Every row needs a key.");
+        }
+
+        return string.IsNullOrWhiteSpace(reopening.State)
+            ? ApiErrors.BadRequest(
+                ErrorCodes.AdoRowStateRequired, "Every row needs its Azure DevOps state name.")
+            : null;
+    }
+
+    /// <summary>
+    /// Reopens the local tasks the source is not finished with, and answers how many.
+    ///
+    /// The mirror of <see cref="CloseAsync"/>, and every decision is taken again for the same reason:
+    /// the done list lives on the server, the task has to exist and belong to this source, and it must
+    /// <em>be</em> done here - the one condition that is inverted. A client that previewed before
+    /// somebody reopened the task by hand is the ordinary case, not the adversarial one.
+    ///
+    /// The status comes from <see cref="StatusFor"/> rather than from the row, so the suggestion and
+    /// the import cannot name different things; the row carries the state, not the status it wants.
+    ///
+    /// <c>CompletedAt</c> is cleared rather than left: a task that is open again was not completed,
+    /// and both the completed filter and the weekly review read that field. <c>WaitingSince</c>
+    /// travels on the row for the reason <c>doneAt</c> does - the import makes no call of its own, so
+    /// the source's clock has no other way in.
+    /// </summary>
+    private static async Task<int> ReopenAsync(
+        TodoDbContext db,
+        AdoSettings settings,
+        ICollection<AdoReopeningRow> reopenings,
+        Action skip)
+    {
+        if (reopenings.Count == 0)
+        {
+            return 0;
+        }
+
+        var keys = reopenings.Select(reopening => reopening.Key).ToList();
+        var tasks = await db.Tasks
+            .Where(t => t.SourceId == AdoTaskSource.Id
+                && t.ExternalKey != null
+                && keys.Contains(t.ExternalKey))
+            .ToDictionaryAsync(t => t.ExternalKey!, t => t, StringComparer.Ordinal);
+
+        var reopened = 0;
+
+        foreach (var reopening in reopenings)
+        {
+            var role = AdoStateRoles.For(reopening.State, settings);
+
+            if (role == AdoStateRole.Done
+                || !tasks.TryGetValue(reopening.Key, out var task)
+                || task.Status != CoreStatus.Done)
+            {
+                skip();
+                continue;
+            }
+
+            task.Status = StatusFor(role);
+            task.CompletedAt = null;
+            task.WaitingSince = role == AdoStateRole.Waiting
+                ? reopening.WaitingSince?.UtcDateTime
+                : null;
+            reopened++;
+        }
+
+        return reopened;
+    }
+
+    /// <summary>
     /// Closes the local tasks whose work item is finished, and answers how many.
     ///
     /// Every decision is taken again here rather than trusted: the done list lives on the server, the
@@ -752,7 +841,25 @@ public static class AdoEndpoints
 
         foreach (var closure in closures)
         {
-            if (AdoStateRoles.For(closure.State, settings) != AdoStateRole.Done
+            // The state check belongs to the resolved reason alone, and making it unconditional is
+            // the bug this branch exists to prevent: a work item handed to somebody else is still
+            // Active, so every unassigned closure would be skipped and counted, and the feature would
+            // look finished while doing nothing.
+            //
+            // The price is that the re-decision is weaker for unassigned. Ownership is a fact only the
+            // source can settle, and the import deliberately makes no call - the same shape doneAt and
+            // waitingSince already have - so what stays checkable is that the task exists, belongs to
+            // this source, and is not already done.
+            //
+            // Note what required does not buy here. Reason is a non-nullable enum whose Resolved is 0,
+            // the Required attribute is inert (nothing configures validation, and Required on a
+            // non-nullable enum can never fail), and ValidateClosure asks only about the key and the
+            // state - so a body without a reason deserialises to resolved in silence. The weaker
+            // branch is reached only when a client says unassigned outright, which is a property of
+            // what the client sends rather than of the contract.
+            var stateSaysDone = AdoStateRoles.For(closure.State, settings) == AdoStateRole.Done;
+
+            if ((closure.Reason == ClosureReason.Resolved && !stateSaysDone)
                 || !tasks.TryGetValue(closure.Key, out var task)
                 || task.Status == CoreStatus.Done)
             {

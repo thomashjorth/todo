@@ -34,8 +34,14 @@ public class AdoEndpointsTests : ApiTest
 
     private static readonly DateOnly DefaultDeadline = Today.AddDays(AdoDefaults.DeadlineDays);
 
+    /// <summary>
+    /// Held rather than built inline, so a test can assert against the very instant the endpoint sees.
+    /// A handed-over closure has no timestamp from the source, and the clock is what stands in.
+    /// </summary>
+    private static readonly FixedClock Clock = new(Today);
+
     protected override void ConfigureServices(IServiceCollection services)
-        => services.AddSingleton<IClock>(new FixedClock(Today));
+        => services.AddSingleton<IClock>(Clock);
 
     /// <summary>
     /// Blocked is the waiting state by default, because work item 15664 - the measured Bug - is the one
@@ -1146,6 +1152,185 @@ public class AdoEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The state check is the one guard a handed-over closure cannot pass: the work item is still
+    /// Active, which is why somebody else now has it. Without the reason making that guard
+    /// conditional, every unassigned closure would be skipped and counted, and the feature would look
+    /// finished while doing nothing.
+    ///
+    /// Note what the reason does <em>not</em> buy. Reason is a non-nullable enum whose Resolved is 0,
+    /// the Required attribute is inert (nothing in TodoHost configures validation, and Required on a
+    /// non-nullable enum can never fail), and ValidateClosure asks only about the key and the state -
+    /// so a body without a reason deserialises to resolved in silence. The weaker branch is reached
+    /// only when a client says unassigned outright, which is the safe direction, but nothing in the
+    /// contract enforces it.
+    /// </summary>
+    [Fact]
+    public async Task Closing_a_work_item_that_was_handed_over_does_not_need_a_done_state()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+
+        var result = await CloseAsync(Closure(reason: "unassigned", doneAt: null));
+
+        Assert.Equal(1, result.Closed);
+        Assert.Equal(0, result.Skipped);
+
+        var task = Assert.Single((await Tasks(includeCompleted: true)).Items);
+
+        Assert.Equal(TodoStatus.Done, task.Status);
+    }
+
+    /// <summary>
+    /// A handed-over issue was never finished, so the source has no completion time to give - the row
+    /// carries none, and the clock stands in. The assertion is on the clock's exact value rather than
+    /// on not-null, because a not-null would also pass an implementation that reached for the row's
+    /// absent timestamp and got the fallback by accident.
+    /// </summary>
+    [Fact]
+    public async Task A_handed_over_closure_takes_its_completion_time_from_the_clock()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+
+        await CloseAsync(Closure(reason: "unassigned", doneAt: null));
+
+        var task = Assert.Single((await Tasks(includeCompleted: true)).Items);
+
+        Assert.Equal(Clock.UtcNow, task.CompletedAt);
+    }
+
+    /// <summary>
+    /// The tooth is the cleared completion time, and it is only a tooth because the fixture arrives
+    /// with one: TaskItemBuilder.Done writes the clock's now, so an implementation that left the field
+    /// alone - or wrote the clock into it again - fails here. A fixture that was already null would
+    /// have passed either way.
+    /// </summary>
+    [Fact]
+    public async Task Reopening_puts_the_status_back_and_clears_the_completion_time()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+        await CloseAsync(Closure(reason: "unassigned", doneAt: null));
+
+        var result = await ReopenAsync(Reopening());
+
+        Assert.Equal(1, result.Reopened);
+        Assert.Equal(0, result.Skipped);
+
+        var task = Assert.Single((await Tasks()).Items);
+
+        Assert.Equal(TodoStatus.Open, task.Status);
+        Assert.Null(task.CompletedAt);
+    }
+
+    /// <summary>
+    /// The mirror of the closure's own last guard. A task that is open here has nothing to reopen, and
+    /// the preview never offers it - so reaching this needs a client that previewed before somebody
+    /// reopened the task by hand.
+    /// </summary>
+    [Fact]
+    public async Task Reopening_refuses_a_task_that_is_not_done_here()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(UserStory());
+
+        var result = await ReopenAsync(Reopening());
+
+        Assert.Equal(0, result.Reopened);
+        Assert.Equal(1, result.Skipped);
+
+        var task = Assert.Single((await Tasks()).Items);
+
+        Assert.Equal(TodoStatus.Open, task.Status);
+    }
+
+    /// <summary>
+    /// The decision taken again on the server: the client previewed under an older done list, the
+    /// state has since become one that means finished, and reopening would undo the very thing the
+    /// source now agrees with.
+    /// </summary>
+    [Fact]
+    public async Task A_reopening_whose_state_is_now_done_is_skipped_and_not_counted()
+    {
+        await using var ado = await ConfigureAsync(doneStates: ["Active"]);
+
+        await Import(UserStory(state: "New"));
+        await CloseAsync(Closure(reason: "unassigned", doneAt: null));
+
+        var result = await ReopenAsync(Reopening());
+
+        Assert.Equal(0, result.Reopened);
+        Assert.Equal(1, result.Skipped);
+
+        var task = Assert.Single((await Tasks(includeCompleted: true)).Items);
+
+        Assert.Equal(TodoStatus.Done, task.Status);
+    }
+
+    /// <summary>
+    /// A waiting state restores the waiting status and the clock that goes with it. WaitingSince
+    /// travels on the row for the reason doneAt does: the import deliberately makes no call, so the
+    /// source's timestamp has no other way in.
+    /// </summary>
+    [Fact]
+    public async Task Reopening_into_a_waiting_state_restores_the_waiting_clock()
+    {
+        await using var ado = await ConfigureAsync(waitingStates: ["Blocked"], includeWaiting: true);
+
+        await Import(UserStory());
+        await CloseAsync(Closure(reason: "unassigned", doneAt: null));
+
+        var result = await ReopenAsync(
+            Reopening(state: "Blocked", waitingSince: "2026-08-10T07:00:00Z"));
+
+        Assert.Equal(1, result.Reopened);
+
+        var task = Assert.Single((await Tasks()).Items);
+
+        Assert.Equal(TodoStatus.WaitingFor, task.Status);
+        Assert.Equal(new DateTime(2026, 8, 10, 7, 0, 0, DateTimeKind.Utc), task.WaitingSince);
+    }
+
+    /// <summary>
+    /// A reopening for a key this source never wrote is skipped rather than matched by key alone -
+    /// the same source check the closure makes, and the reason both look tasks up through SourceId.
+    /// </summary>
+    [Fact]
+    public async Task A_reopening_for_a_work_item_that_was_never_imported_is_skipped()
+    {
+        await using var ado = await ConfigureAsync();
+
+        var result = await ReopenAsync(Reopening());
+
+        Assert.Equal(0, result.Reopened);
+        Assert.Equal(1, result.Skipped);
+        Assert.Empty((await Tasks()).Items);
+    }
+
+    /// <summary>
+    /// The same two facts a closure is refused for, with the same two codes.
+    /// </summary>
+    [Theory]
+    [InlineData(null, "Active", ErrorCodes.AdoRowKeyRequired)]
+    [InlineData("16901", null, ErrorCodes.AdoRowStateRequired)]
+    public async Task A_reopening_without_its_two_facts_is_refused(
+        string? key, string? state, string code)
+    {
+        await using var ado = await ConfigureAsync();
+
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/ado/import",
+            new { rows = Array.Empty<object>(), reopenings = new[] { new { key, state } } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(code, (await response.Content.ReadFromJsonAsync<ApiError>())!.Code);
+    }
+
+    /// <summary>
     /// The same two facts an import row is refused for, with the same two codes: a second pair would be
     /// two more translations for a sentence that already exists.
     /// </summary>
@@ -1181,10 +1366,10 @@ public class AdoEndpointsTests : ApiTest
     }
 
     /// <summary>Work item 16901, which is Active and therefore importable until Active means done.</summary>
-    private static object UserStory() => Row(
+    private static object UserStory(string state = "Active") => Row(
         key: "16901",
         title: "Som bruger vil jeg kunne filtrere",
-        state: "Active",
+        state: state,
         workItemType: "User Story");
 
     /// <summary>
@@ -1288,8 +1473,27 @@ public class AdoEndpointsTests : ApiTest
             "\"adoIncludeWaiting\":false", await Host.Client.GetStringAsync("/api/settings"));
     }
 
-    private static object Closure(string key = "16901", string state = "Active")
-        => new { key, state, doneAt = "2026-08-15T09:00:00Z" };
+    /// <summary>
+    /// The reason defaults to resolved because that is what every closure meant before the
+    /// reconciliation, and it keeps the existing callers reading as they did. A handed-over closure
+    /// passes doneAt: null as well as the reason - the source has no completion time for an issue that
+    /// was never completed.
+    /// </summary>
+    private static object Closure(
+        string key = "16901",
+        string state = "Active",
+        string reason = "resolved",
+        string? doneAt = "2026-08-15T09:00:00Z")
+        => new { key, state, reason, doneAt };
+
+    /// <summary>
+    /// The three facts a reopening carries, the same shape a closure has: the key, the state the
+    /// server maps to a status again, and the waiting clock for the case that mapping lands on
+    /// WaitingFor.
+    /// </summary>
+    private static object Reopening(
+        string key = "16901", string state = "Active", string? waitingSince = null)
+        => new { key, state, waitingSince };
 
     /// <summary>
     /// Upserts rather than overwrites, because an empty list is stored as no row at all - so the row
@@ -1318,6 +1522,16 @@ public class AdoEndpointsTests : ApiTest
     {
         var response = await Host.Client.PostAsJsonAsync(
             "/api/ado/import", new { rows = Array.Empty<object>(), closures = new[] { closure } });
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<ImportBody>())!;
+    }
+
+    private async Task<ImportBody> ReopenAsync(object reopening)
+    {
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/ado/import", new { rows = Array.Empty<object>(), reopenings = new[] { reopening } });
 
         response.EnsureSuccessStatusCode();
 
@@ -1400,7 +1614,7 @@ public class AdoEndpointsTests : ApiTest
         // enum member pass, because the converter would map the new name back to the same value.
         bool SuggestsReopening, string? ReopenTo,
         string? Excluded);
-    private sealed record ImportBody(int Imported, int Skipped, int Closed);
+    private sealed record ImportBody(int Imported, int Skipped, int Closed, int Reopened);
     private sealed record TaskList(TaskBody[] Items);
 
     /// <remarks>
@@ -1417,5 +1631,8 @@ public class AdoEndpointsTests : ApiTest
         string? ExternalUrl,
         // Read off the wire rather than out of the entity, because the whole question here is which
         // timestamp survived the round trip: the source's, or the clock's now.
-        DateTimeOffset? CompletedAt);
+        DateTimeOffset? CompletedAt,
+        // Same reason, for the reopening that lands on WaitingFor: the clock travels on the row
+        // because the import makes no call of its own.
+        DateTimeOffset? WaitingSince);
 }

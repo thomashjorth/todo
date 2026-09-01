@@ -7,7 +7,9 @@ using Todo.Core.Errors;
 using Todo.Core.Persistence;
 using Todo.Core.Settings;
 using Todo.Core.Tasks;
+using Todo.Core.Time;
 using Todo.TestSupport.Jira;
+using Todo.TestSupport.Time;
 using ApiError = Todo.Contracts.ApiError;
 // The contract's status enum, not the core one. Todo.Core.Tasks.TodoStatus carries no
 // JsonStringEnumConverter, so reading "waitingFor" off the wire into it throws — measured, and it
@@ -18,6 +20,17 @@ namespace Todo.Api.Tests;
 
 public class JiraEndpointsTests : ApiTest
 {
+    /// <summary>
+    /// Pinned so a handed-over closure - which has no completion time from the source - can be
+    /// asserted against the very instant the endpoint saw. Azure DevOps' twin has had one since it was
+    /// written; this file ran on the system clock until the reconciliation needed the fallback
+    /// measured. The date is FakeJira's own, so nothing that reads a fixture date shifts under it.
+    /// </summary>
+    private static readonly FixedClock Clock = new(new DateOnly(2026, 8, 20));
+
+    protected override void ConfigureServices(IServiceCollection services)
+        => services.AddSingleton<IClock>(Clock);
+
     /// <summary>
     /// The duty pair defaults to off and empty, so slice 11's seventeen tests measure the same thing
     /// they did before duty existed.
@@ -1051,6 +1064,186 @@ public class JiraEndpointsTests : ApiTest
         Assert.Equal(TodoStatus.Open, Assert.Single(tasks!.Items).Status);
     }
 
+    /// <summary>
+    /// The status check belongs to the resolved reason alone. An issue handed to somebody else is
+    /// still in an open status - which is why somebody else now has it - so an unconditional check
+    /// would skip every unassigned closure and count it, and the feature would look finished while
+    /// doing nothing. AdoEndpointsTests' twin carries the note about what required does not buy.
+    /// </summary>
+    [Fact]
+    public async Task Closing_an_issue_that_was_handed_over_does_not_need_a_done_status()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+
+        var result = await CloseAsync(HandedOver());
+
+        Assert.Equal(1, result.Closed);
+        Assert.Equal(0, result.Skipped);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks?includeCompleted=true");
+
+        Assert.Equal(TodoStatus.Done, Assert.Single(tasks!.Items).Status);
+    }
+
+    /// <summary>
+    /// A handed-over issue was never finished, so the source has no completion time to give and the
+    /// clock stands in. Asserted on the clock's exact value rather than on not-null, which would also
+    /// pass an implementation that reached for the row's absent timestamp and got the fallback by
+    /// accident.
+    /// </summary>
+    [Fact]
+    public async Task A_handed_over_closure_takes_its_completion_time_from_the_clock()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+        await CloseAsync(HandedOver());
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks?includeCompleted=true");
+
+        Assert.Equal(Clock.UtcNow, Assert.Single(tasks!.Items).CompletedAt);
+    }
+
+    /// <summary>
+    /// The tooth is the cleared completion time, and it is only a tooth because the closure above puts
+    /// one there first. A fixture that arrived with null would have passed an implementation that
+    /// cleared nothing.
+    /// </summary>
+    [Fact]
+    public async Task Reopening_puts_the_status_back_and_clears_the_completion_time()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+        await CloseAsync(HandedOver());
+
+        var result = await ReopenAsync(Reopening());
+
+        Assert.Equal(1, result.Reopened);
+        Assert.Equal(0, result.Skipped);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+        var task = Assert.Single(tasks!.Items);
+
+        Assert.Equal(TodoStatus.Open, task.Status);
+        Assert.Null(task.CompletedAt);
+    }
+
+    /// <summary>
+    /// The mirror of the closure's own last guard. A task that is open here has nothing to reopen, and
+    /// the preview never offers it.
+    /// </summary>
+    [Fact]
+    public async Task Reopening_refuses_a_task_that_is_not_done_here()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+
+        var result = await ReopenAsync(Reopening());
+
+        Assert.Equal(0, result.Reopened);
+        Assert.Equal(1, result.Skipped);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+
+        Assert.Equal(TodoStatus.Open, Assert.Single(tasks!.Items).Status);
+    }
+
+    /// <summary>
+    /// The decision taken again on the server: the client previewed under an older done list, and the
+    /// status has since become one that means finished, so reopening would undo what the source now
+    /// agrees with.
+    /// </summary>
+    [Fact]
+    public async Task A_reopening_whose_status_is_now_done_is_skipped_and_not_counted()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+        await CloseAsync(HandedOver());
+        await SetDoneStatusesAsync("I gang");
+
+        var result = await ReopenAsync(Reopening());
+
+        Assert.Equal(0, result.Reopened);
+        Assert.Equal(1, result.Skipped);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks?includeCompleted=true");
+
+        Assert.Equal(TodoStatus.Done, Assert.Single(tasks!.Items).Status);
+    }
+
+    /// <summary>
+    /// A waiting status restores the waiting clock with it. WaitingSince travels on the row for the
+    /// reason doneAt does: the import makes no call, so the source's timestamp has no other way in.
+    /// </summary>
+    [Fact]
+    public async Task Reopening_into_a_waiting_status_restores_the_waiting_clock()
+    {
+        await using var jira = await ConfigureAsync(includeWaiting: true);
+
+        await Import(WaitingIssue());
+        await CloseAsync(new { key = "SAAS-2", status = "Afventer general", reason = "unassigned", doneAt = (string?)null });
+
+        var result = await ReopenAsync(new
+        {
+            key = "SAAS-2",
+            status = "Afventer general",
+            waitingSince = "2026-08-10T07:00:00Z",
+        });
+
+        Assert.Equal(1, result.Reopened);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+
+        Assert.Equal(TodoStatus.WaitingFor, Assert.Single(tasks!.Items).Status);
+    }
+
+    /// <summary>
+    /// A reopening for a key this source never wrote is skipped rather than matched by key alone - the
+    /// same source check the closure makes.
+    /// </summary>
+    [Fact]
+    public async Task A_reopening_for_an_issue_that_was_never_imported_is_skipped()
+    {
+        await using var jira = await ConfigureAsync();
+
+        var result = await ReopenAsync(Reopening());
+
+        Assert.Equal(0, result.Reopened);
+        Assert.Equal(1, result.Skipped);
+    }
+
+    /// <summary>The same two facts a closure is refused for, with the same two codes.</summary>
+    [Theory]
+    [InlineData(null, "I gang", ErrorCodes.JiraRowKeyRequired)]
+    [InlineData("SAAS-1", null, ErrorCodes.JiraRowStatusRequired)]
+    public async Task A_reopening_without_its_two_facts_is_refused(
+        string? key, string? status, string code)
+    {
+        await using var jira = await ConfigureAsync();
+
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/jira/import",
+            new { rows = Array.Empty<object>(), reopenings = new[] { new { key, status } } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(code, (await response.Content.ReadFromJsonAsync<ApiError>())!.Code);
+    }
+
+    /// <summary>
+    /// A closure that needs no done status, so a reopening has something to undo. The status is the
+    /// issue's own, unchanged - which is the whole point of the unassigned reason.
+    /// </summary>
+    private static object HandedOver()
+        => new { key = "SAAS-1", status = "I gang", reason = "unassigned", doneAt = (string?)null };
+
+    private static object Reopening()
+        => new { key = "SAAS-1", status = "I gang", waitingSince = (string?)null };
+
     private static object InProgressIssue()
         => new { key = "SAAS-1", title = "Kunden kan ikke logge ind", status = "I gang" };
 
@@ -1155,6 +1348,16 @@ public class JiraEndpointsTests : ApiTest
         return (await response.Content.ReadFromJsonAsync<ImportBody>())!;
     }
 
+    private async Task<ImportBody> ReopenAsync(object reopening)
+    {
+        var response = await Host.Client.PostAsJsonAsync(
+            "/api/jira/import", new { rows = Array.Empty<object>(), reopenings = new[] { reopening } });
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<ImportBody>())!;
+    }
+
     private sealed record Connection(string DisplayName);
     private sealed record Statuses(string[] Names);
     private sealed record PreviewBody(PreviewRow[] Rows, int Total, string? ReconciliationNotice);
@@ -1170,7 +1373,7 @@ public class JiraEndpointsTests : ApiTest
         // enum member pass, because the converter would map the new name back to the same value.
         bool SuggestsReopening, string? ReopenTo,
         string? Excluded, string Url);
-    private sealed record ImportBody(int Imported, int Skipped, int Closed);
+    private sealed record ImportBody(int Imported, int Skipped, int Closed, int Reopened);
     private sealed record TaskList(TaskBody[] Items);
 
     /// <remarks>
