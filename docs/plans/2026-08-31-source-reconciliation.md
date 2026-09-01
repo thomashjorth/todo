@@ -1015,6 +1015,24 @@ i testprocessen, så hele kæden kan køre ægte — **ingen opsnapning**:
 Det er den eneste form der måler at afstemningen faktisk stiller et **andet** spørgsmål end
 hentningen — en rutehandler ville måle vores egen antagelse om svaret.
 
+**Trin 2b — og en genåbningsrejse, som planen manglede.** Tilføjet 2026-09-01, efter at Task 9's
+gennemgang målte at `grep -rn "suggestsReopening\|reopenTo\|Reopen" tests\Todo.E2E\*.cs` giver **nul**
+træffere. Leverancens overskrift er "luk **eller genåbn**", og genåbningen er den halvdel hvor storen,
+skabelonen, forespørgselsformen og `ReopenAsync` aldrig mødes — dens eneste skærmdækning i dag er to
+Vitest, som hverken rører wiren eller serveren.
+
+Rejsen, mod samme ægte `FakeAdo`:
+
+1. importér en sag og **luk den her** — enten gennem appen eller ved at lade kilden lukke den;
+2. lad `FakeAdo` sætte work item'et tilbage i en åben tilstand;
+3. forhåndsvis igen, og påstå at rækken siger at den genåbnes, **og hvad den genåbnes som**;
+4. tag imod, og påstå at opgaven er åben igen **og at dens fuldførelsestidspunkt er ryddet**.
+
+Punkt 4's anden halvdel er tanden: en rejse der kun påstår statussen ville bestå med en
+implementering der lod `CompletedAt` stå, og feltet læses af både det fuldførte-filter og den
+ugentlige gennemgang. Task 7 målte den regel på serversiden; det her er den eneste form der måler at
+skærmen og wiren faktisk når frem til den.
+
 **Bemærk locator-fælden:** rækken *er* en `<label>`, så mærkaten havner i afkrydsningsfeltets
 tilgængelige navn, og E2E-suiten matcher navne i deres helhed. `AdoImportScreen`s locators flytter
 sig, præcis som de gjorde i forgængeren.
@@ -1047,6 +1065,18 @@ hvor **fem** fixtures beskrev en krop serveren var holdt op med at sende, og int
 Husk desuden at **et nyt required felt ikke er compiler-synligt** her: castet accepterer et objekt der
 mangler egenskaben, så typetjekkeren er grøn. Gennemgå rækkerne felt for felt mod kontrakten frem for
 at stole på at noget siger fra. `closureReason` er allerede lagt på `DoneWorkItems`' ene række i Task 9.
+
+**Trin 1c — og stram så skabelonens fallback, som først kan lukkes her.** Skabelonen viser i dag den
+**løste** sætning for en lukkerække uden `closureReason`, mens storens `hasReason` **dropper** samme
+række fra wiren. De to ender vælger altså modsat for samme tilstand, og konsekvensen er målt: knappen
+ville love "Luk 2 opgaver" mens forespørgslen bar én, og kvitteringen ville underrapportere uden at
+sige noget.
+
+Grenen er i dag berettiget af netop **disse** fixtures — `ContrastTests.cs` er den eneste E2E-fil der
+overhovedet iscenesætter en `suggestsClosing`-række, og `ImportClosureJourneyTests` kører den ægte
+kæde. **Når trin 1b har lagt feltet på rækkerne, har grenen ingen begrundelse tilbage.** Stram den til
+`@else if (row.suggestsClosing && row.closureReason)`, så skærm og wire er enige, og fjern den
+kommentar der peger på fixtures som grunden.
 
 **Trin 2 — udvid rutehandleren.** `The_Ado_screens` og `The_Jira_screens` svarer allerede på
 `**/api/ado/preview` med skiftende kroppe. De nye grene kræver en krop mere: en række der lukkes fordi
