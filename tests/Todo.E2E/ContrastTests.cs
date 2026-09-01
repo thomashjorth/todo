@@ -268,6 +268,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "alreadyImported": true,
               "reconciled": false,
               "suggestsClosing": true,
+              "closureReason": "resolved",
               "doneAt": "2026-08-15T09:00:00Z"
             },
             {

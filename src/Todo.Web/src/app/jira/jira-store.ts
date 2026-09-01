@@ -24,6 +24,17 @@ type AnsweredJiraRow = JiraPreviewRow & { status: string };
 
 const wasAnsweredFor = (row: JiraPreviewRow): row is AnsweredJiraRow => row.status != null;
 
+/**
+ * A closable row that names why it is closable - the twin of AdoStore's, and see that one for the
+ * measurement: all four preview-row construction sites, two per source, drive `suggestsClosing` and
+ * `closureReason` off one expression, so a reason-less closing row is unreachable from the server and
+ * reachable only from a fixture. Dropping rather than relabelling is what keeps an unassigned closure
+ * from turning silently into a resolved one on the way out.
+ */
+type ExplainedJiraRow = AnsweredJiraRow & { closureReason: ClosureReason };
+
+const hasReason = (row: AnsweredJiraRow): row is ExplainedJiraRow => row.closureReason != null;
+
 @Injectable({ providedIn: 'root' })
 export class JiraStore {
   private readonly client = inject(JiraClient);
@@ -184,24 +195,21 @@ export class JiraStore {
             closures:
               closures.length === 0
                 ? undefined
-                : closures.filter(wasAnsweredFor).map(
-                    (row) =>
-                      new JiraClosureRow({
-                        key: row.key,
-                        status: row.status,
-                        // See AdoStore for why an absent reason reads as resolved, why the same
-                        // fallback must not be written on the receiving side, and why task 6 is
-                        // where this line becomes a hard failure or goes away.
-                        //
-                        // This branch used to be unmeasured while the ADO twin was measured, and
-                        // the note saying so outlived the hole: e01c6f6 gave jira-store.spec.ts
-                        // `should drop a closable row whose status the source never answered with`,
-                        // which asserts on this body. Both stores now measure it, which is the
-                        // point - they are twins, so a divergence in either reads as an adaptation.
-                        reason: row.closureReason ?? ClosureReason.Resolved,
-                        doneAt: row.doneAt,
-                      }),
-                  ),
+                : closures
+                    .filter(wasAnsweredFor)
+                    .filter(hasReason)
+                    .map(
+                      (row) =>
+                        new JiraClosureRow({
+                          key: row.key,
+                          status: row.status,
+                          // See AdoStore for why the reason has to travel, and why neither end may
+                          // default it. Both stores measure both predicates, which is the point -
+                          // they are twins, so a divergence in either reads as an adaptation.
+                          reason: row.closureReason,
+                          doneAt: row.doneAt,
+                        }),
+                    ),
             // The status travels so the server maps it to a status again rather than letting the
             // client name the one it wants, which is what keeps the suggestion and the import from
             // disagreeing. `reopenTo` deliberately does not go - see AdoStore's twin.

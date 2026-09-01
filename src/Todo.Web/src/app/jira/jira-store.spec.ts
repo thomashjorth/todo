@@ -289,8 +289,22 @@ describe('JiraStore', () => {
       previewJson({
         total: 2,
         rows: [
-          row({ key: 'SAAS-9', status: 'Løst', alreadyImported: true, suggestsClosing: true }),
-          row({ key: 'SAAS-10', status: null, alreadyImported: true, suggestsClosing: true }),
+          row({
+            key: 'SAAS-9',
+            status: 'Løst',
+            alreadyImported: true,
+            suggestsClosing: true,
+            closureReason: 'resolved',
+          }),
+          // A reason as well, so the missing status is the only thing that can drop this row - see
+          // the ADO twin for why a row failing both predicates would measure neither.
+          row({
+            key: 'SAAS-10',
+            status: null,
+            alreadyImported: true,
+            suggestsClosing: true,
+            closureReason: 'resolved',
+          }),
         ],
       }),
     );
@@ -302,6 +316,42 @@ describe('JiraStore', () => {
     const request = http.expectOne('/api/jira/import');
     expect(JSON.parse(request.request.body).closures).toEqual([
       { key: 'SAAS-9', status: 'Løst', reason: 'resolved' },
+    ]);
+    request.flush(json({ imported: 0, skipped: 0, closed: 1 }));
+    await imported;
+  });
+
+  /**
+   * The sibling predicate - the twin of the ADO one, written rather than inherited because the two
+   * stores are twins and a divergence in either reads as an adaptation. A closure that does not say
+   * why is dropped rather than relabelled as resolved; the surviving row carries `unassigned` so the
+   * assertion can tell a reason that was read from one that was defaulted.
+   */
+  it('should drop a closable row that does not say why it is closable', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/jira/preview').flush(
+      previewJson({
+        total: 2,
+        rows: [
+          row({
+            key: 'SAAS-9',
+            status: 'I gang',
+            alreadyImported: true,
+            suggestsClosing: true,
+            closureReason: 'unassigned',
+          }),
+          row({ key: 'SAAS-10', status: 'Løst', alreadyImported: true, suggestsClosing: true }),
+        ],
+      }),
+    );
+    await previewed;
+
+    expect(store.closable().map((r) => r.key)).toEqual(['SAAS-9', 'SAAS-10']);
+
+    const imported = store.import([], store.closable());
+    const request = http.expectOne('/api/jira/import');
+    expect(JSON.parse(request.request.body).closures).toEqual([
+      { key: 'SAAS-9', status: 'I gang', reason: 'unassigned' },
     ]);
     request.flush(json({ imported: 0, skipped: 0, closed: 1 }));
     await imported;

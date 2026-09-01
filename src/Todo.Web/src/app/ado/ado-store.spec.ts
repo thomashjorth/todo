@@ -328,8 +328,23 @@ describe('AdoStore', () => {
       previewJson({
         total: 2,
         rows: [
-          row({ key: '16901', state: 'Resolved', alreadyImported: true, suggestsClosing: true }),
-          row({ key: '17165', state: null, alreadyImported: true, suggestsClosing: true }),
+          row({
+            key: '16901',
+            state: 'Resolved',
+            alreadyImported: true,
+            suggestsClosing: true,
+            closureReason: 'resolved',
+          }),
+          // A reason as well, so the missing state is the only thing that can drop this row. Without
+          // it the row would fail both predicates at once and this test would pass while measuring
+          // the wrong one.
+          row({
+            key: '17165',
+            state: null,
+            alreadyImported: true,
+            suggestsClosing: true,
+            closureReason: 'resolved',
+          }),
         ],
       }),
     );
@@ -342,6 +357,51 @@ describe('AdoStore', () => {
     const request = http.expectOne('/api/ado/import');
     expect(JSON.parse(request.request.body).closures).toEqual([
       { key: '16901', state: 'Resolved', reason: 'resolved' },
+    ]);
+    request.flush(json({ imported: 0, skipped: 0, closed: 1 }));
+    await imported;
+  });
+
+  /**
+   * The sibling predicate, and the one that replaced a `?? ClosureReason.Resolved` fallback. A row
+   * that suggests a closure without saying why is dropped rather than relabelled: the server's first
+   * guard asks whether the state stands in the done list, which an unassigned closure's need not, so
+   * a client that guessed "resolved" would have every hand-over skipped and counted in `skipped` -
+   * the exact fault the reason field was added to prevent, reintroduced from the sending side.
+   *
+   * The row that survives carries `unassigned`, not `resolved`: with two resolved rows the assertion
+   * could not tell "the reason was read off the row" from "the reason was defaulted", which is how
+   * the fallback stayed invisible for as long as it did.
+   *
+   * Unreachable from the server - all four preview-row sites drive the two fields off one expression
+   * - so this measures a fixture, deliberately. It is the shape a stale hand-written wire fixture
+   * takes, and five of them in this repository had exactly it until the predicate went in.
+   */
+  it('should drop a closable row that does not say why it is closable', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/ado/preview').flush(
+      previewJson({
+        total: 2,
+        rows: [
+          row({
+            key: '16901',
+            state: 'Active',
+            alreadyImported: true,
+            suggestsClosing: true,
+            closureReason: 'unassigned',
+          }),
+          row({ key: '17165', state: 'Resolved', alreadyImported: true, suggestsClosing: true }),
+        ],
+      }),
+    );
+    await previewed;
+
+    expect(store.closable().map((r) => r.key)).toEqual(['16901', '17165']);
+
+    const imported = store.import([], store.closable());
+    const request = http.expectOne('/api/ado/import');
+    expect(JSON.parse(request.request.body).closures).toEqual([
+      { key: '16901', state: 'Active', reason: 'unassigned' },
     ]);
     request.flush(json({ imported: 0, skipped: 0, closed: 1 }));
     await imported;

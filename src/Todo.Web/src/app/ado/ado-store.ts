@@ -42,6 +42,30 @@ type AnsweredAdoRow = AdoPreviewRow & { state: string; workItemType: string };
 const wasAnsweredFor = (row: AdoPreviewRow): row is AnsweredAdoRow =>
   row.state != null && row.workItemType != null;
 
+/**
+ * A closable row that names why it is closable. The contract keeps `closureReason` nullable because
+ * it is meaningless on a row that suggests nothing, so the compiler demands an answer here even
+ * though a closing row always carries one.
+ *
+ * Measured rather than assumed, because this predicate replaced a `?? ClosureReason.Resolved`
+ * fallback that would have hidden the very fault the field exists to prevent - an unassigned closure
+ * silently relabelled as resolved, skipped by the server's done-list guard, and counted in `skipped`.
+ * Every preview row the app can receive is built at one of four sites, two per source, and at all
+ * four the two fields come off one expression: on the fetch path
+ * `SuggestsClosing = suggestsClosing` beside `ClosureReason = suggestsClosing ? Resolved : null`, and
+ * on the reconciliation path `SuggestsClosing = reason is not null` beside `ClosureReason = reason`.
+ * So a reason-less closing row is unreachable from the server.
+ *
+ * It is reachable from a *fixture*, which is a different thing and the reason this drops rather than
+ * throws: a row with nothing to say about itself is left out, the rest of the request stays valid,
+ * and the server never sees a decision the client invented. The same shape and the same argument as
+ * `wasAnsweredFor` above, `!= null` included - see its docblock for why strict equality would answer
+ * true for exactly the row this exists to catch.
+ */
+type ExplainedAdoRow = AnsweredAdoRow & { closureReason: ClosureReason };
+
+const hasReason = (row: AnsweredAdoRow): row is ExplainedAdoRow => row.closureReason != null;
+
 @Injectable({ providedIn: 'root' })
 export class AdoStore {
   private readonly client = inject(AdoClient);
@@ -230,41 +254,31 @@ export class AdoStore {
             closures:
               closures.length === 0
                 ? undefined
-                : closures.filter(wasAnsweredFor).map(
-                    (row) =>
-                      new AdoClosureRow({
-                        key: row.key,
-                        state: row.state,
-                        // A suggestion that does not name its reason is one from the rule that
-                        // predates reconciliation - the state stands in the user's done list - and
-                        // that rule is the resolved one. So this reads an absent field rather than
-                        // guessing at it.
-                        //
-                        // The same fallback on the receiving side would be the fault this field
-                        // exists to prevent: the server's first guard asks whether the state is in
-                        // the done list, and being handed to somebody else is orthogonal to being
-                        // finished - so a server that defaulted to resolved would skip every
-                        // unassigned closure. Do not copy this line across.
-                        //
-                        // It masks the same fault from this end, which is why it is temporary
-                        // rather than defensive. Once task 6 sets the reason, an unassigned row
-                        // that loses it turns silently into a resolved one, the server skips it,
-                        // and it is counted in `skipped` - exactly what the field was added to
-                        // stop, reintroduced from the sending side. Nothing enforces the
-                        // "it stops being reached" this comment used to claim: `reason: required`
-                        // puts the compiler on the argument being present, not on its being right.
-                        //
-                        // Task 6 is where this line has to change, and the mechanism is a guard
-                        // rather than a deletion: `closureReason` stays nullable in the contract, so
-                        // the compiler will still demand a fallback or a `!` here, and the docblock
-                        // at the top of this file argues against the `!`. Put a `hasReason`
-                        // predicate beside `wasAnsweredFor` and let a row with no reason be dropped
-                        // the way an unanswered one is - loudly, rather than relabelled. Deleting
-                        // the fallback outright needs `closureReason` to become required first.
-                        reason: row.closureReason ?? ClosureReason.Resolved,
-                        doneAt: row.doneAt,
-                      }),
-                  ),
+                : closures
+                    .filter(wasAnsweredFor)
+                    .filter(hasReason)
+                    .map(
+                      (row) =>
+                        new AdoClosureRow({
+                          key: row.key,
+                          state: row.state,
+                          // The reason travels because the server cannot recompute it: its first
+                          // guard asks whether the state stands in the user's done list, and being
+                          // handed to somebody else is orthogonal to being finished - so a server
+                          // that defaulted to resolved would skip every unassigned closure and count
+                          // it in `skipped`. Do not write the same default on the receiving side.
+                          //
+                          // Nor on this one, which is what `hasReason` above is for. There was a
+                          // `?? ClosureReason.Resolved` here until the reason became something the
+                          // server always sets; it masked the same fault from the sending end, where
+                          // an unassigned row that lost its reason turned silently into a resolved
+                          // one. Note what the contract does and does not enforce: `reason` being
+                          // required puts the compiler on the argument being *present*, never on its
+                          // being right.
+                          reason: row.closureReason,
+                          doneAt: row.doneAt,
+                        }),
+                    ),
             // The state travels for the third time and for the third reason: here the server maps
             // it to a status again rather than letting the client name the one it wants, which is
             // what keeps the suggestion and the import from disagreeing. So `reopenTo` deliberately

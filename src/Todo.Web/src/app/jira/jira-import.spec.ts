@@ -369,6 +369,9 @@ describe('JiraImport', () => {
           status: 'Løst',
           alreadyImported: true,
           suggestsClosing: true,
+          // Named rather than left out: the store's `hasReason` predicate drops a closure that does
+          // not say why, where a `?? ClosureReason.Resolved` fallback used to relabel it.
+          closureReason: 'resolved',
           doneAt: '2026-08-15T09:00:00Z',
         }),
         row({

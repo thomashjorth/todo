@@ -578,6 +578,7 @@ describe('AdoImport', () => {
           state: 'Resolved',
           alreadyImported: true,
           suggestsClosing: true,
+          closureReason: 'resolved',
           doneAt: '2026-08-15T09:00:00Z',
         }),
       ],
@@ -595,10 +596,12 @@ describe('AdoImport', () => {
     expect(body.rows.map((r: { key: string }) => r.key)).toEqual(['15664']);
     // The reason rides along because the server cannot work it out from the state alone: its first
     // guard asks whether the state is in the done list, which an unassigned closure's never is.
-    // This fixture names no reason, so the row reads as the resolved one - the only kind the fetch
-    // could suggest before reconciliation - which is what makes the fallback measured here. It used
-    // to be the only place: no spec under jira/ asserted on the closures its store sends until
-    // e01c6f6, and the note saying so outlived the hole. Both sources are measured now.
+    //
+    // The fixture names it rather than leaving it out, and that is a correction rather than a
+    // detail: it used to rely on a `?? ClosureReason.Resolved` fallback in the store, which is gone.
+    // A hand-written wire fixture is not checked against the contract, so this one went on
+    // describing a body the server had stopped sending the moment the reason became mandatory - the
+    // store's `hasReason` predicate is what made that visible, by dropping the row instead.
     expect(body.closures).toEqual([
       { key: '16901', state: 'Resolved', reason: 'resolved', doneAt: '2026-08-15T09:00:00Z' },
     ]);
@@ -682,6 +685,7 @@ describe('AdoImport', () => {
           state: 'Resolved',
           alreadyImported: true,
           suggestsClosing: true,
+          closureReason: 'resolved',
           doneAt: '2026-08-15T09:00:00Z',
         }),
         row({
