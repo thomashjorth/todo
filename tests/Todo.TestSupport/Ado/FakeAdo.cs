@@ -216,14 +216,18 @@ public sealed class FakeAdo : IAsyncDisposable
     ];
 
     /// <summary>
-    /// Who a work item belongs to, held here rather than served as a field - and that is the shape
-    /// the real thing has rather than a shortcut. <c>@Me</c> is resolved by the server, so assignment
-    /// never reaches the wire for <see cref="AdoTaskSource"/> to read: it deliberately does not ask
-    /// for System.AssignedTo, because that field's wire form is unmeasured and the query answers the
-    /// ownership question without anybody having to interpret a name. A fake that served the field
-    /// would invite exactly the binding the design refuses.
+    /// Who a work item belongs to at the start, held here rather than served as a field - and that is
+    /// the shape the real thing has rather than a shortcut. <c>@Me</c> is resolved by the server, so
+    /// assignment never reaches the wire for <see cref="AdoTaskSource"/> to read: it deliberately does
+    /// not ask for System.AssignedTo, because that field's wire form is unmeasured and the query
+    /// answers the ownership question without anybody having to interpret a name. A fake that served
+    /// the field would invite exactly the binding the design refuses.
+    ///
+    /// The seed only. Each instance copies it into <see cref="_notMine"/>, which is what
+    /// <see cref="HandOver"/> writes to - a static set would carry one journey's hand-over into every
+    /// other test in the run, and xUnit gives no order to blame it on.
     /// </summary>
-    private static readonly HashSet<long> NotMine =
+    private static readonly HashSet<long> NotMineSeed =
         [long.Parse(HandedOverKey, CultureInfo.InvariantCulture)];
 
     /// <summary>
@@ -270,7 +274,16 @@ public sealed class FakeAdo : IAsyncDisposable
     private readonly HttpClient _client;
     private readonly int _batchLimit;
     private readonly bool _rejectToken;
+
+    /// <summary>
+    /// This instance's copy, so <see cref="MoveTo"/> can write a work item's state without the next
+    /// test inheriting it. <see cref="Measured"/> stays the seed and is never written to.
+    /// </summary>
     private readonly WorkItemBody[] _items;
+
+    /// <summary>This instance's copy of <see cref="NotMineSeed"/>, for the same reason.</summary>
+    private readonly HashSet<long> _notMine;
+
     private readonly long[] _order;
 
     private readonly string? _providerDisplayName;
@@ -305,6 +318,7 @@ public sealed class FakeAdo : IAsyncDisposable
                 null)));
 
         _items = [.. Measured, .. filled];
+        _notMine = [.. NotMineSeed];
         _order = [.. MeasuredOrder, .. _items.Skip(Measured.Length).Select(item => item.Id)];
 
         // Mirrors TodoHost's registration, so a source that hangs hangs the same way here.
@@ -460,6 +474,47 @@ public sealed class FakeAdo : IAsyncDisposable
             .Skip(Measured.Length)
             .Select(item => item.Id.ToString(CultureInfo.InvariantCulture)),
     ];
+
+    /// <summary>
+    /// Assigns a work item to somebody else, from now on.
+    ///
+    /// It changes no field, because assignment is not a field here for the reason
+    /// <see cref="NotMineSeed"/> gives - it changes what <c>[System.AssignedTo] = @Me</c> answers, and
+    /// nothing else. That is exactly the asymmetry reconciliation exists for: the fetch stops seeing
+    /// the work item while a batch read by id still hands it over in full, so a caller can tell "handed
+    /// on" apart from "deleted" without either of them being written on the wire.
+    ///
+    /// A method rather than a constructor argument, because the interesting case is the <em>change</em>:
+    /// a work item that was already somebody else's the first time it was asked for could never have
+    /// been imported here, and it is the local task that makes the suggestion mean anything.
+    /// </summary>
+    public void HandOver(string key)
+        => _notMine.Add(long.Parse(key, CultureInfo.InvariantCulture));
+
+    /// <summary>
+    /// Moves a work item to another state, from now on. The state is what both roles are read off -
+    /// the user's waiting list and the user's done list - so this is how a journey makes the source
+    /// disagree with what the app decided earlier.
+    ///
+    /// <see cref="FieldsBody.StateChangeDate"/> is deliberately left alone. The real server would move
+    /// it, but a test that wants the timestamp to travel wants to <em>name</em> it, and a fake that
+    /// quietly rewrote the field would make the value depend on when the method was called rather than
+    /// on the fixture. Pass a work item whose date already says what the assertion needs.
+    /// </summary>
+    public void MoveTo(string key, string state)
+    {
+        var id = long.Parse(key, CultureInfo.InvariantCulture);
+        var index = Array.FindIndex(_items, item => item.Id == id);
+
+        if (index < 0 || _items[index].Fields is not { } fields)
+        {
+            throw new ArgumentException(
+                $"No work item {key} to move, so a journey asking for it would measure nothing.",
+                nameof(key));
+        }
+
+        _items[index] = _items[index] with { Fields = fields with { State = state } };
+    }
 
     private static IClock Clock(DateOnly? today) => new FixedClock(today ?? Today);
 
@@ -681,7 +736,7 @@ public sealed class FakeAdo : IAsyncDisposable
     {
         var item = _items.First(candidate => candidate.Id == id);
 
-        if (AssignedToMe.IsMatch(wiql) && NotMine.Contains(id))
+        if (AssignedToMe.IsMatch(wiql) && _notMine.Contains(id))
         {
             return false;
         }

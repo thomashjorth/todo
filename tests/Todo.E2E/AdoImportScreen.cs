@@ -100,6 +100,24 @@ public sealed class AdoImportScreen(TodoApp app)
     public static ILocator SuggestsClosingIn(ILocator row) => row.GetByTestId("ado-suggests-closing");
 
     /// <summary>
+    /// The offer to put a locally finished task back into an open status. One testid for both
+    /// suggestions' places in the chain would have been cheaper, and it is deliberately not that: the
+    /// two say opposite things, and a locator that matched either could not tell a screen offering the
+    /// wrong one from a screen offering the right one.
+    /// </summary>
+    public static ILocator SuggestsReopeningIn(ILocator row)
+        => row.GetByTestId("ado-suggests-reopening");
+
+    /// <summary>
+    /// Which status the reopening would restore. Its own element rather than a clause inside the
+    /// sentence above, because it is the half that can be wrong on its own: the suggestion is decided
+    /// by the state not being done, while this is the state's role mapped through
+    /// <c>AdoEndpoints.StatusFor</c>, and a row can be right about the first while being wrong about
+    /// the second.
+    /// </summary>
+    public static ILocator ReopenToIn(ILocator row) => row.GetByTestId("ado-reopen-to");
+
+    /// <summary>
     /// The button that opens a previewed work item in the system's browser. Scoped to the row, because
     /// every row has one — the contract makes <c>url</c> required, so no branch can leave it out. It is
     /// a &lt;button&gt; rather than an &lt;a href&gt;: the Photino window has neither an address bar

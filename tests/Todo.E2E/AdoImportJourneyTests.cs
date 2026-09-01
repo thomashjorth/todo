@@ -62,6 +62,28 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     private const string TestPlanTitle = "Testplan for eksport";
 
     /// <summary>
+    /// Another of the fake's importable work items, and the one the reconciliation journeys hold up
+    /// beside <see cref="StoryTitle"/>. It is never handed over and never finished here, so it is the
+    /// row that says the offers land where they were earned rather than on everything imported.
+    /// </summary>
+    private const string BlockedTitle = "Kunden kan ikke logge ind";
+
+    /// <summary>
+    /// The state <see cref="BlockedTitle"/> already stands in, and the one the reopening journey moves
+    /// the story into. Sharing a state between the two rows is the point: with it in the waiting list
+    /// they differ only in whether the local task is finished, so a screen that offered both — or
+    /// neither — could not be mistaken for a right one.
+    /// </summary>
+    private const string BlockedState = "Blocked";
+
+    /// <summary>
+    /// The hand-over sentence, spelled out rather than shared with the resolved one. The two are
+    /// different strings precisely so a journey cannot pass on the wrong finding, and a shared
+    /// constant would give that back.
+    /// </summary>
+    private const string HandedOverLabel = "Tildelt en anden i Azure DevOps — luk opgaven her.";
+
+    /// <summary>
     /// Three work items. The first can be imported, the second is excluded because the user is waiting
     /// on it, and the third was imported on an earlier run — the last two are what make the two
     /// different reasons measurable, since a fixture with one blocked row could not tell them apart.
@@ -499,6 +521,251 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
         Assert.Equal(
             $"{fake.BaseUrl}/{Uri.EscapeDataString(FakeAdo.Project)}/_workitems/edit/{StoryKey}",
             await opened.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+
+    /// <summary>
+    /// The hand-over, end to end against a real <see cref="FakeAdo"/> with nothing intercepted — and it
+    /// is the only shape that can measure the thing this feature rests on: <b>reconciliation asks a
+    /// different question from the fetch</b>. The fetch is
+    /// <c>[System.AssignedTo] = @Me</c> over a type list and can never name a key, so a work item that
+    /// has become somebody else's simply falls out of it; only a batch read by id still hands it over.
+    /// A route handler could put the sentence on screen, but it would be staging our own answer to the
+    /// question rather than asking it.
+    ///
+    /// <see cref="FakeAdo.HandOver"/> writes no field, because assignment is not one here: it changes
+    /// what <c>@Me</c> answers and nothing else, the same place the real server keeps it.
+    ///
+    /// The reading of "showing N of N" is the teeth. Five rows stay on screen while the fetch's own
+    /// total drops to four, which is the screen saying out loud that the fifth came from somewhere
+    /// else — a count of rows alone would be five both before and after.
+    /// </summary>
+    [Fact]
+    public async Task A_work_item_handed_to_somebody_else_offers_to_close_the_task_it_was_imported_as()
+    {
+        await using var fake = await FakeAdo.StartAsync();
+
+        await ConfigureAdoAsync(fake);
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1800 });
+
+        // Nothing here clicks an item's link, but a stray click must not reach the machine — and the
+        // abort is a property of this test rather than of the file.
+        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
+
+        var ado = await App.GoToAdo();
+
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.Rows).ToHaveCountAsync(FilteredRows);
+
+        await ado.ImportAsync();
+        await Assertions.Expect(ado.Receipt)
+            .ToHaveTextAsync($"{FilteredRows} importeret, 0 sprunget over");
+
+        // The task the rest of this journey is about really exists, which is what makes the closure
+        // below a closure rather than a label.
+        var tasks = await App.GoToTasks();
+
+        await Assertions.Expect(tasks.RowFor(StoryTitle)).ToHaveCountAsync(1);
+
+        fake.HandOver(StoryKey);
+
+        ado = await App.GoToAdo();
+        await ado.PreviewAsync();
+
+        // Still five rows, and the fetch answered four of them. Both halves are needed: the count
+        // alone held before the hand-over too, and the total alone would hold on a screen that had
+        // lost the row entirely.
+        await Assertions.Expect(ado.Rows).ToHaveCountAsync(FilteredRows);
+        await Assertions.Expect(ado.Showing)
+            .ToHaveTextAsync($"Viser {FilteredRows - 1} af {FilteredRows - 1} sager.");
+
+        // Read rather than inferred: the reconciliation named the key in a WIQL, which the fetch's
+        // query has no clause for at all.
+        Assert.Contains(
+            fake.WiqlRequests,
+            query => query.Contains($"[System.Id] IN ({StoryKey})", StringComparison.Ordinal));
+
+        var handedOver = ado.Row(StoryTitle);
+
+        // The two closing sentences are different strings on purpose, so this cannot pass on the
+        // resolved one — which is the label the older journey in ImportClosureJourneyTests measures.
+        await Assertions.Expect(AdoImportScreen.SuggestsClosingIn(handedOver))
+            .ToHaveTextAsync(HandedOverLabel);
+        await Assertions.Expect(AdoImportScreen.PickOf(handedOver)).ToBeEnabledAsync();
+        await Assertions.Expect(AdoImportScreen.PickOf(handedOver)).ToBeCheckedAsync();
+
+        // The negative half. Without it a template that put the offer on every imported row would
+        // pass, and so would a reconciliation that called every key a hand-over.
+        await Assertions.Expect(AdoImportScreen.SuggestsClosingIn(ado.Row(BlockedTitle)))
+            .ToHaveCountAsync(0);
+        await Assertions.Expect(AdoImportScreen.AlreadyImportedIn(ado.Row(BlockedTitle)))
+            .ToHaveTextAsync(SeenBeforeReason);
+
+        await Assertions.Expect(ado.ImportButton).ToHaveTextAsync("Luk 1 opgave");
+
+        await ado.ImportAsync();
+        await Assertions.Expect(ado.Receipt)
+            .ToHaveTextAsync("0 importeret, 0 sprunget over. 1 opgave lukket.");
+
+        // The row is gone rather than merely quiet, and that is the server's rule rather than the
+        // screen's: a task that is done here is never reconciled, so there is no key left to ask
+        // about. Importing re-previews on its own, so this is the answer to a fresh question.
+        await Assertions.Expect(ado.Rows).ToHaveCountAsync(FilteredRows - 1);
+        await Assertions.Expect(ado.Row(StoryTitle)).ToHaveCountAsync(0);
+
+        // And the only assertion the user would recognise.
+        tasks = await App.GoToTasks();
+        await tasks.ShowCompleted.CheckAsync();
+
+        await Assertions.Expect(tasks.CompletedRows).ToHaveCountAsync(1);
+        await Assertions
+            .Expect(tasks.CompletedRows.Filter(new() { HasText = StoryTitle }))
+            .ToHaveCountAsync(1);
+    }
+
+    /// <summary>
+    /// The other half of the feature, and the half nothing outside two Vitest had ever seen: a task
+    /// finished <em>here</em> while Azure DevOps is not done with it is offered back, and taking the
+    /// offer clears the completion time.
+    ///
+    /// The task is finished through the app's own toggle rather than by accepting a source-driven
+    /// closure, and that is a choice worth knowing. Accepting a closure first would measure more —
+    /// it would run the closing leg again — but ImportClosureJourneyTests already owns that leg
+    /// against this same fake, so the extra would mostly be a second copy of it, and it would make
+    /// this journey three imports long. What the shorter form buys instead is that
+    /// <c>CompletedAt</c> is written by <c>PUT /api/tasks/{id}</c>: the reopening is measured
+    /// clearing a field somebody else set, rather than undoing its own write.
+    ///
+    /// The state change is load-bearing twice over, which is why it is Blocked rather than any other
+    /// open state. It decides what the suggestion says it will do — <c>reopenTo</c> is the state's
+    /// role through <c>AdoEndpoints.StatusFor</c>, so a wrong mapping says "åben" here — and it
+    /// decides which status the import actually writes. Note the pair it puts on one screen: 15664 is
+    /// in the very same state and is skipped for it, because waiting items are switched off, while
+    /// this row is offered anyway. That is <c>IncludeWaiting</c> deliberately not being asked of a
+    /// task the user already owns, measured rather than asserted in a comment.
+    ///
+    /// <c>completedAt</c> is on the task contract and rendered nowhere, so the last claim is read off
+    /// the response the screen itself received. Read before as well as after: "still null" would pass
+    /// on a reopening that never touched the field.
+    /// </summary>
+    [Fact]
+    public async Task A_task_finished_here_is_reopened_when_Azure_DevOps_is_not_done_with_it()
+    {
+        await using var fake = await FakeAdo.StartAsync();
+
+        await ConfigureAdoAsync(fake);
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1800 });
+
+        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
+
+        var ado = await App.GoToAdo();
+
+        await ado.PreviewAsync();
+        await Assertions.Expect(ado.Rows).ToHaveCountAsync(FilteredRows);
+
+        await ado.ImportAsync();
+        await Assertions.Expect(ado.Receipt)
+            .ToHaveTextAsync($"{FilteredRows} importeret, 0 sprunget over");
+
+        var tasks = await App.GoToTasks();
+
+        await tasks.RowFor(StoryTitle).GetByTestId("complete-toggle").ClickAsync();
+        await Assertions.Expect(tasks.RowFor(StoryTitle)).ToHaveCountAsync(0);
+
+        var finished = await TaskOnTheWireAsync(StoryTitle, () => tasks.ShowCompleted.CheckAsync());
+
+        Assert.Equal("done", finished.GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.String, finished.GetProperty("completedAt").ValueKind);
+
+        // Azure DevOps moves the work item on, and the user's waiting list is what gives the state
+        // its meaning here. Two changes rather than one, because a state alone cannot be waiting.
+        fake.MoveTo(StoryKey, BlockedState);
+        await Host.AddAndSaveChangesAsync(
+            new Setting { Key = SettingKeys.AdoWaitingStates, Value = $"[\"{BlockedState}\"]" });
+
+        ado = await App.GoToAdo();
+        await ado.PreviewAsync();
+
+        var reopening = ado.Row(StoryTitle);
+
+        await Assertions.Expect(AdoImportScreen.SuggestsReopeningIn(reopening))
+            .ToHaveTextAsync("Ikke færdig i Azure DevOps — genåbn opgaven her.");
+        await Assertions.Expect(AdoImportScreen.ReopenToIn(reopening))
+            .ToHaveTextAsync("Genåbnes som ventende.");
+        await Assertions.Expect(AdoImportScreen.PickOf(reopening)).ToBeEnabledAsync();
+        await Assertions.Expect(AdoImportScreen.PickOf(reopening)).ToBeCheckedAsync();
+
+        // Same state, opposite outcome, on one screen.
+        var skipped = ado.Row(BlockedTitle);
+
+        await Assertions.Expect(AdoImportScreen.SuggestsReopeningIn(skipped)).ToHaveCountAsync(0);
+        await Assertions.Expect(AdoImportScreen.ExcludedIn(skipped)).ToHaveTextAsync(WaitingReason);
+
+        await Assertions.Expect(ado.ImportButton).ToHaveTextAsync("Genåbn 1 opgave");
+
+        await ado.ImportAsync();
+        await Assertions.Expect(ado.Receipt)
+            .ToHaveTextAsync("0 importeret, 0 sprunget over. 1 opgave genåbnet.");
+
+        // The offer is gone on the fresh preview the import ran, and the row now reads like its
+        // neighbour: waiting, imported before, switched off. That is the app reading the local status
+        // back rather than remembering what it just did.
+        await Assertions.Expect(AdoImportScreen.SuggestsReopeningIn(ado.Row(StoryTitle)))
+            .ToHaveCountAsync(0);
+        await Assertions.Expect(AdoImportScreen.ExcludedIn(ado.Row(StoryTitle)))
+            .ToHaveTextAsync(WaitingReason);
+
+        var reopened = await TaskOnTheWireAsync(StoryTitle, async () => tasks = await App.GoToTasks());
+
+        // The status the state mapped to, not merely "not done": a reopening that always wrote Open
+        // would pass on the weaker claim while the screen had promised "ventende".
+        Assert.Equal("waitingFor", reopened.GetProperty("status").GetString());
+
+        // The teeth. A journey that stopped at the status would pass with CompletedAt left standing,
+        // and that field is read by both the completed filter and the weekly review.
+        Assert.Equal(JsonValueKind.Null, reopened.GetProperty("completedAt").ValueKind);
+
+        // Said from the screen as well, because the wire alone would hold on a list that never
+        // rendered it. Show-completed is still on from earlier, so an empty completed section is a
+        // claim rather than a filter.
+        await Assertions.Expect(tasks.CompletedRows).ToHaveCountAsync(0);
+        await Assertions
+            .Expect(tasks.WaitingRows.Filter(new() { HasText = StoryTitle }))
+            .ToHaveCountAsync(1);
+    }
+
+    /// <summary>
+    /// One task as the screen's own request answered it. <c>completedAt</c> is on the contract and on
+    /// no screen, so reading the browser's copy of the list response is the only way a journey can see
+    /// it — and it is a stronger claim than asking the host directly, because it is the body the
+    /// screen was actually handed.
+    ///
+    /// The waiter is registered before the action runs rather than after, which is what
+    /// <c>RunAndWaitForResponseAsync</c> is for: polling afterwards would race the render, and the
+    /// first poll that succeeds ends the wait.
+    /// </summary>
+    private async Task<JsonElement> TaskOnTheWireAsync(string title, Func<Task> action)
+    {
+        // The action comes first in Playwright's own signature, and the predicate second — which
+        // reads backwards next to every other wait in this suite. Written the other way round it
+        // still compiles against the string overload, and then the predicate is a URL nothing matches.
+        var response = await App.Page.RunAndWaitForResponseAsync(
+            action,
+            answer => answer.Request.Method == "GET"
+                && answer.Url.Contains("/api/tasks?", StringComparison.Ordinal));
+
+        var body = await response.JsonAsync()
+            ?? throw new InvalidOperationException("The task list answered with no JSON body.");
+
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+
+        return items.SingleOrDefault(
+                item => item.GetProperty("title").GetString() == title,
+                default)
+            is { ValueKind: not JsonValueKind.Undefined } found
+            ? found
+            : throw new InvalidOperationException(
+                $"No task titled \"{title}\" in a list of {items.Count}, so the field this asserts "
+                + "on would have been read off the wrong row.");
     }
 
     /// <summary>
