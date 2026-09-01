@@ -355,6 +355,10 @@ describe('AdoImport', () => {
           state: 'Resolved',
           alreadyImported: true,
           suggestsClosing: true,
+          // Nothing here reads the label, so the reason is not what this test measures — it is here
+          // because a closing row without one is a body the server cannot send, and since the chain
+          // asks for the reason such a row would quietly render "importeret tidligere" instead.
+          closureReason: 'resolved',
           reconciled: true,
         }),
       ],
@@ -540,6 +544,12 @@ describe('AdoImport', () => {
           state: 'Resolved',
           alreadyImported: true,
           suggestsClosing: true,
+          // Named rather than left out, and this test is the one that measured the template's
+          // tightening: the label chain used to ask about `suggestsClosing` alone and fall back on
+          // the resolved sentence, so this fixture rendered a label the store would have dropped
+          // from the wire. It now asks for the reason too, and this was the only assertion in all
+          // 358 that fell for it — `Cannot read properties of null (reading 'textContent')`.
+          closureReason: 'resolved',
           doneAt: '2026-08-15T09:00:00Z',
         }),
         row({ key: '17170', title: 'Skriv testene', alreadyImported: true }),

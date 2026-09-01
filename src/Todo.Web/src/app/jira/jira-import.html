@@ -156,14 +156,17 @@
                    til at sige hvad fluebenet gør. Se tvillingen i ado-import.html for hele
                    begrundelsen, opsplitningen i to sætninger iberegnet.
 
-                   Fallbacket til den løste sætning er uopnåeligt i drift: serveren sætter altid
-                   closureReason når suggestsClosing er sand — begge felter kommer af ét udtryk både
-                   i hentningens løkke i JiraEndpoints' previewJira-handler og i
-                   JiraEndpoints.ReconciledRowsAsync. Grenen findes udelukkende fordi de iscenesatte
-                   rækker i ContrastTests og E2E ikke bærer feltet. Og som i ADO-tvillingen vælger
-                   JiraStores hasReason modsat for samme tilstand: den dropper rækken fra wiren, hvor
-                   denne gren viser den som løst. Rører du den ene, så læs den anden. -->
-              } @else if (row.suggestsClosing) {
+                   Grunden er en betingelse og ikke et fallback, og det er en rettelse — se
+                   tvillingen for hele begrundelsen: JiraStores hasReason dropper en reason-løs
+                   lukkerække fra wiren, hvor grenen før viste den som løst, så knappen lovede mere
+                   end forespørgslen bar. Nu er der hverken mærkat eller wire-række, og rækken falder
+                   igennem til alreadyImported.
+
+                   Tilstanden er uopnåelig i drift: serveren sætter altid closureReason når
+                   suggestsClosing er sand — begge felter kommer af ét udtryk både i hentningens
+                   løkke i JiraEndpoints' previewJira-handler og i JiraEndpoints.ReconciledRowsAsync.
+                   Byg altså ikke noget på den. -->
+              } @else if (row.suggestsClosing && row.closureReason) {
                 <span
                   data-testid="jira-suggests-closing"
                   class="block text-xs font-medium text-blue-700 dark:text-blue-300"
@@ -181,7 +184,9 @@
                   >{{ 'jira.suggestsReopening' | transloco }}</span
                 >
                 <!-- Hvad forslaget fører til, som kontrakten lover om reopenTo: forslaget skal sige
-                     hvad det gør. -->
+                     hvad det gør. Fallbacket til den åbne sætning står, hvor grunden ovenfor blev en
+                     betingelse — se tvillingen: reopenTo rejser ikke tilbage på wiren, så der er
+                     ingen anden ende at være uenig med. -->
                 <span
                   data-testid="jira-reopen-to"
                   class="block text-xs text-gray-500 dark:text-gray-400"

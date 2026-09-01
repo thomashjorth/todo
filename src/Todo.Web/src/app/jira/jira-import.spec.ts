@@ -300,6 +300,11 @@ describe('JiraImport', () => {
           status: 'Løst',
           alreadyImported: true,
           suggestsClosing: true,
+          // Nothing here reads the label, so the reason is not what this test measures — it is here
+          // because a closing row without one is a body the server cannot send, and since the chain
+          // asks for the reason such a row would quietly render "importeret tidligere" instead. See
+          // the ADO twin, where the tightening was measured.
+          closureReason: 'resolved',
           reconciled: true,
         }),
       ],
