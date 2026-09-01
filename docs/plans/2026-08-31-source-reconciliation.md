@@ -1038,6 +1038,16 @@ git commit -m "✅ En rejse måler at en overdraget sag foreslås lukket, hele v
 **Trin 1 — læs først** hvad der gør en gren målt: en `@if`-gren er **umålt**, indtil et fixture har en
 række i den tilstand og rejsen renderer den. Vagten kan ikke se en farve der aldrig blev malet.
 
+**Trin 1b — de iscenesatte rækker mangler felter kontrakten kræver.** Fundet i Task 9 og bevidst ladt
+til dig, fordi det er din fil. **De otte iscenesatte rækker i `ContrastTests.cs` mangler alle
+`suggestsReopening`**, som er **required** på kontrakten. Det virker i dag, fordi NSwag læser
+`undefined` og grenen bliver falsk — men det er samme klasse af tavs løgn som fallbacket Task 9 lukkede,
+hvor **fem** fixtures beskrev en krop serveren var holdt op med at sende, og intet kunne se det.
+
+Husk desuden at **et nyt required felt ikke er compiler-synligt** her: castet accepterer et objekt der
+mangler egenskaben, så typetjekkeren er grøn. Gennemgå rækkerne felt for felt mod kontrakten frem for
+at stole på at noget siger fra. `closureReason` er allerede lagt på `DoneWorkItems`' ene række i Task 9.
+
 **Trin 2 — udvid rutehandleren.** `The_Ado_screens` og `The_Jira_screens` svarer allerede på
 `**/api/ado/preview` med skiftende kroppe. De nye grene kræver en krop mere: en række der lukkes fordi
 den er overdraget, en der genåbnes, og de to uforklarede. **Kroppen skal bære felterne** — hænger
