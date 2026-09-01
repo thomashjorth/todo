@@ -157,10 +157,17 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// imported on an earlier run. Neither carries a deadline, so the row's deadline line is
     /// measured on the importable row below rather than here — both sides of that branch.
     ///
-    /// <c>url</c> is spelled out on every row here for the same reason <c>isDuty</c> is: the field
-    /// is required on the contract, so no branch hides the Open-the-issue button, but an answer
-    /// without the field reads as undefined in the client and the button would carry an empty
-    /// address. Intercepting the call is not enough — the body has to carry the field.
+    /// <c>url</c> is spelled out on every row here because the field is required on the contract, so
+    /// no branch hides the Open-the-issue button, but an answer without the field reads as undefined
+    /// in the client and the button would carry an empty address. Intercepting the call is not
+    /// enough — the body has to carry the field.
+    ///
+    /// And every other required field is spelled out for the same reason, whether or not a branch
+    /// hangs on it today: nothing here can notice one going missing. The generated client assigns
+    /// straight across, so an absent required field simply reads as undefined and every branch on it
+    /// is quietly false — which is the shape a green run cannot tell from a covered one. Both rows
+    /// carried neither <c>isDuty</c> nor <c>suggestsReopening</c> until this was gone through field
+    /// by field against the contract.
     /// </summary>
     private const string BlockedIssues = """
         {
@@ -171,10 +178,12 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "url": "https://jira.test/browse/SAAS-2",
               "status": "Venter på kunde",
               "isWaiting": true,
+              "isDuty": false,
               "waitingSince": "2026-08-05T09:12:00Z",
               "alreadyImported": false,
               "reconciled": false,
               "suggestsClosing": false,
+              "suggestsReopening": false,
               "excluded": "jira.excludedWaiting"
             },
             {
@@ -183,9 +192,11 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "url": "https://jira.test/browse/SAAS-3",
               "status": "I gang",
               "isWaiting": false,
+              "isDuty": false,
               "alreadyImported": true,
               "reconciled": false,
-              "suggestsClosing": false
+              "suggestsClosing": false,
+              "suggestsReopening": false
             }
           ],
           "total": 2
@@ -214,7 +225,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "isDuty": true,
               "alreadyImported": false,
               "reconciled": false,
-              "suggestsClosing": false
+              "suggestsClosing": false,
+              "suggestsReopening": false
             }
           ],
           "total": 1
@@ -238,19 +250,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     private const string NoWorkItems = """{ "rows": [], "total": 0 }""";
 
     /// <summary>
-    /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one
-    /// imported on an earlier run. The waiting one carries <c>waitingSince</c> and <em>no</em>
-    /// deadline, the other carries a deadline — which is how both halves of the deadline branch get a
-    /// colour on one screen. That branch is the one no Jira row has, because Jira's due date came off
-    /// the issue while this one is the app's own arithmetic.
-    ///
-    /// <c>workItemType</c>, <c>state</c>, <c>isWaiting</c>, <c>alreadyImported</c> and <c>url</c> are
-    /// spelled out on every row, and they have to be: intercepting the call is not enough, because a
-    /// field the body leaves out reads as undefined in the client and its line renders nothing at all —
-    /// while the route handler looks like it covered the case. There is no <c>isDuty</c>: Azure DevOps
-    /// has no duty pool, so the label has no counterpart here.
-    /// </summary>
-    /// <summary>
     /// The two branches the closure suggestion added, and neither can be reached from the answers
     /// above: one needs a row that was imported before <em>and</em> stands in a done state, the other
     /// needs a done state on a row that was not. Both are colours no fixture painted before.
@@ -269,7 +268,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "reconciled": false,
               "suggestsClosing": true,
               "closureReason": "resolved",
-              "doneAt": "2026-08-15T09:00:00Z"
+              "doneAt": "2026-08-15T09:00:00Z",
+              "suggestsReopening": false
             },
             {
               "key": "17170",
@@ -281,6 +281,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "alreadyImported": false,
               "reconciled": false,
               "suggestsClosing": false,
+              "suggestsReopening": false,
               "excluded": "ado.excludedDone"
             }
           ],
@@ -288,6 +289,19 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         }
         """;
 
+    /// <summary>
+    /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one
+    /// imported on an earlier run. The waiting one carries <c>waitingSince</c> and <em>no</em>
+    /// deadline, the other carries a deadline — which is how both halves of the deadline branch get a
+    /// colour on one screen. That branch is the one no Jira row has, because Jira's due date came off
+    /// the issue while this one is the app's own arithmetic.
+    ///
+    /// <c>workItemType</c>, <c>state</c>, <c>isWaiting</c>, <c>alreadyImported</c> and <c>url</c> are
+    /// spelled out on every row, and they have to be: intercepting the call is not enough, because a
+    /// field the body leaves out reads as undefined in the client and its line renders nothing at all —
+    /// while the route handler looks like it covered the case. There is no <c>isDuty</c>: Azure DevOps
+    /// has no duty pool, so the label has no counterpart here.
+    /// </summary>
     private const string BlockedWorkItems = """
         {
           "rows": [
@@ -302,6 +316,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "alreadyImported": false,
               "reconciled": false,
               "suggestsClosing": false,
+              "suggestsReopening": false,
               "excluded": "ado.excludedWaiting"
             },
             {
@@ -314,7 +329,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "isWaiting": false,
               "alreadyImported": true,
               "reconciled": false,
-              "suggestsClosing": false
+              "suggestsClosing": false,
+              "suggestsReopening": false
             }
           ],
           "total": 2
@@ -340,7 +356,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
               "isWaiting": false,
               "alreadyImported": false,
               "reconciled": false,
-              "suggestsClosing": false
+              "suggestsClosing": false,
+              "suggestsReopening": false
             }
           ],
           "total": 1
