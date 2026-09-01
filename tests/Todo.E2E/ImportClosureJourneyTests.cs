@@ -10,8 +10,15 @@ namespace Todo.E2E;
 
 /// <summary>
 /// A work item is imported, finishes in Azure DevOps, and the next import offers to close the task
-/// here — the whole feature, end to end, against a real <see cref="FakeAdo"/> on loopback rather than
-/// an intercepted preview.
+/// here — the <b>resolved</b> closure, end to end, against a real <see cref="FakeAdo"/> on loopback
+/// rather than an intercepted preview.
+///
+/// One of reconciliation's three legs and not the feature entire, which is what this said until the
+/// other two were written. The siblings live in <c>AdoImportJourneyTests</c> and share this shape:
+/// <c>A_work_item_handed_to_somebody_else_offers_to_close_the_task_it_was_imported_as</c> is the
+/// unassigned closure, and <c>A_task_finished_here_is_reopened_when_Azure_DevOps_is_not_done_with_it</c>
+/// is the reopening. Naming them rather than counting them, because a count here would go stale the
+/// way "the whole feature" did.
 ///
 /// The real chain is what makes this worth writing. Nothing here stages a <c>suggestsClosing</c>
 /// field: the work items are imported through the shipping code path, the done list is a setting, and

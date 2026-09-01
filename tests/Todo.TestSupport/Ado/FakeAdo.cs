@@ -69,9 +69,14 @@ public sealed class FakeAdo : IAsyncDisposable
     public const string Owner = "Thomas fra kataloget";
 
     /// <summary>
-    /// One of the measured work items, open and the user's own, so a reconciliation has something
-    /// ordinary to answer beside the two awkward ones. Named rather than spelled per test, because
-    /// what matters about it is those two facts and not its number.
+    /// One of the measured work items, open and the user's own <em>at the start</em>, so a
+    /// reconciliation has something ordinary to answer beside the two awkward ones. Named rather than
+    /// spelled per test, because what matters about it is those two facts and not its number.
+    ///
+    /// Both facts are a starting point rather than an invariant, and the caveat is the newer half:
+    /// <see cref="HandOver"/> and <see cref="MoveTo"/> exist to take them away, and the E2E journeys
+    /// do exactly that to this key. A test that needs an item nobody has touched should say so by
+    /// not calling either.
     /// </summary>
     public const string MineKey = "16901";
 
@@ -80,7 +85,7 @@ public sealed class FakeAdo : IAsyncDisposable
     /// <c>[System.AssignedTo] = @Me</c> cannot see it, while a batch read by id can. Constructed
     /// rather than measured - every one of the twelve work items seen on 2026-08-20 was the user's
     /// own - and the ownership is this fake's own knowledge rather than a field, see
-    /// <see cref="NotMine"/>.
+    /// <see cref="NotMineSeed"/>.
     /// </summary>
     public const string HandedOverKey = "17141";
 
@@ -729,8 +734,9 @@ public sealed class FakeAdo : IAsyncDisposable
     /// as a reconciliation quietly measuring a fake that answers everything.
     ///
     /// Assignment is not read off the work item, because it is not on the wire: the source never asks
-    /// for System.AssignedTo. It is <see cref="NotMine"/>, this fake's own knowledge, which is the
-    /// same place the real server keeps it.
+    /// for System.AssignedTo. It is <see cref="_notMine"/> - seeded from <see cref="NotMineSeed"/>
+    /// and written by <see cref="HandOver"/> - this fake's own knowledge, which is the same place the
+    /// real server keeps it.
     /// </summary>
     private bool Matches(string wiql, long id)
     {

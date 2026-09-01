@@ -11,22 +11,25 @@ using IClock = Todo.Core.Time.IClock;
 namespace Todo.E2E;
 
 /// <summary>
-/// The Azure DevOps import screen, driven from the browser. Most of these journeys intercept
+/// The Azure DevOps import screen, driven from the browser. Two of the six journeys here intercept
 /// <c>/api/ado/preview</c> — not because a fake is out of reach, but because a route handler is the
 /// only way to stage a <em>specific field combination</em>: a body where one row has a deadline and
 /// another does not is something the real server can never send, since the day count is one setting
-/// for all rows. This suite is about what the screen does with an answer, and
+/// for all rows. Those two are about what the screen does with an answer, and
 /// <c>AdoTaskSourceTests</c> already owns what an answer looks like.
 ///
-/// Do not read the interception as "Playwright cannot use a fake". It can, and the last journey here
-/// proves it: <c>FakeAdo</c> is its own Kestrel on 127.0.0.1 and <c>RunningHost</c> starts the app in
-/// the test process, so the host's own <c>HttpClient</c> reaches it. That sentence was carried as a
-/// justification for three slices before slice 12 measured it. <c>/api/ado/import</c> is deliberately
-/// <em>not</em> intercepted in the
-/// journey that imports — the deadline is the server's arithmetic on its own clock, and that
-/// derivation is the subject. <c>/api/system/open-link</c> is aborted rather than answered: letting it
-/// through would ask the operating system to open a real browser window on the machine running the
-/// tests, and the abort is per test rather than per file.
+/// Do not read the interception as "Playwright cannot use a fake". It can, and the last three
+/// journeys here prove it: <c>FakeAdo</c> is its own Kestrel on 127.0.0.1 and <c>RunningHost</c>
+/// starts the app in the test process, so the host's own <c>HttpClient</c> reaches it. That sentence
+/// was carried as a justification for three slices before slice 12 measured it. The count is written
+/// out rather than said as "most", which it was until the reconciliation added two more real ones and
+/// turned the word false without anything being able to see it.
+///
+/// <c>/api/ado/import</c> is deliberately <em>not</em> intercepted in any of the three journeys that
+/// import — the deadline is the server's arithmetic on its own clock, the closure is its re-decision,
+/// and the reopening is its mapping. <c>/api/system/open-link</c> is aborted rather than answered:
+/// letting it through would ask the operating system to open a real browser window on the machine
+/// running the tests, and the abort is per test rather than per file.
 /// </summary>
 public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
@@ -57,7 +60,13 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     private const int FilteredRows = 5;
 
     private const string StoryTitle = "Som bruger vil jeg kunne filtrere";
-    private const string StoryKey = "16901";
+    /// <summary>
+    /// The fake's own name for it rather than the number again. <c>FakeAdo.MineKey</c> says it is
+    /// "named rather than spelled per test", and this file spelled it anyway — two spellings of one
+    /// fact that the compiler cannot see disagree, which is the trap the id-type lesson in CLAUDE.md
+    /// is about. The alias stays because the journeys read better calling it the story.
+    /// </summary>
+    private const string StoryKey = FakeAdo.MineKey;
     private const string TestSuiteTitle = "Testsuite for login";
     private const string TestPlanTitle = "Testplan for eksport";
 
@@ -82,6 +91,20 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     /// constant would give that back.
     /// </summary>
     private const string HandedOverLabel = "Tildelt en anden i Azure DevOps — luk opgaven her.";
+
+    /// <summary>
+    /// The reopening's two sentences, named rather than left inline — for symmetry with the one
+    /// above, which is the whole of the reason: three sentences of the same kind, one of them a
+    /// constant and two of them literals, reads as a forgotten refactor and invites somebody to
+    /// "finish" it in whichever direction they guess.
+    ///
+    /// Two constants and not one, because the offer and what it leads to are separately wrong-able:
+    /// <c>reopenTo</c> is a mapping through <c>AdoEndpoints.StatusFor</c>, and the suggestion does not
+    /// depend on it.
+    /// </summary>
+    private const string ReopeningLabel = "Ikke færdig i Azure DevOps — genåbn opgaven her.";
+
+    private const string ReopensAsWaitingLabel = "Genåbnes som ventende.";
 
     /// <summary>
     /// Three work items. The first can be imported, the second is excluded because the user is waiting
@@ -593,8 +616,17 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
         await Assertions.Expect(AdoImportScreen.PickOf(handedOver)).ToBeEnabledAsync();
         await Assertions.Expect(AdoImportScreen.PickOf(handedOver)).ToBeCheckedAsync();
 
-        // The negative half. Without it a template that put the offer on every imported row would
-        // pass, and so would a reconciliation that called every key a hand-over.
+        // The negative half, and it measures the template alone. Without it a screen that put the
+        // offer on every imported row would pass.
+        //
+        // It cannot also stand for "a reconciliation that called every key a hand-over", which this
+        // comment claimed until the review measured it: replacing the whole reason expression in
+        // AdoEndpoints with role == Done ? Resolved : Unassigned leaves both journeys green. The
+        // reason is structural rather than a gap in the fixture. ReconciledRowsAsync is only handed
+        // the imported keys the fetch did not answer with, and 15664 is a fetched row — the line
+        // above asserts as much — so the hand-over branch can never reach it. Measuring that branch
+        // needs a second reconciled key, which would lengthen the journey for a rule
+        // AdoEndpointsTests already guards.
         await Assertions.Expect(AdoImportScreen.SuggestsClosingIn(ado.Row(BlockedTitle)))
             .ToHaveCountAsync(0);
         await Assertions.Expect(AdoImportScreen.AlreadyImportedIn(ado.Row(BlockedTitle)))
@@ -623,9 +655,14 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     }
 
     /// <summary>
-    /// The other half of the feature, and the half nothing outside two Vitest had ever seen: a task
-    /// finished <em>here</em> while Azure DevOps is not done with it is offered back, and taking the
-    /// offer clears the completion time.
+    /// The other half of the feature: a task finished <em>here</em> while Azure DevOps is not done
+    /// with it is offered back, and taking the offer clears the completion time.
+    ///
+    /// What is new is the <b>chain</b> — screen to wire to server — and not either end of it. Both
+    /// ends were already guarded, and saying otherwise would credit this journey with somebody else's
+    /// work: <c>AdoEndpointsTests.Reopening_puts_the_status_back_and_clears_the_completion_time</c>
+    /// asserts the very <c>Assert.Null(task.CompletedAt)</c> this ends on, and four Vitest cover the
+    /// store and the template. What no test had was the two of them joined by a real request.
     ///
     /// The task is finished through the app's own toggle rather than by accepting a source-driven
     /// closure, and that is a choice worth knowing. Accepting a closure first would measure more —
@@ -688,9 +725,9 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
         var reopening = ado.Row(StoryTitle);
 
         await Assertions.Expect(AdoImportScreen.SuggestsReopeningIn(reopening))
-            .ToHaveTextAsync("Ikke færdig i Azure DevOps — genåbn opgaven her.");
+            .ToHaveTextAsync(ReopeningLabel);
         await Assertions.Expect(AdoImportScreen.ReopenToIn(reopening))
-            .ToHaveTextAsync("Genåbnes som ventende.");
+            .ToHaveTextAsync(ReopensAsWaitingLabel);
         await Assertions.Expect(AdoImportScreen.PickOf(reopening)).ToBeEnabledAsync();
         await Assertions.Expect(AdoImportScreen.PickOf(reopening)).ToBeCheckedAsync();
 
@@ -709,10 +746,18 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
         // The offer is gone on the fresh preview the import ran, and the row now reads like its
         // neighbour: waiting, imported before, switched off. That is the app reading the local status
         // back rather than remembering what it just did.
-        await Assertions.Expect(AdoImportScreen.SuggestsReopeningIn(ado.Row(StoryTitle)))
-            .ToHaveCountAsync(0);
+        //
+        // The positive claim goes first, and the order is the barrier rather than a preference. The
+        // receipt above is not one: importSelected sets it <em>before</em> awaiting reload(), so a
+        // count of zero read straight after it could be the old rows still standing. That it cannot
+        // be today rests on AdoStore.preview() not clearing rows until the answer is in, which is a
+        // detail of the store rather than of this journey. WaitingReason can only be true of the
+        // fresh answer, so asserting it first makes the absence below honest whatever the store does
+        // in between.
         await Assertions.Expect(AdoImportScreen.ExcludedIn(ado.Row(StoryTitle)))
             .ToHaveTextAsync(WaitingReason);
+        await Assertions.Expect(AdoImportScreen.SuggestsReopeningIn(ado.Row(StoryTitle)))
+            .ToHaveCountAsync(0);
 
         var reopened = await TaskOnTheWireAsync(StoryTitle, async () => tasks = await App.GoToTasks());
 
@@ -746,8 +791,14 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     private async Task<JsonElement> TaskOnTheWireAsync(string title, Func<Task> action)
     {
         // The action comes first in Playwright's own signature, and the predicate second — which
-        // reads backwards next to every other wait in this suite. Written the other way round it
-        // still compiles against the string overload, and then the predicate is a URL nothing matches.
+        // reads backwards next to every other wait in this suite.
+        //
+        // A readability trap and emphatically not a silent one, which is what this note said until
+        // the review measured it: the reversed form does not compile against the string overload, it
+        // does not compile at all. Swapping the two arguments and building gives
+        // CS1593 "Delegate 'Func<Task>' does not take 1 arguments" and CS1503 "Argument 2: cannot
+        // convert from 'System.Func<Task>' to 'string'". So nobody can ship the mistake; the cost is
+        // one confused reading, not a predicate that quietly matches nothing.
         var response = await App.Page.RunAndWaitForResponseAsync(
             action,
             answer => answer.Request.Method == "GET"
