@@ -628,7 +628,8 @@ describe('AdoImport', () => {
    */
   it('should offer a work item the source is not finished with for reopening, ticked', async () => {
     const { element } = await preview({
-      total: 1,
+      // Two of the three rows came from the fetch; the unexplained one is reconciled.
+      total: 2,
       rows: [
         row({
           key: '17170',
@@ -667,7 +668,12 @@ describe('AdoImport', () => {
    */
   it('should say what it does for each of the three sets it acts on', async () => {
     const screen = await preview({
-      total: 1,
+      // Two, because two of the three rows came from the fetch - and deliberately not one, which is
+      // what makes the three counts measurable. With `total: 1` a clause taken from `total` instead
+      // of from its own set would print the same "1" and the assertion could not fail. Measured:
+      // with the old fixture, mutating the first clause to `store.total()` felled three older tests
+      // and left this one green.
+      total: 2,
       rows: [
         row({ key: '15664', title: 'Ret rapporten' }),
         row({

@@ -319,7 +319,8 @@ describe('JiraImport', () => {
    */
   it('should offer an issue the source is not finished with for reopening, ticked', async () => {
     const { element } = await preview({
-      total: 1,
+      // Two of the three rows came from the fetch; the unexplained one is reconciled.
+      total: 2,
       rows: [
         row({
           key: 'SAAS-10',
@@ -355,7 +356,11 @@ describe('JiraImport', () => {
    */
   it('should say what it does for each of the three sets it acts on', async () => {
     const screen = await preview({
-      total: 1,
+      // Two, because two of the three rows came from the fetch - and deliberately not one, which is
+      // what makes the three counts measurable: with `total: 1` a clause taken from `total` instead
+      // of from its own set would print the same "1" and the assertion could not fail. See the ADO
+      // twin, where that was measured.
+      total: 2,
       rows: [
         row({ key: 'SAAS-1', title: 'Ret rapporten' }),
         row({
