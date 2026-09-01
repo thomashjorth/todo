@@ -327,8 +327,20 @@ rækken forklarer selv hvorfor, med sin `missingInSource`-linje.
 `selectedKeys` starter som foreningen af dem. `selectedRows`' eksisterende værn — at filtrere gennem
 butikkens egen liste, så et flueben tvunget på udefra ikke slipper igennem — får en tredje tvilling.
 
-**Tællingen skal vise tre tal:** "3 importeres, 2 lukkes, 1 genåbnes". Ét samlet tal kan ikke sige
-hvad knappen gør, og knappen gør nu tre ting.
+**Tællingen skal vise tre tal**, ét pr. mængde. Ét samlet tal kan ikke sige hvad knappen gør, og
+knappen gør nu tre ting.
+
+**Formen er en ledsætningsliste, ikke en gren pr. kombination** — afgjort 2026-09-01 under Task 8,
+efter at de tre kandidater blev målt frem for vejet. Tre mængder giver **syv** kombinationer, og en
+fjerde ville give femten; en kæde af den slags er det ingen tør røre om et halvt år. Knappen
+sammenstiller derfor de mængder der er noget i, med `·` imellem — *"Importér 1 sag · Luk 1 opgave ·
+Genåbn 1 opgave"* — og **ét-mængde-tilfældet er byte-identisk med det der stod før**, hvilket er det
+der gør de fem eksisterende påstande på mærkaten ærlige frem for tilfældigvis stadig sande.
+
+To ting der ellers ville blive opdaget senere: designet skrev formuleringen passivt (*"3 importeres, 2
+lukkes"*), og det var et **eksempel** frem for en beslutning — kravet er at knappen siger hvad den gør
+for hver mængde. Og `·` er valgt frem for komma, fordi dansk ikke sætter stort begyndelsesbogstav midt
+i en opremsning, mens en småbogstavering i kode ville være et locale-hack.
 
 ## 8. Prisen, sagt tydeligt
 
