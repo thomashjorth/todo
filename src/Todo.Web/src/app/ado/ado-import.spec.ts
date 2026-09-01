@@ -853,10 +853,16 @@ describe('AdoImport', () => {
    * neither, and a line left blank cannot be told apart from one the screen forgot to fill in — so
    * both absences are said out loud. The answered row beside it is the other half: without it, a
    * template that had dropped the two lines altogether would pass.
+   *
+   * The third row is the empty string, and it guards the template's choice of a truthiness test over
+   * `!= null`. The fetch loop writes `ItemType ?? string.Empty` rather than branching, so an empty
+   * type is a shape the server can really send — and with only the two rows above,
+   * `@if (row.workItemType != null)` left the whole suite green while rendering "Type: " with nothing
+   * after it. Measured.
    */
   it('should say out loud that the source reported no type and no state', async () => {
     const { element } = await preview({
-      total: 1,
+      total: 2,
       rows: [
         row({ key: '15664' }),
         row({
@@ -868,10 +874,18 @@ describe('AdoImport', () => {
           reconciled: true,
           excluded: 'ado.missingInSource',
         }),
+        row({ key: '17162', title: 'Uden sagstype', workItemType: '' }),
       ],
     });
 
-    const [answered, unknown] = rows(element);
+    const [answered, unknown, blankType] = rows(element);
+
+    // An empty type reads as an absence rather than as a value: the alternative is a labelled line
+    // with nothing after the colon, which says less to the user than the sentence does.
+    expect(blankType.querySelector('[data-testid="ado-no-type"]')!.textContent!.trim()).toBe(
+      'Azure DevOps oplyste ingen sagstype.',
+    );
+    expect(blankType.querySelector('[data-testid="ado-type"]')).toBeNull();
 
     expect(answered.querySelector('[data-testid="ado-type"]')!.textContent).toContain('Type: Bug');
     expect(answered.querySelector('[data-testid="ado-state"]')!.textContent).toContain(

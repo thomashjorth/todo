@@ -157,9 +157,12 @@
                    begrundelsen, opsplitningen i to sætninger iberegnet.
 
                    Fallbacket til den løste sætning er uopnåeligt i drift: serveren sætter altid
-                   closureReason når suggestsClosing er sand — JiraEndpoints' to steder, samme par som
-                   AdoEndpoints.cs:217 og :622. Grenen findes udelukkende fordi de iscenesatte rækker
-                   i ContrastTests og E2E ikke bærer feltet. -->
+                   closureReason når suggestsClosing er sand — begge felter kommer af ét udtryk både
+                   i hentningens løkke i JiraEndpoints' previewJira-handler og i
+                   JiraEndpoints.ReconciledRowsAsync. Grenen findes udelukkende fordi de iscenesatte
+                   rækker i ContrastTests og E2E ikke bærer feltet. Og som i ADO-tvillingen vælger
+                   JiraStores hasReason modsat for samme tilstand: den dropper rækken fra wiren, hvor
+                   denne gren viser den som løst. Rører du den ene, så læs den anden. -->
               } @else if (row.suggestsClosing) {
                 <span
                   data-testid="jira-suggests-closing"

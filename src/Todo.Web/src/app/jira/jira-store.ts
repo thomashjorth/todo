@@ -30,6 +30,15 @@ const wasAnsweredFor = (row: JiraPreviewRow): row is AnsweredJiraRow => row.stat
  * `closureReason` off one expression, so a reason-less closing row is unreachable from the server and
  * reachable only from a fixture. Dropping rather than relabelling is what keeps an unassigned closure
  * from turning silently into a resolved one on the way out.
+ *
+ * The `!= null` is <em>unmeasured</em> here as well, and for the same reason - `!== undefined` leaves
+ * the whole suite green, because the fixtures this catches omit the field rather than nulling it. It
+ * is the safer of two spellings rather than a measured choice. Unlike `wasAnsweredFor` above, whose
+ * `!= null` is earned by a null the host really sends.
+ *
+ * And as in the ADO twin, `jira-import.html`'s label chain resolves the same unreachable state the
+ * opposite way - it shows the resolved sentence where this drops the row. Read both ends before
+ * changing either.
  */
 type ExplainedJiraRow = AnsweredJiraRow & { closureReason: ClosureReason };
 

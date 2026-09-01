@@ -373,6 +373,12 @@ describe('AdoStore', () => {
    * could not tell "the reason was read off the row" from "the reason was defaulted", which is how
    * the fallback stayed invisible for as long as it did.
    *
+   * Not the only guard on that, and worth saying so rather than leaving it to be discovered: putting
+   * the fallback back also fells `should split the selection into the rows it writes, closes and
+   * reopens`, whose fixture has carried `unassigned` since task 8. Two tests hold the reason to what
+   * the row said, so do not "simplify" the older fixture to `resolved` - that would retire one of
+   * them in silence.
+   *
    * Unreachable from the server - all four preview-row sites drive the two fields off one expression
    * - so this measures a fixture, deliberately. It is the shape a stale hand-written wire fixture
    * takes, and five of them in this repository had exactly it until the predicate went in.

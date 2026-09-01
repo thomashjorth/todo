@@ -326,6 +326,10 @@ describe('JiraStore', () => {
    * stores are twins and a divergence in either reads as an adaptation. A closure that does not say
    * why is dropped rather than relabelled as resolved; the surviving row carries `unassigned` so the
    * assertion can tell a reason that was read from one that was defaulted.
+   *
+   * As in the ADO twin, this is not the only guard: restoring the fallback also fells `should split
+   * the selection into the rows it writes, closes and reopens`, whose fixture has carried
+   * `unassigned` since task 8. Do not "simplify" that one to `resolved`.
    */
   it('should drop a closable row that does not say why it is closable', async () => {
     const previewed = store.preview();

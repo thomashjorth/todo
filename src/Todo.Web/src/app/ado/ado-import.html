@@ -230,12 +230,22 @@
                    ærlige frem for tilfældigvis stadig grønne.
 
                    Fallbacket til den løste sætning er *uopnåeligt i drift*: serveren sætter altid
-                   closureReason når suggestsClosing er sand — AdoEndpoints.cs:217 på hentningens vej
-                   og :622 på afstemningens. Grenen findes udelukkende fordi de iscenesatte rækker i
+                   closureReason når suggestsClosing er sand — begge felter kommer af ét udtryk både
+                   i hentningens løkke i AdoEndpoints' previewAdo-handler og i
+                   AdoEndpoints.ReconciledRowsAsync. (Medlemsnavne og ikke linjenumre: et tal rådner
+                   tavst ved den første indsættelse ovenfor, og læseren lander et sted der er
+                   plausibelt og forkert.) Grenen findes udelukkende fordi de iscenesatte rækker i
                    ContrastTests og E2E ikke bærer feltet. Læs den altså ikke som at serveren nogle
                    gange udelader grunden, og byg ikke noget på det. En @switch uden @default ville
                    tegne ingenting for en manglende grund, hvilket er en synlig fejl frem for en
-                   mild. -->
+                   mild.
+
+                   Og bemærk at storen vælger *modsat* for samme utilgængelige tilstand: AdoStores
+                   hasReason **dropper** en reason-løs lukkerække fra wiren, hvor denne gren viser
+                   den som løst. Asymmetrien mellem closable() og wire-vejen er i orden og har
+                   præcedens i wasAnsweredFor — men de to ender er uenige i *retning*, så knappen
+                   ville love Luk 2 opgaver mens forespørgslen bar én. Rører du den ene, så læs den
+                   anden. -->
               } @else if (row.suggestsClosing) {
                 <span
                   data-testid="ado-suggests-closing"

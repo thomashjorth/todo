@@ -58,9 +58,28 @@ const wasAnsweredFor = (row: AdoPreviewRow): row is AnsweredAdoRow =>
  *
  * It is reachable from a *fixture*, which is a different thing and the reason this drops rather than
  * throws: a row with nothing to say about itself is left out, the rest of the request stays valid,
- * and the server never sees a decision the client invented. The same shape and the same argument as
- * `wasAnsweredFor` above, `!= null` included - see its docblock for why strict equality would answer
- * true for exactly the row this exists to catch.
+ * and the server never sees a decision the client invented.
+ *
+ * The `!= null` is <em>unmeasured</em>, and it does not inherit `wasAnsweredFor`'s argument however
+ * much it looks like it should. That one is earned: the host really does send `"state": null`, and
+ * ReviewEndpointsTests pins the shape. This one is not. The rows this predicate was written to catch
+ * are the five hand-written fixtures that <em>omitted</em> the field, so they arrive as `undefined`
+ * and strict equality would drop them just as well - measured by writing `!== undefined` here, which
+ * leaves all 358 Vitest green. The only input the two spellings disagree on is an explicit
+ * `"closureReason": null` beside `"suggestsClosing": true`, which is exactly the body the paragraph
+ * above argues the server cannot produce.
+ *
+ * So it is kept as the safer of two spellings rather than as a measured choice, and that distinction
+ * is the point: this is the one file whose whole subject is a fallback that hid a fault through two
+ * slices, and it must not lean on a leg it has not stood on.
+ *
+ * One asymmetry worth knowing before touching either end: for the very same unreachable state, the
+ * template picks the opposite way out. `ado-import.html`'s label chain shows the <em>resolved</em>
+ * sentence for a reason-less closing row, while this drops it from the wire - so the button would
+ * promise "Luk 2 opgaver" while the request carried one. That `closable()` and the wire path differ
+ * at all is right and has precedent in `wasAnsweredFor`; what is worth a second thought is that they
+ * differ in <em>direction</em>. Tightening it belongs where the fixtures gain the field and the
+ * branch loses its reason for existing, not here.
  */
 type ExplainedAdoRow = AnsweredAdoRow & { closureReason: ClosureReason };
 
