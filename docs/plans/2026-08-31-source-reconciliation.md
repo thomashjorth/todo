@@ -1086,6 +1086,27 @@ denne leverance:
   *samme* commit. Målt tre gange i Tasks 2 og 3.
 - **Alle nøgler fraværende betyder en mistet rettighed, ikke en massesletning**, fordi Jira DC skjuler
   en ubrowsbar sag bag 404.
+- **De fem "compiler-synlige" fixture-steder er det ikke for et nyt *required* felt**, og det
+  modsiger et afsnit `CLAUDE.md` allerede har. Se nedenfor — det er den vigtigste af rettelserne.
+
+**Og ret `CLAUDE.md`s opgørelse over compiler-synlige fixtures — den er målt forkert.** Afsnittet
+påstår at *"Kun **fem** steder i **fire** filer er compiler-synlige"*, og at et nyt `required` felt
+fælder `Spec_project_passes_the_type_checker` netop dér. Målt i Task 6: `reconciled` blev lagt på
+kontrakten som required, klienten regenereret, og typetjekkeren var **grøn** med alle fire fixtures
+urørte.
+
+Årsagen er castet — `new AdoPreviewRow(row(overrides) as IAdoPreviewRow)` — og `as` accepterer et
+objekt der mangler en påkrævet egenskab. De fem steder fanger altså en **typeændring** på et
+eksisterende felt, men **ikke et nyt required felt**. Der er dermed **nul** compiler-synlige steder
+for netop den ændring, og afsnittets egen advarsel bliver skarpere frem for mildere: filen siger
+*"Jeg har forudsagt 'typetjekkeren fælder den' tre gange og taget fejl tre gange; opgørelsen er den
+holdbare form"* — og nu er opgørelsen selv den fjerde fejlforudsigelse.
+
+Skriv det som en måling med castet navngivet, så nogen ikke "retter" det ved at fjerne `as` uden at
+vide hvad der så bliver rødt. Og bemærk konsekvensen for arbejdsgangen: **et nyt required felt skal
+føres i alle seks wire-fixtures og i E2E-suitens iscenesatte rækker i hånden**, fordi intet værktøj
+siger fra. Task 6 førte det i **16** iscenesatte rækker i `ContrastTests.cs`,
+`AdoImportJourneyTests.cs` og `JiraImportJourneyTests.cs` af netop den grund.
 
 **Og den ene der er større end leverancen — undersøg den, frem for at skrive den ned på tro.**
 Hosten serialiserer `null` frem for at udelade feltet (målt:
