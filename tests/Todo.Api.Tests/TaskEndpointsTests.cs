@@ -124,6 +124,75 @@ public class TaskEndpointsTests : TaskApiTest
         // row that simply lost the field would read as false to every client. The true side is held
         // by A_reconciled_row_says_so_because_the_total_counts_only_the_fetch on both sources.
         Assert.Contains("\"reconciled\":false", previewJson);
+
+        // ClosureReason's and ReopenTarget's four members, on a second preview because the four
+        // cannot be reached from one configuration. Measured against this fake's five issues, and
+        // both exclusions are settings rather than fixtures:
+        //
+        // "isDuty":true above needs "I gang" in the duty list, which widens the fetch to SAAS-5 -
+        // the one handed-over issue - and a key the fetch answered is never reconciled, so
+        // "unassigned" is out of reach for as long as "isDuty" is in it. And "waitingFor" needs the
+        // waiting issue finished here, which turns SAAS-2 into a reopening offer and clears the very
+        // "jira.excludedWaiting" asserted above, because a row with something to do is never
+        // excluded. One preview each, rather than an extra issue in the fake: the two counting tests
+        // over in JiraEndpointsTests and JiraTaskSourceTests read that array as a guard on the JQL's
+        // assignee and resolution clauses, so growing it there would cost more than it saves here.
+        await Client.PutAsJsonAsync("/api/settings", new
+        {
+            jiraBaseUrl = jira.BaseUrl,
+            jiraProjectKey = "SAAS",
+            jiraWaitingStatuses = new[] { "Afventer general" },
+            jiraIncludeWaiting = false,
+            jiraDutyStatuses = new[] { "I gang" },
+            // Off, so the pool stops widening the fetch and SAAS-5 becomes a key to reconcile.
+            jiraOnDuty = false,
+            // "Løst" is SAAS-6's status, and calling it finished is what turns its reconciled row
+            // from one outside the filter into a resolved closure.
+            jiraDoneStatuses = new[] { "Løst" },
+        });
+
+        // Every row goes in carrying "I gang" whatever its issue says now, which is the honest
+        // sequence rather than a trick: the import writes the status the client saw, and a row
+        // carrying a status the user calls finished is skipped on the way in - leaving nothing to
+        // reconcile. The same reasoning JiraEndpointsTests.Reconcilable is written on.
+        await Client.PostAsJsonAsync("/api/jira/import", new
+        {
+            rows = new[]
+            {
+                new { key = "SAAS-2", title = "Venter på svar fra kunden", status = "I gang" },
+                new { key = FakeJira.HandedOverKey, title = "Overdraget", status = "I gang" },
+                new { key = FakeJira.ResolvedKey, title = "Løst i kilden", status = "I gang" },
+            },
+        });
+
+        // Finished through the task route rather than by writing a status into the database, so the
+        // rows the second preview answers about are ones the app itself produced. SAAS-1 is
+        // actionable in the source and SAAS-2 waiting, and that pair is what puts both reopen
+        // targets in one body.
+        foreach (var finished in new[] { "Kunden kan ikke logge ind", "Venter på svar fra kunden" })
+        {
+            var task = Assert.Single(await ListAsync(), t => t.Title == finished);
+
+            await UpdateAsync(task.Id, task.Title, TodoStatus.Done);
+        }
+
+        var reconciledPreview = await Client.PostAsync("/api/jira/preview", null);
+
+        reconciledPreview.EnsureSuccessStatusCode();
+
+        var reconciledJson = await reconciledPreview.Content.ReadAsStringAsync();
+
+        // Both of ClosureReason's members, off the raw JSON for the reason the whole test exists:
+        // a reader that binds the enum would map a renamed member straight back onto the same value
+        // and go on passing. SAAS-6 is resolved, SAAS-5 is the one somebody else now owns.
+        Assert.Contains("\"closureReason\":\"resolved\"", reconciledJson);
+        Assert.Contains("\"closureReason\":\"unassigned\"", reconciledJson);
+
+        // Both of ReopenTarget's. "open" gets an assertion of its own rather than leaning on the
+        // "status":"open" at the top of this test: TodoStatus spells the same word, and the two
+        // enums are separate declarations that can be renamed apart.
+        Assert.Contains("\"reopenTo\":\"open\"", reconciledJson);
+        Assert.Contains("\"reopenTo\":\"waitingFor\"", reconciledJson);
     }
 
     [Fact]

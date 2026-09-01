@@ -1236,3 +1236,65 @@ målinger fra Task 0 i listen over det kun brugeren kan svare på — hvis de st
 ```
 git commit -m "📝 Afstemningen er leveret, og de fire testtal er målt frem for påstået"
 ```
+
+### Målt i Task 12, hvor virkeligheden gik en anden vej end planen
+
+**De fire enum-værdier kan ikke komme ud af én forhåndsvisning, og begge spærringer er
+indstillinger frem for fixtures.** `"isDuty":true` kræver `"I gang"` i vagt-listen, hvilket udvider
+hentningen til SAAS-5 — den ene overdragne sag — og en nøgle hentningen svarede med afstemmes
+aldrig, så `unassigned` er uden for rækkevidde så længe `isDuty` er inden for den. Og `waitingFor`
+kræver den ventende sag færdig her, hvilket gør SAAS-2 til et genåbningstilbud og rydder netop den
+`jira.excludedWaiting` testen allerede påstår, fordi en række med noget at gøre aldrig er
+ekskluderet. Testen tager derfor **to** forhåndsvisninger: den første som før, den anden med vagten
+slået fra, `jira.doneStatuses = ["Løst"]` og fire nøgler importeret. En sag mere i `FakeJira` var
+alternativet og blev fravalgt — de to tællende tests læser arrayet som en vagt på JQL'ens assignee-
+og resolution-led.
+
+**Og de fire var ikke uvogtede i forvejen, hvad Trin 1's begrundelse antyder.** Drift-testen er
+rigtignok blind, men `JiraEndpointsTests`' og `AdoEndpointsTests`' håndskrevne `PreviewRow` læser
+`ClosureReason` og `ReopenTo` som `string?` netop for at måle navnet på wiren. Fire mutationer i
+`Contracts.g.cs`' `JsonStringEnumMemberName`, én ad gangen, ud af 398 Api-tests — og wire-format-
+testen er med i alle fire, hvilket er det den nye påstand beviser:
+
+| mutation | røde | ud over wire-format-testen |
+| --- | --- | --- |
+| `resolved` → `resolvedX` | 11 | begge kilders `A_key_that_fell_out_of_the_fetch…`, `Resolved_outranks_unassigned…`, `A_done_issue/work_item_that_was_imported_before…`, `Closing_takes_the_completion_time_from_the_source`, `A_closure_whose_state_is_not_in_the_done_list_is_skipped`, `A_task_that_is_already_done_is_not_offered_again`, `A_closure_for_a_work_item_that_was_never_imported_is_skipped` |
+| `unassigned` → `unassignedX` | 15 | begge kilders `A_key_that_is_no_longer_assigned_to_me…`, `…handed_over…` (to hver) og **syv genåbningstests**, som iscenesætter sig selv med en lukning og derfor dør på en 400 fra `CloseAsync` |
+| `open` → `openX` | 4 | begge kilders `A_task_finished_here_but_open_in_the_source_suggests_reopening` og `A_duty_status_reopens_to_open…` |
+| `waitingFor` → `waitingForX` | 5 | begge kilders `A_waiting_state_reopens_to_waiting_rather_than_open` og `…reopens_even_when_including_waiting_is_off` |
+
+Wire-format-testens egen fejltekst i den anden kørsel:
+`Assert.Contains() Failure: Sub-string not found … Not found: ""closureReason":"unassigned""`.
+
+**Opgørelsen over compiler-synlige fixtures er *tre* steder i *tre* filer, ikke fem i fire — og kun
+det ene er synligt for et nyt `required` felt.** Leverancen har selv trukket de duplerede par ud i
+én hjælper pr. fil, så `grep -rn "new \(Ado\|Jira\|Retro\)PreviewRow" --include=*.spec.ts` giver
+`ado-store.spec.ts:99`, `jira-store.spec.ts:81` og `retro-store.spec.ts:35`. Målt én mutation ad
+gangen med `tsc -p tsconfig.spec.json --noEmit`: et `probe: string` på `IAdoPreviewRow` (plus
+`probe!: string` på klassen, som generatoren selv ville skrive) giver **nul** fejl, mens det samme
+på `IRetroPreviewRow` giver `retro-store.spec.ts(35,30): error TS2345 … Type 'undefined' is not
+assignable to type 'string'`. Forskellen er castet: retro-fixturet er et objektliteral, de to andre
+går gennem `as I…PreviewRow`.
+
+**Og `=== undefined`-spørgsmålet er målt: der er ingen flere fejl.** `grep -rn "=== undefined\|!==
+undefined" src/Todo.Web/src/app --include=*.ts` uden spec-filer giver **21** linjer, hvoraf **fire**
+er omtaler inde i doc-kommentarer i `ado-store.ts` og `jira-store.ts`, altså **17** i kode. Tretten
+står i den genererede klient og er alle NSwags egne idiomer: ti tjekker `undefined` **og** `null`
+eller bygger en query af vores egne argumenter, og tre er standardværdi-idiomet
+`_data["x"] !== undefined ? … : 3` i `SettingsRequest` — som kun kunne rammes af et nullable felt
+med en `default:`, og `grep -B4 "default:" contracts/openapi.yaml | grep -c "nullable: true"` giver
+**0**. De fire håndskrevne: `settings-store.ts:404` tjekker begge, `shortcut-store.ts:32` læser et
+`Map.get`, `review.ts:48` er et bevidst tre-tilstands-signal (`undefined` = intet valgt, `null` =
+lukket), og `review-groups.ts:79`s `t.deferUntil !== undefined` er den ene der *ligner* fejlen —
+men den er uopnåelig for et null, fordi `bucket === Deferred` kræver `deferUntil > i dag` i
+`DeadlineBuckets.For`, og selv med et null ville `null <= '2026-09-07'` være **false** (målt i
+node), så rækken droppes enten vej. Ingen egen opgave nødvendig.
+
+**To fund uden for leverancen, ikke rettet her.** `README.md` beskriver stadig **Start with
+Windows** i detaljer, en funktion der blev fjernet 2026-08-25 — `grep -rn -i autostart src/` giver
+ingenting — og den siger at indstillingssiden har **fem** grupper, hvor gennemgangen gjorde dem
+seks 2026-08-28. Begge er ældre end denne leverance.
+
+**Og `CLAUDE.md` havde en forældet linje leverancen selv skabte:** *"`ImportedKeysAsync` svarer
+`Dictionary<string, TodoStatus>`"* — den svarer nu `Dictionary<string, ImportedTask>`, fordi en
+afstemt række uden svar fra kilden kun har den lokale titel. Rettet i samme ombæring.

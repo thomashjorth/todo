@@ -1,21 +1,20 @@
 # Hvor projektet står
 
-Sidst opdateret: 2026-08-27.
+Sidst opdateret: 2026-09-01.
 
 Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs den først.
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **181**, Api **323**, E2E **81**, Vitest **330** — alle grønne, målt med
-`Check.cmd` 2026-08-28. Alle fire steg med den ugentlige gennemgang: 7 Core, 13 Api, 4 E2E og 27
-Vitest, i alt 51 lagt til med vilje. Fordelingen står i `CLAUDE.md`s "Testtal".
-`Check.cmd` kører dem i den rækkefølge der er bærende.
+**Testtal:** Core **186**, Api **398**, E2E **83**, Vitest **358** — alle grønne, målt med
+`scripts\check.ps1` 2026-09-01. Alle fire steg med afstemningen: 5 Core, 75 Api, 2 E2E og 28 Vitest,
+i alt 110 lagt til med vilje. Fordelingen pr. fil står i `CLAUDE.md`s "Testtal", målt på diffen mod
+`bca2d21` frem for påstået. `Check.cmd` kører dem i den rækkefølge der er bærende.
 
-**Og E2E-baseline var forkert to steder, femte gang regnskabet driver.** Denne fil stod på **73** og
-`CLAUDE.md` på **75**, mens sandheden var **77**: `ColorSchemeTests`' fire teorikørsler var kun
-bogført ét af stederne. Begge er rettet, og det står skrevet frem for overskrevet — et ændret tal kan
-kun betyde en tabt eller duplikeret test, hvis tallet var sandt i forvejen. Det er samme fejl som
-sidst, hvor de tre tal stod på 58, 59 og 61.
+**De fire tal var sande i forvejen, og det er værd at sige efter sidste gang.** Baseline'en
+181/323/81/330 stod ens i denne fil og i `CLAUDE.md`, så de fire stigninger kan kun betyde nye
+tests — ikke et regnskab der driver. Sidste gang stod E2E på **73** her og **75** i `CLAUDE.md`
+mens sandheden var **77**, og gangen før stod de tre tal på 58, 59 og 61.
 
 ## Færdigt
 
@@ -85,6 +84,32 @@ Fire ting at kende, hvis du rører den:
   evigt. Omlægningen fjernede desuden halvdelen af den reload-race `CLAUDE.md` advarer mod.
 - **`lastCompletedAt` har sin egen rute** og går aldrig gennem `PUT /api/settings`, som er en fuld
   erstatning der ville rydde den ved enhver anden gemning. Samme grund som tokenernes ruter.
+
+Og **importen afstemmer nu det den allerede har hentet**, leveret 2026-09-01: en opgave der er åben
+her, men hvis nøgle faldt ud af dagens hentning, slås op i kilden, og forhåndsvisningen foreslår at
+**lukke** den hvis sagen er løst *eller tildelt en anden* — og at **genåbne** en opgave der er færdig
+her mens kilden siger andet. Det omgør fravalget i
+`docs/plans/2026-08-24-import-closure-design.md`s afsnit 9; designet er
+`docs/plans/2026-08-31-source-reconciliation-design.md` og leveranceplanen ligger ved siden af.
+Ingen migrering, ingen ny datamodel og intet nyt endpoint: `ITaskSource` fik **én** metode,
+`ReconcileAsync`, og svarene blev til almindelige forhåndsvisningsrækker med nye felter.
+
+Fire ting at kende, hvis du rører afstemningen:
+
+- **Kun de nøgler der er åbne her og manglede i hentningen bliver spurgt om** — en håndfuld, ikke
+  arkivet. En opgave der er færdig her afstemmes aldrig.
+- **De to kilder spørger forskelligt, og det er ikke en inkonsekvens.** ADO læser nøglerne i ét
+  batch-kald; Jira går pr. nøgle, fordi `key IN (…)` afvises på en nøgle den ikke kender — altså
+  præcis den slettede sag. Begge præmisser står **umålt** mod de rigtige instanser; se
+  "Målinger kun du kan lave".
+- **Blev ingen af flere nøgler genkendt, vises én notits frem for en række pr. nøgle.** Jira DC
+  skjuler en sag du ikke må browse bag 404, så en mistet rettighed ligner en massesletning. Om den
+  grænse nogensinde udløser i praksis afhænger af den tredje måling nedenfor.
+- **Lukkegrunden rejser med på lukkerækken**, fordi serveren tager beslutningen igen: en sag der er
+  overdraget står i en åben tilstand, så en ubetinget færdig-tjek ville springe hver eneste
+  overdragelse over og tælle den i `skipped`. Prisen er at gen-beslutningen er svagere for
+  `unassigned` end for `resolved` — ejerskab er et faktum kun kilden kan afgøre, og importen ringer
+  ikke ud.
 
 Og **`color-scheme` er flyttet til `<html>`** 2026-08-27, med to eksplicitte klasser — `scheme-light` og
 `dark:scheme-dark`. På `<body>` nedarvedes egenskaben til hele siden, men **roden** blev stående på
@@ -182,6 +207,22 @@ henter.
 ser rigtige ud i et maksimeret vindue på din Full HD-skærm — kan ingen agent måle her. Start appen,
 maksimér, og se om højre spaltes rulning slutter ved vinduets kant frem for at stikke ud. Er den
 forkert, er det `xl:h-screen` i `app.html` der skal skiftes, ikke spalterne.
+
+**Afstemningens tre præmisser, og ingen af dem er målt.** De blev sat op som Task 0 i
+`docs/plans/2026-08-31-source-reconciliation.md`, hvor opskriften står, og leverancen kørte videre
+uden svarene — så koden hviler på tre antagelser i dag. En falsk instans kan ikke svare på dem: en
+`FakeAdo`/`FakeJira` der udsender vores egen antagelse måler sig selv.
+
+1. **Svarer Jiras `issue/{key}` 404 eller 403 på en sag du ikke må se?** *Den vigtigste af de tre.*
+   Kun 404 læses som "kender den ikke"; alt andet kastes. Er svaret **403**, udløser
+   alle-fraværende-grænsen aldrig i praksis, og den er så et sikkerhedsnet mod noget der ikke sker —
+   værd at vide, før nogen "forenkler" den væk. Er svaret **404**, er grænsen det eneste der står
+   mellem en mistet projektrettighed og en skærm fuld af "kilden kender den ikke".
+2. **Gør ADO's `&errorPolicy=omit` det vi tror?** Bed batch-læsningen om et id der ikke findes, med
+   og uden flaget. **Uden** flaget er svaret målt til **400** med de ugyldige id'er navngivet
+   (2026-08-20); det er *med* flaget der er umålt, og hele afstemningens ADO-halvdel afhænger af at
+   de øvrige rækker overlever.
+3. **Er `WHERE [System.Id] IN (…)` gyldig WIQL på din server?** Formen er valgt, ikke prøvet.
 
 De tre nedenfor er skive 12's. De kræver din egen instans og dit eget token, så ingen agent kan køre dem.
 Opskriften — variabler, kommandoer og fælderne — står i skive 12's plan under "Måling 0". **Læg aldrig

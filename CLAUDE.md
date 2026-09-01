@@ -332,7 +332,11 @@ disken**, som ændrer sig med linjeskiftene, så kun en indholdssammenligning ka
 den skriver filen igen og cacher den nye stat. **Bemærk fælden i den rækkefølge:** `git checkout --`
 kaster også enhver ucommittet ændring i filen væk. Ligger der en formatering du ikke har committet,
 er den tabt uden en advarsel — mødt i formateringsleverancen, hvor `main.ts` gik tilbage til den
-uformaterede udgave midt i en vagt-mutation.
+uformaterede udgave midt i en vagt-mutation. **Reglen er derfor skarpere end "commit før du
+muterer": commit før du muterer en fil du også lige har rettet noget andet i**, og grep efter dine
+egne rettelser bagefter. Afstemningsleverancen ramte det to gange — en hel implementering den ene
+gang, en runde kommentarrettelser den anden — og den anden blev kun opdaget ved et grep, fordi
+mutationen og rettelsen lå i **samme** fil.
 
 **Pladsholderfarven ligger på `::placeholder`**, ikke på elementet, så en DOM-gennemgang der kun
 læser `style.color` er blind for den — `getComputedStyle(el, '::placeholder')` skal spørges
@@ -419,6 +423,17 @@ fordi "start og deadline" nævnes i den rækkefølge. Vagten er
 **Angular.** Signal-baserede stores ejer al HTTP. Komponenter injicerer aldrig en genereret
 klient og kalder aldrig `.subscribe()`. **Ikke NgRx** — bevidst fravalg.
 
+**NSwag typer et nullable felt som `T | undefined`, men hosten serialiserer `null`.** Generatorens
+`init` skriver `this.x = _data["x"]` lige over uden at normalisere, og `Todo.Contracts` sætter ingen
+`DefaultIgnoreCondition`, så værdien ankommer som `null` i et felt hvis type kun kender `undefined`.
+**`=== undefined` mod et nullable genereret felt er derfor sandt for det ene og falsk for det
+andet** — og hverken compileren eller `tsc` kan se det, fordi typen påstår at `null` ikke findes.
+Skriv `!= null`. Den målte leg at stå på er den rå krop i
+`ReviewEndpointsTests.Wire_format_uses_the_names_the_contract_declares` (`"lastCompletedAt":null`);
+fejlen er sket én gang, i `ado-store.ts`' `wasAnsweredFor`, hvor hele begrundelsen står. En
+gennemgang af hvert `=== undefined` i `src/app` fandt ingen flere — resten står i den genererede
+klient eller måler noget der ikke kommer fra wiren.
+
 **Og ingen Angular forms — hverken de gamle eller signal forms. Afgjort af brugeren 2026-08-21, så
 det er en beslutning og ikke en forglemmelse.** Felterne er native inputs med `[value]`/`[checked]`
 plus `(input)`/`(change)`/`(blur)`, og signalerne bor i storene. `@angular/forms` er en afhængighed
@@ -476,10 +491,12 @@ er, at `dotnet test` nu forudsætter installerede `node_modules`; mangler `tsc.c
 det med navn og sti frem for at kaste en `Win32Exception`.
 
 **Men `ng test` er ikke *helt* blind, og forskellen betyder noget når en vagt skal ses fejle.**
-Afsnittet ovenfor gælder typerne *inde i* spec-filen; `angular-compiler`-pluginnet compilerer til
-gengæld komponenterne og deres skabeloner, så en spec der rører et input, en metode eller en
-skabelontype der ikke findes, fejler som en **bygning** og ikke som en assertion. Vil du se en vagt
-fejle på sin *påstand*, skal maskineriet lægges ind først og adfærden stå urettet.
+Afsnittet ovenfor gælder typerne *inde i* spec-filen; `angular-compiler`-pluginnet typetjekker til
+gengæld spec-filens kald mod alt det compilerer, så en spec der rører et input, en metode eller en
+skabelontype der ikke findes, fejler som en **bygning** og ikke som en assertion. **Og grænsen går
+ikke ved komponenter**, hvad der stod her: `AdoStore` er en ren `@Injectable`, og et kald til en
+metode der ikke fandtes gav `TS2339 … from [plugin angular-compiler]` før nogen assertion kørte.
+Vil du se en vagt fejle på sin *påstand*, skal maskineriet lægges ind først og adfærden stå urettet.
 
 **En genvej udfører elementets aktiveringshandling, ikke bare fokus.** Det er
 Windows-konventionen — og HTML's eget `accesskey` — så et tekstfelt får fokus, fordi det ikke har
@@ -622,6 +639,13 @@ og rækken er mærket som arbejde nogen skylder dig. **Begge udfald er lovlige r
 compilerer og læser rigtigt — kun `Done_outranks_waiting_when_a_state_is_in_both_lists` og dens tre
 søskende kan se den. Set fejle.
 
+**Og ADO's `Closed` er færdig uden at stå i nogen liste — hardcodet, fordi vælgeren aldrig kan
+tilbyde navnet.** `FetchStatusNamesAsync` bygger på `BaseQuery`, som indeholder `<> 'Closed'`, og
+`stateOptions()` lægger kun allerede valgte navne tilbage, så navnet kan ikke vælges før det er
+valgt. Uden linjen læser afstemningen et lukket work item som `Actionable`, altså "stadig åben",
+stik modsat sandheden. Jira har ingen tilsvarende undtagelse: dens hentning afgrænses af
+`resolution = Unresolved` og ikke af et statusnavn.
+
 **Færdig-listerne er tomme som gyldig tilstand, i modsætning til `adoWorkItemTypes`.** Tom betyder
 ingen forslag; tom sagstypeliste betyder derimod "gendan standarden", og importen afviser den. Den
 nære fælde er at kopiere den forkerte af de to præcedenser, når `ado.doneStates` eller
@@ -634,9 +658,19 @@ har præcedens for at komme fra klienten som et faktum. Vagten er
 `Closing_takes_the_completion_time_from_the_source`, og **fixturets fem dages afstand til testuret er
 dens tænder** — et tidsstempel tæt på nu ville bestå med den forkerte implementering.
 
-**Dedup'en bærer den lokale status, ikke bare nøglen.** `ImportedKeysAsync` svarer
-`Dictionary<string, TodoStatus>` i begge endpoints. Uden statussen kan forslaget om at lukke ikke
+**Dedup'en bærer den lokale status og titlen, ikke bare nøglen.** `ImportedKeysAsync` svarer
+`Dictionary<string, ImportedTask>` i begge endpoints. Uden statussen kan forslaget om at lukke ikke
 holde op med at komme igen, når du har taget imod — samme række ville foreslå det samme for evigt.
+Og uden titlen har en afstemt række som kilden ikke genkendte ingen at vise: der kom intet svar at
+tage en fra, så den lokale opgaves er den eneste der findes.
+
+**Afstemningen spørger kun om de nøgler der er åbne her og manglede i dagens hentning — og de to
+kilder spørger på hver sin måde.** ADO læser dem i ét batch-kald; Jira går **pr. nøgle**, fordi
+`key IN (…)` svarer 400 på en nøgle den ikke kender, altså præcis den slettede sag afstemningen
+findes for, og spørger først bagefter om ejerskabet i én søgning over kun de fundne. **Og blev
+ingen af flere nøgler fundet, vises der én notits i stedet for en række pr. nøgle:** Jira DC skjuler
+en sag du ikke må browse bag 404 frem for 403, så en mistet projektrettighed svarer nøjagtigt som en
+massesletning. Begge dele står **umålt mod den rigtige instans** — se `docs/HANDOFF.md`.
 
 **Vagt slår ventende.** `JiraStatusRoles.For` spørger om vagten **først**: står et statusnavn i
 *begge* lister, og er kontakten slået til, er rollen `Duty` — ikke `Waiting`. Samme status betyder
@@ -812,6 +846,22 @@ forkerte grund.
 
 - **En vagt-test skal ses fejle.** Bryd det den beskytter, bekræft at den fejler på det rigtige
   trin, ret tilbage. En test ingen har set fejle, beviser ingenting.
+- **En mutationsmåling skrives som *identiteter*, aldrig som et antal.** Ramt tre gange i
+  afstemningsleverancen, skarpest sådan her: en kommentar skrev "denne mutation gør præcis én test
+  rød", og **samme commit lagde den anden test til der fælder netop den mutation.** Tallet var sandt
+  da det blev målt og falsk da commit'en landede, og ingen mutation kan afsløre det — påstanden
+  handler om suitens sammensætning frem for om koden. Skriv *hvilke* tests der fældes og hvorfor, så
+  en femte test ikke kan gøre kommentaren forkert. Samme familie som reglen om tal der forældes, men
+  et niveau dybere: her rådner tallet af **dit eget arbejde i samme commit**.
+- **En mutation der ændrer *to* ting måler ingen af dem — og den læses som et bestået.** Ramt fire
+  gange i samme leverance, dyrest da en grænse blev målt med en mutation der både droppede
+  `Count > 1` og byttede `TrueForAll` for `Exists`: den fældede n=1-testene, så grænsen så vogtet
+  ud, mens dens skelnende halvdel var **helt uvogtet** og hele suiten grøn. De andre former var at
+  rapportere "to røde" på en kørsel hvor den forrige mutations slettede vagt stadig stod i filen, og
+  at tilskrive en søskendes vagt en mekanisme den ikke har, fordi de to halvdele kun fælder noget
+  sammen. Mutér **én** betingelse ad gangen, og kør `git diff --stat` imellem, så grundlinjen kan
+  ses ren. **Er en mutation nødt til at ændre to ting for at compilere, er det i sig selv
+  oplysningen** — sig det, frem for at rapportere resultatet som om det målte den ene.
 - **Pas på assertions der ikke *kan* fejle.** Fire gange her: en dedup-vagt der var uopnåelig fra
   UI'et; "ingen reload" bevist ved at kigge efter engelsk tekst, som en reload også ville give;
   "navnet er ryddet" tjekket på et felt der ikke renderes i den tilstand; og en sorteringstest hvor
@@ -861,16 +911,25 @@ forkerte grund.
   `DeadlineBucket` kan ikke få drift-testen til at fejle, uanset hvordan den serialiseres, så den
   har sin egen påstand — `"bucket":"deferred"` — i
   `Wire_format_uses_the_names_the_contract_declares`. Læg en ny værdi der, ikke kun i kontrakten.
-- **Kun *fem* steder i *fire* filer er compiler-synlige, og det er opgjort — ikke gættet.** Et nyt
-  `required` felt fælder `Spec_project_passes_the_type_checker` **kun** hvis fixturet føres ind i en
-  **genereret type**, altså som argument til et `new X(...)`. Opgørelsen er
-  `grep -rn "new \(Ado\|Jira\|Retro\)PreviewRow" --include=*.spec.ts`: `jira-store.spec.ts` (to gange),
-  `ado-store.spec.ts` (to gange, kom til i skive 12) og `retro-store.spec.ts` (én gang). **Alt andet** —
-  begge settings-fixtures, `jira-import.spec.ts`, `ado-import.spec.ts`, rutehandlerne i `ContrastTests`
-  og E2E — bygger en **rå svarkrop** til `flush(...)` eller til `page.RouteAsync`, og er dermed usynlig
-  for compileren. Jeg har forudsagt "typetjekkeren fælder den" tre gange og taget fejl tre gange;
-  opgørelsen er den holdbare form. Konsekvensen: et manglende felt i en usynlig fixture er **grønt**,
-  og bliver et `undefined` i et `string[]`- eller `number`-signal først når UI'et læser det.
+- **For et nyt `required` felt er der præcis *ét* compiler-synligt fixture-sted, og det er
+  `retro-store.spec.ts` — hvilket er en rettelse af det der stod her.** Afsnittet påstod "fem steder
+  i fire filer" og gjaldt en **typeændring** på et felt der findes; for et *nyt* felt holder det
+  ikke. `grep -rn "new \(Ado\|Jira\|Retro\)PreviewRow" --include=*.spec.ts` giver i dag tre steder,
+  og to af dem går gennem et cast — `new AdoPreviewRow(row(overrides) as IAdoPreviewRow)`, det samme
+  i `jira-store.spec.ts` — som **accepterer et objekt der mangler en påkrævet egenskab**, fordi
+  interfacet stadig er assignable den anden vej. Målt én mutation ad gangen — et `probe: string` på
+  interfacet plus `probe!: string` på klassen, som generatoren selv ville skrive: på
+  `IAdoPreviewRow` giver det **nul** fejl fra `tsc -p tsconfig.spec.json`, på `IRetroPreviewRow`
+  giver det `retro-store.spec.ts(35,30): error TS2345`, hvor fixturet er et objektliteral uden cast. Fjern derfor ikke castet uden at vide hvad der så bliver rødt: det
+  eksisterer, fordi det genererede interface typer et nullable felt som `string | undefined`, mens
+  hosten sender `null`. **Alt andet** — begge settings-fixtures, `jira-import.spec.ts`,
+  `ado-import.spec.ts`, rutehandlerne i `ContrastTests` og E2E — bygger en **rå svarkrop** til
+  `flush(...)` eller `page.RouteAsync` og var usynlig i forvejen. Filen har forudsagt
+  "typetjekkeren fælder den" fire gange nu og taget fejl fire gange, og opgørelsen selv var den
+  fjerde. Konsekvensen for arbejdsgangen: **et nyt required felt skal føres i alle seks
+  wire-fixtures og i E2E-suitens iscenesatte rækker i hånden** — afstemningen førte det i seksten
+  rækker i `ContrastTests.cs`, `AdoImportJourneyTests.cs` og `JiraImportJourneyTests.cs` af netop
+  den grund — og et manglende felt bliver et `undefined` først når UI'et læser det.
 - **Seks håndskrevne wire-fixtures har ingen compiler over sig — ikke tre.** Tallet stod som **tre**
   her indtil skive 12, og det var forkert af **to** grunde, hvoraf kun den ene er ADO's. Opgørelsen er
   `grep -rn "^interface " --include=*.spec.ts`, og den navngiver seks filer med en håndskreven
@@ -942,6 +1001,12 @@ forkerte grund.
   Angular-fil og kører `dotnet test`, tester Playwright altså **den forrige udgave**, uden at noget
   ser forkert ud: suiten gør nøjagtigt hvad den skal, mod det forkerte input. **Kør
   `scripts\build-web.ps1` før E2E**, hver gang frontenden er rørt.
+  **Og byg også når du *ruller en mutation tilbage*, ikke kun når du lægger den på — den retning er
+  den farlige.** Målt i afstemningsleverancen: en `ado-import.html`-mutation blev gendannet med
+  `git checkout --`, `wwwroot` blev ikke bygget igen, og E2E kørte videre på den **forrige**
+  mutations bundle. Resultatet var ikke en tavs grøn, men en **plausibel falsk konklusion** — et
+  fund der læste helt rigtigt og var forkert. Et rødt resultat læses som information frem for som en
+  fejl i opsætningen, og det er derfor den koster mere end den kendte retning.
 - **Sammenlign tidsstempler på epoch, aldrig på klokkeslæt.** `ls --time-style=+%H:%M:%S` sorteret
   som tekst gør `21:15` fra i går nyere end `13:14` fra i dag, og datoen er væk. Det fik en
   gennemgang her til at kalde `wwwroot` forældet, mens den var 36 sekunder frisk. Brug
@@ -998,10 +1063,11 @@ forkerte grund.
   `@if`-grene som ingen farve nogensinde blev renderet i, fordi hver af dem kræver et svar fra Jira;
   skive 12 efterlod **toogtyve** af samme slags bag ADO. `ContrastTests` svarer derfor selv på
   `**/api/jira/preview|test|statuses` og `**/api/ado/preview|test|states` med `page.RouteAsync` — samme
-  greb som afbrydelsen af `/api/system/open-link`. Fire forskellige svar i rækkefølge er nødvendige,
-  fordi grenene udelukker hinanden: en afvisning, en tom liste, en liste hvor hver række er
-  blokeret, og en liste med én række der kan importeres. **Én rute-handler der læser en variabel**,
-  ikke fire handlere, hvis præcedens ellers ville afgøre udfaldet.
+  greb som afbrydelsen af `/api/system/open-link`. **Grenene udelukker hinanden, så der skal stages
+  ét svar pr. gren, i rækkefølge** — en afvisning, en tom liste, en notits uden rækker, en liste hvor
+  hver række er blokeret, en afstemt liste, en liste med én række der kan importeres. Tallet vokser
+  med hver gren og står derfor ikke her; læs `ContrastTests`' konstanter. **Én rute-handler der
+  læser en variabel**, ikke én handler pr. svar, hvis præcedens ellers ville afgøre udfaldet.
 - **Men "Playwright kan ikke bruge en falsk server" er forkert, og den stod her som en begrundelse.**
   Sætningen var *"Playwright kan ikke starte en `FakeJira` inde i hostens proces"* — og den blander to
   ting sammen. `FakeJira` og `FakeAdo` er **deres egne Kestrel-instanser på 127.0.0.1**, og
@@ -1135,8 +1201,22 @@ forkerte grund.
 
 ## Testtal
 
-**181** Todo.Core.Tests, **323** Todo.Api.Tests, **81** Todo.E2E, **330** Vitest — alle grønne,
-målt med `Check.cmd` 2026-08-28.
+**186** Todo.Core.Tests, **398** Todo.Api.Tests, **83** Todo.E2E, **358** Vitest — alle grønne,
+målt med `scripts\check.ps1` 2026-09-01.
+
+**Alle fire steg, fordi importen fik sin afstemning — 110 tests er lagt til med vilje.**
+Fordelingen, målt på diffen frem for påstået: **5** Core i `AdoStateRolesTests` (181 → 186, at
+`Closed` er færdig uden at stå i nogen liste), **75** Api (323 → 398: 27 i `JiraEndpointsTests`, 26 i
+`AdoEndpointsTests`, 13 i `JiraTaskSourceTests`, 9 i `AdoTaskSourceTests`), **2** E2E i
+`AdoImportJourneyTests` (81 → 83, den overdragne sag og genåbningen mod den ægte falske server) og
+**28** Vitest (330 → 358: 8 i `ado-import.spec.ts`, 8 i `jira-import.spec.ts`, 6 i
+`ado-store.spec.ts`, 6 i `jira-store.spec.ts`). Planen er
+`docs/plans/2026-08-31-source-reconciliation.md`, designet ligger ved siden af den.
+
+**Bemærk at de fire nye wire-påstande ikke flyttede noget tal**, og at det er rigtigt: `resolved`,
+`unassigned`, `open` og `waitingFor` blev lagt ind i den *eksisterende*
+`TaskEndpointsTests.Wire_format_uses_the_names_the_contract_declares`. Kun `ContrastTests` er stor
+nok til at friste til det modsatte — den voksede med 387 linjer og lagde **nul** teorikørsler til.
 
 **Alle fire steg, fordi den ugentlige gennemgang kom til — 51 tests er lagt til med vilje.**
 Fordelingen: **7** Core i `ReviewScheduleTests` (174 → 181, forfaldsberegningen), **13** Api
