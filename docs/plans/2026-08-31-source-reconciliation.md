@@ -909,6 +909,21 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false --include src/app/ado/ad
 så et flueben tvunget på udefra ikke slipper igennem — og `reopenings` på forespørgslen. Tællingen
 bliver tre tal.
 
+**Og `Total` er ikke rækkernes antal — det var det heller ikke før, men nu er forskellen større.**
+`Total = page.Total` er kildens eget tal for **hentningen**, mens `rows` fra Task 6 også bærer
+afstemningsrækkerne bagest. Skriv de tre tal ud fra **mængderne**, aldrig fra `Total`.
+
+**Trin 3b — `reconciliationNotice` skal have en aftager, ellers når designets lovede linje aldrig
+brugeren.** Tilføjet 2026-09-01, fordi Task 6's gennemgang fandt at hverken Task 8 eller 9 nævnte
+feltet: Task 6 lagde det på **svaret** med koderne `ado.noneRecognized`/`jira.noneRecognized`, og
+**intet i `src/Todo.Web` læser det**. Uden en aftager bliver de to oversættelsesnøgler forældreløse —
+netop den klasse Task 9's trin 2b siger ingen vagt kan se — og alle-fraværende-grænsen bliver en
+serverregel uden virkning på skærmen.
+
+Storen eksponerer feltet som et signal; skabelonen viser linjen **i stedet for** afstemningsrækkerne,
+som serveren allerede har udeladt. Oversæt den gennem samme `errors.<kode>`-vej som `excludedReason`,
+så koden ikke får sin egen mekanik.
+
 **Trin 4 — kør igen, alle grønne.**
 
 **Trin 5 — commit.**
