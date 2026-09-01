@@ -931,6 +931,34 @@ public class JiraEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The mixed batch, and the half of the boundary its two siblings cannot reach - one asks about
+    /// n≥2 with everything absent, the other about n=1, and neither about the middle, which is the
+    /// whole of the difference between <c>TrueForAll</c> and <c>Exists</c>. The twin in
+    /// AdoEndpointsTests carries the measurement and the note about why the answer-keyed loop has no
+    /// tooth of its own; both faults were measured on both sources at once.
+    /// </summary>
+    [Fact]
+    public async Task One_missing_key_among_answered_ones_still_shows_every_row_because_the_notice_needs_all_of_them()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeJira.HandedOverKey, "Den kilden svarer på"));
+        await Import(Reconcilable(FakeJira.DeletedKey, "Den kilden ikke kender"));
+
+        var preview = await Preview();
+
+        Assert.Null(preview.ReconciliationNotice);
+
+        var answered = Assert.Single(preview.Rows, r => r.Key == FakeJira.HandedOverKey);
+        var missing = Assert.Single(preview.Rows, r => r.Key == FakeJira.DeletedKey);
+
+        // The suggestion survives beside the absence, which is the operational point rather than an
+        // extra: the cost of the weakened boundary is not a missing notice but a swallowed offer.
+        Assert.True(answered.SuggestsClosing);
+        Assert.Equal(ErrorCodes.JiraMissingInSource, missing.Excluded);
+    }
+
+    /// <summary>
     /// The completion time is the changelog's, not the clock's. Without the fixture's six-day gap this
     /// would be a test of nothing: PUT /api/tasks/{id} writes the clock's now on every move into Done,
     /// so a closure that lost its timestamp would answer today and look plausible.

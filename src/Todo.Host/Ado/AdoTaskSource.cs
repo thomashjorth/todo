@@ -356,8 +356,11 @@ public sealed class AdoTaskSource : ITaskSource
         //
         // Every chunk is asked, and a loop that stopped after the first would be worse here than on
         // the fetch side: a key nobody asked about lands in neither Found nor StillMine, which this
-        // contract defines as "the source does not know it" - so the app would offer to close live
-        // tasks by the hundred. The size is the existing BatchSize, whose own note is worth reading
+        // contract defines as "the source does not know it" - so the app would tell the user that
+        // live tasks by the hundred may be gone. Not offer to close them, which is a weaker fault and
+        // the one this comment claimed until it was checked: an absence carries no state, so no
+        // closing branch can fire and the preview marks the row excluded. The size is the existing
+        // BatchSize, whose own note is worth reading
         // before the number is trusted: the cap is Azure DevOps' documented one rather than one
         // measured here.
         foreach (var chunk in ids.Chunk(BatchSize))

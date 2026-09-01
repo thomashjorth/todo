@@ -54,6 +54,29 @@ function json(body: unknown): Blob {
 }
 
 /**
+ * The preview *response* as the wire carries it, spelled out for the same reason `PreviewRowJson` is:
+ * nothing reconciles these hand-written bodies against the contract, so a field the server started
+ * sending is invisible here until somebody writes it down.
+ *
+ * `reconciliationNotice` is the one that made this necessary. It sits on the response rather than on
+ * a row - it is the answer to a question about the whole set of reconciled keys, which no single row
+ * can hold - so a fixture that only knew about `rows` and `total` had nowhere to put it, and the
+ * reader task 8 builds would have been measured against a body the server no longer sends.
+ *
+ * Defaulted to null rather than left out, because null is what the host actually serialises: the
+ * ordinary preview says the field is there and empty, not that it is absent.
+ */
+interface PreviewJson {
+  total: number;
+  rows: PreviewRowJson[];
+  reconciliationNotice: string | null;
+}
+
+function previewJson(body: Omit<PreviewJson, 'reconciliationNotice'> & Partial<PreviewJson>): Blob {
+  return json({ reconciliationNotice: null, ...body });
+}
+
+/**
  * The wire fixture handed to the generated constructor, which is the one place the two disagree: the
  * generated interface types a nullable field as `string | undefined`, while the host sends a real
  * `null`. The cast says that once, here, rather than at each call site - and it is why a test that
@@ -145,7 +168,7 @@ describe('AdoStore', () => {
     // No body at all: the preview takes nothing, because everything it needs is a setting.
     expect(request.request.body).toBeNull();
     request.flush(
-      json({
+      previewJson({
         total: 2,
         rows: [
           row({ key: '15664' }),
@@ -171,7 +194,7 @@ describe('AdoStore', () => {
     const previewed = store.preview();
 
     http.expectOne('/api/ado/preview').flush(
-      json({
+      previewJson({
         total: 2,
         rows: [row({ key: '15664' }), row({ key: '16901', title: 'To', alreadyImported: true })],
       }),
@@ -205,7 +228,7 @@ describe('AdoStore', () => {
   it('should send every field the import needs, and answer with the receipt', async () => {
     const previewed = store.preview();
     http.expectOne('/api/ado/preview').flush(
-      json({
+      previewJson({
         total: 1,
         rows: [
           row({
@@ -285,7 +308,7 @@ describe('AdoStore', () => {
   it('should drop a closable row whose state the source never answered with', async () => {
     const previewed = store.preview();
     http.expectOne('/api/ado/preview').flush(
-      json({
+      previewJson({
         total: 2,
         rows: [
           row({ key: '16901', state: 'Resolved', alreadyImported: true, suggestsClosing: true }),
@@ -321,7 +344,7 @@ describe('AdoStore', () => {
     const previewed = store.preview();
     expect(store.busy()).toBe(true);
 
-    http.expectOne('/api/ado/preview').flush(json({ total: 0, rows: [] }));
+    http.expectOne('/api/ado/preview').flush(previewJson({ total: 0, rows: [] }));
     await previewed;
 
     expect(store.busy()).toBe(false);

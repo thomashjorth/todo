@@ -613,7 +613,11 @@ public static class JiraEndpoints
     /// The status is what stops a closure suggestion from coming back once it has been accepted, the
     /// title is what a reconciled row falls back on when Jira answers nothing at all, and the reason
     /// this reads <em>every</em> key rather than a named list is that the preview has to see what was
-    /// missing from the fetch. The twin in AdoEndpoints carries the trade in full.
+    /// missing from the fetch. The twin in AdoEndpoints carries the trade in full, including the one
+    /// consequence worth knowing: <c>IX_Tasks_SourceId_ExternalKey</c> is not unique, so a duplicate
+    /// key would now throw here on every preview and import for this source rather than only on a key
+    /// the fetch had just answered with. No path through the app produces one - the import's own
+    /// <c>TryAdd</c> is what writes them - so the exposure widened without a new fault appearing.
     /// </summary>
     private static async Task<Dictionary<string, ImportedTask>> ImportedKeysAsync(TodoDbContext db)
     {

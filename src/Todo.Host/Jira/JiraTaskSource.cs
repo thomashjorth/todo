@@ -304,12 +304,16 @@ public sealed partial class JiraTaskSource : ITaskSource
     /// documented to hide an issue the token may not browse behind <c>404 Issue Does Not Exist</c>
     /// rather than 403, precisely so that a refusal does not confirm the issue exists - unmeasured
     /// here, like everything else about this status code. If that is how this instance
-    /// behaves, the ForbiddenKey fixture is a case that never occurs in practice, <b>one lost project
-    /// permission reads as the whole list having been deleted</b>, and the app offers to close all of
-    /// it - quietly and plausibly. The bound belongs above this method rather than
-    /// in it, because a source cannot tell the two apart from one key: every key answering 404 at once
-    /// is far more likely to be a permission than a mass deletion, and task 6 is where the preview
-    /// decides what to do with that.
+    /// behaves, the ForbiddenKey fixture is a case that never occurs in practice and <b>one lost
+    /// project permission reads as the whole list having been deleted</b> - quietly and plausibly.
+    /// What that would put on the screen is a row per open task saying Jira has never heard of it,
+    /// which reads as an invitation to clear them out by hand. Not an offer to close them: an absence
+    /// carries no status, so no closing branch can fire and the preview marks the row excluded, and
+    /// this comment said otherwise until it was checked. The bound belongs above this method rather
+    /// than in it, because a source cannot tell the two apart from one key: every key answering 404 at
+    /// once is far more likely to be a permission than a mass deletion. The preview holds it, as
+    /// AdoEndpoints.ReconciledRowsAsync and its Jira twin, and the codes are ado.noneRecognized and
+    /// jira.noneRecognized.
     ///
     /// <b>Both sets answer in the caller's spelling of a key, never Jira's.</b> Jira canonicalises an
     /// issue key's case, so a set built out of the response would fail the caller's own Contains
@@ -513,9 +517,10 @@ public sealed partial class JiraTaskSource : ITaskSource
     /// the changelog all have paths that can answer 404 for reasons their callers would want to hear.
     ///
     /// Every other failure still raises, and that line is the whole of this method. Absence is what
-    /// the reconciliation reports as "the source does not know this key", which the app answers by
-    /// offering to close the task - so a 403 read as an absence would turn one expired permission
-    /// into an invitation to close everything it covered.
+    /// the reconciliation reports as "the source does not know this key", which the preview shows as
+    /// an excluded row rather than acting on - so a 403 read as an absence would turn one expired
+    /// permission into a screen telling the user that every task it covered may be gone, one row at a
+    /// time. That is short of an offer to close them, and it is still the wrong thing to say.
     /// </summary>
     private async Task<string?> GetOrNullAsync(
         JiraSettings settings, string path, string? query, CancellationToken ct)

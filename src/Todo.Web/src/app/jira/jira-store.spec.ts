@@ -48,6 +48,22 @@ function json(body: unknown): Blob {
 }
 
 /**
+ * The preview *response* as the wire carries it, and the twin of the one in ado-store.spec.ts, which
+ * carries the reasoning: nothing reconciles these hand-written bodies against the contract, and
+ * `reconciliationNotice` sits on the response rather than on a row, so a fixture that only knew about
+ * `rows` and `total` had nowhere to put it.
+ */
+interface PreviewJson {
+  total: number;
+  rows: PreviewRowJson[];
+  reconciliationNotice: string | null;
+}
+
+function previewJson(body: Omit<PreviewJson, 'reconciliationNotice'> & Partial<PreviewJson>): Blob {
+  return json({ reconciliationNotice: null, ...body });
+}
+
+/**
  * See AdoStore's spec for why this cast exists: the generated interface types a nullable field as
  * `string | undefined` while the host sends a real `null`, and saying so once here is what keeps a
  * null-carrying fixture on the `flush` path production uses.
@@ -136,7 +152,7 @@ describe('JiraStore', () => {
     const request = http.expectOne('/api/jira/preview');
     expect(request.request.method).toBe('POST');
     request.flush(
-      json({
+      previewJson({
         total: 2,
         rows: [
           row({ key: 'SAAS-1', title: 'En' }),
@@ -162,7 +178,7 @@ describe('JiraStore', () => {
     const previewed = store.preview();
 
     http.expectOne('/api/jira/preview').flush(
-      json({
+      previewJson({
         total: 2,
         rows: [row({ key: 'SAAS-1' }), row({ key: 'SAAS-2', title: 'To', alreadyImported: true })],
       }),
@@ -194,7 +210,7 @@ describe('JiraStore', () => {
   it('should send every field the import needs, and answer with the receipt', async () => {
     const previewed = store.preview();
     http.expectOne('/api/jira/preview').flush(
-      json({
+      previewJson({
         total: 1,
         rows: [
           row({
@@ -257,7 +273,7 @@ describe('JiraStore', () => {
   it('should drop a closable row whose status the source never answered with', async () => {
     const previewed = store.preview();
     http.expectOne('/api/jira/preview').flush(
-      json({
+      previewJson({
         total: 2,
         rows: [
           row({ key: 'SAAS-9', status: 'Løst', alreadyImported: true, suggestsClosing: true }),
@@ -292,7 +308,7 @@ describe('JiraStore', () => {
     const previewed = store.preview();
     expect(store.busy()).toBe(true);
 
-    http.expectOne('/api/jira/preview').flush(json({ total: 0, rows: [] }));
+    http.expectOne('/api/jira/preview').flush(previewJson({ total: 0, rows: [] }));
     await previewed;
 
     expect(store.busy()).toBe(false);

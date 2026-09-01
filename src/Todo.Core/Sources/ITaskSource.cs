@@ -51,12 +51,16 @@ public interface ITaskSource
     /// throwing would fail the whole preview on the very case it was written for.
     ///
     /// That puts an obligation on the caller, because absence is not self-describing: it reads as
-    /// "gone from the source", and the app's answer to gone is to offer to close the task. So pass
-    /// only keys this source itself wrote — filter on <see cref="SourceId"/> — and pass them in the
-    /// spelling it wrote them in. A key an implementation cannot interpret is absent for that reason
-    /// instead, and the caller cannot tell the two apart; Azure DevOps reads its keys as numbers, so
-    /// <c>0016901</c> comes back as <c>16901</c> and the caller's own spelling is in neither set.
-    /// Either way a live item is reported as deleted.
+    /// "gone from the source", and the app answers that by telling the user their task may be gone.
+    /// <b>Not by offering to close it</b> — an absence carries no state, so no closing branch can
+    /// fire, and the preview marks the row excluded instead. The cost of getting this wrong is
+    /// therefore a row per open task saying the source has never heard of it, which reads as an
+    /// invitation to clear them out by hand. So pass only keys this source itself wrote — filter on
+    /// <see cref="SourceId"/> — and pass them in the spelling it wrote them in. A key an
+    /// implementation cannot interpret is absent for that reason instead, and the caller cannot tell
+    /// the two apart; Azure DevOps reads its keys as numbers, so <c>0016901</c> comes back as
+    /// <c>16901</c> and the caller's own spelling is in neither set. Either way a live item is
+    /// reported as deleted.
     /// </summary>
     Task<ExternalReconciliation> ReconcileAsync(
         IReadOnlyList<string> keys, CancellationToken ct = default);

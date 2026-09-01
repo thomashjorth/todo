@@ -61,7 +61,9 @@ public sealed class FakeJira : IAsyncDisposable
     /// <summary>
     /// A key that answers 403. The other side of the design's unmeasured assumption that a deleted
     /// issue answers 404: a refusal must not be read as an absence, because the app's answer to an
-    /// absence is to offer to close the task.
+    /// absence is to tell the user the task may be gone - one row per key, saying Jira has never heard
+    /// of it. Not an offer to close it, which is what this said until it was checked: an absence
+    /// carries no status, so the preview marks the row excluded rather than acting on it.
     /// </summary>
     public const string ForbiddenKey = "SAAS-8";
 

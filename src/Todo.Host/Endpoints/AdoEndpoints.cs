@@ -429,10 +429,14 @@ public static class AdoEndpoints
     /// ITaskSource.ReconcileAsync makes the caller's spelling the one that counts. Iterating the answer
     /// instead would silently lose every key that produced no answer at all, which is the outcome this
     /// whole method exists to report. Measured by looping over <c>answer.Found</c>'s keys rather than
-    /// over the ones asked: it fells
-    /// <c>A_key_the_source_does_not_know_is_shown_as_missing_and_carries_the_local_title</c> and
-    /// <c>A_single_missing_key_is_still_reported_because_all_and_one_are_the_same_there</c> on both
-    /// sources, and nothing else - because a key with an answer is the only kind such a loop can see.
+    /// over the ones asked: every test that speaks about a key with no answer goes red, on both
+    /// sources, because a key with an answer is the only kind such a loop can see.
+    ///
+    /// <b>That fault has no test of its own, and deliberately so.</b> It loses the rows for
+    /// unanswered keys; a boundary written as <c>Exists</c> rather than <c>TrueForAll</c> loses those
+    /// <em>and</em> the answered ones - so the first is a strict subset of the second and nothing can
+    /// separate them. The guard that was actually missing was the boundary's, and it is
+    /// <c>One_missing_key_among_answered_ones_still_shows_every_row_because_the_notice_needs_all_of_them</c>.
     /// </summary>
     private static async Task<(List<AdoPreviewRow> Rows, string? Notice)> ReconciledRowsAsync(
         AdoTaskSource source,
@@ -477,13 +481,18 @@ public static class AdoEndpoints
         // deleted item must still be reported. The false negative that leaves is accepted and written
         // down in the design's section 5.
         //
-        // Both halves are held, and by different tests. Written as "at least one absence" - the easy
-        // way to write it wrong - this fells A_single_missing_key_is_still_reported_because_all_and_
-        // one_are_the_same_there and A_key_the_source_does_not_know_is_shown_as_missing_and_carries_
-        // the_local_title, on both sources: the deleted item stops being reported, which is the
-        // outcome the reconciliation exists for. Deleted outright it fells
+        // All three parts are held, and each by a different test. Deleted outright, this fells
         // Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission on both
-        // sources instead, and those two are the only ones either way.
+        // sources. Written as "at least one absence" with the count test dropped as well, it fells
+        // A_single_missing_key_is_still_reported_because_all_and_one_are_the_same_there and
+        // A_key_the_source_does_not_know_is_shown_as_missing_and_carries_the_local_title instead.
+        //
+        // TrueForAll swapped for Exists with the count kept is the one that hid: it left the whole Api
+        // suite green until
+        // One_missing_key_among_answered_ones_still_shows_every_row_because_the_notice_needs_all_of_them
+        // was written for it, and that test is now the only red on both sources. Worth knowing which
+        // way that fault points, because it is the opposite of what the rule is for: one genuinely
+        // deleted item beside one ordinary key would hide every reconciliation row behind this line.
         if (keys.Count > 1 && keys.TrueForAll(key => !found.ContainsKey(key)))
         {
             return ([], ErrorCodes.AdoNoneRecognized);
@@ -768,6 +777,15 @@ public static class AdoEndpoints
     /// reading the source's finished tasks along with the open ones on every preview and every import,
     /// which for one person's list is a few hundred rows of two columns. The caller that does not want
     /// them filters on the status it now has.
+    ///
+    /// <b>One consequence of that widening is worth knowing rather than acting on.</b>
+    /// <c>IX_Tasks_SourceId_ExternalKey</c> is not unique, so nothing in the database stops two tasks
+    /// sharing a key - and <c>ToDictionary</c> throws on the second. That was true before as well, but
+    /// only reachable through a key the fetch had just answered with; now every preview and every
+    /// import for this source touches the whole set. No path through the app can produce a duplicate,
+    /// since the import's own <c>TryAdd</c> is what writes them, so this is a wider exposure of an
+    /// unreachable fault rather than a new one. A unique constraint would be its own migration and
+    /// does not belong in the delivery that noticed this.
     /// </summary>
     private static async Task<Dictionary<string, ImportedTask>> ImportedKeysAsync(TodoDbContext db)
     {

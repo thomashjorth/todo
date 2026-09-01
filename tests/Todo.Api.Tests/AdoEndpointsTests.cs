@@ -988,6 +988,46 @@ public class AdoEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The mixed batch, and the half of the boundary its two siblings cannot reach. One of them asks
+    /// about n≥2 with everything absent, the other about n=1 - both ends, and neither of them the
+    /// middle, which is the whole of the difference between <c>TrueForAll</c> and <c>Exists</c>.
+    ///
+    /// <b>Measured: with the boundary written as</b>
+    /// <c>keys.Count > 1 &amp;&amp; keys.Exists(key => !found.ContainsKey(key))</c> <b>the entire Api
+    /// suite stays green.</b> What that would do in use is the opposite of what the rule is for: one
+    /// genuinely deleted work item beside one ordinary reconciled key would hide <em>every</em>
+    /// reconciliation row behind the permission line - the closing offers and the reopenings with them
+    /// - on a day when exactly one item was actually gone.
+    ///
+    /// <b>And this is also the tooth for the answer-keyed loop</b>, which is worth saying so nobody
+    /// finds the overlap again later and adds a test for it. Building the rows out of
+    /// <c>answer.Found</c> loses precisely the rows for keys that got no answer; the weakened boundary
+    /// loses those <em>and</em> the answered ones. The first fault's damage is a subset of the
+    /// second's, so no test can catch one without the other, and there is nothing to be gained by
+    /// trying. It was never the loop that lacked a guard - it was the boundary.
+    /// </summary>
+    [Fact]
+    public async Task One_missing_key_among_answered_ones_still_shows_every_row_because_the_notice_needs_all_of_them()
+    {
+        await using var ado = await ConfigureAsync();
+
+        await Import(Reconcilable(FakeAdo.HandedOverKey, "Den kilden svarer på"));
+        await Import(Reconcilable(FakeAdo.UnknownKey, "Den kilden ikke kender"));
+
+        var preview = await Preview();
+
+        Assert.Null(preview.ReconciliationNotice);
+
+        var answered = Assert.Single(preview.Rows, r => r.Key == FakeAdo.HandedOverKey);
+        var missing = Assert.Single(preview.Rows, r => r.Key == FakeAdo.UnknownKey);
+
+        // The suggestion survives beside the absence, which is the operational point rather than an
+        // extra: the cost of the weakened boundary is not a missing notice but a swallowed offer.
+        Assert.True(answered.SuggestsClosing);
+        Assert.Equal(ErrorCodes.AdoMissingInSource, missing.Excluded);
+    }
+
+    /// <summary>
     /// The completion time is the source's, not the clock's, and the fixture is what gives this teeth:
     /// PUT /api/tasks/{id} sets CompletedAt to the clock's now on every move into Done, so a closure
     /// routed through that path - or one that simply forgot the field - would answer 2026-08-20 here.
