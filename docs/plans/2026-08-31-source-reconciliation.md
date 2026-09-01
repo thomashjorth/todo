@@ -91,6 +91,14 @@ alle-fraværende-grænse med en mutation der droppede `Count > 1` **og** byttede
 `Exists` — den fældede n=1-testene, så grænsen så vogtet ud, mens dens skelnende halvdel var helt
 uvogtet og hele suiten grøn.
 
+**Og oprydningen efter en mutation har sin egen fælde, ramt to gange her.** `git checkout --` kaster
+**enhver** ucommittet ændring i filen væk, ikke kun mutationen. Task 7 mistede en hel implementering
+på det, og Task 9 mistede en runde kommentarrettelser — den anden gang netop fordi mutationen og
+rettelsen lå i **samme fil**, og den blev kun opdaget ved et grep bagefter. Reglen er derfor skarpere
+end "commit før du muterer": **commit før du muterer en fil du også lige har rettet noget andet i**,
+og grep efter dine egne rettelser når du har rullet tilbage. **Til Task 12:** hører i `CLAUDE.md` ved
+det afsnit der allerede beskriver fælden, som skærpelse frem for som en ny post.
+
 **Reglen:** mutér **én** betingelse ad gangen, og kør `git checkout --` plus `git diff --stat`
 imellem hver, så du kan se at grundlinjen er ren. Er en mutation nødt til at ændre to ting for at
 compilere, så er det i sig selv oplysningen — sig det, frem for at rapportere resultatet som om det
