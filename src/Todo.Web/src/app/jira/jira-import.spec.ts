@@ -282,6 +282,127 @@ describe('JiraImport', () => {
     );
   });
 
+  /**
+   * The twin of the ADO one, which carries the reasoning: `total` is the source's number for the
+   * fetch alone, a reconciled row was never in it, and every assertion that predates this one runs
+   * in a state where nothing has been reconciled - so `shown == total` held whichever number was used.
+   */
+  it('should count only the rows the fetch answered with, not the ones it went looking for', async () => {
+    const { element } = await preview({
+      total: 3,
+      rows: [
+        row({ key: 'SAAS-1' }),
+        row({ key: 'SAAS-2', title: 'To' }),
+        row({ key: 'SAAS-3', title: 'Tre' }),
+        row({
+          key: 'SAAS-9',
+          title: 'Den der faldt ud af hentningen',
+          status: 'Løst',
+          alreadyImported: true,
+          suggestsClosing: true,
+          reconciled: true,
+        }),
+      ],
+    });
+
+    expect(rows(element)).toHaveLength(4);
+    expect(element.querySelector('[data-testid="jira-showing"]')!.textContent).toContain(
+      'Viser 3 af 3 sager.',
+    );
+  });
+
+  /**
+   * The third set on screen, and the twin of the ADO one. The two rows beside it are the teeth and
+   * they fail differently: the plain imported-before row would also pass a screen that stopped
+   * blocking anything, and the unexplained row is imported before *and* reconciled, so a rule that
+   * unblocked reconciled rows wholesale would let it through.
+   */
+  it('should offer an issue the source is not finished with for reopening, ticked', async () => {
+    const { element } = await preview({
+      total: 1,
+      rows: [
+        row({
+          key: 'SAAS-10',
+          title: 'Den er ikke færdig endda',
+          status: 'I gang',
+          alreadyImported: true,
+          suggestsReopening: true,
+          reopenTo: 'open',
+        }),
+        row({ key: 'SAAS-2', title: 'Skriv driftsvejledningen', alreadyImported: true }),
+        row({
+          key: 'SAAS-11',
+          title: 'Den Jira ikke kender',
+          status: null,
+          alreadyImported: true,
+          reconciled: true,
+          excluded: 'jira.missingInSource',
+        }),
+      ],
+    });
+
+    const [reopeningBox, seenBeforeBox, unexplainedBox] = checkboxes(element);
+
+    expect(reopeningBox.disabled).toBe(false);
+    expect(reopeningBox.checked).toBe(true);
+    expect(seenBeforeBox.disabled).toBe(true);
+    expect(unexplainedBox.disabled).toBe(true);
+  });
+
+  /**
+   * The button says what it does for each set it acts on - three sets, three clauses, counted from
+   * the sets rather than from `total`. The twin of the ADO one.
+   */
+  it('should say what it does for each of the three sets it acts on', async () => {
+    const screen = await preview({
+      total: 1,
+      rows: [
+        row({ key: 'SAAS-1', title: 'Ret rapporten' }),
+        row({
+          key: 'SAAS-9',
+          title: 'Ret regningen',
+          status: 'Løst',
+          alreadyImported: true,
+          suggestsClosing: true,
+          doneAt: '2026-08-15T09:00:00Z',
+        }),
+        row({
+          key: 'SAAS-10',
+          title: 'Den er ikke færdig endda',
+          status: 'I gang',
+          alreadyImported: true,
+          suggestsReopening: true,
+          reopenTo: 'open',
+          reconciled: true,
+        }),
+      ],
+    });
+
+    // All three arrive ticked, which is what makes this the union rather than one of the parts.
+    expect(importButton(screen.element).textContent).toContain(
+      'Importér 1 sag · Luk 1 opgave · Genåbn 1 opgave',
+    );
+
+    importButton(screen.element).click();
+
+    const request = await vi.waitFor(() => screen.http.expectOne('/api/jira/import'));
+    const body = JSON.parse(request.request.body);
+    expect(body.rows.map((r: { key: string }) => r.key)).toEqual(['SAAS-1']);
+    expect(body.closures.map((r: { key: string }) => r.key)).toEqual(['SAAS-9']);
+    expect(body.reopenings).toEqual([{ key: 'SAAS-10', status: 'I gang' }]);
+
+    request.flush(new Blob([JSON.stringify({ imported: 1, skipped: 0, closed: 1, reopened: 1 })]));
+    const reload = await vi.waitFor(() => screen.http.expectOne('/api/jira/preview'));
+    reload.flush(new Blob([JSON.stringify({ rows: [], total: 0 })]));
+
+    const receipt = await settled(screen, '[data-testid="jira-receipt"]');
+
+    // Three sentences, each only when its own number is not zero.
+    expect(receipt.textContent).toContain(
+      '1 importeret, 0 sprunget over. 1 opgave lukket. 1 opgave genåbnet.',
+    );
+  });
+
   it('should ask the shell to open an issue before it has been imported', async () => {
     const screen = await preview({
       total: 2,

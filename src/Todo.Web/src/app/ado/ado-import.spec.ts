@@ -333,6 +333,39 @@ describe('AdoImport', () => {
     );
   });
 
+  /**
+   * The line counts what the fetch answered with, because `total` is the source's number for the
+   * fetch alone and a reconciled row was never in it. Measured with a probe before the field existed:
+   * pairing `rows().length` with `total` said "Viser 4 af 3 sager." the moment anything was reconciled.
+   *
+   * No existing assertion could see it. All five of them run in states where nothing has been
+   * reconciled, so `shown == total` holds whichever number is used - which is why this fixture has
+   * three fetched rows and a fourth the app went looking for.
+   */
+  it('should count only the rows the fetch answered with, not the ones it went looking for', async () => {
+    const { element } = await preview({
+      total: 3,
+      rows: [
+        row({ key: '15664' }),
+        row({ key: '16901', title: 'To' }),
+        row({ key: '17170', title: 'Tre' }),
+        row({
+          key: '17165',
+          title: 'Den der faldt ud af hentningen',
+          state: 'Resolved',
+          alreadyImported: true,
+          suggestsClosing: true,
+          reconciled: true,
+        }),
+      ],
+    });
+
+    expect(rows(element)).toHaveLength(4);
+    expect(element.querySelector('[data-testid="ado-showing"]')!.textContent).toContain(
+      'Viser 3 af 3 sager.',
+    );
+  });
+
   it('should ask the shell to open a work item before it has been imported', async () => {
     const screen = await preview({
       total: 2,
@@ -550,8 +583,9 @@ describe('AdoImport', () => {
       ],
     });
 
-    // Both are ticked on arrival, so the button has to say it does two different things.
-    expect(importButton(screen.element).textContent).toContain('Importér 1 og luk 1');
+    // Both are ticked on arrival, so the button has to say it does two different things - one
+    // clause per set, which is the shape that survived a third set being added.
+    expect(importButton(screen.element).textContent).toContain('Importér 1 sag · Luk 1 opgave');
 
     importButton(screen.element).click();
 
@@ -562,9 +596,9 @@ describe('AdoImport', () => {
     // The reason rides along because the server cannot work it out from the state alone: its first
     // guard asks whether the state is in the done list, which an unassigned closure's never is.
     // This fixture names no reason, so the row reads as the resolved one - the only kind the fetch
-    // could suggest before reconciliation - which is what makes the fallback measured here. Only
-    // here: no spec under jira/ asserts on the closures its store sends, so the twin in JiraStore
-    // is unmeasured, and this assertion covers ADO alone.
+    // could suggest before reconciliation - which is what makes the fallback measured here. It used
+    // to be the only place: no spec under jira/ asserted on the closures its store sends until
+    // e01c6f6, and the note saying so outlived the hole. Both sources are measured now.
     expect(body.closures).toEqual([
       { key: '16901', state: 'Resolved', reason: 'resolved', doneAt: '2026-08-15T09:00:00Z' },
     ]);
@@ -580,6 +614,106 @@ describe('AdoImport', () => {
     // Two sentences, and the second only when something was closed: a receipt that always said
     // "0 lukket" would train the eye to skip the line that matters on the day it is not zero.
     expect(receipt.textContent).toContain('1 importeret, 0 sprunget over. 1 opgave lukket.');
+  });
+
+  /**
+   * The third set on screen. A reopening candidate was imported before, and the old rule blocked
+   * every imported-before row - so `isBlocked` has to ask about all three sets or the suggestion is
+   * offered with its checkbox switched off.
+   *
+   * The two rows beside it are the teeth, and they are two rather than one because they fail
+   * differently: the plain imported-before row would also pass a screen that stopped blocking
+   * anything at all, and the unexplained row is the one reconciliation added - it is imported before
+   * *and* reconciled, so a rule that unblocked reconciled rows wholesale would let it through.
+   */
+  it('should offer a work item the source is not finished with for reopening, ticked', async () => {
+    const { element } = await preview({
+      total: 1,
+      rows: [
+        row({
+          key: '17170',
+          title: 'Den er ikke færdig endda',
+          state: 'Active',
+          alreadyImported: true,
+          suggestsReopening: true,
+          reopenTo: 'open',
+        }),
+        row({ key: '16901', title: 'Skriv testene', alreadyImported: true }),
+        row({
+          key: '17165',
+          title: 'Den kilden ikke kender',
+          state: null,
+          workItemType: null,
+          alreadyImported: true,
+          reconciled: true,
+          excluded: 'ado.missingInSource',
+        }),
+      ],
+    });
+
+    const [reopeningBox, seenBeforeBox, unexplainedBox] = checkboxes(element);
+
+    expect(reopeningBox.disabled).toBe(false);
+    expect(reopeningBox.checked).toBe(true);
+    expect(seenBeforeBox.disabled).toBe(true);
+    expect(unexplainedBox.disabled).toBe(true);
+  });
+
+  /**
+   * The button says what it does for each set it acts on, because it now does three things and one
+   * number cannot say which of them happened. Three sets, three clauses, and the counts come from
+   * the sets rather than from `total` - which is the source's number for the fetch and has never
+   * counted a reconciliation row.
+   */
+  it('should say what it does for each of the three sets it acts on', async () => {
+    const screen = await preview({
+      total: 1,
+      rows: [
+        row({ key: '15664', title: 'Ret rapporten' }),
+        row({
+          key: '16901',
+          title: 'Ret regningen',
+          state: 'Resolved',
+          alreadyImported: true,
+          suggestsClosing: true,
+          doneAt: '2026-08-15T09:00:00Z',
+        }),
+        row({
+          key: '17170',
+          title: 'Den er ikke færdig endda',
+          state: 'Active',
+          alreadyImported: true,
+          suggestsReopening: true,
+          reopenTo: 'open',
+          reconciled: true,
+        }),
+      ],
+    });
+
+    // All three arrive ticked, which is what makes this the union rather than one of the parts.
+    expect(importButton(screen.element).textContent).toContain(
+      'Importér 1 sag · Luk 1 opgave · Genåbn 1 opgave',
+    );
+
+    importButton(screen.element).click();
+
+    const request = await vi.waitFor(() => screen.http.expectOne('/api/ado/import'));
+    const body = JSON.parse(request.request.body);
+    expect(body.rows.map((r: { key: string }) => r.key)).toEqual(['15664']);
+    expect(body.closures.map((r: { key: string }) => r.key)).toEqual(['16901']);
+    expect(body.reopenings).toEqual([{ key: '17170', state: 'Active' }]);
+
+    request.flush(new Blob([JSON.stringify({ imported: 1, skipped: 0, closed: 1, reopened: 1 })]));
+    const reload = await vi.waitFor(() => screen.http.expectOne('/api/ado/preview'));
+    reload.flush(new Blob([JSON.stringify({ rows: [], total: 0 })]));
+
+    const receipt = await settled(screen, '[data-testid="ado-receipt"]');
+
+    // Three sentences, each only when its own number is not zero: a receipt that always said
+    // "0 genåbnet" would train the eye to skip the line that matters on the day it is not.
+    expect(receipt.textContent).toContain(
+      '1 importeret, 0 sprunget over. 1 opgave lukket. 1 opgave genåbnet.',
+    );
   });
 
   /**

@@ -135,10 +135,17 @@
       "one": "Close {{count}} task",
       "other": "Close {{count}} tasks"
     },
-    "importAndClose": "Import {{imported}} and close {{closed}}",
+    "reopen": {
+      "one": "Reopen {{count}} task",
+      "other": "Reopen {{count}} tasks"
+    },
     "receiptClosed": {
       "one": "{{count}} task closed.",
       "other": "{{count}} tasks closed."
+    },
+    "receiptReopened": {
+      "one": "{{count}} task reopened.",
+      "other": "{{count}} tasks reopened."
     }
   },
   "ado": {
@@ -183,10 +190,17 @@
       "one": "Close {{count}} task",
       "other": "Close {{count}} tasks"
     },
-    "importAndClose": "Import {{imported}} and close {{closed}}",
+    "reopen": {
+      "one": "Reopen {{count}} task",
+      "other": "Reopen {{count}} tasks"
+    },
     "receiptClosed": {
       "one": "{{count}} task closed.",
       "other": "{{count}} tasks closed."
+    },
+    "receiptReopened": {
+      "one": "{{count}} task reopened.",
+      "other": "{{count}} tasks reopened."
     }
   },
   "settings": {

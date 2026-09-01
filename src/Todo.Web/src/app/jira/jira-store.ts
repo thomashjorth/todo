@@ -10,6 +10,7 @@ import {
   JiraImportResponse,
   JiraImportRow,
   JiraPreviewRow,
+  JiraReopeningRow,
 } from '../api/todo-client';
 
 /**
@@ -30,9 +31,20 @@ export class JiraStore {
 
   readonly rows = signal<JiraPreviewRow[]>([]);
 
-  /** What Jira reported as the total, so a truncated page is visible. */
+  /**
+   * What Jira reported as the total, so a truncated page is visible. The source's number for the
+   * <em>fetch</em>, which has never counted a reconciled row - see AdoStore's twin for why that
+   * makes it the wrong number to pair with the length of `rows`.
+   */
   readonly total = signal(0);
   readonly statuses = signal<string[]>([]);
+
+  /**
+   * Why the reconciliation had nothing to say, as the error code the wire carries, or null in the
+   * ordinary case. See AdoStore's twin for why it is a code rather than a sentence, and why it is
+   * deliberately not folded into `error`.
+   */
+  readonly reconciliationNotice = signal<string | null>(null);
 
   /** The name Jira reports for the token's owner, or null until the connection was tested. */
   readonly connection = signal<string | null>(null);
@@ -63,6 +75,23 @@ export class JiraStore {
    * these close ones that already exist, and the import request keeps them in separate lists.
    */
   readonly closable = computed(() => this.rows().filter((row) => row.suggestsClosing));
+
+  /**
+   * The rows finished here while Jira is not done with them - the mirror image of `closable`, and a
+   * third set rather than a flag on the second. See AdoStore's twin for why the three are disjoint
+   * by construction, which is what lets the screen add their sizes up.
+   */
+  readonly reopenable = computed(() => this.rows().filter((row) => row.suggestsReopening));
+
+  /**
+   * The reconciliation notice as a sentence, through `errors.&lt;code&gt;` - the path
+   * `excludedReason` and `apiErrorMessage` take. A method rather than a `computed` because
+   * `translate` reads the active language, which is not a signal; see AdoStore's twin.
+   */
+  reconciliationMessage(): string | null {
+    const code = this.reconciliationNotice();
+    return code === null ? null : this.transloco.translate(`errors.${code}`);
+  }
 
   async testConnection(): Promise<void> {
     this.error.set(null);
@@ -99,11 +128,15 @@ export class JiraStore {
       const response = await firstValueFrom(this.client.previewJira());
       this.rows.set(response.rows);
       this.total.set(response.total);
+      // Written every time rather than only when set: a notice left over from the previous preview
+      // would explain a reconciliation that has since succeeded.
+      this.reconciliationNotice.set(response.reconciliationNotice ?? null);
     } catch (error) {
       // The old rows would still be selectable, and importing them would write what a failed
       // preview no longer stands behind.
       this.rows.set([]);
       this.total.set(0);
+      this.reconciliationNotice.set(null);
       this.error.set(apiErrorMessage(this.transloco, error));
     } finally {
       this.busy.set(false);
@@ -119,8 +152,9 @@ export class JiraStore {
   async import(
     rows: readonly JiraPreviewRow[],
     closures: readonly JiraPreviewRow[] = [],
+    reopenings: readonly JiraPreviewRow[] = [],
   ): Promise<JiraImportResponse | undefined> {
-    if (rows.length === 0 && closures.length === 0) {
+    if (rows.length === 0 && closures.length === 0 && reopenings.length === 0) {
       return undefined;
     }
 
@@ -157,12 +191,29 @@ export class JiraStore {
                         status: row.status,
                         // See AdoStore for why an absent reason reads as resolved, why the same
                         // fallback must not be written on the receiving side, and why task 6 is
-                        // where this line becomes a hard failure or goes away. Note that the twin
-                        // is covered by ado-import.spec.ts and this one is not: no spec under
-                        // jira/ asserts on the closures it puts on the wire, so this branch is
-                        // unmeasured.
+                        // where this line becomes a hard failure or goes away.
+                        //
+                        // This branch used to be unmeasured while the ADO twin was measured, and
+                        // the note saying so outlived the hole: e01c6f6 gave jira-store.spec.ts
+                        // `should drop a closable row whose status the source never answered with`,
+                        // which asserts on this body. Both stores now measure it, which is the
+                        // point - they are twins, so a divergence in either reads as an adaptation.
                         reason: row.closureReason ?? ClosureReason.Resolved,
                         doneAt: row.doneAt,
+                      }),
+                  ),
+            // The status travels so the server maps it to a status again rather than letting the
+            // client name the one it wants, which is what keeps the suggestion and the import from
+            // disagreeing. `reopenTo` deliberately does not go - see AdoStore's twin.
+            reopenings:
+              reopenings.length === 0
+                ? undefined
+                : reopenings.filter(wasAnsweredFor).map(
+                    (row) =>
+                      new JiraReopeningRow({
+                        key: row.key,
+                        status: row.status,
+                        waitingSince: row.waitingSince,
                       }),
                   ),
           }),

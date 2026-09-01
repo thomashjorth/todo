@@ -9,6 +9,7 @@ import {
   AdoImportResponse,
   AdoImportRow,
   AdoPreviewRow,
+  AdoReopeningRow,
   ClosureReason,
 } from '../api/todo-client';
 
@@ -48,8 +49,26 @@ export class AdoStore {
 
   readonly rows = signal<AdoPreviewRow[]>([]);
 
-  /** What Azure DevOps reported as the total, so a truncated page is visible. */
+  /**
+   * What Azure DevOps reported as the total, so a truncated page is visible.
+   *
+   * The source's number for the <em>fetch</em>, and it has never counted a reconciled row - those
+   * are keys the app went looking for after the fetch had answered. So this is not the length of
+   * `rows`, and the screen's "showing N of total" has to count the un-reconciled ones for N.
+   */
   readonly total = signal(0);
+
+  /**
+   * Why the reconciliation had nothing to say, as the error code the wire carries, or null in the
+   * ordinary case. Two things reach it: `ado.noneRecognized` for a set of keys the source knew none
+   * of, and a plain refusal code for a reconciliation that could not be carried out at all.
+   *
+   * The code rather than a sentence, so this is the pair a row's `excluded` makes with
+   * `excludedReason` - the field holds what the server said, and the method below turns it into
+   * Danish. It is deliberately not folded into `error`: a notice means the reconciliation was
+   * skipped, not that the preview failed, and the fetch's own rows are on screen and worth keeping.
+   */
+  readonly reconciliationNotice = signal<string | null>(null);
 
   /**
    * The state names to pick from. Called states rather than statuses because that is Azure DevOps'
@@ -88,6 +107,32 @@ export class AdoStore {
    */
   readonly closable = computed(() => this.rows().filter((row) => row.suggestsClosing));
 
+  /**
+   * The rows finished here while the source is not done with them. The mirror image of `closable`,
+   * decided on the server for the same reason, and a third set rather than a flag on the second:
+   * the two do opposite things to the same field, and one list would need a discriminator to tell
+   * them apart.
+   *
+   * Disjoint from the other two by construction, which is what lets the screen add the three sizes
+   * up: a reopening row was imported before, so it is never `selectable`, and the server never sets
+   * both suggestions on one row.
+   */
+  readonly reopenable = computed(() => this.rows().filter((row) => row.suggestsReopening));
+
+  /**
+   * The reconciliation notice as a sentence, through `errors.&lt;code&gt;` - the very path
+   * `excludedReason` and `apiErrorMessage` take, so the notice gets no mechanism of its own.
+   *
+   * A method rather than a `computed`, and that is measured rather than stylistic: `translate`
+   * reads the active language, which is not a signal, and `SettingsStore.choose` calls
+   * `setActiveLang` without reloading the app. A computed would cache the Danish sentence and keep
+   * showing it after a switch to English. `excludedReason` is a method for the same reason.
+   */
+  reconciliationMessage(): string | null {
+    const code = this.reconciliationNotice();
+    return code === null ? null : this.transloco.translate(`errors.${code}`);
+  }
+
   async testConnection(): Promise<void> {
     this.error.set(null);
     this.connection.set(null);
@@ -123,11 +168,15 @@ export class AdoStore {
       const response = await firstValueFrom(this.client.previewAdo());
       this.rows.set(response.rows);
       this.total.set(response.total);
+      // Null in the ordinary case, and written every time rather than only when set: a notice left
+      // over from the previous preview would explain a reconciliation that has since succeeded.
+      this.reconciliationNotice.set(response.reconciliationNotice ?? null);
     } catch (error) {
       // The old rows would still be selectable, and importing them would write what a failed
       // preview no longer stands behind.
       this.rows.set([]);
       this.total.set(0);
+      this.reconciliationNotice.set(null);
       this.error.set(apiErrorMessage(this.transloco, error));
     } finally {
       this.busy.set(false);
@@ -148,8 +197,9 @@ export class AdoStore {
   async import(
     rows: readonly AdoPreviewRow[],
     closures: readonly AdoPreviewRow[] = [],
+    reopenings: readonly AdoPreviewRow[] = [],
   ): Promise<AdoImportResponse | undefined> {
-    if (rows.length === 0 && closures.length === 0) {
+    if (rows.length === 0 && closures.length === 0 && reopenings.length === 0) {
       return undefined;
     }
 
@@ -213,6 +263,22 @@ export class AdoStore {
                         // the fallback outright needs `closureReason` to become required first.
                         reason: row.closureReason ?? ClosureReason.Resolved,
                         doneAt: row.doneAt,
+                      }),
+                  ),
+            // The state travels for the third time and for the third reason: here the server maps
+            // it to a status again rather than letting the client name the one it wants, which is
+            // what keeps the suggestion and the import from disagreeing. So `reopenTo` deliberately
+            // does not go - it is the server's own decision, and it can take it again from facts it
+            // already has. Omitted when empty, for the reason the closures are.
+            reopenings:
+              reopenings.length === 0
+                ? undefined
+                : reopenings.filter(wasAnsweredFor).map(
+                    (row) =>
+                      new AdoReopeningRow({
+                        key: row.key,
+                        state: row.state,
+                        waitingSince: row.waitingSince,
                       }),
                   ),
           }),

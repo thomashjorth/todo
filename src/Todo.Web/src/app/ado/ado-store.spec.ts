@@ -221,6 +221,7 @@ describe('AdoStore', () => {
   it('should empty the list when the preview fails, so no stale rows can be imported', async () => {
     store.rows.set([constructed({ key: '17170' })]);
     store.total.set(1);
+    store.reconciliationNotice.set('ado.refused');
 
     const previewed = store.preview();
     http
@@ -233,6 +234,9 @@ describe('AdoStore', () => {
 
     expect(store.rows()).toEqual([]);
     expect(store.total()).toBe(0);
+    // And the notice with them: it answers for a reconciliation that never ran, so a stale one
+    // would stand under a fresh refusal explaining something else.
+    expect(store.reconciliationNotice()).toBeNull();
     expect(store.error()).toBe(
       'Azure DevOps kunne ikke nås. Kontrollér samlingens URL og netværket.',
     );
@@ -341,6 +345,131 @@ describe('AdoStore', () => {
     ]);
     request.flush(json({ imported: 0, skipped: 0, closed: 1 }));
     await imported;
+  });
+
+  /**
+   * The third set, and the fixture names one row per set so the three cannot be confused for one
+   * another: a row that is only reopenable is what tells `reopenable()` apart from `closable()` and
+   * from "every row that was imported before".
+   */
+  it('should offer only the rows the source is not finished with for reopening', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/ado/preview').flush(
+      previewJson({
+        total: 3,
+        rows: [
+          row({ key: '15664' }),
+          row({ key: '16901', state: 'Resolved', alreadyImported: true, suggestsClosing: true }),
+          row({
+            key: '17170',
+            state: 'Active',
+            alreadyImported: true,
+            suggestsReopening: true,
+            reopenTo: 'open',
+          }),
+        ],
+      }),
+    );
+    await previewed;
+
+    expect(store.reopenable().map((r) => r.key)).toEqual(['17170']);
+    // The other two, because the three sets being disjoint is what lets the screen add their sizes
+    // up rather than count one row into two sentences.
+    expect(store.selectable().map((r) => r.key)).toEqual(['15664']);
+    expect(store.closable().map((r) => r.key)).toEqual(['16901']);
+  });
+
+  /**
+   * One press, three lists. Written for both sources rather than for this one alone: the two stores
+   * are twins, so a divergence in either would read as an adaptation - and until `e01c6f6` no spec
+   * under jira/ asserted on a closure body at all, which is how that half stayed unmeasured through
+   * two slices.
+   *
+   * A reopening carries the same three facts a closure does and no fourth: `reopenTo` is deliberately
+   * left behind, because the server re-derives it from the state and the user's own lists. Sending it
+   * would let the suggestion and the import disagree.
+   */
+  it('should split the selection into the rows it writes, closes and reopens', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/ado/preview').flush(
+      previewJson({
+        total: 3,
+        rows: [
+          row({ key: '15664', title: 'Ret rapporten' }),
+          row({
+            key: '16901',
+            state: 'Resolved',
+            alreadyImported: true,
+            suggestsClosing: true,
+            closureReason: 'unassigned',
+            doneAt: '2026-08-15T09:00:00Z',
+          }),
+          row({
+            key: '17170',
+            state: 'Active',
+            alreadyImported: true,
+            suggestsReopening: true,
+            reopenTo: 'open',
+            waitingSince: '2026-08-16T10:00:00Z',
+          }),
+        ],
+      }),
+    );
+    await previewed;
+
+    const imported = store.import(store.selectable(), store.closable(), store.reopenable());
+    const request = http.expectOne('/api/ado/import');
+    const body = JSON.parse(request.request.body);
+
+    expect(body.rows.map((r: { key: string }) => r.key)).toEqual(['15664']);
+    expect(body.closures).toEqual([
+      { key: '16901', state: 'Resolved', reason: 'unassigned', doneAt: '2026-08-15T09:00:00Z' },
+    ]);
+    expect(body.reopenings).toEqual([
+      { key: '17170', state: 'Active', waitingSince: '2026-08-16T10:00:00Z' },
+    ]);
+    // The decision the server takes again for itself, rather than one the client names.
+    expect(Object.keys(body.reopenings[0])).not.toContain('reopenTo');
+
+    request.flush(json({ imported: 1, skipped: 0, closed: 1, reopened: 1 }));
+    expect((await imported)?.reopened).toBe(1);
+  });
+
+  /**
+   * Why the reconciliation had nothing to say, kept as the code the wire carries and offered as a
+   * sentence beside it - the same pair a row's `excluded` and `excludedReason` make, so the notice
+   * gets no mechanism of its own.
+   *
+   * The fetch's own rows are the teeth. A notice means the reconciliation was skipped, not that the
+   * preview failed, so a store that treated the code as an error would throw the rows away with it.
+   */
+  it('should say why the reconciliation had nothing to say, and keep the rows it did fetch', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/ado/preview').flush(
+      previewJson({
+        total: 1,
+        rows: [row({ key: '15664' })],
+        reconciliationNotice: 'ado.refused',
+      }),
+    );
+    await previewed;
+
+    expect(store.reconciliationNotice()).toBe('ado.refused');
+    expect(store.reconciliationMessage()).toBe(
+      'Azure DevOps afviste tokenet. Kontrollér tokenet under Indstillinger.',
+    );
+    expect(store.rows().map((r) => r.key)).toEqual(['15664']);
+    expect(store.error()).toBeNull();
+  });
+
+  // The ordinary preview says the field is there and empty, and no sentence goes with it.
+  it('should offer no reconciliation sentence when every key got a row of its own', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/ado/preview').flush(previewJson({ total: 1, rows: [row()] }));
+    await previewed;
+
+    expect(store.reconciliationNotice()).toBeNull();
+    expect(store.reconciliationMessage()).toBeNull();
   });
 
   it('should send no request at all for an empty selection', async () => {

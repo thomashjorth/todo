@@ -201,6 +201,7 @@ describe('JiraStore', () => {
   it('should empty the list when the preview fails, so no stale rows can be imported', async () => {
     store.rows.set([constructed({ key: 'SAAS-9' })]);
     store.total.set(1);
+    store.reconciliationNotice.set('jira.refused');
 
     const previewed = store.preview();
     http
@@ -213,6 +214,9 @@ describe('JiraStore', () => {
 
     expect(store.rows()).toEqual([]);
     expect(store.total()).toBe(0);
+    // And the notice with them: it answers for a reconciliation that never ran, so a stale one
+    // would stand under a fresh refusal explaining something else.
+    expect(store.reconciliationNotice()).toBeNull();
     expect(store.error()).toBe('Jira kunne ikke nås. Kontrollér basisURL og netværket.');
   });
 
@@ -301,6 +305,119 @@ describe('JiraStore', () => {
     ]);
     request.flush(json({ imported: 0, skipped: 0, closed: 1 }));
     await imported;
+  });
+
+  /**
+   * The third set, with one row per set so the three cannot be confused for one another. See the ADO
+   * twin for the reasoning; both are written rather than one, because the two stores are twins and a
+   * divergence in either would read as an adaptation.
+   */
+  it('should offer only the rows the source is not finished with for reopening', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/jira/preview').flush(
+      previewJson({
+        total: 3,
+        rows: [
+          row({ key: 'SAAS-1' }),
+          row({ key: 'SAAS-9', status: 'Løst', alreadyImported: true, suggestsClosing: true }),
+          row({
+            key: 'SAAS-10',
+            status: 'I gang',
+            alreadyImported: true,
+            suggestsReopening: true,
+            reopenTo: 'open',
+          }),
+        ],
+      }),
+    );
+    await previewed;
+
+    expect(store.reopenable().map((r) => r.key)).toEqual(['SAAS-10']);
+    expect(store.selectable().map((r) => r.key)).toEqual(['SAAS-1']);
+    expect(store.closable().map((r) => r.key)).toEqual(['SAAS-9']);
+  });
+
+  /**
+   * One press, three lists - and the twin of AdoStore's, which carries the reasoning for why
+   * `reopenTo` is deliberately left behind.
+   */
+  it('should split the selection into the rows it writes, closes and reopens', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/jira/preview').flush(
+      previewJson({
+        total: 3,
+        rows: [
+          row({ key: 'SAAS-1', title: 'Ret rapporten' }),
+          row({
+            key: 'SAAS-9',
+            status: 'Løst',
+            alreadyImported: true,
+            suggestsClosing: true,
+            closureReason: 'unassigned',
+            doneAt: '2026-08-15T09:00:00Z',
+          }),
+          row({
+            key: 'SAAS-10',
+            status: 'I gang',
+            alreadyImported: true,
+            suggestsReopening: true,
+            reopenTo: 'open',
+            waitingSince: '2026-08-16T10:00:00Z',
+          }),
+        ],
+      }),
+    );
+    await previewed;
+
+    const imported = store.import(store.selectable(), store.closable(), store.reopenable());
+    const request = http.expectOne('/api/jira/import');
+    const body = JSON.parse(request.request.body);
+
+    expect(body.rows.map((r: { key: string }) => r.key)).toEqual(['SAAS-1']);
+    expect(body.closures).toEqual([
+      { key: 'SAAS-9', status: 'Løst', reason: 'unassigned', doneAt: '2026-08-15T09:00:00Z' },
+    ]);
+    expect(body.reopenings).toEqual([
+      { key: 'SAAS-10', status: 'I gang', waitingSince: '2026-08-16T10:00:00Z' },
+    ]);
+    // The decision the server takes again for itself, rather than one the client names.
+    expect(Object.keys(body.reopenings[0])).not.toContain('reopenTo');
+
+    request.flush(json({ imported: 1, skipped: 0, closed: 1, reopened: 1 }));
+    expect((await imported)?.reopened).toBe(1);
+  });
+
+  /**
+   * The code the wire carries and the sentence that goes with it - the same pair a row's `excluded`
+   * and `excludedReason` make. The fetch's own rows are the teeth: a notice means the reconciliation
+   * was skipped, not that the preview failed.
+   */
+  it('should say why the reconciliation had nothing to say, and keep the rows it did fetch', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/jira/preview').flush(
+      previewJson({
+        total: 1,
+        rows: [row({ key: 'SAAS-1' })],
+        reconciliationNotice: 'jira.refused',
+      }),
+    );
+    await previewed;
+
+    expect(store.reconciliationNotice()).toBe('jira.refused');
+    expect(store.reconciliationMessage()).toBe(
+      'Jira afviste tokenet. Kontrollér tokenet under Indstillinger.',
+    );
+    expect(store.rows().map((r) => r.key)).toEqual(['SAAS-1']);
+    expect(store.error()).toBeNull();
+  });
+
+  it('should offer no reconciliation sentence when every key got a row of its own', async () => {
+    const previewed = store.preview();
+    http.expectOne('/api/jira/preview').flush(previewJson({ total: 1, rows: [row()] }));
+    await previewed;
+
+    expect(store.reconciliationNotice()).toBeNull();
+    expect(store.reconciliationMessage()).toBeNull();
   });
 
   it('should send no request at all for an empty selection', async () => {

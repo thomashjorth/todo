@@ -135,10 +135,17 @@
       "one": "Luk {{count}} opgave",
       "other": "Luk {{count}} opgaver"
     },
-    "importAndClose": "Importér {{imported}} og luk {{closed}}",
+    "reopen": {
+      "one": "Genåbn {{count}} opgave",
+      "other": "Genåbn {{count}} opgaver"
+    },
     "receiptClosed": {
       "one": "{{count}} opgave lukket.",
       "other": "{{count}} opgaver lukket."
+    },
+    "receiptReopened": {
+      "one": "{{count}} opgave genåbnet.",
+      "other": "{{count}} opgaver genåbnet."
     }
   },
   "ado": {
@@ -183,10 +190,17 @@
       "one": "Luk {{count}} opgave",
       "other": "Luk {{count}} opgaver"
     },
-    "importAndClose": "Importér {{imported}} og luk {{closed}}",
+    "reopen": {
+      "one": "Genåbn {{count}} opgave",
+      "other": "Genåbn {{count}} opgaver"
+    },
     "receiptClosed": {
       "one": "{{count}} opgave lukket.",
       "other": "{{count}} opgaver lukket."
+    },
+    "receiptReopened": {
+      "one": "{{count}} opgave genåbnet.",
+      "other": "{{count}} opgaver genåbnet."
     }
   },
   "settings": {
