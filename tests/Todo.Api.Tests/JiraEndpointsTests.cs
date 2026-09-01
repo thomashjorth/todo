@@ -1203,6 +1203,46 @@ public class JiraEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The waiting clock follows the role, not the row. Found by mutation on Azure DevOps' twin:
+    /// writing WaitingSince whatever the status says left the whole suite green, because every other
+    /// reopening test sends the field as null. This one sends a timestamp with a status that is
+    /// <em>not</em> waiting, which is the only shape that can tell "follows the role" from "copies the
+    /// row".
+    ///
+    /// Read off the entity rather than the wire, and that is measured rather than tidy: the list
+    /// response carries waitingDays, which is derived only for a task that is waiting - so an open
+    /// task reports null whether or not a stale clock is sitting in the column, and the obvious
+    /// assertion could not fail. Azure DevOps' twin can use the wire because its own TaskBody reads
+    /// waitingSince directly.
+    /// </summary>
+    [Fact]
+    public async Task Reopening_into_an_open_status_leaves_the_waiting_clock_unset()
+    {
+        await using var jira = await ConfigureAsync();
+
+        await Import(InProgressIssue());
+        await CloseAsync(HandedOver());
+
+        var result = await ReopenAsync(new
+        {
+            key = "SAAS-1",
+            status = "I gang",
+            waitingSince = "2026-08-10T07:00:00Z",
+        });
+
+        Assert.Equal(1, result.Reopened);
+
+        var tasks = await Host.Client.GetFromJsonAsync<TaskList>("/api/tasks");
+
+        Assert.Equal(TodoStatus.Open, Assert.Single(tasks!.Items).Status);
+
+        using var scope = Host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+
+        Assert.Null(Assert.Single(await db.Tasks.ToListAsync()).WaitingSince);
+    }
+
+    /// <summary>
     /// A reopening for a key this source never wrote is skipped rather than matched by key alone - the
     /// same source check the closure makes.
     /// </summary>

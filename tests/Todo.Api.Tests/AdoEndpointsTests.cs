@@ -1296,6 +1296,32 @@ public class AdoEndpointsTests : ApiTest
     }
 
     /// <summary>
+    /// The waiting clock follows the role, not the row. Found by mutation: dropping the role test and
+    /// writing WaitingSince whatever the state says left the whole suite green, because every other
+    /// reopening test sends the field as null and so has nothing for the mutation to carry through.
+    /// This one sends a timestamp with a state that is <em>not</em> waiting, which is the only shape
+    /// that can tell "follows the role" from "copies the row".
+    /// </summary>
+    [Fact]
+    public async Task Reopening_into_an_open_state_leaves_the_waiting_clock_unset()
+    {
+        await using var ado = await ConfigureAsync(waitingStates: ["Blocked"]);
+
+        await Import(UserStory());
+        await CloseAsync(Closure(reason: "unassigned", doneAt: null));
+
+        var result = await ReopenAsync(
+            Reopening(state: "Active", waitingSince: "2026-08-10T07:00:00Z"));
+
+        Assert.Equal(1, result.Reopened);
+
+        var task = Assert.Single((await Tasks()).Items);
+
+        Assert.Equal(TodoStatus.Open, task.Status);
+        Assert.Null(task.WaitingSince);
+    }
+
+    /// <summary>
     /// A reopening for a key this source never wrote is skipped rather than matched by key alone -
     /// the same source check the closure makes, and the reason both look tasks up through SourceId.
     /// </summary>
