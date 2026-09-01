@@ -83,6 +83,19 @@ foran den" — så en femte test ikke kan gøre kommentaren forkert. Samme famil
 regel om tal der forældes, men et niveau dybere: her rådner tallet af *dit eget arbejde i samme
 commit*. **Til Task 12:** den lektion hører i `CLAUDE.md`.
 
+**Og den beslægtede, som er ramt fire gange i denne leverance: en mutation der ændrer *to* ting måler
+ingen af dem — og den læses som et bestået.** Formerne den tog: Task 2 rapporterede "to røde" på en
+kørsel hvor den forrige mutations slettede vagt stadig stod i filen; Task 3 tilskrev en søskendes vagt
+en mekanisme den ikke har, fordi de to halvdele kun fælder noget sammen; og Task 6 målte sin
+alle-fraværende-grænse med en mutation der droppede `Count > 1` **og** byttede `TrueForAll` for
+`Exists` — den fældede n=1-testene, så grænsen så vogtet ud, mens dens skelnende halvdel var helt
+uvogtet og hele suiten grøn.
+
+**Reglen:** mutér **én** betingelse ad gangen, og kør `git checkout --` plus `git diff --stat`
+imellem hver, så du kan se at grundlinjen er ren. Er en mutation nødt til at ændre to ting for at
+compilere, så er det i sig selv oplysningen — sig det, frem for at rapportere resultatet som om det
+målte den ene. **Til Task 12:** hører i `CLAUDE.md` sammen med den ovenfor.
+
 ## Tre rettelser til designet, fundet før planen blev skrevet
 
 **Designfilen er allerede rettet** i samme commit som denne plan, så der er ingen Task 0 for dem.
