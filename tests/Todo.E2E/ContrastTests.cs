@@ -9,15 +9,15 @@ using IClock = Todo.Core.Time.IClock;
 namespace Todo.E2E;
 
 /// <summary>
-/// WCAG AA over all five screens, in both colour schemes — <c>app.routes.ts</c> has exactly five
-/// routes: the task list, the retro import, the Jira import, the Azure DevOps import and the
-/// settings. The measurement runs in the browser because only it knows which background a given
-/// piece of text ended up on.
+/// WCAG AA over all six screens, in both colour schemes — <c>app.routes.ts</c> has exactly six
+/// routes: the task list, the weekly review, the retro import, the Jira import, the Azure DevOps
+/// import and the settings. The measurement runs in the browser because only it knows which
+/// background a given piece of text ended up on.
 ///
 /// The theories below number the screens in the order this class reaches them: the first covers the
-/// task list, the retro import and the settings, so the Jira import is the fourth and the Azure
-/// DevOps import the fifth. The expanded detail panel, the folded settings page and the two-column
-/// layout are states rather than screens; they cost snapshots, not routes.
+/// task list, the weekly review, the retro import and the settings, so the Jira import is the fifth
+/// and the Azure DevOps import the sixth. The expanded detail panel, the folded settings page and
+/// the two-column layout are states rather than screens; they cost snapshots, not routes.
 ///
 /// Everything except the two side-by-side theories opens the app at 480px, which is the whole reason
 /// those two exist: the wide layout puts the same text under different ancestors, and an opaque
@@ -748,7 +748,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await tasks.Search.FillAsync(string.Empty);
         await Assertions.Expect(tasks.Rows.First).ToBeVisibleAsync();
 
-        // The weekly review, the app's sixth screen. Its five groups fold, so every one of them has
+        // The weekly review. Its five groups fold, so every one of them has
         // to be unfolded in turn to be measured at all — a folded panel is out of the DOM, the same
         // as on the settings page. That is what the last two fixture tasks are for: a group with no
         // rows paints its empty line instead of the row colours this walk exists to look at.
@@ -801,7 +801,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         var settings = await App.GoToSettings();
         await Assertions.Expect(settings.Heading).ToHaveTextAsync("Indstillinger");
 
-        // The page arrives with all five groups folded, which is a screen state of its own: five
+        // The page arrives with all six groups folded, which is a screen state of its own: six
         // heading buttons and their chevrons, and nothing else. Snapshotted before anything is
         // opened, because it is not reachable again afterwards — one group is always open from here.
         await Snapshot();
@@ -878,7 +878,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     }
 
     /// <summary>
-    /// The fourth screen, and the Jira half of the settings — eleven branches the journey above
+    /// The fifth screen, and the Jira half of the settings — eleven branches the journey above
     /// cannot reach, because every one of them needs an answer from Jira. Playwright cannot start a
     /// <c>FakeJira</c> inside the host's process, so the app's own calls are intercepted, the same
     /// grip <c>/api/system/open-link</c> is held with. Four different answers are needed, and they
@@ -985,7 +985,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(settings.OnDuty).ToBeCheckedAsync();
         await Snapshot();
 
-        // Configured now, so the fourth screen has a Load button where the sentence used to be.
+        // Configured now, so the fifth screen has a Load button where the sentence used to be.
         jira = await settings.GoToJira();
 
         await Assertions.Expect(jira.PreviewButton).ToHaveTextAsync("Hent sager");
@@ -1130,7 +1130,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     }
 
     /// <summary>
-    /// The fifth screen, and the Azure DevOps half of the settings — twenty-odd branches neither
+    /// The sixth screen, and the Azure DevOps half of the settings — twenty-odd branches neither
     /// journey above can reach, because almost every one of them needs an answer from Azure DevOps.
     /// Playwright cannot start a <c>FakeAdo</c> inside the host's process, so the app's own calls are
     /// intercepted, the same grip <c>/api/system/open-link</c> is held with. Four preview answers are
@@ -1253,7 +1253,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(settings.WorkItemTypeRows).ToHaveCountAsync(1);
         await Snapshot();
 
-        // Configured now, so the fifth screen has a Load button where the sentence used to be — and the
+        // Configured now, so the sixth screen has a Load button where the sentence used to be — and the
         // notice that the deadline on every row is the app's own invention, which no Jira screen has.
         ado = await settings.GoToAdo();
 
