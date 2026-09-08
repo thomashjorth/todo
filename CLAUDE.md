@@ -136,6 +136,11 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   `Unknown argument: watch` — fordi `ng test`s positionelle argument er *projektnavnet*, og
   `@angular/build:unit-test` har slet ikke noget `--run`. Den anden fejlbesked peger altså på det
   forkerte flag.
+- **Og `--prefix` skal have skråstreger, når kaldet går gennem Bash-værktøjet.** `--prefix
+  src\Todo.Web` bliver til `srcTodo.Web` og fejler med ENOENT, fordi Git Bash spiser backslashen som
+  en escape. `src/Todo.Web` virker i begge skaller. Samme familie som `npm` mod `npm.cmd` og som
+  here-string-fælden nedenfor: **vælg syntaks efter det værktøj du kalder**, ikke efter hvad der
+  står i denne fil, hvor kommandoerne er skrevet til PowerShell.
 
 ## Sikkerhed omkring data
 
@@ -1201,8 +1206,17 @@ forkerte grund.
 
 ## Testtal
 
-**186** Todo.Core.Tests, **398** Todo.Api.Tests, **83** Todo.E2E, **358** Vitest — alle grønne,
-målt med `scripts\check.ps1` 2026-09-01.
+**186** Todo.Core.Tests, **399** Todo.Api.Tests, **83** Todo.E2E, **358** Vitest — alle grønne,
+målt med `Check.cmd` 2026-09-08.
+
+**Kun Api flyttede sig, og kun med én, fordi kommentarerne blev engelske.** `SourceLanguageTests`
+lagde to påstande til (398 → 400), og da efterslæbslisten var tømt, blev
+`Every_backlogged_file_is_still_Danish` slettet med den (400 → 399). Tilbage står
+`No_comment_in_the_repository_is_written_in_Danish` plus tre gulve på hvor mange kommentarblokke
+gennemløbet faktisk fandt — `.cs` 1000, `.ts` 300, `.html` 50 — som er det der holder påstanden
+ærlig nu efterslæbet er væk. Core, E2E og Vitest står stille, og det er hele pointen: 162
+kommentarblokke i 27 filer blev oversat uden at én test skiftede adfærd. Leverancen er
+`docs/plans/2026-09-08-consolidation-1-language.md`, designet ligger ved siden af den.
 
 **Alle fire steg, fordi importen fik sin afstemning — 110 tests er lagt til med vilje.**
 Fordelingen, målt på diffen frem for påstået: **5** Core i `AdoStateRolesTests` (181 → 186, at

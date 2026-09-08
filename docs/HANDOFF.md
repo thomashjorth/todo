@@ -6,10 +6,10 @@ Konventioner og maskinens fælder: `CLAUDE.md` i roden — auto-indlæst, læs d
 Design, datamodel og skiverækkefølge: `docs/plans/2026-08-13-todo-app-design.md`.
 Sådan bruges appen: `README.md`.
 
-**Testtal:** Core **186**, Api **398**, E2E **83**, Vitest **358** — alle grønne, målt med
-`scripts\check.ps1` 2026-09-01. Alle fire steg med afstemningen: 5 Core, 75 Api, 2 E2E og 28 Vitest,
-i alt 110 lagt til med vilje. Fordelingen pr. fil står i `CLAUDE.md`s "Testtal", målt på diffen mod
-`bca2d21` frem for påstået. `Check.cmd` kører dem i den rækkefølge der er bærende.
+**Testtal:** Core **186**, Api **399**, E2E **83**, Vitest **358** — alle grønne, målt med
+`Check.cmd` 2026-09-08. Kun Api flyttede sig, med én: sproggennemgangen lagde `SourceLanguageTests`
+til med to påstande og slettede den ene igen, da efterslæbslisten var tom. Fordelingen og
+begrundelsen står i `CLAUDE.md`s "Testtal". `Check.cmd` kører dem i den rækkefølge der er bærende.
 
 **De fire tal var sande i forvejen, og det er værd at sige efter sidste gang.** Baseline'en
 181/323/81/330 stod ens i denne fil og i `CLAUDE.md`, så de fire stigninger kan kun betyde nye
