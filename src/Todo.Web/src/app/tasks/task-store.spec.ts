@@ -12,8 +12,8 @@ import { ReducedMotion } from '../layout/reduced-motion';
 import { WideScreen } from '../layout/wide-screen';
 import { TaskStore, subTaskProgress } from './task-store';
 
-// Ids er tal, så bucket-navnet kan ikke være en del af dem. Tælleren giver hvert kald sit eget
-// id, fordi `track task.id` og storens filtre regner med, at to opgaver ikke deler id.
+// Ids are numbers, so the bucket name cannot be part of them. The counter gives every call an id
+// of its own, because `track task.id` and the store's filters both assume no two tasks share one.
 let nextId = 1;
 
 function taskIn(bucket: DeadlineBucket): TodoTask {
@@ -28,8 +28,8 @@ function taskIn(bucket: DeadlineBucket): TodoTask {
   });
 }
 
-// Ad hoc-id'er i de tests der ikke går gennem `taskIn`: tresserne er opgaver, halvfemserne
-// underopgaver, så det kan læses hvad et id i en URL peger på.
+// Ad hoc ids for the tests that do not go through `taskIn`: the sixties are tasks and the
+// nineties subtasks, so an id in a URL can be read for what it points at.
 const someTaskId = 61;
 const someSubTaskId = 91;
 

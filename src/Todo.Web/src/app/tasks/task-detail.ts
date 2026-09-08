@@ -53,18 +53,20 @@ export class TaskDetail {
   private readonly whoField = viewChild<ElementRef<HTMLInputElement>>('waitingOn');
 
   constructor() {
-    // Uden denne lader klikket, der åbnede editoren, caret'en stå uden for den, og brugeren
-    // skal klikke en gang mere for at skrive.
+    // Without this the click that opened the editor leaves the caret outside it, and the user
+    // has to click once more before they can type.
     effect(() => this.noteEditor()?.nativeElement.focus());
 
-    // Uddelegering er en genvej til Venter på + hvem: vælgeren spørger, feltet svarer.
-    // Feltet læses FØRST, så effekten sporer det og kører igen når det dukker op — og det gør
-    // det senere end valget: @if hænger på opgavens status, som først skifter når PUT'en er
-    // svaret og listen genindlæst. Målt: lige efter (change) findes feltet ikke i DOM'en.
-    // Betingelsen er ikke pynt: uden den ville en almindelig udvidelse af en ventende række også
-    // rive fokus fra rækkeknappen. Målt — en ubetinget focus() består alle andre tests.
-    // Kun focus(), ikke click(): et felt har ingen aktiveringshandling, og fokusringen er hele
-    // pointen. Samme konvention som Alt-genvejene i skive 8.
+    // Delegating is a shortcut for "Venter på" plus a name: the picker asks, the field answers.
+    // The field is read FIRST, so the effect tracks it and runs again when it turns up - and it
+    // turns up later than the pick does: the @if hangs on the task's status, which only changes
+    // once the PUT has answered and the list has been reloaded. Measured: right after (change)
+    // the field is not in the DOM.
+    // The condition is not decoration: without it an ordinary expand of a waiting row would tear
+    // the focus off the row button too. Measured - an unconditional focus() passes every other
+    // test.
+    // focus() alone, not click(): a field has no activation action, and the focus ring is the
+    // whole point. The same convention as the Alt shortcuts in slice 8.
     effect(() => {
       const field = this.whoField();
       if (!field || this.store.askingWho() !== this.task().id) {
@@ -141,7 +143,7 @@ export class TaskDetail {
     const link = (event.target as HTMLElement).closest('a');
 
     if (link) {
-      // At følge linket i stedet ville erstatte hele appen: vinduet har ingen vej tilbage.
+      // Following the link instead would replace the whole app: the window has no way back.
       event.preventDefault();
       this.system.openLink(link.href).catch(() => {});
       return;
@@ -150,8 +152,8 @@ export class TaskDetail {
     this.noteEditStarted.emit();
   }
 
-  // Parameteren hedder ikke `input`: navnet er optaget af input() fra @angular/core, og
-  // skyggen ville først bide den dag metoden får brug for den.
+  // The parameter is not called `input`: the name is taken by input() from @angular/core, and the
+  // shadowing would only bite the day this method comes to need it.
   protected createSubTask(field: HTMLInputElement): void {
     const title = field.value;
     if (!title.trim()) {

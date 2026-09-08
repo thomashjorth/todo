@@ -6,9 +6,10 @@ import { translocoTesting } from '../i18n/transloco.testing';
 import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { TaskDetail } from './task-detail';
 
-// Statussen er waitingFor med vilje: hvem-feltet findes kun bag den, så Alt+Shift+V ville mangle
-// på en åben opgave. Noten er tilsvarende ulukket, fordi bogstavet sidder på knappen "Redigér
-// noten" og ikke på editoren — er editoren åben, findes knappen ikke.
+// The status is waitingFor on purpose: the who field only exists behind it, so Alt+Shift+V would
+// be missing on an open task. The note is left unopened for the matching reason, because the
+// letter sits on the "Redigér noten" button and not on the editor - with the editor open the
+// button does not exist.
 const task = new TodoTask({
   id: 1,
   sourceId: 'manual',
@@ -20,8 +21,8 @@ const task = new TodoTask({
 });
 
 function titleField(fixture: ComponentFixture<TaskDetail>): HTMLInputElement {
-  // getAttribute-vælgeren og ikke dataset.testid: noPropertyAccessFromIndexSignature er slået til,
-  // så et opslag på dataset stopper ng test's egen bygning med TS4111.
+  // The getAttribute selector rather than dataset.testid: noPropertyAccessFromIndexSignature is
+  // on, so a lookup on dataset stops ng test's own build with TS4111.
   const field = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="title-input"]');
 
   return field as HTMLInputElement;
@@ -40,8 +41,8 @@ function panel(): ComponentFixture<TaskDetail> {
 }
 
 describe('TaskDetail', () => {
-  // Rækkefølgen er dokumentets, ikke tabellens: den er assertionens tænder, for en sammenligning
-  // af mængder ville bestå, hvis to felter byttede bogstav.
+  // The order is the document's, not the table's: it is the assertion's teeth, because a
+  // comparison of sets would pass if two fields swapped letters.
   it('should announce one Alt+Shift letter per field', () => {
     const element = panel().nativeElement as HTMLElement;
 
@@ -62,10 +63,10 @@ describe('TaskDetail', () => {
     ]);
   });
 
-  // aria-hidden er bærende frem for pynt: en mærkat inde i en <label> eller en <button> indgår
-  // ellers i kontrollens tilgængelige navn, og E2E-suiten matcher navne i deres helhed. Vagten
-  // hører hjemme her, fordi ingen E2E holder Alt nede med panelet åbent — målt, en fjernet
-  // aria-hidden fælder ingen af de 61 rejser.
+  // aria-hidden is load-bearing rather than decoration: a badge inside a <label> or a <button>
+  // otherwise counts towards the control's accessible name, and the E2E suite matches names
+  // whole. The guard belongs here, because no E2E journey holds Alt down with the panel open -
+  // measured, a removed aria-hidden fells none of the 61 journeys.
   it('should keep every badge out of its control accessible name', () => {
     const fixture = panel();
     TestBed.inject(ShortcutStore).setAltHeld(true);
@@ -88,11 +89,12 @@ describe('TaskDetail', () => {
     ]);
   });
 
-  // Vagten på [value]-fælden, som er [checked]-fælden ét felt over: ruller vi den gamle titel
-  // tilbage, skifter signalet ikke, så bindingen har intet at gøre og feltet ville stå tomt, mens
-  // opgaven beholdt sin titel. Derfor TO påstande — at intet blev sendt, og at feltet viser titlen
-  // igen. Den første alene kan bestå på et felt der står tomt, altså netop fejlen.
-  // Mellemrum og ikke den tomme streng: den beviser at trimningen løber før tomhedstjekket.
+  // The guard on the [value] trap, which is the [checked] trap one field over: rolling the old
+  // title back does not change the signal, so the binding has nothing to do and the field would
+  // stand empty while the task kept its title. Hence TWO assertions - that nothing was sent, and
+  // that the field shows the title again. The first alone can pass on a field standing empty,
+  // which is precisely the defect.
+  // Whitespace rather than the empty string: it proves the trim runs before the emptiness check.
   it('should put the old title back when the field is emptied', () => {
     const fixture = panel();
     const field = titleField(fixture);
@@ -115,7 +117,7 @@ describe('TaskDetail', () => {
       (candidate) => candidate.method === 'PUT' && candidate.url === '/api/tasks/1',
     );
 
-    // Kroppen er en streng: den genererede klient sender JSON.stringify(body) som indhold.
+    // The body is a string: the generated client sends JSON.stringify(body) as the content.
     expect(JSON.parse(request.request.body as string).title).toBe('Betal den store regning');
   });
 });

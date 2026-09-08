@@ -24,8 +24,8 @@ export class TaskList {
   protected readonly store = inject(TaskStore);
   protected readonly shortcuts = inject(ShortcutStore);
   protected readonly wide = inject(WideScreen);
-  // Kun for den delte <datalist> nederst i skabelonen: signalet er aldrig null, og listen
-  // læses her frem for i hver række, fordi der er én liste og mange rækker.
+  // For the shared <datalist> at the bottom of the template alone: the signal is never null, and
+  // the list is read here rather than in every row, because there is one list and many rows.
   protected readonly settings = inject(SettingsStore);
   protected readonly overdue = DeadlineBucket.Overdue;
   protected readonly done = TodoStatus.Done;
@@ -91,11 +91,11 @@ export class TaskList {
   private readonly system = inject(SystemStore);
 
   constructor() {
-    // Et fejlet load behøver ingen besked af sig selv: health-linjen melder allerede API'et nede.
+    // A failed load needs no message of its own: the health line already reports the API down.
     this.store.load().catch(() => {});
   }
 
-  // API'ets enum-værdier er nøglens blade, så en ny bucket kræver ingen mapning her.
+  // The API's enum values are the leaves of the key, so a new bucket needs no mapping here.
   protected sectionKey(bucket: DeadlineBucket): string {
     return `tasks.sections.${bucket}`;
   }

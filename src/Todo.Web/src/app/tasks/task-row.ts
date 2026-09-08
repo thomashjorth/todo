@@ -10,26 +10,28 @@ import { TaskDetail } from './task-detail';
 import { TaskStore, subTaskProgress } from './task-store';
 
 @Component({
-  // Attributvælger, ikke et eget element: en <app-task-row> mellem <ul> og <li> ville skubbe
-  // et fremmed element ind i listen, så divide-y ikke længere rammer søskende-rækker.
-  // data-testid er derfor en host-binding — TaskListScreen.Rows finder rækken på den.
+  // An attribute selector rather than an element of its own: an <app-task-row> between the <ul>
+  // and the <li> would push a foreign element into the list, so `divide-y` would stop hitting
+  // sibling rows. That is why data-testid is a host binding - TaskListScreen.Rows finds the row
+  // on it.
   selector: 'li[appTaskRow]',
   imports: [DeadlineDate, Shortcut, TaskDetail, TranslocoPipe],
   templateUrl: './task-row.html',
   host: {
     'data-testid': 'task-row',
     class: 'py-2',
-    // Navnet browseren morfer rækken efter, når den skifter sektion. En inline-style og ikke en
-    // Tailwind-klasse, fordi værdien er *data*: en utility-klasse er statisk, og den arbitrære
-    // egenskab `[view-transition-name:task-42]` kan ikke tage en køretidsværdi. Undtagelsen fra
-    // stylingkonventionen er derfor lige så snæver som den ser ud, og godkendt 2026-08-25.
-    // Præfikset er ikke pynt: en view-transition-name er en <custom-ident> og må ikke begynde
-    // med et ciffer. Dækker de tre @for-løkker over li[appTaskRow]; fuldført-sektionens
-    // almindelige <li> har sin egen binding i task-list.html.
+    // The name the browser morphs the row by when it changes section. An inline style rather
+    // than a Tailwind class, because the value is *data*: a utility class is static, and the
+    // arbitrary property `[view-transition-name:task-42]` cannot take a runtime value. The
+    // exception to the styling convention is therefore exactly as narrow as it looks, and was
+    // approved 2026-08-25. The prefix is not decoration: a view-transition-name is a
+    // <custom-ident> and must not begin with a digit. Covers the three @for loops over
+    // li[appTaskRow]; the completed section's plain <li> has a binding of its own in
+    // task-list.html.
     '[style.view-transition-name]': '"task-" + task().id',
-    // Hænger rækkens gruppe under spaltens, så `::view-transition-group-children(task-column)` i
-    // styles.css kan klippe den. Uden det maler en række med en destination uden for den rullende
-    // spalte oven på health-linjen — begrundelsen og tallene står ved reglen.
+    // Hangs the row's group under the column's, so `::view-transition-group-children(task-column)`
+    // in styles.css can clip it. Without it a row whose destination is outside the scrolling
+    // column paints over the health line - the reasoning and the numbers sit at the rule itself.
     '[style.view-transition-group]': '"task-column"',
   },
 })
@@ -65,10 +67,10 @@ export class TaskRow {
   protected readonly waitingFor = TodoStatus.WaitingFor;
   protected readonly inProgress = TodoStatus.InProgress;
   protected readonly progress = subTaskProgress;
-  // Kun til mærkaten: den vises mens Alt holdes nede, som de otte andre på skærmen.
+  // For the badge alone: it shows while Alt is held, like the eight others on screen.
   protected readonly shortcuts = inject(ShortcutStore);
 
-  // Direktivet tager en streng, og den tomme streng er dens "ingen genvej" - række ti og frem.
+  // The directive takes a string, and the empty string is its "no shortcut" - from row ten on.
   protected readonly shortcut = computed(() => this.number()?.toString() ?? '');
 
   private readonly store = inject(TaskStore);

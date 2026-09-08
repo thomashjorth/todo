@@ -81,10 +81,10 @@ const parked = {
 };
 
 /**
- * Ti valgbare opgaver plus en fuldført. Rækkefølgen på skærmen er otte i sektionen, den ventende,
- * den fuldførte og til sidst den parkerede - så den fuldførte står mellem "Venter på" og "Måske",
- * hvor den er nummereringens tænder: uden en fuldført række i listen ville påstanden om at en
- * fuldført ikke har et nummer bestå, fordi der slet ikke var en at måle.
+ * Ten selectable tasks plus one completed. The order on screen is eight in the section, the
+ * waiting one, the completed one and last the parked one - so the completed row sits between
+ * "Venter på" and "Måske", where it is the numbering's teeth: with no completed row in the list
+ * the assertion that a completed one has no number would pass, because there was none to measure.
  */
 const numberedItems = [
   ...Array.from({ length: 8 }, (_, i) => ({
@@ -114,12 +114,12 @@ const deferredItems = [
   },
 ];
 
-// Tilladt med vilje, og derfor et hint frem for en fejl: opgaven bliver stående i Overskredet,
-// fordi Overskredet slår Udskudt, så startdatoen gør ingenting.
+// Allowed on purpose, and therefore a hint rather than an error: the task stays in the overdue
+// section, because overdue beats deferred, so the start date does nothing.
 const conflicting = [{ ...items[0], deferUntil: '2026-08-20' }, items[1]];
 
-// Grænsen: dagen opgaven begynder er også dagen den skal være færdig, og det er stramt frem for
-// modstridende. Det er præcis den sag en `>=` ville melde forkert.
+// The boundary: the day the task starts is also the day it has to be finished, and that is tight
+// rather than contradictory. It is exactly the case a `>=` would report wrongly.
 const startingOnTheDeadline = [{ ...items[0], deferUntil: items[0].deadline }, items[1]];
 
 const withSubTasks = [
@@ -321,7 +321,7 @@ describe('TaskList', () => {
     row.querySelector('button')!.click();
     fixture.detectChanges();
 
-    // Panelet er åbent, så fraværet er hintets og ikke hele panelets.
+    // The panel is open, so the absence is the hint's and not the whole panel's.
     expect(row.querySelector('[data-testid="task-detail"]')).not.toBeNull();
     expect(row.querySelector('[data-testid="defer-until-conflict"]')).toBeNull();
   });
@@ -844,8 +844,9 @@ describe('TaskList', () => {
     expect(JSON.parse(request.request.body).waitingOn).toBe('Anna');
   });
 
-  // Uddelegering er en genvej til Venter på + hvem: vælgeren spørger, og feltet skal være det
-  // næste man står i. Uden denne påstand ville brugeren skulle finde feltet selv.
+  // Delegating is a shortcut for "Venter på" plus a name: the picker asks, and the field has to
+  // be the next place the cursor stands. Without this assertion the user would have to find the
+  // field themselves.
   it('should put the cursor in the who field when a task is handed over', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
@@ -860,9 +861,9 @@ describe('TaskList', () => {
     select.value = 'waitingFor';
     select.dispatchEvent(new Event('change'));
 
-    // Feltet findes ikke endnu: @if hænger på opgavens status, som først skifter når PUT'en er
-    // svaret og listen genindlæst. Uden dette led ville et fokus, der kun virker fordi feltet
-    // tilfældigvis stod der i forvejen, se ud som om det virkede.
+    // The field does not exist yet: the @if hangs on the task's status, which only changes once
+    // the PUT has answered and the list has been reloaded. Without this step a focus that works
+    // only because the field happened to be there already would look as though it worked.
     expect(row.querySelector('[data-testid="waiting-on-input"]')).toBeNull();
 
     const put = await vi.waitFor(() => http.expectOne(`/api/tasks/${items[0].id}`));
@@ -876,9 +877,9 @@ describe('TaskList', () => {
     expect(document.activeElement).toBe(input);
   });
 
-  // Det er valget der flytter fokus, ikke feltets tilstedeværelse. Uden denne påstand ville et
-  // ubetinget focus() bestå alt — målt — og enhver udvidelse af en ventende række ville rive
-  // fokus væk fra rækkeknappen man netop trykkede på.
+  // It is the pick that moves the focus, not the field being present. Without this assertion an
+  // unconditional focus() would pass everything - measured - and every expand of a waiting row
+  // would tear the focus away from the row button that was just pressed.
   it('should leave the focus alone when a waiting row is merely expanded', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
@@ -895,8 +896,8 @@ describe('TaskList', () => {
     expect(document.activeElement).toBe(button);
   });
 
-  // Forslag, ikke krav. Denne og den næste er de to tilstande et strengt valg ville gøre
-  // uopnåelige, og de findes begge i dag.
+  // Suggestions, not a requirement. This one and the next are the two states a strict pick would
+  // make unreachable, and both of them exist today.
   it('should still let a task wait for nobody in particular', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
@@ -937,8 +938,8 @@ describe('TaskList', () => {
     );
   });
 
-  // Én liste for alle rækker: et id pr. række ville være et duplikeret id, som browseren ikke
-  // klager over — den vælger blot den første.
+  // One list for every row: an id per row would be a duplicated id, which the browser does not
+  // complain about - it simply picks the first one.
   it('should offer the delegates as suggestions from a single shared list', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(SettingsStore).delegates.set(delegates);
@@ -952,7 +953,7 @@ describe('TaskList', () => {
     const element = fixture.nativeElement as HTMLElement;
     const lists = element.querySelectorAll('datalist');
     expect(lists).toHaveLength(1);
-    // Et tomt id på begge sider ville ellers gøre påstanden nedenfor sand om ingenting.
+    // An empty id on both sides would otherwise make the assertion below true about nothing.
     expect(lists[0].id).not.toBe('');
     expect(
       section
@@ -965,10 +966,10 @@ describe('TaskList', () => {
   it('should hide a parked task until the someday toggle is on', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
-    // Den parkerede er med i den første indlæsning, og det gør påstanden nedenfor stærkere end den
-    // var: sektionen er ikke tom fordi data mangler, men fordi kontakten er slået fra. Før
-    // omlægningen hentede listen slet ikke parkerede opgaver, så en manglende sektion kunne lige så
-    // godt have betydet et tomt svar.
+    // The parked task comes with the first load, and that makes the assertion below stronger than
+    // it was: the section is not empty because data is missing, but because the toggle is off.
+    // Before the rework the list did not fetch parked tasks at all, so a missing section could
+    // just as well have meant an empty answer.
     http
       .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [...items, parked] })]));
@@ -990,10 +991,10 @@ describe('TaskList', () => {
   it('should let a parked task be expanded so its status can be changed back', async () => {
     const fixture = TestBed.createComponent(TaskList);
     const http = TestBed.inject(HttpTestingController);
-    // Den parkerede kommer med i den første indlæsning, fordi parkerede altid hentes. Kontakten
-    // afgør kun om sektionen renderes, så der er ingen anden rundtur at vente på. Og listen skal
-    // stadig bære `items`: rendered() venter på præcis items.length rækker, og den parkerede tæller
-    // ikke med, før kontakten er slået til.
+    // The parked task comes with the first load, because parked tasks are always fetched. The
+    // toggle only decides whether the section renders, so there is no second round trip to wait
+    // for. And the list still has to carry `items`: rendered() waits for exactly items.length
+    // rows, and the parked one does not count until the toggle is on.
     http
       .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: [...items, parked] })]));
@@ -1226,9 +1227,9 @@ describe('TaskList', () => {
     expect(element.querySelector('[data-testid="task-detail"]')).toBeNull();
   });
 
-  // Begge kontakter slået til, så den fuldførte og den parkerede sektion er på skærmen.
-  // To rundture og ikke tre: parkerede opgaver hentes altid, så måske-kontakten er et rent
-  // visningsfilter og går ikke til serveren. Kun fuldførte er stadig en indlæsningsparameter.
+  // Both toggles on, so the completed and the parked section are both on screen.
+  // Two round trips and not three: parked tasks are always fetched, so the someday toggle is a
+  // pure display filter and does not go to the server. Only completed is still a load parameter.
   async function everythingShown(
     fixture: ComponentFixture<TaskList>,
     http: HttpTestingController,
@@ -1262,8 +1263,8 @@ describe('TaskList', () => {
       (row) => row.querySelector('button')?.getAttribute('aria-keyshortcuts') ?? null,
     );
 
-    // Række ét til ni i skærmens rækkefølge, og den niende er den ventende: numrene krydser
-    // sektionsgrænsen frem for at begynde forfra i hver sektion.
+    // Rows one to nine in the order they are on screen, and the ninth is the waiting one: the
+    // numbers cross the section boundary rather than starting over in each section.
     expect(labels.slice(0, 9)).toEqual([
       'Alt+1',
       'Alt+2',
@@ -1276,13 +1277,14 @@ describe('TaskList', () => {
       'Alt+9',
     ]);
 
-    // Den tiende valgbare - den parkerede, som står efter den fuldførte blok - har ingen genvej.
+    // The tenth selectable one - the parked task, which sits after the completed block - has no
+    // shortcut.
     const tenth = element.querySelector(
       '[data-testid="someday-section"] [data-testid="task-row"] button',
     )!;
     expect(tenth.getAttribute('aria-keyshortcuts')).toBeNull();
 
-    // Og den fuldførte har intet panel at vælge, så der er slet ingen genvej i rækken.
+    // And the completed one has no panel to select, so there is no shortcut in the row at all.
     const completedRow = element.querySelector(
       '[data-testid="completed-section"] [data-testid="task-row"]',
     )!;
@@ -1290,10 +1292,10 @@ describe('TaskList', () => {
   });
 
   /**
-   * En række beholder sin komponentinstans, når dens nummer skifter - `@for` sporer på id - så
-   * direktivets effekt er det eneste der flytter registreringen med. Påstanden er derfor både på
-   * attributten og på registret: den overtagne tast skal ramme den nye række, og den tast der ikke
-   * længere er på skærmen skal være væk.
+   * A row keeps its component instance when its number changes - `@for` tracks on id - so the
+   * directive's effect is the only thing that moves the registration along with it. The assertion
+   * is therefore on both the attribute and the registry: the key that was taken over has to hit
+   * the new row, and the key no longer on screen has to be gone.
    */
   it('should hand a number over to the row that takes its place', async () => {
     const fixture = TestBed.createComponent(TaskList);
@@ -1314,7 +1316,7 @@ describe('TaskList', () => {
     );
     expect(before).toEqual(['Alt+1', 'Alt+2', 'Alt+3']);
 
-    // Søgningen efterlader den tredje række alene, så den overtager Alt+1.
+    // The search leaves the third row on its own, so it takes over Alt+1.
     const search = element.querySelector<HTMLInputElement>('[data-testid="task-search"]')!;
     search.value = 'Opgave 3';
     search.dispatchEvent(new Event('input'));
@@ -1324,7 +1326,7 @@ describe('TaskList', () => {
     expect(row.textContent).toContain('Opgave 3');
     expect(row.querySelector('button')!.getAttribute('aria-keyshortcuts')).toBe('Alt+1');
 
-    // Registret fulgte med: Alt+1 rammer den nye ejer, og Alt+3 er afmeldt.
+    // The registry came along: Alt+1 hits the new owner, and Alt+3 is unregistered.
     expect(shortcuts.activate('alt+3')).toBe(false);
     expect(shortcuts.activate('alt+1')).toBe(true);
     fixture.detectChanges();
