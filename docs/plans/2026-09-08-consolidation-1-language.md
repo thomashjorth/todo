@@ -217,16 +217,53 @@ Commit: `🌐 The migration guard explains itself in English, and the backlog is
 
 **When:** inside Task 6, before its commit.
 
-**Step 1:** before touching the templates, `powershell -ExecutionPolicy Bypass -File
-scripts\build-web.ps1`, then `ls -l src/Todo.Host/wwwroot/styles-*.css`. Write the byte count and
-the filename hash down.
+**The baseline is measured, not to be re-derived: `styles-XN6R3J65.css`, 39,059 bytes.** Taken twice
+— at `580d6d8` before this delivery began, and at HEAD after tasks 3 to 5 — and identical both
+times. Note what that already proves: **Tailwind scans `.ts` as well as `.html`**, tasks 3 to 5
+rewrote comments in eleven `.ts` files, and the bundle did not budge. This task's scope was written
+as the templates only; the `.ts` groups were exposed to the same risk and came through clean.
 
-**Step 2:** translate, rebuild, compare. Expected: **the same byte count and the same hash.** A
-different one means a class name changed spelling or was dropped from a comment. Find it with:
+**Step 1:** translate the templates, then `powershell -ExecutionPolicy Bypass -File
+scripts\build-web.ps1` and `ls -l src/Todo.Host/wwwroot/styles-*.css`.
+
+**Step 2:** compare against the baseline above. **Same hash, same byte count.** A difference can go
+in either direction, and the two have different causes:
+
+**Smaller, or a class gone** — a name that lived only in a comment lost its spelling. **Six such
+names exist**, measured by stripping every comment from `src/Todo.Web/src` and re-searching, and
+the plan's original list of nine had only five of them:
+
+| class | named only in |
+|---|---|
+| `min-h-0` | `app.html:132`, `task-list.html:1` |
+| `outline-2`, `outline-offset-2` | the same two comments |
+| `gap-6` | `task-list.html:276` |
+| `pr-6` | `task-row.html:20` |
+
+`max-w-2xl`, `divide-y`, `px-2`, `xl:overflow-y-auto` and `dark:bg-gray-800` are all in real markup
+and cannot be lost this way.
+
+**Larger, or a class added** — and this one is specific to translating *from Danish*. Danish glues
+suffixes straight onto a class name, so `w-full-felt`, `flex-række`, `block-span`, `inline-style`
+and `xl:-præfikser` are **not** valid utilities and are not candidates today. Rendering them as
+"the `w-full` field" exposes a bare candidate the raw text did not previously hold. Twelve such
+compounds sit in the template comments. Every bare segment they would expose — `inline`, `block`,
+`flex`, `grid`, `hidden`, `sr-only`, `w-full` — is *already* a candidate elsewhere, so the risk
+class is real but currently empty. If the hash moves **up**, this is the mechanism.
+
+Find either kind with:
 
 ```bash
-git diff -U0 -- 'src/Todo.Web/src/app/**/*.html' | grep -E '^[-+].*(bg|text|border|min-h|max-w|overflow|divide|outline|gap|px|py|ml|pl|pr)-'
+git diff -U0 -- 'src/Todo.Web/src' | grep -E '^[-+].*(bg|text|border|min-h|max-w|overflow|divide|outline|gap|px|py|pr|ml|pl|w|sr)-'
 ```
+
+Note the scope: `src/Todo.Web/src` rather than only `**/*.html`, because a class name in a `.ts`
+comment counts too — task 4 re-punctuated a bare `divide-y` into `` `divide-y` `` in `task-row.ts`
+and a template-only grep could not have seen it.
+
+**The safest habit, and the one tasks 4 and 5 converged on: put a class name in `backticks`.**
+Backticks are candidate boundaries in Tailwind's extractor, so the name survives intact, while a
+suffix glued onto it in either language does not.
 
 Fix the comment rather than the CSS. `min-h-0` exists in the bundle **only** because two comments
 name it, and dropping it silently removes a rule whose absence would be invisible until something
