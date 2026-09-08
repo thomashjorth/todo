@@ -58,15 +58,10 @@ public class SourceLanguageTests
     private static readonly string[] BacklogEntries =
     [
         "src/Todo.Web/src/app/ado/ado-import.html",
-        "src/Todo.Web/src/app/ado/ado-import.ts",
         "src/Todo.Web/src/app/app.html",
-        "src/Todo.Web/src/app/app.ts",
         "src/Todo.Web/src/app/jira/jira-import.html",
-        "src/Todo.Web/src/app/jira/jira-import.ts",
-        "src/Todo.Web/src/app/retro/retro-import.ts",
         "src/Todo.Web/src/app/review/review.html",
         "src/Todo.Web/src/app/settings/settings.html",
-        "src/Todo.Web/src/app/settings/settings.ts",
         "src/Todo.Web/src/app/tasks/task-detail.html",
         "src/Todo.Web/src/app/tasks/task-list.html",
         "src/Todo.Web/src/app/tasks/task-row.html",

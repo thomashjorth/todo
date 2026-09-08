@@ -10,8 +10,8 @@ import { RetroStore } from './retro-store';
   selector: 'app-retro-import',
   imports: [DeadlineDate, RouterLink, TranslocoPipe],
   templateUrl: './retro-import.html',
-  // Skallens loft er hævet på xl, så to spalter har plads på opgavelisten. Den her skærm er
-  // ikke to spalter, og en formular strakt over 1440 px er ulæselig — så den sætter loftet igen.
+  // The shell's ceiling is raised on xl so the task list can be two columns. This screen is not two
+  // columns, and a form stretched over 1440 px is unreadable - so it puts the ceiling back.
   host: {
     class: 'block xl:max-w-2xl',
   },

@@ -44,7 +44,7 @@ export class App {
     this.review.load().catch(() => {});
   }
 
-  /** Porten er tilfældig, så URL'en bygges fra appens egen origin. */
+  /** The port is random, so the URL is built from the app's own origin. */
   protected openApiDocs(): void {
     this.system.openLink(`${location.origin}/scalar/`).catch(() => {});
   }
@@ -55,8 +55,8 @@ export class App {
       return;
     }
 
-    // Ctrl og Meta er stadig udenfor: Ctrl+Alt er AltGr på et dansk tastatur, og at spise den
-    // ville ødelægge indtastning af @, £ og $. Shift er derimod et lag og ikke en udelukkelse.
+    // Ctrl and Meta are still excluded: Ctrl+Alt is AltGr on a Danish keyboard, and swallowing it
+    // would break typing @, £ and $. Shift, in contrast, is a layer rather than an exclusion.
     if (event.altKey && !event.ctrlKey && !event.metaKey) {
       const modifier: ShortcutModifier = event.shiftKey ? 'alt-shift' : 'alt';
 
