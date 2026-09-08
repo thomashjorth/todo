@@ -35,8 +35,8 @@ describe('ShortcutStore', () => {
     expect(store.activate('n')).toBe(false);
   });
 
-  // To rækker der bytter numre: den nye registrering på '3' må ikke blive slettet af den gamle
-  // indehavers oprydning. Uden vagten er nøglen væk, og Alt+3 gør ingenting.
+  // Two rows swapping numbers: the new registration on '3' must not be deleted by the old
+  // holder's cleanup. Without the guard the key is gone, and Alt+3 does nothing.
   it('should keep a registration a newer caller has taken over', () => {
     const store = new ShortcutStore();
     const old = () => {

@@ -27,8 +27,8 @@ describe('Shortcut', () => {
     expect(button.getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+3');
   });
 
-  // Række ti og frem har intet nummer. Uden guarden registreres den tomme streng, og den første
-  // uhåndterede tast rammer den.
+  // Row ten and beyond has no number. Without the guard the empty string is registered, and the
+  // first unhandled key hits it.
   it('should register nothing for an empty key', () => {
     const fixture = TestBed.createComponent(Host);
     const store = TestBed.inject(ShortcutStore);
@@ -40,7 +40,8 @@ describe('Shortcut', () => {
     expect(button.hasAttribute('aria-keyshortcuts')).toBe(false);
   });
 
-  // @for sporer på task.id, så en søgning der omfordeler 1–9 giver SAMME instans et nyt nummer.
+  // @for tracks on task.id, so a search that redistributes 1–9 gives the SAME instance a new
+  // number.
   it('should follow the key when it changes, and let the old one go', () => {
     const fixture = TestBed.createComponent(Host);
     const store = TestBed.inject(ShortcutStore);

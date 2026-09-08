@@ -13,8 +13,8 @@ export class Shortcut {
   readonly appShortcutModifier = input<ShortcutModifier>('alt');
   readonly appShortcutAction = input<'focus' | 'activate'>('focus');
 
-  // null frem for en tom streng: attributten skal være væk, ikke tom, for guarden i E2E påstår
-  // at række ti slet ikke har en.
+  // null rather than an empty string: the attribute has to be gone, not empty, because the E2E
+  // guard asserts that row ten has none at all.
   protected readonly label = computed(() =>
     this.appShortcut() ? shortcutLabel(this.appShortcutModifier(), this.appShortcut()) : null,
   );
@@ -23,10 +23,10 @@ export class Shortcut {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   constructor() {
-    // En effekt frem for ngOnInit/ngOnDestroy, fordi nøglen ændrer sig i levende live: en række
-    // beholder sin komponentinstans (@for sporer på id) og får et nyt nummer, når listen gør.
-    // onCleanup afmelder den gamle nøgle, og callbacket sendes med, så oprydningen ikke kan
-    // slette en registrering en anden række har overtaget imens.
+    // An effect rather than ngOnInit/ngOnDestroy, because the key changes while the app runs: a
+    // row keeps its component instance (@for tracks on id) and gets a new number when the list
+    // does. onCleanup unregisters the old key, and the callback goes with it, so the cleanup
+    // cannot delete a registration another row has taken over in the meantime.
     effect((onCleanup) => {
       const key = this.appShortcut();
       if (!key) {
@@ -45,10 +45,10 @@ export class Shortcut {
     const element = this.host.nativeElement;
     element.focus();
 
-    // Windows-konventionen: en genvej udfører elementets aktiveringshandling, ikke bare
-    // markerer det. Et afkrydsningsfelt skifter, et link følges. Kun et tekstfelt har
-    // ingen aktivering ud over at få fokus. Fokus flytter i begge tilfælde, fordi et
-    // programmatisk click() ikke selv flytter det.
+    // The Windows convention: a shortcut performs the element's activation action rather than
+    // merely marking it. A checkbox toggles, a link is followed. Only a text field has no
+    // activation beyond taking focus. The focus moves either way, because a programmatic
+    // click() does not move it on its own.
     if (this.appShortcutAction() === 'activate') {
       element.click();
     }

@@ -1,4 +1,6 @@
-/** Alt alene bærer navigationen og listens kontroller; Alt+Shift bærer panelets felter. */
+/**
+ * Alt alone carries the navigation and the list's controls; Alt+Shift carries the panel's fields.
+ */
 export type ShortcutModifier = 'alt' | 'alt-shift';
 
 /**
