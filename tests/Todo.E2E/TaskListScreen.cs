@@ -118,8 +118,8 @@ public sealed class TaskListScreen(TodoApp app)
         => Rows.GetByRole(AriaRole.Button, new() { Name = title, Exact = true });
 
     /// <summary>
-    /// The button of a row that says more than its title: a deadline or an opgavestiller joins
-    /// the accessible name that <see cref="RowTitled"/> matches in full.
+    /// The button of a row that says more than its title: a deadline or an <c>Opgavestiller</c>
+    /// joins the accessible name that <see cref="RowTitled"/> matches in full.
     /// </summary>
     public ILocator RowShowing(string title)
         => Rows.GetByRole(AriaRole.Button, new() { Name = title });

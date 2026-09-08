@@ -186,7 +186,7 @@ public class LongIdMigrationTests
                 var orphans = await ForeignKeyViolationsAsync(host);
                 Assert.True(
                     orphans.Count == 0,
-                    $"PRAGMA foreign_key_check fandt {orphans.Count} brud: "
+                    $"PRAGMA foreign_key_check found {orphans.Count} violation(s): "
                     + string.Join("; ", orphans));
 
                 // 2. Every sub-task still hangs off its own parent. The pair, not the count: a
