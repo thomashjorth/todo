@@ -229,27 +229,53 @@ scripts\build-web.ps1` and `ls -l src/Todo.Host/wwwroot/styles-*.css`.
 **Step 2:** compare against the baseline above. **Same hash, same byte count.** A difference can go
 in either direction, and the two have different causes:
 
-**Smaller, or a class gone** — a name that lived only in a comment lost its spelling. **Six such
-names exist**, measured by stripping every comment from `src/Todo.Web/src` and re-searching, and
-the plan's original list of nine had only five of them:
+**Smaller, or a class gone** — a name that lived only in a comment lost its spelling. **Four such
+names exist**, verified against the built CSS rather than against the source:
 
 | class | named only in |
 |---|---|
 | `min-h-0` | `app.html:132`, `task-list.html:1` |
 | `outline-2`, `outline-offset-2` | the same two comments |
-| `gap-6` | `task-list.html:276` |
 | `pr-6` | `task-row.html:20` |
 
 `max-w-2xl`, `divide-y`, `px-2`, `xl:overflow-y-auto` and `dark:bg-gray-800` are all in real markup
 and cannot be lost this way.
 
-**Larger, or a class added** — and this one is specific to translating *from Danish*. Danish glues
-suffixes straight onto a class name, so `w-full-felt`, `flex-række`, `block-span`, `inline-style`
-and `xl:-præfikser` are **not** valid utilities and are not candidates today. Rendering them as
-"the `w-full` field" exposes a bare candidate the raw text did not previously hold. Twelve such
-compounds sit in the template comments. Every bare segment they would expose — `inline`, `block`,
-`flex`, `grid`, `hidden`, `sr-only`, `w-full` — is *already* a candidate elsewhere, so the risk
-class is real but currently empty. If the hash moves **up**, this is the mechanism.
+**An earlier revision of this section said six, and listed `gap-6`. That was wrong, and the way it
+was wrong is the lesson.** The question "which names appear only in comments" is not the question
+"which rules exist only because of a comment", and **punctuation is what separates them.** Measured
+with a four-form probe build:
+
+| form in a comment | rule generated |
+|---|---|
+| `mt-96,` — bare, comma straight after | **no** |
+| `` `mb-96`, `` — backticked, then comma | yes |
+| `mr-96` — bare, space after | yes |
+| `` `ml-96` `` — backticked, space after | yes |
+
+The Danish wrote `gap-6,` and `p-8,` with the comma glued on, so neither was ever a candidate and
+neither is in the baseline bundle. **Backticking them created two dead rules** for classes the
+markup only ever uses as `xl:gap-6` and `sm:p-8`. So rule 2 above — put a class name in backticks —
+protects a name from being lost but is **additive**: it can promote a token that punctuation was
+suppressing. Leave a name bare when the Danish left it bare against a comma.
+
+**Larger, or a class added.** Two mechanisms, and the second one was found the expensive way.
+
+*Splitting a Danish compound.* Danish glues suffixes onto a class name, so `w-full-felt`,
+`flex-række`, `block-span`, `inline-style` and `xl:-præfikser` are not valid utilities and are not
+candidates today. Rendering one as "the `w-full` field" exposes a bare candidate the raw text did
+not hold. Twelve such compounds sit in the template comments; every segment they would expose —
+`inline`, `block`, `flex`, `grid`, `hidden`, `sr-only`, `w-full` — is already a candidate
+elsewhere, so this class is real but currently empty.
+
+*An English prose word that happens to be a utility.* This is the one that actually fired, at
+**+359 bytes on the first attempt**: `.container` and `.grow`. "En beholder", "vokser ikke" and
+"den klippende beholder" carry no candidate; "a container", "do not grow" and "the clipping
+container" do. `.container` is the expensive one — it generates a rule at every breakpoint. The
+fix is wording: *element*, *enlarge*, *ancestor*. **Backticks are no defence here and would make it
+worse**, so rule 2 does not cover this case. Watch for `container`, `grow`, `shrink`, `block`,
+`inline`, `hidden`, `fixed`, `static`, `visible`, `table`, `flex` and `grid` used as ordinary
+English words.
 
 Find either kind with:
 
