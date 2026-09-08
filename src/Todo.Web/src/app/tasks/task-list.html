@@ -1,25 +1,27 @@
-<!-- Side by side er ét gitter, ikke to skærme: venstre spalte er 30rem = 480 px, altså præcis den
-     bredde hele appen er designet og testet i, så listen ser ud som i én spalte og ingen
-     bredde-antagelse flytter sig. minmax(0,1fr) frem for 1fr, så et langt ord i panelet ombrydes
-     frem for at skubbe gitteret bredere end vinduet.
-     Der står ingen min-h-0 på spalterne, og det er målt frem for glemt: et gitterbarns automatiske
-     minimumstørrelse er allerede nul, når dets overflow ikke er visible, så overflow-y-auto gør
-     arbejdet selv. Klassen sad her først, og en mutation der fjernede den fældede ingenting — den
-     bærende ligger på wrapperen om router-outlet i app.html, som nu klipper selv (xl:overflow-y-auto)
-     og derfor ikke behøver min-h-0 mere.
-     xl:pr-2 holder rullebjælken fri af teksten, og xl:-ml-2 + xl:pl-2 er et andet par med en anden
-     grund: spalten klipper ved sin padding-kant (overflow-y auto tvinger overflow-x til auto), og
-     felterne står flush mod den venstre, så fokusringens 4 px — outline-2 plus outline-offset-2 —
-     blev skåret. Den negative margin flytter kun klippekanten; padding'en lægger indholdskanten
-     tilbage, så sporet stadig er 30rem, indholdsbredden den samme som før, og afstanden til
-     panelet uændret 24 px. Samme rettelse står på wrapperen i app.html, som er den klippende
-     beholder for de fire andre skærme. -->
+<!-- Side by side is one grid, not two screens: the left column is 30rem = 480 px, which is exactly
+     the width the whole app is designed and tested in, so the list looks the way it does in one
+     column and no width assumption moves. minmax(0,1fr) rather than 1fr, so a long word in the
+     panel wraps instead of pushing the grid wider than the window.
+     There is no `min-h-0` on the columns, and that is measured rather than forgotten: a grid
+     child's automatic minimum size is already zero when its overflow is not visible, so
+     `overflow-y-auto` does the work itself. The class did sit here at first, and a mutation that
+     removed it felled nothing — the load-bearing one is on the wrapper around router-outlet in
+     app.html, which now clips on its own (`xl:overflow-y-auto`) and therefore needs `min-h-0` no
+     more.
+     `xl:pr-2` keeps the scrollbar clear of the text, and `xl:-ml-2` + `xl:pl-2` are another pair
+     with another reason: the column clips at its padding edge (overflow-y auto forces overflow-x
+     to auto), and the fields sit flush against the left one, so the focus ring's 4 px —
+     `outline-2` plus `outline-offset-2` — was cut. The negative margin moves only the clipping
+     edge; the padding puts the content edge back, so the track is still 30rem, the content width
+     the same as before, and the distance to the panel an unchanged 24 px. The same fix is on the
+     wrapper in app.html, which is the clipping ancestor for the four other screens. -->
 <div class="xl:grid xl:h-full xl:grid-cols-[30rem_minmax(0,1fr)] xl:gap-6">
-  <!-- view-transition-name gør spalten til en gruppe, så hver rækkes gruppe kan hænge under den og
-       blive klippet af reglen i styles.css. Navnet er statisk, så det kunne have været en Tailwind
-       arbitrær egenskab — men det står som en inline-style ved siden af rækkernes, fordi de tre dele
-       af mekanikken skal kunne læses som én ting. Ubetinget, ikke bag xl: i én spalte klipper
-       ingenting, så nestingen ændrer intet der — målt, morfen kører uændret med den. -->
+  <!-- view-transition-name makes the column a group, so each row's group can hang under it and be
+       clipped by the rule in styles.css. The name is static, so it could have been a Tailwind
+       arbitrary property — but it stands as an inline style beside the rows', because the three
+       parts of the mechanism have to be readable as one thing. Unconditional rather than behind
+       `xl:`: in one column nothing clips, so the nesting changes nothing there — measured, the
+       morph runs unchanged with it. -->
   <div
     data-testid="task-column"
     class="xl:-ml-2 xl:overflow-y-auto xl:pl-2 xl:pr-2"
@@ -213,10 +215,10 @@
           </h2>
           <ul class="mt-1 divide-y divide-gray-100 dark:divide-gray-700">
             @for (task of completed(); track task.id) {
-              <!-- Samme navn som rækken har i sin deadline-sektion, og det er nødvendigt frem for
-                   pænt: en opgave der markeres færdig *med* fuldførte vist flytter sig fra en
-                   li[appTaskRow] til denne almindelige <li>, og uden navnet på begge sider er der
-                   ingen morf — kun en krydsfade. Host-bindingen på TaskRow når ikke herind. -->
+              <!-- The same name the row has in its deadline section, and that is necessary rather
+                   than tidy: a task marked done *while* completed is shown moves from an
+                   li[appTaskRow] to this plain <li>, and without the name on both sides there is
+                   no morph — only a cross-fade. TaskRow's host binding does not reach in here. -->
               <li
                 data-testid="task-row"
                 class="flex items-start gap-2 py-2"
@@ -273,14 +275,15 @@
     </div>
   </div>
 
-  <!-- @if og ikke hidden xl:block: hidden renderer stadig i DOM en, så data-testid="task-detail"
-       ville findes to gange på en smal skærm, og Playwright vælger tavst den første. Det er hele
-       grunden til at brydepunktet er et signal og ikke kun en klasse.
-       Ingen xl:-præfikser herinde: spalten findes kun når signalet er sandt.
-       -mx-2 + px-2 er ringens plads, som i venstre spalte, men her i begge sider: panelets felter
-       er w-full og står flush mod både den venstre og den højre klippekant, så begge segmenter af
-       fokusringen blev skåret. Indholdskanten ligger uændret; venstre overhæng går ind i gap-6, og
-       højre ind i den padding wrapperen i app.html har fået af samme grund. -->
+  <!-- @if and not `hidden xl:block`: hidden still renders in the DOM, so data-testid="task-detail"
+       would be found twice on a narrow screen, and Playwright silently picks the first. That is the
+       whole reason the breakpoint is a signal rather than only a class.
+       No `xl:` prefixes in here: the column exists only when the signal is true.
+       `-mx-2` + `px-2` are the ring's room, as in the left column, but here on both sides: the
+       panel's fields are `w-full` and sit flush against both the left and the right clipping edge,
+       so both segments of the focus ring were cut. The content edge is unchanged; the left overhang
+       goes into gap-6, and the right into the padding the wrapper in app.html got for the same
+       reason. -->
   @if (wide.wide()) {
     <div data-testid="detail-column" class="-mx-2 overflow-y-auto px-2">
       @if (selected(); as task) {
@@ -300,12 +303,12 @@
   }
 </div>
 
-<!-- Én delt liste, uden for hver @for-løkke, som alle rækkers hvem-felt peger på med
-     list="delegate-names". Forslagene er de samme for alle rækker, så mange identiske kopier
-     ville sige, at de kunne være forskellige — og et id pr. række ville være et duplikeret id,
-     som browseren ikke klager over: den vælger blot den første.
-     Ingen farveklasser: en <datalist> renderes ikke selv, og dens popup er browserens eget
-     chrome, som ContrastTests ikke kan måle. -->
+<!-- One shared list, outside every @for loop, which every row's who field points at with
+     list="delegate-names". The suggestions are the same for every row, so many identical copies
+     would say they could differ — and one id per row would be a duplicated id, which the browser
+     does not complain about: it simply picks the first.
+     No colour classes: a <datalist> does not render itself, and its popup is the browser's own
+     chrome, which ContrastTests cannot measure. -->
 <datalist id="delegate-names">
   @for (name of settings.delegates(); track name) {
     <option data-testid="delegate-option" [value]="name"></option>

@@ -6,10 +6,10 @@
   {{ 'review.intro' | transloco }}
 </p>
 
-<!-- Fem grupper i beslutningsrækkefølge, ikke i tidsrækkefølge: brudte tilsagn først, fordi de
-     kræver en beslutning nu, og Måske sidst, fordi den er den man tager stilling til når resten er
-     ryddet. Rækkefølgen er hele grunden til at skærmen ikke bare er en femte liste — se designets
-     afsnit 1. Højst én åben, og nul er en gyldig tilstand. -->
+<!-- Five groups in decision order, not in chronological order: broken commitments first, because
+     they need a decision now, and "Måske" last, because that is the one you take a view on once
+     the rest is cleared. The order is the whole reason the screen is not just a fifth list — see
+     section 1 of the design. At most one open, and none open is a valid state. -->
 <div class="mt-4 border-t border-gray-300 dark:border-gray-700">
   @for (group of groups(); track group.name) {
     <section
@@ -22,20 +22,21 @@
       (toggled)="toggleSection(group.name)"
     >
       @if (group.tasks.length === 0) {
-        <!-- En tom gruppe beholder sin overskrift og kan stadig åbnes: en kontrol der ikke kan
-             betjenes er en død kontrol, og "der er ikke noget her" er et svar på gennemgangens
-             spørgsmål frem for fraværet af et. -->
+        <!-- An empty group keeps its heading and can still be opened: a control that cannot be
+             operated is a dead control, and "there is nothing here" is an answer to the review's
+             question rather than the absence of one. -->
         <p data-testid="group-empty" class="text-sm text-gray-500 dark:text-gray-400">
           {{ 'review.groupEmpty' | transloco }}
         </p>
       } @else {
         <ul class="divide-y divide-gray-100 dark:divide-gray-700">
           @for (task of group.tasks; track task.id) {
-            <!-- Samme række som på opgavelisten, med hele detaljepanelet. Det er ikke sparsommelighed:
-                 fordi TaskStore genindlæser efter et gem, forlader rækken sin gruppe i samme øjeblik
-                 beslutningen er truffet, og sektionsovergangene animerer det uden en linje her.
-                 Ingen [number]: cifrene 1–9 hører til opgavelisten, og registret er
-                 last-writer-wins, så en anden skærm der uddelte dem ville stjæle dem. -->
+            <!-- The same row as on the task list, with the whole detail panel. That is not
+                 thrift: because TaskStore reloads after a save, the row leaves its group the very
+                 moment the decision is made, and the section transitions animate that without a
+                 line here.
+                 No [number]: the digits 1–9 belong to the task list, and the register is
+                 last-writer-wins, so another screen handing them out would steal them. -->
             <li
               appTaskRow
               [task]="task"
@@ -59,9 +60,9 @@
   </p>
 }
 
-<!-- Afslutningen, og den er hele grunden til at det er en vane frem for en skærm: der er et
-     øjeblik hvor man siger "nu er jeg igennem". Altid aktiv — man må gerne være færdig med at
-     kigge selvom der står noget tilbage; gennemgangen handler om at have set det. -->
+<!-- The finish, and it is the whole reason this is a habit rather than a screen: there is a moment
+     where you say "now I am through". Always enabled — you are allowed to be done looking even if
+     something is left standing; the review is about having seen it. -->
 <div class="mt-6 flex flex-wrap items-center gap-3">
   <button
     type="button"

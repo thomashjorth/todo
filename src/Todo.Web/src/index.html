@@ -1,19 +1,20 @@
 <!doctype html>
-<!-- color-scheme hører på RODEN, ikke på <body>, og det er målt frem for stilistisk: på <body>
-     styler den kroppen og alt under den, mens roden bliver stående på `normal`. Browseren maler
-     <select>-popup'en, rullebjælkerne og lærredet efter rodens skema, så statusvælgeren åbnede hvid
-     under en mørk app — med optionernes tekst stadig i det mørke temas lysegrå, altså næsten
-     usynlig. Målt 2026-08-27 med præferencen på mørk og klassen på <body>: systemfarven Canvas gav
-     rgb(255,255,255) på roden og rgb(18,18,18) under <body> — et lyst dokument med en mørk krop.
-     To eksplicitte klasser frem for den ene kombinerede `light dark`-værdi, og det er også målt:
-     med den kombinerede værdi på roden var det BRUGTE skema allerede mørkt (Canvas gav
-     rgb(18,18,18) på roden), og popup'en var STADIG hvid i Photino-vinduet — verificeret ved at
-     hente index.html fra den kørende app, så det ikke var en udeployet rettelse. Popup'en følger
-     altså ikke det resolverede skema, og det eksplicitte nøgleord er den ene ting tilbage der kan
-     gøre en forskel i WebView2. Begge retninger skrives ud, fordi appen ingen tema-kontakt har:
-     `dark:` er `prefers-color-scheme`, og lys skal blive ved at være lys.
-     Vagten er ColorSchemeTests, som måler rodens brugte skema i begge temaer. Den kan IKKE se
-     popup'en: den er browserens eget vindue og kommer ikke med i et screenshot. -->
+<!-- color-scheme belongs on the ROOT, not on <body>, and that is measured rather than stylistic:
+     on <body> it styles the body and everything under it, while the root stays at `normal`. The
+     browser paints the <select> popup, the scrollbars and the canvas from the root's scheme, so the
+     status picker opened white under a dark app — with the options' text still in the dark theme's
+     light grey, that is to say almost invisible. Measured 2026-08-27 with the preference on dark
+     and the class on <body>: the system colour Canvas gave rgb(255,255,255) on the root and
+     rgb(18,18,18) under <body> — a light document with a dark body inside it.
+     Two explicit classes rather than the one combined `light dark` value, and that is measured too:
+     with the combined value on the root the USED scheme was already dark (Canvas gave
+     rgb(18,18,18) on the root), and the popup was STILL white in the Photino window — verified by
+     fetching index.html from the running app, so it was not an undeployed fix. The popup therefore
+     does not follow the resolved scheme, and the explicit keyword is the one thing left that can
+     make a difference in WebView2. Both directions are written out, because the app has no theme
+     switch: `dark:` is `prefers-color-scheme`, and light has to go on being light.
+     The guard is ColorSchemeTests, which measures the root's used scheme in both themes. It can NOT
+     see the popup: that is the browser's own window and does not come along in a screenshot. -->
 <html lang="en" class="scheme-light dark:scheme-dark">
   <head>
     <meta charset="utf-8" />

@@ -2,8 +2,8 @@
   {{ 'jira.heading' | transloco }}
 </h2>
 
-<!-- Ord frem for en tom liste: uden opsætning er der ingenting at hente, og en knap der altid
-     fejler siger mindre end vejen til siden der retter det. -->
+<!-- Words rather than an empty list: without setup there is nothing to fetch, and a button that
+     always fails says less than the way to the page that puts it right. -->
 @if (!configured()) {
   <p data-testid="jira-not-configured" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
     {{ 'jira.notConfigured' | transloco }}
@@ -17,9 +17,10 @@
     >
   </p>
 } @else {
-  <!-- Den eneste måde tilstanden kan ses. Slås kontakten fra, flytter de samme sager sig tavst ind
-       under Venter på: en vagt-række på wiren er kun kendetegnet ved isDuty, ellers ligner den en
-       almindelig åben række. Derfor ord her frem for en slutdato der skulle udløbe ved midnat. -->
+  <!-- The only way the state can be seen. Turn the switch off and the same issues move silently in
+       under "Venter på": a duty row on the wire is marked by isDuty and nothing else, otherwise it
+       looks like an ordinary open row. Hence words here rather than an end date that would have to
+       expire at midnight. -->
   @if (settings.jiraOnDuty()) {
     <p data-testid="jira-on-duty-notice" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
       {{ 'jira.onDuty' | transloco }}
@@ -48,11 +49,12 @@
 }
 
 @if (previewed()) {
-  <!-- Hvorfor afstemningen ikke havde noget at sige, oversat gennem errors.<kode> — samme vej som en
-       rækkes excluded. Over splittet mellem "ingen sager er tildelt dig" og listen, ikke inde i
-       listens gren: en nægtet afstemning oven på en tom hentning er præcis dér notitsen betyder mest.
-       At linjen står i stedet for afstemningsrækkerne er en serverregel og ikke en skabelonregel —
-       se tvillingen i ado-import.html for de to vagter der ejer den. -->
+  <!-- Why the reconciliation had nothing to say, translated through errors.<code> — the same way
+       as a row's excluded. Above the split between "no issues are assigned to you" and the list,
+       not inside the list's branch: a refused reconciliation on top of an empty fetch is exactly
+       where the notice means the most. That the line stands instead of the reconciliation rows is
+       a server rule and not a template rule — see the twin in ado-import.html for the two guards
+       that own it. -->
   @if (store.reconciliationMessage(); as notice) {
     <p
       data-testid="jira-reconciliation-notice"
@@ -71,8 +73,8 @@
       {{ 'jira.showing' | transloco: { shown: shown(), total: store.total() } }}
     </p>
 
-    <!-- Hvilken af de to, og hvor mange: at listen står der uden et eneste tændt afkrydsningsfelt
-         ligner ellers en fejl i skærmen. -->
+    <!-- Which of the two, and how many: the list standing there without a single ticked checkbox
+         otherwise looks like a fault in the screen. -->
     @if (nothingToSelect()) {
       <p data-testid="jira-nothing-to-select" class="mt-2 text-sm text-gray-700 dark:text-gray-300">
         @if (excludedCount() > 0) {
@@ -108,11 +110,12 @@
               <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
                 row.title
               }}</span>
-              <!-- En @if, fordi feltet nu kan mangle: afstemningen kan spørge om en nøgle Jira ikke
-                   kender, og så kom der intet svar at tage en status fra. Fraværet siges højt frem
-                   for at efterlade en tom linje — "Status: " uden noget efter kan ikke skelnes fra en
-                   linje skærmen glemte at udfylde. Azure DevOps' tvilling har to af dem; her er der
-                   kun status, for Jira-rækken har ingen typelinje. -->
+              <!-- An @if, because the field can now be missing: the reconciliation can ask about a
+                   key Jira does not know, and then no answer came back to take a status from. The
+                   absence is said out loud rather than leaving an empty line — "Status: " with
+                   nothing after it cannot be told apart from a line the screen forgot to fill in.
+                   Azure DevOps' twin has two of them; here there is only the status, because the
+                   Jira row has no type line. -->
               @if (row.status) {
                 <span
                   data-testid="jira-status"
@@ -131,9 +134,9 @@
                   'jira.deadlineValue' | transloco: { value: row.deadline | deadlineDate }
                 }}</span>
               }
-              <!-- Kontekst, ikke en fejl eller en advarsel: rækken er handlingsklar, den er blot
-                   ikke tildelt dig. Serveren ejer isDuty og udleder den igen ved import, så den
-                   må ikke genudledes her ud af status og indstillinger. -->
+              <!-- Context, not an error and not a warning: the row is actionable, it is simply
+                   not assigned to you. The server owns isDuty and derives it again at import, so
+                   it must not be re-derived here out of the status and the settings. -->
               @if (row.isDuty) {
                 <span
                   data-testid="jira-duty"
@@ -141,31 +144,31 @@
                   >{{ 'jira.fromDutyPool' | transloco }}</span
                 >
               }
-              <!-- Udeladt vises frem for at skjules: skjult ville sagen ligne en Jira havde tabt,
-                   og indstillingen jiraIncludeWaiting ville være usynlig. -->
+              <!-- Excluded is shown rather than hidden: hidden, the issue would look like one Jira
+                   had lost, and the jiraIncludeWaiting setting would be invisible. -->
               @if (row.excluded) {
                 <span
                   data-testid="jira-excluded"
                   class="block text-xs font-medium text-gray-700 dark:text-gray-300"
                   >{{ excludedReason(row) }}</span
                 >
-                <!-- Begge forslag foran alreadyImported, ikke efter: en række der foreslår en
-                   lukning eller en genåbning *er* pr. definition også importeret tidligere, så den
-                   sidste gren ville sluge dem begge. Mærkaten havner i afkrydsningsfeltets
-                   tilgængelige navn, fordi rækken er en <label> — her en gevinst, for navnet kommer
-                   til at sige hvad fluebenet gør. Se tvillingen i ado-import.html for hele
-                   begrundelsen, opsplitningen i to sætninger iberegnet.
+                <!-- Both suggestions in front of alreadyImported, not after: a row that suggests a
+                   closure or a reopening *is* by definition also imported earlier, so the last
+                   branch would swallow them both. The label ends up in the checkbox's accessible
+                   name, because the row is a <label> — a gain here, since the name comes to say
+                   what the tick does. See the twin in ado-import.html for the whole reasoning, the
+                   split into two sentences included.
 
-                   Grunden er en betingelse og ikke et fallback, og det er en rettelse — se
-                   tvillingen for hele begrundelsen: JiraStores hasReason dropper en reason-løs
-                   lukkerække fra wiren, hvor grenen før viste den som løst, så knappen lovede mere
-                   end forespørgslen bar. Nu er der hverken mærkat eller wire-række, og rækken falder
-                   igennem til alreadyImported.
+                   The reason is a condition and not a fallback, and that is a fix — see the twin
+                   for the whole reasoning: JiraStore's hasReason drops a reason-less closing row
+                   from the wire, where the branch used to show it as resolved, so the button
+                   promised more than the request carried. Now there is neither a label nor a wire
+                   row, and the row falls through to alreadyImported.
 
-                   Tilstanden er uopnåelig i drift: serveren sætter altid closureReason når
-                   suggestsClosing er sand — begge felter kommer af ét udtryk både i hentningens
-                   løkke i JiraEndpoints' previewJira-handler og i JiraEndpoints.ReconciledRowsAsync.
-                   Byg altså ikke noget på den. -->
+                   The state is unreachable in operation: the server always sets closureReason when
+                   suggestsClosing is true — both fields come out of one expression, both in the
+                   fetch's loop in JiraEndpoints' previewJira handler and in
+                   JiraEndpoints.ReconciledRowsAsync. So do not build anything on it. -->
               } @else if (row.suggestsClosing && row.closureReason) {
                 <span
                   data-testid="jira-suggests-closing"
@@ -183,10 +186,10 @@
                   class="block text-xs font-medium text-blue-700 dark:text-blue-300"
                   >{{ 'jira.suggestsReopening' | transloco }}</span
                 >
-                <!-- Hvad forslaget fører til, som kontrakten lover om reopenTo: forslaget skal sige
-                     hvad det gør. Fallbacket til den åbne sætning står, hvor grunden ovenfor blev en
-                     betingelse — se tvillingen: reopenTo rejser ikke tilbage på wiren, så der er
-                     ingen anden ende at være uenig med. -->
+                <!-- What the suggestion leads to, as the contract promises about reopenTo: the
+                     suggestion has to say what it does. The fallback to the open sentence stands,
+                     where the reason above became a condition — see the twin: reopenTo does not
+                     travel back on the wire, so there is no other end to disagree with. -->
                 <span
                   data-testid="jira-reopen-to"
                   class="block text-xs text-gray-500 dark:text-gray-400"
@@ -204,16 +207,16 @@
               }
             </span>
           </label>
-          <!-- Uden for <label> med vilje: en knap inde i den ville lægge sin tekst i
-               afkrydsningsfeltets tilgængelige navn. Skive 11 målte, at tekst lagt i et element
-               hvis navn en test matcher i sin helhed, fælder tre E2E-tests. -->
+          <!-- Outside the <label> on purpose: a button inside it would put its text into the
+               checkbox's accessible name. Slice 11 measured that text put into an element whose
+               name a test matches in its entirety fells three E2E tests. -->
           <p class="mt-1 pl-6 text-xs">
-            <!-- En <button>, ikke et <a href>: Photino-vinduet har hverken adresselinje eller
-                 tilbage-knap, så en navigation væk er enkeltrettet. Systemets browser åbner den.
-                 Ingen @if: url er required på kontrakten, så rækken har altid en adresse.
-                 Nøglen er tasks.openIssue frem for en jira.* med samme ordlyd: handlingen er den
-                 samme på den samme slags ting, og to nøgler med identisk tekst glider fra hinanden
-                 i hånden. Prisen er, at en tasks.*-nøgle bruges her. -->
+            <!-- A <button>, not an <a href>: the Photino window has neither an address bar nor a
+                 back button, so a navigation away is one-way. The system browser opens it. No
+                 @if: url is required on the contract, so the row always has an address.
+                 The key is tasks.openIssue rather than a jira.* one with the same wording: the
+                 action is the same on the same kind of thing, and two keys with identical text
+                 drift apart by hand. The price is that a tasks.* key is used here. -->
             <button
               type="button"
               data-testid="jira-open-issue"
@@ -223,10 +226,10 @@
               {{ 'tasks.openIssue' | transloco }}
             </button>
           </p>
-          <!-- Ved rækken man trykkede på, ikke øverst ved siden af jira-import-error: spalten er
-               ~480 px og listen kan være tyve rækker lang, så en besked i toppen ville være ude af
-               syne — altså stadig tavs for øjet. @let frem for as: @if indsnævrer ikke et
-               signal-kald, og as binder på sandhed. -->
+          <!-- Beside the row you pressed, not at the top next to jira-import-error: the column is
+               ~480 px and the list can be twenty rows long, so a message at the top would be out
+               of sight — that is to say still silent to the eye. @let rather than as: @if does not
+               narrow a signal call, and as binds on truthiness. -->
           @let failedOpen = openError();
           @if (failedOpen && failedOpen.key === row.key) {
             <p
@@ -248,7 +251,7 @@
       [disabled]="chosenCount() === 0 || store.busy()"
       (click)="importSelected()"
     >
-      <!-- Ét led pr. mængde knappen handler på — se tvillingen i ado-import.html. -->
+      <!-- One clause per set the button acts on — see the twin in ado-import.html. -->
       {{ chosenLabel() }}
     </button>
   }

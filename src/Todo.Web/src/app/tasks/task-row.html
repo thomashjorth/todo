@@ -1,8 +1,9 @@
-<!-- Accenten, ikke en baggrund: en flade under rækken ville flytte hver dæmpet tekst i den over på
-     en anden farve, og `text-gray-500` er 4,63:1 på gray-50 — der er ikke plads til et trin mere,
-     før AA falder. En kant har intet tekstkrav og skal kun nå 3:1 som grafisk element.
-     Kun side by side: `selected` er falsk i én spalte, hvor det udfoldede panel selv viser hvilken
-     række der er valgt. -->
+<!-- The accent, not a background: a surface under the row would move every muted text in it onto
+     another colour, and `text-gray-500` is 4.63:1 on gray-50 — there is no room for one more step
+     before AA falls. A border has no text requirement and only has to reach 3:1 as a graphical
+     element.
+     Side by side only: `selected` is false in one column, where the unfolded panel itself shows
+     which row is selected. -->
 <div
   class="flex items-start gap-2"
   [class]="selected() ? 'border-l-2 border-blue-600 pl-2 dark:border-blue-400' : ''"
@@ -17,18 +18,19 @@
     (change)="setDone(complete.checked)"
   />
   <div class="min-w-0 flex-1">
-    <!-- relative, fordi mærkaten nedenfor er positioneret mod knappen, som de tre felter i
-         task-list.html er mod deres wrapper. Men de er single-line <input>'s, hvor intet ombrydes;
-         her er hver linje et block-span der fylder knappens indholdsbredde, så en titel der nåede
-         højrekanten ombrød *under* cifferet - brugeren læste "booke" gennem et Alt+8.
-         pr-6 reserverer pladsen frem for at lægge mærkaten oven på teksten: absolut positionering
-         måler mod padding-boksen, så de 24 px (mærkaten er målt til 16) er mærkatens egne, og
-         teksten ombryder før den. Kun når rækken har et ciffer, så række ti og frem beholder
-         den fulde bredde.
-         Og padding frem for en flex-række med mærkaten i flowet: i flowet fylder den kun mens Alt
-         holdes nede, så hver ombrudt titel ville reflowe i det sekund brugeren trykker Alt. En
-         permanent reservation koster 24 px titelbredde og hopper ikke.
-         @let, ikke `as`: et signal-kald indsnævres ikke af @if, og `as` binder på sandhed. -->
+    <!-- relative, because the badge below is positioned against the button, the same as the three
+         fields in task-list.html are against their wrapper. But those are single-line <input>'s,
+         where nothing wraps; here every line is a `block` span filling the button's content width,
+         so a title that reached the right edge wrapped *underneath* the digit - the user read
+         "booke" through an Alt+8.
+         `pr-6` reserves the room rather than laying the badge on top of the text: absolute
+         positioning measures against the padding box, so the 24 px (the badge is measured at 16)
+         are the badge's own, and the text wraps before it. Only when the row has a digit, so row
+         ten onwards keeps the full width.
+         And padding rather than a `flex` row with the badge in the flow: in the flow it takes room
+         only while Alt is held down, so every wrapped title would reflow the second the user
+         presses Alt. A permanent reservation costs 24 px of title width and does not jump.
+         @let, not `as`: a signal call is not narrowed by @if, and `as` binds on truthiness. -->
     @let rowNumber = number();
     <button
       type="button"
@@ -64,9 +66,9 @@
           >{{ progress(task()) }}</span
         >
       }
-      <!-- Inde i knappen, men aria-hidden: TaskListScreen.RowTitled matcher knappens fulde
-           tilgængelige navn, så et synligt ciffer derinde ville få hver eksisterende rækkelokator
-           til at holde op med at matche - en fejl der ligner en manglende række. -->
+      <!-- Inside the button, but aria-hidden: TaskListScreen.RowTitled matches the button's full
+           accessible name, so a visible digit in there would make every existing row locator stop
+           matching - a fault that looks like a missing row. -->
       @if (shortcuts.altHeld() && rowNumber) {
         <span
           data-testid="shortcut-badge"
@@ -76,27 +78,28 @@
         >
       }
     </button>
-    <!-- Uden for knappen af samme grund som linjen nedenfor: teksten ville ellers indgå i rækkens
-         tilgængelige navn, som E2E-skærmen matcher i sin helhed. Og ikke `aria-hidden` — en status
-         er ikke dekoration, så den skal også nå et hjælpemiddel; den ligger blot ved siden af
-         navnet frem for inde i det.
-         Bemærk at reglen er en regel og ikke en måling her: flyttes markøren ind i knappen,
-         består alle 47 E2E alligevel, fordi ingen rejse i dag matcher en *i gang*-opgaves række på
-         navn. Målt. Placeringen følger altså linjen nedenfor, hvor konsekvensen er reel. -->
+    <!-- Outside the button for the same reason as the line below: the text would otherwise be part
+         of the row's accessible name, which the E2E screen matches in its entirety. And not
+         `aria-hidden` — a status is not decoration, so it has to reach an assistive technology
+         too; it simply lies beside the name rather than inside it.
+         Note that the rule is a rule and not a measurement here: move the marker into the button
+         and all 47 E2E pass anyway, because no journey today matches an *in progress* task's row
+         by name. Measured. The placement therefore follows the line below, where the consequence
+         is real. -->
     @if (task().status === inProgress) {
       <p data-testid="in-progress" class="text-xs font-medium text-blue-700 dark:text-blue-300">
         {{ 'tasks.statuses.inProgress' | transloco }}
       </p>
     }
 
-    <!-- Uden for knappen med vilje: teksten ville ellers indgå i rækkens tilgængelige navn,
-         som E2E-skærmen matcher i sin helhed. -->
+    <!-- Outside the button on purpose: the text would otherwise be part of the row's accessible
+         name, which the E2E screen matches in its entirety. -->
     @if (task().status === waitingFor) {
       <p class="flex flex-wrap gap-x-2 text-xs text-gray-600 dark:text-gray-400">
         @if (task().waitingOn) {
           <span>{{ 'tasks.waitingOnValue' | transloco: { value: task().waitingOn } }}</span>
         }
-        <!-- @let, ikke `as`: waitingDays kan være 0, og `as` binder på sandhed. -->
+        <!-- @let, not `as`: waitingDays can be 0, and `as` binds on truthiness. -->
         @let waitingDays = task().waitingDays;
         @if (waitingDays != null) {
           <span data-testid="waiting-days">{{
@@ -105,14 +108,14 @@
         }
       </p>
     }
-    <!-- Også uden for rækkeknappen, og af samme grund: mærkaten ville ellers indgå i rækkens
-         tilgængelige navn, som TaskListScreen.RowTitled matcher i sin helhed.
-         @let, ikke `as`: et signal-kald indsnævres ikke af @if, og `as` binder på sandhed. -->
+    <!-- Also outside the row button, and for the same reason: the label would otherwise be part of
+         the row's accessible name, which TaskListScreen.RowTitled matches in its entirety.
+         @let, not `as`: a signal call is not narrowed by @if, and `as` binds on truthiness. -->
     @let issueUrl = task().externalUrl;
     @if (issueUrl) {
       <p class="text-xs">
-        <!-- En <button>, ikke et <a href>: Photino-vinduet har hverken adresselinje eller
-             tilbage-knap, så en navigation væk er enkeltrettet. Systemets browser åbner den. -->
+        <!-- A <button>, not an <a href>: the Photino window has neither an address bar nor a back
+             button, so a navigation away is one-way. The system browser opens it. -->
         <button
           type="button"
           data-testid="external-link"
@@ -126,10 +129,10 @@
   </div>
 </div>
 @if (expanded()) {
-  <!-- Kun den smalle udgave renderer panelet her: side by side står det i sin egen spalte, og
-       to kopier ville give dubletter på data-testid="task-detail", som Playwright tavst vælger
-       den første af. Betingelsen er derfor task-list.html, som ejer signalet — rækken får bare
-       at vide om den er udvidet. -->
+  <!-- Only the narrow build renders the panel here: side by side it stands in its own column, and
+       two copies would give duplicates on data-testid="task-detail", of which Playwright silently
+       picks the first. The condition therefore lives in task-list.html, which owns the signal —
+       the row is simply told whether it is expanded. -->
   <app-task-detail
     class="mt-2"
     [task]="task()"

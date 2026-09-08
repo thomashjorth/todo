@@ -1,28 +1,33 @@
-<!-- Genvejsmærkatens to klasser er målt, ikke valgt på smag, og de gør hver sin ting.
-     inline-block + leading-none er årsagsrettelsen: padding og kant på en ikke-erstattet
-     INLINE-boks vokser ikke linjeboksen, så mærkatens kantboks var 18 px i en 16 px linje og
-     malede 1 px NED I feltet under den — mens etiket-spanden blev ved at være 16 px høj, og
-     derfor så intet forkert ud. Målt: leading-none alene på en inline gjorde ingenting (stadig
-     18 px, stadig -1 px); som inline-block bliver boksen 14 px og holder sig inde i linjen.
-     ⇧-glyffen klippes ikke — efterset i 6x forstørrelse.
-     mb-1 på etiketten er det andet halve, fordi årsagsrettelsen alene kun gav +1 px, altså netop
-     de "et par pixels" brugeren klagede over. Med begge: mærkatens underkant 5 px over feltet,
-     tekstens 4 px, i begge layouts. 5 < de 8 px space-y-2 giver mellem to felter, så grupperingen
-     holder — og 4 px er panelets egen rytme i forvejen (space-y-1 om noten og underopgaverne, som
-     derfor ikke har mb-1: 4 px + 1 giver dem samme 5 px gratis).
-     Ingen af de to reflower når Alt trykkes: begge koster nul, når mærkaten ikke er der.
-     Rør ikke px-1, kanten eller farverne — kanten er det der gør mærkaten til en tast, og
-     farverne er det målte par ContrastTests holder øje med. -->
-<!-- Titlen står først, og det er ikke pynt: side om side har højre spalte ellers intet der siger
-     hvilken opgave den hører til — accentkanten på rækken i venstre spalte er hele signalet — så
-     feltet giver den brede udgave en overskrift gratis, uden en ekstra komponent.
-     maxlength spejler serverens egen grænse, så ErrorCodes.TaskTitleTooLong ikke kan nås herfra.
-     Sammen med tilbagerulningen i saveTitle betyder det, at serveren aldrig kan afvise et
-     titelgem — og DET er hvad der lader panelet slippe for et fejlsignal, en errors.*-nøgle og en
-     @if-gren mere. Prisen: en indsat titel på 600 tegn klippes tavst til 500 af browseren.
-     saveTitle og ikke save({ title: text(...) }): text() svarer undefined på tomt, og update's
-     spread lader et eksplicit undefined RYDDE feltet, så serveren ville få title: undefined,
-     afvise med 400, og .catch(() => {}) ville sluge den. -->
+<!-- The shortcut badge's two classes are measured rather than chosen by taste, and they each do a
+     different thing.
+     `inline-block` + `leading-none` is the fix at the cause: padding and a border on a
+     non-replaced INLINE box do not enlarge the line box, so the badge's border box was 18 px in a
+     16 px line and painted 1 px DOWN INTO the field below it — while the label span went on being
+     16 px tall, and therefore nothing looked wrong. Measured: `leading-none` alone on an inline
+     did nothing (still 18 px, still -1 px); as `inline-block` the box becomes 14 px and stays
+     inside the line.
+     The ⇧ glyph is not clipped — checked at 6x magnification.
+     `mb-1` on the label is the other half, because the fix at the cause alone gave only +1 px,
+     which is precisely the "couple of pixels" the user complained about. With both: the badge's
+     bottom edge 5 px above the field, the text's 4 px, in both layouts. 5 < the 8 px `space-y-2`
+     gives between two fields, so the grouping holds — and 4 px is the panel's own rhythm already
+     (`space-y-1` around the note and the subtasks, which therefore have no `mb-1`: 4 px + 1 gives
+     them the same 5 px for free).
+     Neither of the two reflows when Alt is pressed: both cost nothing when the badge is not there.
+     Do not touch `px-1`, the border or the colours — the border is what makes the badge a key, and
+     the colours are the measured pair ContrastTests keeps an eye on. -->
+<!-- The title comes first, and that is not decoration: side by side, the right column otherwise
+     has nothing saying which task it belongs to — the accent border on the row in the left column
+     is the whole signal — so the field gives the wide build a heading for free, without an extra
+     component.
+     maxlength mirrors the server's own limit, so ErrorCodes.TaskTitleTooLong cannot be reached
+     from here. Together with the rollback in saveTitle that means the server can never reject a
+     title save — and THAT is what lets the panel do without an error signal, an errors.* key and
+     one more @if branch. The price: a pasted 600-character title is silently cut to 500 by the
+     browser.
+     saveTitle and not save({ title: text(...) }): text() answers undefined on empty, and update's
+     spread lets an explicit undefined CLEAR the field, so the server would get title: undefined,
+     reject with 400, and .catch(() => {}) would swallow it. -->
 <label class="block">
   <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
     >{{ 'tasks.title' | transloco }}
@@ -96,12 +101,12 @@
     (keyup.enter)="save({ deferUntil: text(deferUntil.value) })"
   />
 </label>
-<!-- En startdato efter deadline er tilladt med vilje — felterne gemmer hver for sig, så et
-     forbud ville afvise den halve redigering. Men Overskredet slår Udskudt, så startdatoen
-     gør ingenting, og uden denne linje ser feltet virksomt ud alligevel.
-     @let, ikke `as`, fordi @if ikke indsnævrer et signal-kald. Strengsammenligning:
-     yyyy-MM-dd sorterer leksikografisk, og new Date(streng) læser UTC-midnat og kan
-     vise dagen før. -->
+<!-- A start date after the deadline is allowed on purpose — the fields save one by one, so a ban
+     would reject half an edit. But Overdue outranks Deferred, so the start date does nothing, and
+     without this line the field looks effective all the same.
+     @let, not `as`, because @if does not narrow a signal call. String comparison: yyyy-MM-dd
+     sorts lexicographically, and new Date(string) reads UTC midnight and can show the day
+     before. -->
 @let dueDate = task().deadline;
 @let startDate = task().deferUntil;
 @if (dueDate && startDate && startDate > dueDate) {
@@ -203,18 +208,19 @@
       >
     }
   </span>
-  <!-- T frem for S: startdatoen har det stærkere krav på S, fordi den er et felt man skriver i,
-       hvor status er en vælger man også kan nå med piletasterne, når først den har fokus.
-       bg-* og text-* er ikke pynt her, og de er de eneste af panelets felter der har dem: WebView2
-       maler <select>-popup'en af ELEMENTETS egen baggrund, og var den transparent, faldt popup'en
-       tilbage på hvid — med optionernes nedarvede lysegrå tekst oven på, altså næsten usynlig i
-       mørkt tema. Målt 2026-08-27: rgba(0,0,0,0) på både select og option, mens color var
-       gray-100. Og bemærk hvad der IKKE virkede først: color-scheme når slet ikke popup'en, hverken
-       resolveret eller skrevet eksplicit ud. Sprogvælgeren på indstillingssiden har haft mønsteret
-       hele tiden og har derfor aldrig haft fejlen — den er det arbejdende eksempel.
-       Farverne er panelets egne, så siden ser uændret ud; optionerne får ingen klasser, fordi
-       background-color ikke nedarves og popup'ens flade kommer fra select'en. Vagten er
-       ColorSchemeTests, som måler alfaen frem for kuløren. -->
+  <!-- T rather than S: the start date has the stronger claim on S, because it is a field you type
+       in, where status is a picker you can also reach with the arrow keys once it has focus.
+       `bg-*` and `text-*` are not decoration here, and they are the only ones of the panel's
+       fields that have them: WebView2 paints the <select> popup from the ELEMENT'S own background,
+       and if that was transparent the popup fell back on white — with the options' inherited light
+       grey text on top of it, that is to say almost invisible in the dark theme. Measured
+       2026-08-27: rgba(0,0,0,0) on both select and option, while color was `gray-100`. And note
+       what did NOT work first: color-scheme does not reach the popup at all, neither resolved nor
+       written out explicitly. The language picker on the settings page has had the pattern all
+       along and has therefore never had the fault — it is the working example.
+       The colours are the panel's own, so the page looks unchanged; the options get no classes,
+       because background-color is not inherited and the popup's surface comes from the select. The
+       guard is ColorSchemeTests, which measures the alpha rather than the hue. -->
   <select
     #status
     appShortcut="t"
@@ -230,16 +236,17 @@
   </select>
 </label>
 @if (task().status === waitingFor) {
-  <!-- Uddelegering er en genvej til Venter på + hvem, så vælgeren ovenfor spørger og det her
-       felt svarer: det får fokus, når status flytter hertil.
-       Forslag, ikke krav — feltet bliver et tekstfelt, fordi "venter på ingen" og "venter på
-       en der ikke står på listen" begge er gyldige tilstande i dag.
-       Listen bor i task-list.html: den er den samme for alle rækker, og et id pr. række ville
-       give dubletter i dokumentet, hvor browseren tavst vælger den første.
-       Prisen: <datalist>s popup kan ContrastTests ikke måle, fordi den er browserens eget
-       chrome og ikke DOM. Samme handel som sprogvælgeren, der er et native <select>; roden
-       bærer en color-scheme netop for at de følger farvetemaet — se index.html, og bemærk at
-       den stod på <body> indtil 2026-08-27, hvor det viste sig kun at nå det halve. -->
+  <!-- Delegation is a shortcut for "Venter på" + who, so the picker above asks and this field
+       answers: it takes focus when the status moves here.
+       Suggestions, not a requirement — the field stays a text field, because "waiting for nobody"
+       and "waiting for someone who is not on the list" are both valid states today.
+       The list lives in task-list.html: it is the same for every row, and one id per row would
+       give duplicates in the document, where the browser silently picks the first.
+       The price: ContrastTests cannot measure a <datalist>'s popup, because it is the browser's
+       own chrome and not DOM. The same bargain as the language picker, which is a native
+       <select>; the root carries a color-scheme precisely so they follow the colour theme — see
+       index.html, and note that it sat on <body> until 2026-08-27, when it turned out to reach
+       only half the way. -->
   <label class="block">
     <span class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
       >{{ 'tasks.waitingOn' | transloco }}
@@ -319,9 +326,9 @@
     (keyup.enter)="createSubTask(newSubTask)"
   />
 </div>
-<!-- Kun fokus, i modsætning til resten af de aktiverende genveje: der er ingen bekræftelse og
-     ingen fortryd i appen, så det andet tryk ER bekræftelsen. Skift den ikke til activate uden
-     at lave en af de to ting først. -->
+<!-- Focus only, unlike the rest of the activating shortcuts: there is no confirmation and no undo
+     in the app, so the second press IS the confirmation. Do not change it to activate without
+     building one of those two things first. -->
 <button
   type="button"
   data-testid="delete-task"

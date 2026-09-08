@@ -2,8 +2,8 @@
   {{ 'ado.heading' | transloco }}
 </h2>
 
-<!-- Ord frem for en tom liste: uden opsætning er der ingenting at hente, og en knap der altid
-     fejler siger mindre end vejen til siden der retter det. -->
+<!-- Words rather than an empty list: without setup there is nothing to fetch, and a button that
+     always fails says less than the way to the page that puts it right. -->
 @if (!configured()) {
   <p data-testid="ado-not-configured" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
     {{ 'ado.notConfigured' | transloco }}
@@ -17,9 +17,10 @@
     >
   </p>
 } @else {
-  <!-- Den ene ting Jira-skærmen ikke skal sige: Azure DevOps har intet deadline-felt, så datoen på
-       hver række er appens eget regnestykke og ikke noget der blev hentet. Uden ordene ligner en
-       foreslået deadline en hentet, og så ville brugeren tro sagen havde en aftale bag sig. -->
+  <!-- The one thing the Jira screen must not say: Azure DevOps has no deadline field, so the date
+       on each row is the app's own arithmetic and not something that was fetched. Without the
+       words a suggested deadline looks like a fetched one, and the user would then believe the
+       item had a commitment behind it. -->
   <p data-testid="ado-deadline-notice" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
     {{ 'ado.deadlineNotice' | transloco }}
   </p>
@@ -46,21 +47,22 @@
 }
 
 @if (previewed()) {
-  <!-- Hvorfor afstemningen ikke havde noget at sige, oversat gennem errors.<kode> — samme vej som en
-       rækkes excluded og som apiErrorMessage, så notitsen ikke får sin egen mekanik. Ikke foldet ind i
-       fejllinjen ovenfor: forhåndsvisningen fejlede ikke, og hentningens egne rækker står på skærmen
-       og er værd at beholde.
+  <!-- Why the reconciliation had nothing to say, translated through errors.<code> — the same way
+       as a row's excluded and as apiErrorMessage, so the notice does not get mechanics of its own.
+       Not folded into the error line above: the preview did not fail, and the fetch's own rows are
+       on the screen and worth keeping.
 
-       Over splittet mellem "ingen sager er tildelt dig" og listen, ikke inde i listens gren: en
-       nægtet afstemning oven på en tom hentning er præcis dér notitsen betyder mest, og inde i
-       @else-grenen ville den være usynlig netop der, mens den så rigtig ud i enhver anden tilstand.
+       Above the split between "no items are assigned to you" and the list, not inside the list's
+       branch: a refused reconciliation on top of an empty fetch is exactly where the notice means
+       the most, and inside the @else branch it would be invisible precisely there, while looking
+       right in every other state.
 
-       Linjen står *i stedet for* afstemningsrækkerne — men det er en serverregel, ikke en
-       skabelonregel, og der er med vilje ingen @if her der skjuler rækker når notitsen står. Reglen
-       bor i AdoEndpoints.ReconciledRowsAsync, som returnerer ([], kode), og vagterne er
+       The line stands *instead of* the reconciliation rows — but that is a server rule, not a
+       template rule, and there is deliberately no @if here hiding rows when the notice is up. The
+       rule lives in AdoEndpoints.ReconciledRowsAsync, which returns ([], code), and the guards are
        Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission og
        One_missing_key_among_answered_ones_still_shows_every_row_because_the_notice_needs_all_of_them.
-       Samme regel to steder ville drive fra hinanden uden at nogen kunne se det. -->
+       The same rule in two places would drift apart without anybody being able to see it. -->
   @if (store.reconciliationMessage(); as notice) {
     <p
       data-testid="ado-reconciliation-notice"
@@ -79,8 +81,8 @@
       {{ 'ado.showing' | transloco: { shown: shown(), total: store.total() } }}
     </p>
 
-    <!-- Hvilken af de to, og hvor mange: at listen står der uden et eneste tændt afkrydsningsfelt
-         ligner ellers en fejl i skærmen. -->
+    <!-- Which of the two, and how many: the list standing there without a single ticked checkbox
+         otherwise looks like a fault in the screen. -->
     @if (nothingToSelect()) {
       <p data-testid="ado-nothing-to-select" class="mt-2 text-sm text-gray-700 dark:text-gray-300">
         @if (excludedCount() > 0) {
@@ -116,17 +118,18 @@
               <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
                 row.title
               }}</span>
-              <!-- Typen står før tilstanden, og den står der overhovedet, fordi et tilstandsnavn
-                   ikke betyder det samme på tværs af typer: en Test Suite bruger In Progress hvor en
-                   Bug bruger Active. Uden typen kan brugeren ikke afgøre om tilstanden er den hun
-                   valgte som ventende.
+              <!-- The type comes before the state, and it is there at all because a state name
+                   does not mean the same thing across types: a Test Suite uses In Progress where a
+                   Bug uses Active. Without the type the user cannot tell whether the state is the
+                   one she picked as waiting.
 
-                   Begge felter har en @if, og det er nyt: afstemningen kan spørge om en nøgle kilden
-                   ikke kender, og så kom der intet svar at tage hverken type eller tilstand fra.
-                   Fraværet siges højt frem for at efterlade en tom linje — "Type: " uden noget efter
-                   kan ikke skelnes fra en linje skærmen glemte at udfylde. Sandhedstest frem for
-                   != null: hentningens egen løkke skriver en tom streng når Azure DevOps ikke
-                   oplyser en type, og den skal læses som et fravær og ikke som en værdi. -->
+                   Both fields have an @if, and that is new: the reconciliation can ask about a key
+                   the source does not know, and then no answer came back to take either a type or
+                   a state from. The absence is said out loud rather than leaving an empty line —
+                   "Type: " with nothing after it cannot be told apart from a line the screen
+                   forgot to fill in. A truthiness test rather than != null: the fetch's own loop
+                   writes an empty string when Azure DevOps reports no type, and that has to be
+                   read as an absence rather than as a value. -->
               @if (row.workItemType) {
                 <span
                   data-testid="ado-type"
@@ -153,9 +156,9 @@
                   >{{ 'ado.noState' | transloco }}</span
                 >
               }
-              <!-- Foreslået, ikke hentet, og begge grene siges højt: er dagantallet nul, kommer
-                   sagen ind uden deadline, og en linje der bare mangler kan ikke skelnes fra en
-                   indstilling der ikke virkede. -->
+              <!-- Suggested, not fetched, and both branches are said out loud: if the day count is
+                   zero the item comes in without a deadline, and a line that is simply missing
+                   cannot be told apart from a setting that did not work. -->
               @if (row.deadline) {
                 <span
                   data-testid="ado-deadline"
@@ -178,9 +181,9 @@
                   >{{ 'ado.requesterValue' | transloco: { value: row.requester } }}</span
                 >
               }
-              <!-- At beskrivelsen findes, ikke hvad der står i den. Azure DevOps' felt er rå HTML og
-                   ikke CommonMark endnu, så teksten her ville hverken være den brugeren ender med at
-                   se i noten eller en ærlig gengivelse af markuppen. -->
+              <!-- That the description exists, not what it says. Azure DevOps' field is raw HTML
+                   and not CommonMark yet, so the text here would be neither what the user ends up
+                   seeing in the note nor an honest rendering of the markup. -->
               @if (row.note) {
                 <span
                   data-testid="ado-note"
@@ -188,17 +191,17 @@
                   >{{ 'ado.hasNote' | transloco }}</span
                 >
               }
-              <!-- Serveren ejer beslutningen og tager den igen ved import, så den må ikke genudledes
-                   her ud af tilstanden og indstillingerne. Datoen ligger indeni, fordi den kun
-                   følger med en ventende række. -->
+              <!-- The server owns the decision and takes it again at import, so it must not be
+                   re-derived here out of the state and the settings. The date sits inside, because
+                   it only comes along with a waiting row. -->
               @if (row.isWaiting) {
                 <span
                   data-testid="ado-waiting"
                   class="block text-xs text-gray-500 dark:text-gray-400"
                   >{{ 'ado.waiting' | transloco }}</span
                 >
-                <!-- @let frem for as: @if indsnævrer ikke et udtryk til waitingSince(), som kræver
-                     en string. -->
+                <!-- @let rather than as: @if does not narrow an expression down for
+                     waitingSince(), which requires a string. -->
                 @let since = row.waitingSince;
                 @if (since) {
                   <span
@@ -208,41 +211,44 @@
                   >
                 }
               }
-              <!-- Udeladt vises frem for at skjules: skjult ville sagen ligne en Azure DevOps havde
-                   tabt, og indstillingen adoIncludeWaiting ville være usynlig. -->
+              <!-- Excluded is shown rather than hidden: hidden, the item would look like one Azure
+                   DevOps had lost, and the adoIncludeWaiting setting would be invisible. -->
               @if (row.excluded) {
                 <span
                   data-testid="ado-excluded"
                   class="block text-xs font-medium text-gray-700 dark:text-gray-300"
                   >{{ excludedReason(row) }}</span
                 >
-                <!-- Begge forslag foran alreadyImported, ikke efter: en række der foreslår en
-                   lukning eller en genåbning *er* pr. definition også importeret tidligere, så den
-                   sidste gren ville sluge dem begge og skrive "importeret tidligere" over et tilbud
-                   brugeren skal handle på. Mærkaten havner i afkrydsningsfeltets tilgængelige navn,
-                   fordi rækken er en <label> — her en gevinst, for navnet kommer til at sige hvad
-                   fluebenet gør.
+                <!-- Both suggestions in front of alreadyImported, not after: a row that suggests a
+                   closure or a reopening *is* by definition also imported earlier, so the last
+                   branch would swallow them both and write "importeret tidligere" over an offer
+                   the user is meant to act on. The label ends up in the checkbox's accessible
+                   name, because the row is a <label> — a gain here, since the name comes to say
+                   what the tick does.
 
-                   To sætninger frem for én, fordi de to fund ikke er samme nyhed: løst betyder at
-                   arbejdet er forbi, overdraget at det ikke længere er dit. Ét testid med to tekster,
-                   så E2E-rejsen og kontrastvagten bliver ved at pege på det samme element — og fordi
-                   den løste sætning er byte-identisk med den der stod før opsplitningen, er de to
-                   ærlige frem for tilfældigvis stadig grønne.
+                   Two sentences rather than one, because the two findings are not the same news:
+                   resolved means the work is over, handed over that it is no longer yours. One
+                   testid with two texts, so the E2E journey and the contrast guard go on pointing
+                   at the same element — and because the resolved sentence is byte-identical with
+                   the one that stood before the split, the two are honest rather than green by
+                   coincidence.
 
-                   Grunden er en betingelse og ikke et fallback, og det er en rettelse: grenen spurgte
-                   kun om suggestsClosing og lod ternæren falde tilbage på den løste sætning, mens
-                   AdoStores hasReason **dropper** samme række fra wiren. De to ender valgte altså
-                   modsat for samme tilstand, så knappen ville love Luk 2 opgaver mens forespørgslen
-                   bar én. Nu siger de det samme: uden en grund er der ingen mærkat her og ingen
-                   række på wiren, og rækken falder igennem til alreadyImported — hvilket er sandt,
-                   for der sker ingenting med den.
+                   The reason is a condition and not a fallback, and that is a fix: the branch
+                   asked only about suggestsClosing and let the ternary fall back on the resolved
+                   sentence, while AdoStore's hasReason **drops** the same row from the wire. The
+                   two ends therefore chose oppositely for the same state, so the button would
+                   promise "Luk 2 opgaver" while the request carried one. Now they say the same
+                   thing: without a reason there is no label here and no row on the wire, and the
+                   row falls through to alreadyImported — which is true, because nothing happens
+                   to it.
 
-                   Tilstanden er *uopnåelig i drift*: serveren sætter altid closureReason når
-                   suggestsClosing er sand — begge felter kommer af ét udtryk både i hentningens
-                   løkke i AdoEndpoints' previewAdo-handler og i AdoEndpoints.ReconciledRowsAsync.
-                   (Medlemsnavne og ikke linjenumre: et tal rådner tavst ved den første indsættelse
-                   ovenfor, og læseren lander et sted der er plausibelt og forkert.) Læs den altså
-                   ikke som at serveren nogle gange udelader grunden, og byg ikke noget på det. -->
+                   The state is *unreachable in operation*: the server always sets closureReason
+                   when suggestsClosing is true — both fields come out of one expression, both in
+                   the fetch's loop in AdoEndpoints' previewAdo handler and in
+                   AdoEndpoints.ReconciledRowsAsync. (Member names and not line numbers: a number
+                   rots silently on the first insertion above, and the reader lands somewhere
+                   plausible and wrong.) So do not read it as the server sometimes leaving the
+                   reason out, and do not build anything on it. -->
               } @else if (row.suggestsClosing && row.closureReason) {
                 <span
                   data-testid="ado-suggests-closing"
@@ -254,21 +260,22 @@
                     ) | transloco
                   }}</span
                 >
-                <!-- Genåbningen står efter lukningen og før alreadyImported. Rækkefølgen mellem de to
-                   forslag er uden betydning — serveren sætter aldrig begge på én række — mens deres
-                   plads foran alreadyImported er bærende. -->
+                <!-- The reopening stands after the closure and before alreadyImported. The order
+                   between the two suggestions does not matter — the server never sets both on one
+                   row — while their place in front of alreadyImported is load-bearing. -->
               } @else if (row.suggestsReopening) {
                 <span
                   data-testid="ado-suggests-reopening"
                   class="block text-xs font-medium text-blue-700 dark:text-blue-300"
                   >{{ 'ado.suggestsReopening' | transloco }}</span
                 >
-                <!-- Hvad forslaget fører til, som kontrakten lover om reopenTo: forslaget skal sige
-                     hvad det gør. Her er fallbacket til den åbne sætning stadig et fallback, og det
-                     er ikke en inkonsekvens efter stramningen ovenfor: den blev strammet fordi
-                     storen droppede den reason-løse række fra wiren, så skærm og wire var uenige.
-                     reopenTo rejser slet ikke tilbage — serveren udleder den igen af tilstanden — så
-                     der er ingen anden ende at være uenig med. -->
+                <!-- What the suggestion leads to, as the contract promises about reopenTo: the
+                     suggestion has to say what it does. Here the fallback to the open sentence is
+                     still a fallback, and that is not an inconsistency after the tightening
+                     above: that one was tightened because the store dropped the reason-less row
+                     from the wire, so screen and wire disagreed. reopenTo does not travel back at
+                     all — the server derives it again from the state — so there is no other end
+                     to disagree with. -->
                 <span
                   data-testid="ado-reopen-to"
                   class="block text-xs text-gray-500 dark:text-gray-400"
@@ -286,12 +293,13 @@
               }
             </span>
           </label>
-          <!-- Uden for <label> med vilje: en knap inde i den ville lægge sin tekst i
-               afkrydsningsfeltets tilgængelige navn, og E2E-suiten matcher navne i deres helhed. -->
+          <!-- Outside the <label> on purpose: a button inside it would put its text into the
+               checkbox's accessible name, and the E2E suite matches names in their entirety. -->
           <p class="mt-1 pl-6 text-xs">
-            <!-- En <button>, ikke et <a href>: Photino-vinduet har hverken adresselinje eller
-                 tilbage-knap, så en navigation væk er enkeltrettet. Ingen @if: url er required på
-                 kontrakten. Nøglen er tasks.openIssue, samme handling på samme slags ting. -->
+            <!-- A <button>, not an <a href>: the Photino window has neither an address bar nor a
+                 back button, so a navigation away is one-way. No @if: url is required on the
+                 contract. The key is tasks.openIssue, the same action on the same kind of
+                 thing. -->
             <button
               type="button"
               data-testid="ado-open-item"
@@ -301,8 +309,8 @@
               {{ 'tasks.openIssue' | transloco }}
             </button>
           </p>
-          <!-- Ved rækken man trykkede på, ikke øverst: spalten er ~480 px og listen kan være tyve
-               rækker lang, så en besked i toppen ville være ude af syne. -->
+          <!-- Beside the row you pressed, not at the top: the column is ~480 px and the list can
+               be twenty rows long, so a message at the top would be out of sight. -->
           @let failedOpen = openError();
           @if (failedOpen && failedOpen.key === row.key) {
             <p
@@ -324,10 +332,11 @@
       [disabled]="chosenCount() === 0 || store.busy()"
       (click)="importSelected()"
     >
-      <!-- Ét led pr. mængde knappen handler på, frem for en gren pr. kombination: tre mængder er
-           syv kombinationer, og en fjerde ville gøre dem til femten. En samlet optælling ville sige
-           Importér 5 sager, hvor to af dem lukkes. Sammensætningen står i chosenLabel, hvor
-           begrundelsen for midterprikken frem for et komma også står. -->
+      <!-- One clause per set the button acts on, rather than one branch per combination: three
+           sets are seven combinations, and a fourth would make them fifteen. A single count would
+           say "Importér 5 sager" where two of them are being closed. The composition is in
+           chosenLabel, where the reason for the middle dot rather than a comma is written down
+           too. -->
       {{ chosenLabel() }}
     </button>
   }

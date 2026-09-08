@@ -1,9 +1,10 @@
-<!-- Loftet på 672 px er hele appens, så to spalter kan ikke lægges ind under det: xl:max-w-none
-     hæver det, og hver af de fire andre skærme sætter sit eget igen, så kun opgavelisten bliver
-     bred. Hele omlægningen står bag xl:, så den smalle udgave er uændret — det er derfor de 47
-     E2E på 480 px måler nøjagtigt det de målte før.
-     xl:h-screen er rammen de to spalter ruller indeni, og xl:overflow-y-auto på wrapperen nedenfor
-     er den ene klasse hele rulningen hænger på — begrundelsen og målingerne står ved den. -->
+<!-- The 672 px ceiling is the whole app's, so two columns cannot be fitted underneath it:
+     `xl:max-w-none` lifts it, and each of the four other screens sets its own again, so only the
+     task list gets wide. The whole rework sits behind `xl:`, so the narrow build is unchanged —
+     which is why the 47 E2E at 480 px measure exactly what they measured before.
+     `xl:h-screen` is the frame the two columns scroll inside, and `xl:overflow-y-auto` on the
+     wrapper below is the one class the whole scrolling hangs on — the reason and the measurements
+     are written down beside it. -->
 <main class="mx-auto max-w-2xl p-4 sm:p-8 xl:flex xl:h-screen xl:max-w-none xl:flex-col">
   <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ 'app.title' | transloco }}</h1>
   <nav class="mt-2 flex flex-wrap gap-4">
@@ -26,12 +27,13 @@
         >
       }
     </a>
-    <!-- Markøren hænger her og ikke på opgavelisten, fordi den så er synlig fra alle seks skærme og
-         ikke koster lodret plads i en 480 px spalte. Glyffen er tekst og aria-hidden; ordet kommer
-         fra en sr-only-søskende, så linkets tilgængelige navn faktisk skifter til "Gennemgang
-         forfalden" — en farvet prik alene er ikke en forskel efter WCAG. Tekstglyf frem for en SVG
-         af samme grund som accordion-chevronen: en SVG uden titel bidrager intet til navnet, så
-         mutationen der fjerner aria-hidden ville fælde ingenting. -->
+    <!-- The marker hangs here rather than on the task list, because it is then visible from all six
+         screens and costs no vertical room in a 480 px column. The glyph is text and aria-hidden;
+         the word comes from an `sr-only` sibling, so the link's accessible name really does change
+         to "Gennemgang forfalden" — a coloured dot on its own is not a difference under WCAG. A
+         text glyph rather than an SVG for the same reason as the accordion chevron: an SVG without
+         a title contributes nothing to the name, so the mutation that removes aria-hidden would
+         fell nothing. -->
     <a
       data-testid="nav-review"
       appShortcut="g"
@@ -129,34 +131,37 @@
       }
     </a>
   </nav>
-  <!-- Wrapperen ruller, og det er den ene klasse fire skærme hænger på: xl:h-screen ovenfor er hele
-       appens ramme, så en skærm der er højere end vinduet bliver klippet af den — og med
-       overflow: visible blev den ikke klippet, den flød ned gennem health-linjen nedenfor. Målt på
-       ADO-importen i 1400×600: wrapperen 424 px, skærmen 1310 px, health-linjen fast på y=552, og en
-       sidescrolling hjalp ikke, fordi main flytter sig som helhed. Opgavelisten slap, fordi dens
-       spalter ruller selv; de fire andre er kun `block xl:max-w-2xl`.
-       Rullebjælken lander i vinduets højre kant, fordi wrapperen er fuld bredde — det var
-       argumentet mod at lægge overflow'et på hver af de fire hosts, hvor den ville stå midt i
-       vinduet ved x≈704 inde i deres max-w-2xl.
-       Der står ikke min-h-0 her længere, og det er målt frem for glemt: et flexbarn hvis overflow
-       ikke er visible har allerede automatisk minimumstørrelse nul, så wrapperen krymper til 424 px
-       uanset. Fjernes xl:overflow-y-auto igen, siger The_columns_scroll_on_their_own
-       "The list column did not scroll inside itself: 0" — klassen bærer altså begge halvdele nu.
-       overflow-x computerer til auto af sig selv (visible + auto er ikke en lovlig kombination),
-       men scrollWidth == clientWidth på begge skærme, så der kommer ingen vandret bjælke.
-       Og netop den auto-computering koster: en beholder med overflow auto klipper ved sin
-       padding-kant, og hvert w-full-felt på de fire skærme står flush mod den — så fokusringen,
-       som er outline-2 med outline-offset-2 og altså ligger 4 px uden for feltets kant, fik sit
-       venstre segment skåret af. xl:-mx-2 + xl:px-2 er ét par: den negative margin flytter
-       klippekanten 8 px længere ud til hver side, og padding'en lægger indholdskanten præcis
-       tilbage hvor den var, så ingen skærm flytter sig og de målte tal ovenfor står. De 8 px er
-       valgt frem for 4, så et ekstra trin offset ikke rammer kanten igen. Overhænget på 8 px
-       bliver inde i mains egen p-8, så der kommer ingen vandret rulning af det. Begge sider, ikke
-       kun venstre: de fire skærme er max-w-2xl og har luft til højre, men opgavelistens
-       detaljespalte går helt ud til wrapperens højre kant, og dens ring skal have plads her.
-       Den lodrette akse er med vilje urørt — et negativt my her ville æde afstanden til nav og
-       health-linjen, og et element hvis ring rammer over- eller underkanten findes kun mens man
-       ruller helt ud. -->
+  <!-- The wrapper is what scrolls, and it is the one class four screens hang on: `xl:h-screen`
+       above is the whole app's frame, so a screen taller than the window gets clipped by it — and
+       with overflow: visible it was not clipped, it flowed down through the health line below.
+       Measured on the ADO import at 1400×600: the wrapper 424 px, the screen 1310 px, the health
+       line fixed at y=552, and scrolling the page sideways did not help, because main moves as a
+       whole. The task list escaped, because its columns scroll on their own; the four others are
+       only `block xl:max-w-2xl`.
+       The scrollbar lands in the window's right edge, because the wrapper is full width — that was
+       the argument against putting the overflow on each of the four hosts, where it would stand in
+       the middle of the window at x≈704 inside their `max-w-2xl`.
+       There is no `min-h-0` here any more, and that is measured rather than forgotten: a flex child
+       whose overflow is not visible already has an automatic minimum size of zero, so the wrapper
+       shrinks to 424 px either way. Take `xl:overflow-y-auto` away again and
+       The_columns_scroll_on_their_own says "The list column did not scroll inside itself: 0" — so
+       the class carries both halves now.
+       overflow-x computes to auto by itself (visible + auto is not a legal combination), but
+       scrollWidth == clientWidth on both screens, so no horizontal bar turns up.
+       And it is precisely that auto-computation that costs: an element with overflow auto clips at
+       its padding edge, and every `w-full` field on the four screens sits flush against it — so the
+       focus ring, which is `outline-2` with `outline-offset-2` and therefore lies 4 px outside the
+       field's edge, had its left segment cut off. `xl:-mx-2` + `xl:px-2` are one pair: the negative
+       margin moves the clipping edge 8 px further out on each side, and the padding puts the
+       content edge back exactly where it was, so no screen moves and the measured numbers above
+       stand. The 8 px are chosen over 4, so one extra step of offset does not reach the edge again.
+       The 8 px overhang stays inside main's own p-8, so no horizontal scrolling comes of it. Both
+       sides, not only the left: the four screens are `max-w-2xl` and have room to the right, but
+       the task list's detail column runs all the way out to the wrapper's right edge, and its ring
+       needs the space here.
+       The vertical axis is deliberately untouched — a negative `my` here would eat the distance to
+       the nav and the health line, and an element whose ring reaches the top or bottom edge exists
+       only while you are scrolled all the way out. -->
   <div class="xl:-mx-2 xl:flex-1 xl:overflow-y-auto xl:px-2">
     <router-outlet />
   </div>

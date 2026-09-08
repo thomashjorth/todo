@@ -2,17 +2,18 @@
   {{ 'settings.heading' | transloco }}
 </h2>
 
-<!-- Fem ligestillede grupper, hver en <section> med en <h3> med samme klasser: dine egne
-     indstillinger først, kilderne sidst, fordi kilderne sættes op én gang, mens sproget og
-     uddelegeringen er det man rører. Hver gruppe bærer sin egen fejllinje — en fejl i tokenet
-     hører ikke ved sproget.
-     ADO-import står ved siden af Jira-import, fordi de to grupper har samme form — URL, projekt,
-     token, test, ventende-liste, kontakt — så læseren møder mønstret én gang frem for to gange med
-     noget imellem. Retro-import bliver sidst: den er ikke en forbundet kilde, den er en fil man
-     lægger ind, så den har hverken URL eller token og hører derfor yderst.
-     Foldningen ændrer ikke den rækkefølge — kun hvor meget af den der er fremme ad gangen. Én
-     åben gruppe, og nul er en gyldig tilstand: siden ankommer sådan, og et klik på den åbne
-     overskrift lukker den igen. -->
+<!-- Five equal groups, each a <section> with an <h3> with the same classes: your own settings
+     first, the sources last, because the sources are set up once, while the language and the
+     delegation are what you touch. Each group carries its own error line — a fault in the token
+     does not belong beside the language.
+     The ADO import stands beside the Jira import, because the two groups have the same shape —
+     URL, project, token, test, waiting list, switch — so the reader meets the pattern once rather
+     than twice with something in between. The retro import comes last: it is not a connected
+     source, it is a file you put in, so it has neither a URL nor a token and therefore belongs
+     outermost.
+     The folding does not change that order — only how much of it is out at a time. One open group,
+     and none open is a valid state: the page arrives that way, and a click on the open heading
+     closes it again. -->
 <div class="mt-4 border-t border-gray-300 dark:border-gray-700">
   <section
     appSettingsSection
@@ -22,10 +23,10 @@
     [open]="isOpen('language')"
     (toggled)="toggleSection('language')"
   >
-    <!-- Mærkaten er synlig, fordi gruppen hedder Generelt og derfor ikke navngiver vælgeren: en
-         skjult mærkat ville efterlade en dropdown uden et ord ved siden af. Dengang gruppen hed
-         Sprog og havde præcis én kontrol, var mærkaten skjult, fordi den ellers havde skrevet
-         ordet to gange. -->
+    <!-- The label is visible, because the group is called "Generelt" and therefore does not name
+         the picker: a hidden label would leave a dropdown with no word beside it. Back when the
+         group was called "Sprog" and had exactly one control, the label was hidden, because it
+         would otherwise have written the word twice. -->
     <label
       for="settings-language"
       class="mt-2 block text-sm font-medium text-gray-900 dark:text-gray-100"
@@ -64,8 +65,8 @@
     [open]="isOpen('delegate')"
     (toggled)="toggleSection('delegate')"
   >
-    <!-- Ordene er den ene halvdel af det her: uddelegering er bogføring, og en bruger der tror der
-         blev sendt en besked, har handlet uden at vide at ingen fik det at vide. -->
+    <!-- The words are one half of this: delegation is bookkeeping, and a user who believes a
+         message was sent has acted without knowing that nobody was told. -->
     <p data-testid="delegates-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
       {{ 'settings.delegates.hint' | transloco }}
     </p>
@@ -297,8 +298,8 @@
       }}</span>
     </label>
 
-    <!-- Efter den ventende, ikke før: vagten *overskriver* ventende, og læses de i omvendt
-         rækkefølge ser det ud som om ventende vinder. -->
+    <!-- After the waiting one, not before: duty *overrides* waiting, and read in the opposite
+         order it looks as though waiting wins. -->
     <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
       {{ 'settings.jira.dutyStatuses' | transloco }}
     </h4>
@@ -349,16 +350,15 @@
       }}</span>
     </label>
 
-    <!-- Ord frem for kun en mærkat: kontakten henter puljens sager *og* gør dem handlingsklare, og
-         en kontakt der kun hedder Jeg har vagten siger ikke det sidste. -->
+    <!-- Words rather than only a label: the switch fetches the pool's issues *and* makes them
+         actionable, and a switch called only "Jeg har vagten" does not say the latter. -->
     <p data-testid="jira-on-duty-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
       {{ 'settings.jira.onDutyHint' | transloco }}
     </p>
 
-    <!-- Sidst af de tre lister, fordi færdig slår begge de andre: læses den først, ser det ud som
-         om ventende eller vagt kunne vinde over den. Ingen kontakt ved siden af, i modsætning til
-         de to ovenfor — færdighed tilbyder kun at lukke en opgave du allerede har, så der er intet
-         at slå til. -->
+    <!-- Last of the three lists, because done outranks both the others: read first, it looks as
+         though waiting or duty could win over it. No switch beside it, unlike the two above —
+         doneness only offers to close a task you already have, so there is nothing to turn on. -->
     <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
       {{ 'settings.jira.doneStatuses' | transloco }}
     </h4>
@@ -395,10 +395,10 @@
       </ul>
     }
 
-    <!-- Gruppens egen linje, som ADO-gruppen har haft hele tiden og denne ikke havde: `error`
-         skrives af hver gemning, så en afvist basis-URL eller et afvist token landede på linjen
-         over sprogvælgeren. Med foldning er det værre end forkert placeret — er sproggruppen
-         lukket, ser brugeren ingenting. -->
+    <!-- The group's own line, which the ADO group has had all along and this one did not: `error`
+         is written by every save, so a rejected base URL or a rejected token landed on the line
+         above the language picker. With folding that is worse than misplaced — if the language
+         group is closed, the user sees nothing. -->
     @if (settings.jiraError(); as message) {
       <p
         data-testid="jira-settings-error"
@@ -434,8 +434,9 @@
       (change)="saveAdoBaseUrl(adoBaseUrl.value)"
     />
 
-    <!-- Samlingens URL bærer sit eget mellemrum som %20, og appen escaper den ikke igen — projektet
-         er derimod et navn brugeren skriver, og det escaper appen. Derfor to felter og ikke ét. -->
+    <!-- The collection's URL carries its own space as %20, and the app does not escape it again —
+         the project, by contrast, is a name the user types, and that one the app escapes. Hence
+         two fields rather than one. -->
     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
       {{ 'settings.ado.baseUrlHint' | transloco }}
     </p>
@@ -501,8 +502,8 @@
       }
     </div>
 
-    <!-- Over tilstandsvælgeren af samme grund som hos Jira: vælgeren kræver en forbindelse der
-         virker, så et forkert token vises her som en grund frem for der som en tom liste. -->
+    <!-- Above the state picker for the same reason as at Jira: the picker needs a connection that
+         works, so a wrong token is shown here as a reason rather than there as an empty list. -->
     <div class="mt-3 flex flex-wrap items-center gap-2">
       <button
         type="button"
@@ -589,9 +590,9 @@
       }}</span>
     </label>
 
-    <!-- Samme liste af tilstande, tilbudt en gang til: GET /api/ado/states svarer med det hele,
-         og begge spørgsmål stilles til det ene svar. Ingen kontakt ved siden af, af samme grund
-         som i Jira-gruppen. -->
+    <!-- The same list of states, offered once more: GET /api/ado/states answers with the whole
+         lot, and both questions are put to the one answer. No switch beside it, for the same
+         reason as in the Jira group. -->
     <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
       {{ 'settings.ado.doneStates' | transloco }}
     </h4>
@@ -625,9 +626,8 @@
       </ul>
     }
 
-    <!-- Ingen vagt-liste her, og det er ikke en mangel: Azure DevOps har ingen pulje af sager der
-         venter på den der har vagten, så en anden liste ville være en indstilling uden en
-         betydning. -->
+    <!-- No duty list here, and that is not an omission: Azure DevOps has no pool of items waiting
+         for whoever is on duty, so another list would be a setting without a meaning. -->
     <h4 class="mt-6 text-sm font-medium text-gray-900 dark:text-gray-100">
       {{ 'settings.ado.workItemTypes' | transloco }}
     </h4>
@@ -692,8 +692,9 @@
       (change)="saveDeadlineDays(deadlineDays.value)"
     />
 
-    <!-- Gruppens egen linje, ikke settings-error: den skrives af hver gemning, så en afvist
-         sagstype ville dukke op igen over sprogvælgeren næste gang sproget blev valgt. -->
+    <!-- The group's own line, not settings-error: that one is written by every save, so a rejected
+         work item type would turn up again above the language picker the next time the language
+         was chosen. -->
     @if (settings.adoError(); as message) {
       <p
         data-testid="ado-settings-error"
@@ -705,9 +706,9 @@
     }
   </section>
 
-  <!-- Aliaserne hører her, ikke sammen med de delegerede: de betyder hvad der er *mit* i en
-       importeret CSV og findes kun fordi retro-importen findes. De delegerede er andre mennesker.
-       -->
+  <!-- The aliases belong here, not together with the delegates: they mean what is *mine* in an
+       imported CSV and exist only because the retro import exists. The delegates are other
+       people. -->
   <section
     appSettingsSection
     data-testid="retro-settings"
@@ -759,9 +760,9 @@
     }
   </section>
 
-  <!-- Gennemgangen står sidst, fordi den er den nyeste og ikke fordi den er mindst vigtig: de fem
-       grupper over den har en rækkefølge der er begrundet ovenfor, og at skubbe en ind i midten
-       ville bryde den uden at vinde noget. -->
+  <!-- The review stands last, because it is the newest and not because it matters least: the five
+       groups above it have an order that is reasoned about above, and pushing one into the middle
+       would break it without gaining anything. -->
   <section
     appSettingsSection
     data-testid="review-settings"
@@ -779,12 +780,13 @@
       class="mt-3 block text-sm font-medium text-gray-900 dark:text-gray-100"
       >{{ 'settings.review.weekday' | transloco }}</label
     >
-    <!-- bg-white dark:bg-gray-800 er bærende og ikke pynt: WebView2 maler en <select>-popup af
-         elementets EGEN baggrund, og er den transparent, falder popup en tilbage på hvid — med den
-         lyse tekst fra det mørke tema ovenpå. Parret er sidens, som sprogvælgeren ovenfor, ikke
-         panelets gray-50; en <select> skal male den flade den står på.
-         Optionerne får ingen klasser: background-color nedarves ikke, og popup ens flade kommer
-         fra select en. -->
+    <!-- `bg-white dark:bg-gray-800` is load-bearing and not decoration: WebView2 paints a
+         <select> popup from the element's OWN background, and if that is transparent the popup
+         falls back on white — with the light text from the dark theme on top of it. The pair is
+         the page's, like the language picker above, not the panel's gray-50; a <select> has to
+         paint the surface it stands on.
+         The options get no classes: background-color is not inherited, and the popup's surface
+         comes from the select. -->
     <select
       #weekday
       id="review-weekday"
