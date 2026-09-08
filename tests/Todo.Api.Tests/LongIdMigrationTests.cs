@@ -15,19 +15,19 @@ using Todo.TestSupport;
 namespace Todo.Api.Tests;
 
 /// <summary>
-/// Alle andre tests møder LongIds-migreringen på en tom database, hvor den kun opretter tabeller.
-/// Rækkerne den skal bære er brugerens, de findes ingen andre steder, og en Guid kan ikke castes
-/// til et heltal uden at falde sammen. Det er derfor den eneste test, der stiller rigtige
-/// Guid-rækker op foran den og spørger hvad der kom ud.
+/// Every other test meets the LongIds migration on an empty database, where all it does is create
+/// the tables. The rows it has to carry are the user's, they exist nowhere else, and a Guid cannot
+/// be cast to an integer without collapsing. That is why this is the only test that stands real
+/// Guid-era rows in front of it and asks what came out.
 /// </summary>
 public class LongIdMigrationTests
 {
     /// <summary>
-    /// Guid'erne er valgt for at knække en CAST: to deler et ledende talpræfiks, én starter med
-    /// et bogstav, én er nuller på nær sidste ciffer. CreatedAt er forskellig for hver, fordi
-    /// migreringen sorterer på <c>CreatedAt, Id</c> og et sammenfald ellers ville lade Guid-teksten
-    /// afgøre rækkefølgen. Rækkefølgen her er den forventede id-rækkefølge: ældst bliver nummer 1.
-    /// Bemærk at teksten går den stik modsatte vej, så en migrering der kun sorterer på Id fejler.
+    /// The Guids are picked to break a CAST: two share a leading numeric prefix, one starts with a
+    /// letter, one is zeroes but for its last digit. CreatedAt differs for every one of them,
+    /// because the migration sorts on <c>CreatedAt, Id</c> and a tie would otherwise leave the
+    /// order to the Guid text. The order here is the expected id order: the oldest becomes number
+    /// 1. Note that the text runs the exact opposite way, so a migration sorting on Id alone fails.
     /// </summary>
     private static readonly (string Id, string Title, string CreatedAt)[] GuidEraTasks =
     [
@@ -39,8 +39,8 @@ public class LongIdMigrationTests
     ];
 
     /// <summary>
-    /// Underopgaver under tre forskellige forældre, og med en SortOrder der ikke følger
-    /// indsættelsen. <c>Parent</c> er indekset i <see cref="GuidEraTasks"/>.
+    /// Sub-tasks under three different parents, and with a SortOrder that does not follow the
+    /// insertion order. <c>Parent</c> is the index into <see cref="GuidEraTasks"/>.
     /// </summary>
     private static readonly (int Parent, string Id, string Title, int SortOrder)[] GuidEraSubTasks =
     [
@@ -52,27 +52,27 @@ public class LongIdMigrationTests
     ];
 
     /// <summary>
-    /// Indsat i omvendt alfabetisk rækkefølge, fordi <c>Aliases</c> ikke har en CreatedAt at
-    /// sortere på og migreringen derfor nummererer efter Value.
+    /// Inserted in reverse alphabetical order, because <c>Aliases</c> has no CreatedAt to sort on
+    /// and the migration therefore numbers them by Value.
     /// </summary>
     private static readonly string[] GuidEraAliases = ["thomas", "anna"];
 
-    /// <summary>De tre tabeller migreringen bygger om. <c>Settings</c> rører den ikke.</summary>
+    /// <summary>The three tables the migration rebuilds. <c>Settings</c> it leaves alone.</summary>
     private static readonly string[] MigratedTables = ["Tasks", "SubTasks", "Aliases"];
 
     /// <summary>
-    /// De samme tre, men som entitetstyper frem for tabelnavne. Modellen ved selv hvad tabellen
-    /// heder, så parringen type → tabel skal ikke skrives ned nogen steder og kan ikke blive
-    /// forældet.
+    /// The same three, but as entity types rather than table names. The model knows for itself
+    /// what the table is called, so the pairing type → table has to be written down nowhere and
+    /// cannot go stale.
     /// </summary>
     private static readonly Type[] MigratedEntities =
         [typeof(TaskItem), typeof(SubTask), typeof(UserAlias)];
 
     /// <summary>
-    /// Én fuldt udfyldt opgave: hver af de tolv kolonner uden om <c>Id</c> har sin egen
-    /// umiskendelige værdi. Det er distinktheden der gør det til en korrekthedstest og ikke bare
-    /// en tilstedeværelsestest — stod der <c>"x"</c> i både <c>Note</c> og <c>Requester</c>, ville
-    /// en migrering der læste den forkerte kildekolonne bestå.
+    /// One fully populated task: each of the twelve columns around <c>Id</c> carries its own
+    /// unmistakable value. The distinctness is what makes this a correctness test rather than
+    /// merely a presence test — with <c>"x"</c> in both <c>Note</c> and <c>Requester</c>, a
+    /// migration that read the wrong source column would pass.
     /// </summary>
     private static readonly (string Column, object Value)[] FullTask =
     [
@@ -91,8 +91,8 @@ public class LongIdMigrationTests
     ];
 
     /// <summary>
-    /// Underopgavens kolonner uden om <c>Id</c> og <c>TaskItemId</c>. Fremmednøglen står for sig,
-    /// fordi den er den ene værdi migreringen med vilje *skal* ændre.
+    /// The sub-task's columns around <c>Id</c> and <c>TaskItemId</c>. The foreign key stands
+    /// apart, because it is the one value the migration deliberately *has* to change.
     /// </summary>
     private static readonly (string Column, object Value)[] FullSubTaskWithoutParent =
     [
@@ -111,10 +111,10 @@ public class LongIdMigrationTests
     private const string FullAliasId = "cafebabe-2222-4000-8000-000000000003";
 
     /// <summary>
-    /// Grunden til at migreringen er skrevet i hånden, som en påstand frem for en kommentar.
-    /// Fem distinkte Guid'er bliver to distinkte heltal, hvoraf tre er 0 — altså sammenfaldende
-    /// primærnøgler. Holder det her op med at gælde, er den håndskrevne ommapning ikke længere
-    /// nødvendig, og så skal nogen få det at vide.
+    /// The reason the migration is hand-written, as an assertion rather than as a comment. Five
+    /// distinct Guids become two distinct integers of which three are 0 — colliding primary keys,
+    /// in other words. Should this stop being true, the hand-written remap is no longer needed,
+    /// and somebody ought to be told.
     /// </summary>
     [Fact]
     public void Casting_a_Guid_to_an_integer_collapses_distinct_ids()
@@ -152,10 +152,10 @@ public class LongIdMigrationTests
                 await RollBackLongIdsAsync(host);
             }
 
-            // Det er her testen kunne blive grøn af den forkerte grund. SQLites typeaffinitet
-            // gemmer en Guid-streng i en INTEGER-kolonne som TEXT uden at klage, så var
-            // tilbagerulningen udeblevet, ville seedingen lykkes ind i long-verdenen og hele
-            // resten af testen måle en migrering der aldrig kørte.
+            // This is where the test could go green for the wrong reason. SQLite's type affinity
+            // stores a Guid string in an INTEGER column as TEXT without complaining, so had the
+            // rollback not happened, the seeding would succeed into the long world and the whole
+            // rest of the test would measure a migration that never ran.
             Assert.Equal("TEXT", DeclaredTypeOfTaskId(databasePath));
 
             SeedGuidEraRows(databasePath);
@@ -165,20 +165,20 @@ public class LongIdMigrationTests
                 Assert.Empty(await PendingMigrationsAsync(host));
                 Assert.Equal("INTEGER", DeclaredTypeOfTaskId(databasePath));
 
-                // 1. Ingen række er tabt. En naiv CAST lader tre af de fem Guid'er blive 0 og
-                //    kan ikke overholde primærnøglen.
+                // 1. No row is lost. A naive CAST lets three of the five Guids become 0 and
+                //    cannot keep the primary key.
                 Assert.Equal(GuidEraTasks.Length, await CountAsync(host, "Tasks"));
                 Assert.Equal(GuidEraSubTasks.Length, await CountAsync(host, "SubTasks"));
 
-                // 4. Ingen underopgave peger på en forælder der ikke findes.
+                // 4. No sub-task points at a parent that does not exist.
                 //
-                //    Målt: den her kan næsten ikke fejle alene. Fremmednøgler er slået til under
-                //    migreringen, så en ommapning til en forælder der ikke findes bliver afvist
-                //    på stedet med 'FOREIGN KEY constraint failed' - SQLite lader aldrig den
-                //    forældreløse række komme ind i tabellen. Og bygges den nye SubTasks *uden*
-                //    fremmednøglen, har foreign_key_check intet at tjekke og melder også nul.
-                //    Derfor står nøglens eksistens ved siden af gennemgangen: den ene siger at
-                //    reglen er der, den anden at ingen række bryder den.
+                //    Measured: this one can hardly fail on its own. Foreign keys are enforced
+                //    during the migration, so a remap onto a parent that does not exist is
+                //    rejected on the spot with 'FOREIGN KEY constraint failed' - SQLite never
+                //    lets the orphaned row into the table at all. And build the new SubTasks
+                //    *without* the foreign key and foreign_key_check has no rule to test, so it
+                //    reports zero as well. That is why the key's existence stands beside the
+                //    check: the one says the rule is there, the other that no row breaks it.
                 Assert.Equal(
                     "Tasks: TaskItemId -> Id ON DELETE CASCADE",
                     Assert.Single(await ForeignKeysOfSubTasksAsync(host)));
@@ -189,42 +189,42 @@ public class LongIdMigrationTests
                     $"PRAGMA foreign_key_check fandt {orphans.Count} brud: "
                     + string.Join("; ", orphans));
 
-                // 2. Hver underopgave hænger stadig på sin egen forælder. Parret, ikke tallet:
-                //    en ommapning der peger alle børn på én forælder har det rigtige antal.
+                // 2. Every sub-task still hangs off its own parent. The pair, not the count: a
+                //    remap pointing every child at one parent has the right number of them.
                 var expectedPairs = GuidEraSubTasks
                     .Select(s => $"{GuidEraTasks[s.Parent].Title} -> {s.Title}")
                     .Order(StringComparer.Ordinal)
                     .ToList();
                 Assert.Equal(expectedPairs, await ParentChildPairsAsync(host));
 
-                // 3. Id'erne er 1..n i CreatedAt-rækkefølge, så den ældste opgave er nummer 1.
+                // 3. The ids are 1..n in CreatedAt order, so the oldest task is number 1.
                 var byId = await TaskTitlesByIdAsync(host);
                 Assert.Equal(
                     Enumerable.Range(1, GuidEraTasks.Length).Select(i => (long)i),
                     byId.Select(row => row.Id));
                 Assert.Equal(GuidEraTasks.Select(t => t.Title), byId.Select(row => row.Title));
 
-                // 6. Aliasset overlevede, og id'erne følger teksten frem for indsættelsen.
+                // 6. The aliases survived, and their ids follow the text rather than the insertion.
                 Assert.Equal(
                     GuidEraAliases.Order(StringComparer.Ordinal).ToList(),
                     await AliasValuesByIdAsync(host));
 
-                // Rækkerne findes ikke bare, de kan bruges: EF materialiserer dem gennem API'et,
-                // hvilket rå SQL ikke kan bevise - Status er en enum og CreatedAt en dato.
+                // The rows do not merely exist, they can be used: EF materialises them through the
+                // API, which raw SQL cannot prove - Status is an enum and CreatedAt a date.
                 var listed = await host.Client.GetFromJsonAsync<TodoTaskListResponse>("/api/tasks");
                 Assert.NotNull(listed);
                 Assert.Equal(
                     GuidEraTasks.Select(t => t.Title).Order(StringComparer.Ordinal),
                     listed.Items.Select(item => item.Title).Order(StringComparer.Ordinal));
 
-                // 5. Sekvensen fortsætter på en befolket database. Ingen anden test kan se det:
-                //    de starter alle på en tom.
+                // 5. The sequence carries on over a populated database. No other test can see
+                //    that: they all start on an empty one.
                 //
-                //    Målt hvad den *ikke* ser: fjerner man AUTOINCREMENT fra Tasks i migreringen,
-                //    står den her stadig grøn, fordi SQLite så falder tilbage på max(rowid) + 1 og
-                //    svarer 6 alligevel. Den holder altså ikke nøgleordet på plads. Den holder, at
-                //    det første id appen uddeler oven på migrerede rækker ikke kolliderer med en
-                //    af dem.
+                //    Measured what it does *not* see: take AUTOINCREMENT out of Tasks in the
+                //    migration and this one stays green, because SQLite then falls back on
+                //    max(rowid) + 1 and answers 6 anyway. So it does not hold the keyword in
+                //    place. What it holds is that the first id the app hands out on top of
+                //    migrated rows does not collide with one of them.
                 var created = await host.Client.PostAsJsonAsync(
                     "/api/tasks", new CreateTodoTaskRequest { Title = "Efter migreringen" });
                 Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -241,15 +241,16 @@ public class LongIdMigrationTests
     }
 
     /// <summary>
-    /// Migreringen navngiver hver kolonne eksplicit i sin <c>CREATE TABLE</c> og sit
-    /// <c>INSERT … SELECT</c>, og SQLite fjerner en kolonne uden at sige noget. Den her påstand er
-    /// den holdbare af de to: den fanger en kolonne der bliver lagt på modellen *i fremtiden*,
-    /// uden at nogen huskede at give den en værdi i testen nedenfor. Præcis det skete for
-    /// <c>DeferUntil</c>, som blev opdaget ved at måle planen igen, ikke af en test.
+    /// The migration names every column explicitly in its <c>CREATE TABLE</c> and its
+    /// <c>INSERT … SELECT</c>, and SQLite drops a column without saying anything. Of this and the
+    /// field-by-field assertion further down, this is the one that does not rot: it covers a
+    /// column added to the model *later on* without anyone having to remember to give that column
+    /// a value there. Exactly that happened to <c>DeferUntil</c>, which was found by measuring the
+    /// plan again rather than by a test.
     ///
-    /// Sammenligner *navnemængden*, ikke rækkefølgen: kolonnernes orden efter en ombygning er den
-    /// orden <c>CREATE TABLE</c> nævner dem i, og at pinne den ville gøre en harmløs omrokering
-    /// rød. <c>ORDER BY name</c> i begge ender er det der gør det til en mængde.
+    /// Compares the *set of names*, not the order: the order of the columns after a rebuild is the
+    /// order <c>CREATE TABLE</c> names them in, and pinning that would turn a harmless
+    /// rearrangement red. <c>ORDER BY name</c> at both ends is what makes it a set.
     /// </summary>
     [Fact]
     public Task Every_column_of_every_table_survives_the_migration() =>
@@ -259,9 +260,9 @@ public class LongIdMigrationTests
             {
                 var before = columnsBefore[table];
 
-                // Uden den her ville testen kunne bestå af den forkerte grund: et stavefejlet
-                // tabelnavn giver pragma_table_info nul rækker i *begge* ender, og to tomme
-                // mængder er ens.
+                // Without this the test could pass for the wrong reason: a misspelled table name
+                // gives pragma_table_info zero rows at *both* ends, and two empty sets are
+                // equal.
                 Assert.Contains("Id", before);
 
                 Assert.Equal(before, await ColumnNamesAsync(host, table));
@@ -269,25 +270,27 @@ public class LongIdMigrationTests
         });
 
     /// <summary>
-    /// Vagten ovenfor sammenligner migreringen med sig selv. Dens før-billede er lavet af
-    /// migreringens egen <c>Down</c>, og de to kroppe navngiver de samme kolonner — så en kolonne
-    /// der mangler i <em>begge</em> retninger er usynlig for den: de to mængder bliver enige om
-    /// det forkerte. Præcis den form havde den rigtige fejl. Da planen blev skrevet fandtes
-    /// <c>DeferUntil</c> ikke, skive 9 lagde den på, og den håndskrevne SQL udelod den i begge
-    /// halvdele. Den blev fanget ved at måle planen igen, ikke af en test.
+    /// The guard above compares the migration with itself. Its before picture is built by the
+    /// migration's own <c>Down</c>, and the two bodies name the same columns — so a column missing
+    /// in <em>both</em> directions is invisible to it: the two sets agree on the wrong thing. That
+    /// is exactly the shape the real bug had. <c>DeferUntil</c> did not exist when the plan was
+    /// written, slice 9 added it, and the hand-written SQL left it out of both halves. It was
+    /// caught by measuring the plan again, not by a test.
     ///
-    /// Den her spørger derfor en anden kilde end migreringen: EF's model. Databasens kolonner skal
-    /// være dem modellen forventer, tabel for tabel.
+    /// So this one asks a source other than the migration: EF's model. The database's columns have
+    /// to be the ones the model expects, table by table.
     ///
-    /// <c>PendingModelChangesWarning</c> dækker det ikke, og <c>Assert.Empty(pending)</c> ovenfor
-    /// gør det heller ikke: den advarsel sammenligner model-<em>snapshottet</em> med
-    /// <em>modellen</em>, og snapshottet er genereret <em>ud fra</em> modellen. De er enige, også
-    /// når den håndskrevne SQL er uenig med dem begge. Databasen er den ingen sammenligner.
+    /// <c>PendingModelChangesWarning</c> does not cover it, and neither does the
+    /// <c>Assert.Empty(pending)</c> above: that warning compares the model <em>snapshot</em> with
+    /// the <em>model</em>, and the snapshot is generated <em>from</em> the model. They agree, even
+    /// when the hand-written SQL disagrees with both of them. The database is the one nobody
+    /// compares.
     ///
-    /// Kører på en frisk database og har ikke brug for tilbagerulningen: det er LongIds' <c>Up</c>
-    /// der bygger de tre tabeller, uanset om der stod rækker i dem. Det gør påstanden uafhængig af
-    /// seedingen nedenfor — et felt der mangler i skemaet vælter ellers indsættelsen først, og
-    /// fejlen ville pege på testens SQL frem for på migreringens.
+    /// Runs on a fresh database and has no need of the rollback: it is LongIds' <c>Up</c> that
+    /// builds the three tables, whether or not there were rows in them. That makes the assertion
+    /// independent of the seeding below — a field missing from the schema would otherwise topple
+    /// the insertion first, and the failure would point at the test's SQL rather than at the
+    /// migration's.
     /// </summary>
     [Fact]
     public async Task Every_column_the_model_expects_exists_in_the_database()
@@ -314,10 +317,10 @@ public class LongIdMigrationTests
 
             var actual = await ColumnNamesAsync(host, table);
 
-            // De to her måler ikke kolonnerne, men at der *blev* målt kolonner. Uden dem kunne
-            // testen bestå ved at sammenligne ingenting med ingenting: en model uden kortlagte
-            // egenskaber giver en tom forventning, og et tabelnavn der ikke findes giver
-            // pragma_table_info nul rækker — to tomme lister er ens.
+            // These two do not measure the columns, but that columns *were* measured. Without
+            // them the test could pass by comparing nothing with nothing: a model with no mapped
+            // properties gives an empty expectation, and a table name that does not exist gives
+            // pragma_table_info zero rows — two empty lists are equal.
             Assert.Contains("Id", expected);
             Assert.Contains("Id", actual);
 
@@ -326,24 +329,25 @@ public class LongIdMigrationTests
             visited.Add(table);
         }
 
-        // Og at løkken faktisk nåede alle tre tabeller, med de navne migreringen skriver. Ellers
-        // kunne en tom eller halv MigratedEntities gøre hele gennemgangen til en no-op.
+        // And that the loop really did reach all three tables, under the names the migration
+        // writes. Otherwise an empty or half-filled MigratedEntities could turn the whole walk
+        // into a no-op.
         Assert.Equal(
             MigratedTables.Order(StringComparer.Ordinal),
             visited.Order(StringComparer.Ordinal));
     }
 
     /// <summary>
-    /// De to strukturelle påstande ovenfor kan ikke se en værdi der landede i den forkerte kolonne —
-    /// alle kolonner findes stadig. Derfor står den her ved siden af: én fuldt udfyldt række pr.
-    /// tabel, læst tilbage og sammenlignet felt for felt.
+    /// The two structural assertions above cannot see a value that landed in the wrong column —
+    /// every column still exists. That is why this one stands beside them: one fully populated row
+    /// per table, read back and compared field by field.
     /// </summary>
     [Fact]
     public Task Every_field_of_a_fully_populated_row_survives_the_migration() =>
         WithFullRowsThroughTheMigrationAsync(async (host, _) =>
         {
-            // Der er kun én opgave, så den er nummer 1. Det gør forventningen til underopgavens
-            // fremmednøgle læselig nedenfor.
+            // There is only one task, so it is number 1. That is what makes the expectation for
+            // the sub-task's foreign key readable below.
             Assert.Equal([1L], await QueryAsync(host, "SELECT Id FROM Tasks", r => r.GetInt64(0)));
             Assert.Equal([1L], await QueryAsync(host, "SELECT Id FROM Aliases", r => r.GetInt64(0)));
 
@@ -357,8 +361,8 @@ public class LongIdMigrationTests
         });
 
     /// <summary>
-    /// Ruller LongIds tilbage, læser kolonnenavnene i Guid-verdenen, stiller de fuldt udfyldte
-    /// rækker op og lader migreringen køre forlæns igen.
+    /// Rolls LongIds back, reads the column names in the Guid world, stands the fully populated
+    /// rows up and lets the migration run forwards again.
     /// </summary>
     private static async Task WithFullRowsThroughTheMigrationAsync(
         Func<RunningHost, Dictionary<string, List<string>>, Task> assert)
@@ -376,9 +380,9 @@ public class LongIdMigrationTests
                 await RollBackLongIdsAsync(host);
             }
 
-            // Samme vagt som i testen ovenfor, af samme grund: SQLites typeaffinitet tager gerne
-            // en Guid-streng ind i en INTEGER-kolonne, så udeblev tilbagerulningen, ville alt
-            // herunder måle en migrering der aldrig kørte.
+            // The same guard as in the test above, for the same reason: SQLite's type affinity
+            // will happily take a Guid string into an INTEGER column, so had the rollback not
+            // happened, everything below would measure a migration that never ran.
             Assert.Equal("TEXT", DeclaredTypeOfTaskId(databasePath));
 
             var columnsBefore = ColumnNamesBeforeTheMigration(databasePath);
@@ -401,8 +405,8 @@ public class LongIdMigrationTests
     }
 
     /// <summary>
-    /// Læser kolonnenavnene med en rå forbindelse, fordi der ikke kører nogen vært på det
-    /// tidspunkt — migreringen er rullet tilbage og den næste vært vil køre den forlæns igen.
+    /// Reads the column names over a raw connection, because no host is running at that point —
+    /// the migration has been rolled back and the next host would run it forwards again.
     /// </summary>
     private static Dictionary<string, List<string>> ColumnNamesBeforeTheMigration(
         string databasePath)
@@ -435,8 +439,8 @@ public class LongIdMigrationTests
             read => read.GetString(0));
 
     /// <summary>
-    /// Bygger INSERT'en ud af kolonnelisterne, så en kolonne der bliver lagt til listen også
-    /// bliver seedet uden at SQL'en skal rettes to steder.
+    /// Builds the INSERT out of the column lists, so a column added to a list is seeded too
+    /// without the SQL having to be corrected in a second place.
     /// </summary>
     private static void SeedFullRows(string databasePath)
     {
@@ -472,8 +476,8 @@ public class LongIdMigrationTests
     }
 
     /// <summary>
-    /// Læser præcis de kolonner der blev seedet, og formatterer dem som <c>Kolonne = værdi</c>, så
-    /// en fejl peger på hvilken kolonne der bar den forkerte værdi frem for på et indeks.
+    /// Reads exactly the columns that were seeded and formats them as <c>Column = value</c>, so a
+    /// failure points at which column carried the wrong value rather than at an index.
     /// </summary>
     private static async Task<List<string>> FieldsAsync(
         RunningHost host, string table, (string Column, object Value)[] fields)
@@ -492,15 +496,15 @@ public class LongIdMigrationTests
         [.. fields.Select(f => $"{f.Column} = {Format(f.Value)}")];
 
     /// <summary>
-    /// En tabt kolonneværdi kommer tilbage som <see cref="DBNull"/>, og skal kunne skelnes fra
-    /// den tomme streng i fejlteksten.
+    /// A lost column value comes back as <see cref="DBNull"/>, and has to be told apart from the
+    /// empty string in the failure text.
     /// </summary>
     private static string Format(object value) =>
         value is DBNull ? "<null>" : Convert.ToString(value, CultureInfo.InvariantCulture)!;
 
     /// <summary>
-    /// Kører LongIds' Down for rigtigt og fjerner dens historik-række, så databasen står i
-    /// Guid-verdenen og næste opstart finder præcis én migrering i venteposition.
+    /// Runs LongIds' Down for real and removes its history row, so the database stands in the Guid
+    /// world and the next start-up finds exactly one migration pending.
     /// </summary>
     private static async Task RollBackLongIdsAsync(RunningHost host)
     {
@@ -525,8 +529,8 @@ public class LongIdMigrationTests
     }
 
     /// <summary>
-    /// Stiller rækkerne op med rå SQL. Modellen er <c>long</c> og kan ikke udtrykke en
-    /// Guid-æra-række, så hverken en builder eller DbContext kan bruges her.
+    /// Stands the rows up with raw SQL. The model is <c>long</c> and cannot express a Guid-era
+    /// row, so neither a builder nor the DbContext can be used here.
     /// </summary>
     private static void SeedGuidEraRows(string databasePath)
     {
@@ -576,9 +580,9 @@ public class LongIdMigrationTests
     }
 
     /// <summary>
-    /// Pooling=False, ellers holder en pooled forbindelse filen åben og oprydningen fejler.
-    /// Mode=ReadWrite, så et forkert tidspunkt fejler højt frem for at lave en tom database
-    /// ved siden af den der er under test.
+    /// Pooling=False, or else a pooled connection holds the file open and the clean-up fails.
+    /// Mode=ReadWrite, so a wrong moment fails loudly rather than making an empty database beside
+    /// the one under test.
     /// </summary>
     private static SqliteConnection OpenOutsideThePool(string databasePath)
     {
@@ -641,8 +645,8 @@ public class LongIdMigrationTests
             read => $"{read.GetValue(0)} rowid {read.GetValue(1)} -> {read.GetValue(2)}");
 
     /// <summary>
-    /// Læser gennem værtens egen forbindelse, så den ser præcis den database appen ser -
-    /// inklusive det der endnu kun står i write-ahead-loggen.
+    /// Reads through the host's own connection, so it sees exactly the database the app sees -
+    /// including what is still only in the write-ahead log.
     /// </summary>
     private static async Task<List<T>> QueryAsync<T>(
         RunningHost host, string sql, Func<SqliteDataReader, T> read)

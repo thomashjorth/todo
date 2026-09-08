@@ -44,7 +44,8 @@ public sealed class TaskListScreen(TodoApp app)
 
     public ILocator TitleInput => Detail.GetByTestId("title-input");
 
-    // Efter startdatoen er der to date-felter i panelet, så input[type=date] rammer dem begge.
+    // Since the start date arrived there are two date fields in the panel, so input[type=date]
+    // hits them both.
     public ILocator DeadlineInput => Detail.GetByTestId("deadline-input");
 
     public ILocator DeferUntilInput => Detail.GetByTestId("defer-until-input");

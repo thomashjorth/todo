@@ -24,45 +24,27 @@ namespace Todo.Api.Tests;
 /// three collation comments for the reason the paragraph above gives: they are English prose about
 /// a Danish letter, so their English count is the higher one and no tie arises.
 ///
-/// The branch is worth exactly two blocks today, and they are named rather than counted because a
-/// count here rots on the next translation: <c>task-detail.ts</c> line 144, which ties at one word
-/// each because "At" is on the English list, and <c>jira-import.html</c> line 251, which scores
-/// nothing on either side. Both are Danish, both were already on the backlog, and neither adds a
-/// file. If you find the delivery plan claiming four, that number was measured while <c>for</c>
-/// had been taken out of the Danish list but not yet out of the English one - which tips two more
-/// blocks from a win into a tie without changing any verdict. Same 162 blocks in the same 27 files
-/// either way; only the attribution moves.
+/// The branch was worth exactly two blocks when this was written, and they were named rather than
+/// counted because a count here rots on the next translation: <c>task-detail.ts</c> line 144, which
+/// ties at one word each because "At" is on the English list, and <c>jira-import.html</c> line 251,
+/// which scores nothing on either side. Both were Danish, both were already on the backlog, and
+/// neither added a file. If you find the delivery plan claiming four, that number was measured
+/// while <c>for</c> had been taken out of the Danish list but not yet out of the English one -
+/// which tips two more blocks from a win into a tie without changing any verdict. Same 162 blocks
+/// in the same 27 files either way; only the attribution moves.
 ///
-/// <b>Why there is a backlog.</b> Twenty-seven files were Danish when this was written. Translating
-/// them in one commit would be unreviewable, and committing a red test would break
-/// <c>Check.cmd</c> for everyone in between. So the list starts full and shrinks: a file on it may
-/// be Danish, a file off it may not. <see cref="Every_backlogged_file_is_still_Danish"/> is what
-/// stops the list from rotting - remove a file from the backlog in the same commit that translates
-/// it, or the suite says so.
+/// <b>There was a backlog.</b> Twenty-seven files were Danish when this was written. Translating
+/// them in one commit would have been unreviewable, and committing a red test would have broken
+/// <c>Check.cmd</c> for everyone in between, so a list of the untranslated files excused itself and
+/// shrank one delivery at a time - a file on it might be Danish, a file off it might not - with a
+/// sibling assertion holding every entry on it to still holding Danish, so the list could not rot.
+/// The last two entries came off on 2026-09-08, and the list and that sibling went with them. The
+/// per-extension floors below are what replaced them: with no list left to force the extractor to
+/// produce something, they are all that stands between this and a single assertion that cannot
+/// fail.
 /// </summary>
 public class SourceLanguageTests
 {
-    /// <summary>
-    /// Files still to translate. Delete an entry in the same commit that translates it.
-    ///
-    /// When this is empty, delete it and <see cref="Every_backlogged_file_is_still_Danish"/> with
-    /// it - but leave the per-extension floors in
-    /// <see cref="No_comment_outside_the_backlog_is_written_in_Danish"/> standing. They are what
-    /// has to survive the list. Until then it is this list that forces the extractor to produce
-    /// something: every entry on it has to hold Danish, so a walk that found nothing turns the
-    /// second fact red. Once the list goes, only the floors are left asking whether anything was
-    /// read at all, and without them the last translation would leave behind a single assertion
-    /// that cannot fail - a pathspec matching nothing would offer nothing to score and the guard
-    /// would report a clean repository.
-    /// </summary>
-    private static readonly string[] BacklogEntries =
-    [
-        "tests/Todo.Api.Tests/LongIdMigrationTests.cs",
-        "tests/Todo.E2E/TaskListScreen.cs",
-    ];
-
-    private static readonly HashSet<string> Backlog = new(BacklogEntries, StringComparer.Ordinal);
-
     /// <summary>
     /// Generated code is not ours to write in either language, and the EF migrations are scaffolded.
     /// </summary>
@@ -123,24 +105,19 @@ public class SourceLanguageTests
     private static readonly Regex DanishLetter = new("[æøåÆØÅ]", RegexOptions.Compiled);
 
     [Fact]
-    public async Task No_comment_outside_the_backlog_is_written_in_Danish()
+    public async Task No_comment_in_the_repository_is_written_in_Danish()
     {
         var offenders = new List<string>();
         var blocks = new Dictionary<string, int>(StringComparer.Ordinal);
 
-        foreach (var file in (await SourceFilesAsync()).Scanned)
+        foreach (var file in await SourceFilesAsync())
         {
-            // Extracted for every file and scored only for the ones off the backlog: the floors
-            // below have to go on proving the walk works after the backlog is gone.
             var comments = CommentsIn(file, ReadSource(file));
             var extension = Path.GetExtension(file);
 
+            // Tallied as well as scored, because the floors below are the only thing left asking
+            // whether the walk read anything at all.
             blocks[extension] = blocks.GetValueOrDefault(extension) + comments.Count;
-
-            if (Backlog.Contains(file))
-            {
-                continue;
-            }
 
             offenders.AddRange(comments
                 .Where(IsDanish)
@@ -169,56 +146,7 @@ public class SourceLanguageTests
                 + string.Join(Environment.NewLine, offenders));
     }
 
-    /// <summary>
-    /// Without this the backlog rots: a file translated but left on the list would go on excusing
-    /// itself, and the guard would quietly cover less than the list claims.
-    /// </summary>
-    [Fact]
-    public async Task Every_backlogged_file_is_still_Danish()
-    {
-        var listing = await SourceFilesAsync();
-        var tracked = listing.Tracked.ToHashSet(StringComparer.Ordinal);
-        var scanned = listing.Scanned.ToHashSet(StringComparer.Ordinal);
-
-        // A HashSet collection initializer throws Add's result away, so a repeated path used to
-        // compile in silence and quietly make the list shorter than it reads.
-        var repeats = BacklogEntries
-            .GroupBy(entry => entry, StringComparer.Ordinal)
-            .Where(entries => entries.Count() > 1)
-            .Select(entries => $"{entries.Key} (listed {entries.Count()} times)")
-            .ToList();
-
-        Assert.True(
-            repeats.Count == 0,
-            $"Backlog lists {BacklogEntries.Length} entries of which only {Backlog.Count} are "
-                + "distinct, so it covers less than it appears to:"
-                + Environment.NewLine
-                + string.Join(Environment.NewLine, repeats));
-
-        var stale = BacklogEntries
-            .Select(file => !scanned.Contains(file)
-                ? tracked.Contains(file)
-                    ? $"{file} is on the backlog but SourceFilesAsync filters it out as generated "
-                        + "or scaffolded, so nothing here ever reads it"
-                    : $"{file} is on the backlog but git does not track it"
-                : DanishCommentsIn(file).Count == 0
-                    ? $"{file} is on the backlog but holds no Danish comment any more"
-                    : null)
-            .OfType<string>()
-            .ToList();
-
-        Assert.True(
-            stale.Count == 0,
-            $"{stale.Count} backlog entr(ies) are stale. Remove a file from Backlog in the same "
-                + "commit that translates it, so the list keeps meaning what it says:"
-                + Environment.NewLine
-                + string.Join(Environment.NewLine, stale));
-    }
-
     private sealed record Comment(int Line, string Text);
-
-    private static List<Comment> DanishCommentsIn(string relativePath) =>
-        CommentsIn(relativePath, ReadSource(relativePath)).Where(IsDanish).ToList();
 
     /// <summary>
     /// The file git listed, read from disk. Named rather than thrown: a tracked file that is not
@@ -567,13 +495,11 @@ public class SourceLanguageTests
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
-    /// What git tracks, and the part of it this guard reads. Both, because a backlog entry git
-    /// tracks but the filters remove is a different mistake from one git has never heard of, and a
-    /// single list cannot tell a reader which of the two happened.
+    /// The part of what git tracks that this guard reads. It used to answer with the full listing
+    /// alongside, so that a backlog entry git tracked but the filters removed could be told from
+    /// one git had never heard of; with no backlog there is nobody left to tell.
     /// </summary>
-    private sealed record SourceListing(List<string> Tracked, List<string> Scanned);
-
-    private static async Task<SourceListing> SourceFilesAsync()
+    private static async Task<List<string>> SourceFilesAsync()
     {
         var listing = await ExternalCommand.RunAsync(
             "git", RepoPaths.Root, ["ls-files", "*.cs", "*.ts", "*.html"]);
@@ -584,9 +510,8 @@ public class SourceLanguageTests
                 + Environment.NewLine
                 + listing.Combined);
 
-        var tracked = listing.Lines.Where(path => path.Length > 0).ToList();
-
-        var scanned = tracked
+        var scanned = listing.Lines
+            .Where(path => path.Length > 0)
             .Where(path => !Generated.Contains(path, StringComparer.Ordinal))
             .Where(path => !path.Contains("/Migrations/", StringComparison.Ordinal))
             .ToList();
@@ -598,6 +523,6 @@ public class SourceLanguageTests
             scanned.Count > 100,
             $"git ls-files reported only {scanned.Count} source file(s); this repo has hundreds.");
 
-        return new SourceListing(tracked, scanned);
+        return scanned;
     }
 }
