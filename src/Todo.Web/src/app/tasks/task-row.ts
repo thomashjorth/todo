@@ -67,7 +67,7 @@ export class TaskRow {
   protected readonly waitingFor = TodoStatus.WaitingFor;
   protected readonly inProgress = TodoStatus.InProgress;
   protected readonly progress = subTaskProgress;
-  // For the badge alone: it shows while Alt is held, like the eight others on screen.
+  // For the badge alone: it shows while Alt is held, like every other badge on screen.
   protected readonly shortcuts = inject(ShortcutStore);
 
   // The directive takes a string, and the empty string is its "no shortcut" - from row ten on.

@@ -52,7 +52,7 @@
        Not folded into the error line above: the preview did not fail, and the fetch's own rows are
        on the screen and worth keeping.
 
-       Above the split between "no items are assigned to you" and the list, not inside the list's
+       Above the split between "Ingen sager er tildelt dig." and the list, not inside the list's
        branch: a refused reconciliation on top of an empty fetch is exactly where the notice means
        the most, and inside the @else branch it would be invisible precisely there, while looking
        right in every other state.
@@ -60,7 +60,7 @@
        The line stands *instead of* the reconciliation rows — but that is a server rule, not a
        template rule, and there is deliberately no @if here hiding rows when the notice is up. The
        rule lives in AdoEndpoints.ReconciledRowsAsync, which returns ([], code), and the guards are
-       Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission og
+       Every_key_missing_at_once_suggests_nothing_because_it_is_more_likely_a_permission and
        One_missing_key_among_answered_ones_still_shows_every_row_because_the_notice_needs_all_of_them.
        The same rule in two places would drift apart without anybody being able to see it. -->
   @if (store.reconciliationMessage(); as notice) {

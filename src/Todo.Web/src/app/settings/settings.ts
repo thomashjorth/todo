@@ -11,7 +11,7 @@ const wholeNumber = /^\d+$/;
 
 const languageOptions = ['system', 'da', 'en'] as const;
 
-/** The five groups. Only used as a type here — the page names them one by one in the template. */
+/** The six groups. Only used as a type here — the page names them one by one in the template. */
 type SettingsSectionName = 'language' | 'delegate' | 'jira' | 'ado' | 'retro' | 'review';
 
 /** Sunday first, the way DayOfWeek numbers them, so the value is the index and not a lookup. */

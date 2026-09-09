@@ -14,6 +14,14 @@ namespace Todo.Api.Tests;
 /// flags all three and would have "fixed" prose that was already correct. Prose is decided by its
 /// function words, so the function words are what get counted.
 ///
+/// <b>What that costs, stated rather than left to be discovered.</b> Scoring is per <em>block</em>,
+/// so a single Danish word inside a long English one cannot be seen: the majority is the verdict.
+/// Measured on a real instance - a lone <c>og</c> between two long test names in
+/// <c>ado-import.html</c> survived the whole translation and no future run can surface it, because
+/// the block around it is a hundred and fifty words of English. A word-level rule would fail on
+/// every identifier and every quoted name, so this is a deliberate trade rather than an oversight:
+/// the guard stops a comment being <em>written</em> in Danish, not a Danish word being left in one.
+///
 /// <b>The letter is a tie-breaker, not an absent signal.</b> It used to be neither. The classifier
 /// consulted <c>DanishLetter</c> only when the Danish word count was zero, and a zero count can
 /// never beat an English one, so the regex could not change a single verdict - it was dead code

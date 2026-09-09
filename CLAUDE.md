@@ -794,7 +794,7 @@ asymmetrien er det egentlige: samlingen er en **URL** brugeren har indsat og er 
 projektet er et **navn** appen selv skal escape — `AdoSettings.BrowseUrl` gør netop det, og gør man det
 omvendt, får man `%2520` i den ene ende og et brækket projektnavn i den anden.
 
-**Indstillingssiden er en accordion, og foldningen er `@if`, ikke `hidden`.** De fem grupper er hver en
+**Indstillingssiden er en accordion, og foldningen er `@if`, ikke `hidden`.** De seks grupper er hver en
 `section[appSettingsSection]` — attributvælger som `li[appTaskRow]`, så `<section>` bliver værten og
 beholder sit `data-testid`, og skillelinjen falder mellem søskende. Højst **én** åben, og **nul åbne er en
 gyldig tilstand**: siden ankommer sådan, og et klik på den åbne overskrift lukker den. Tilstanden bor i

@@ -66,7 +66,7 @@ describe('TaskDetail', () => {
   // aria-hidden is load-bearing rather than decoration: a badge inside a <label> or a <button>
   // otherwise counts towards the control's accessible name, and the E2E suite matches names
   // whole. The guard belongs here, because no E2E journey holds Alt down with the panel open -
-  // measured, a removed aria-hidden fells none of the 61 journeys.
+  // measured, a removed aria-hidden fells no journey at all.
   it('should keep every badge out of its control accessible name', () => {
     const fixture = panel();
     TestBed.inject(ShortcutStore).setAltHeld(true);
