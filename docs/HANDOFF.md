@@ -100,8 +100,9 @@ Fire ting at kende, hvis du rører afstemningen:
   arkivet. En opgave der er færdig her afstemmes aldrig.
 - **De to kilder spørger forskelligt, og det er ikke en inkonsekvens.** ADO læser nøglerne i ét
   batch-kald; Jira går pr. nøgle, fordi `key IN (…)` afvises på en nøgle den ikke kender — altså
-  præcis den slettede sag. Begge præmisser står **umålt** mod de rigtige instanser; se
-  "Målinger kun du kan lave".
+  præcis den slettede sag. **ADO's halvdel er målt 2026-09-11 og holder** — se
+  `docs/plans/2026-09-14-closing-a-deleted-item-design.md` afsnit 1. Jiras præmis er stadig umålt;
+  se "Målinger kun du kan lave".
 - **Blev ingen af flere nøgler genkendt, vises én notits frem for en række pr. nøgle.** Jira DC
   skjuler en sag du ikke må browse bag 404, så en mistet rettighed ligner en massesletning. Om den
   grænse nogensinde udløser i praksis afhænger af den tredje måling nedenfor.
@@ -131,6 +132,14 @@ en uigennemsigtig baggrund. Ingen af dem kan se popup'en selv — den er browser
 ikke med i et screenshot — så de måler det popup'en læser.
 
 ## Næste skridt
+
+**Planlagt og ikke bygget: en slettet sag skal kunne lukkes fra importen.** Afstemningen
+*rapporterer* allerede en sag kilden ikke kender, men tilbyder ingenting — rækken står grå og uden
+flueben, så den skal findes i hånden. Designet er
+`docs/plans/2026-09-14-closing-a-deleted-item-design.md` og leveranceplanen ligger ved siden af;
+syv opgaver, begge kilder, ingen migrering. **Bemærk prisen i designets afsnit 6:** Done-filteret
+står, så den viser den næste sag der slettes mens opgaven er åben — ikke de to der allerede er
+lukket her.
 
 **Skive 13, mentions-indbakken**, er den næste nummererede. Kravene står i designdokumentets afsnit 9,
 punkt 13 — læs dem der frem for her. Tre ting er værd at have i baghovedet, før planen skrives:
@@ -208,21 +217,24 @@ ser rigtige ud i et maksimeret vindue på din Full HD-skærm — kan ingen agent
 maksimér, og se om højre spaltes rulning slutter ved vinduets kant frem for at stikke ud. Er den
 forkert, er det `xl:h-screen` i `app.html` der skal skiftes, ikke spalterne.
 
-**Afstemningens tre præmisser, og ingen af dem er målt.** De blev sat op som Task 0 i
-`docs/plans/2026-08-31-source-reconciliation.md`, hvor opskriften står, og leverancen kørte videre
-uden svarene — så koden hviler på tre antagelser i dag. En falsk instans kan ikke svare på dem: en
-`FakeAdo`/`FakeJira` der udsender vores egen antagelse måler sig selv.
+**Afstemningens tre præmisser — to er målt 2026-09-11, én står tilbage.** De blev sat op som Task 0
+i `docs/plans/2026-08-31-source-reconciliation.md`, og leverancen kørte videre uden svarene. De to
+ADO-præmisser er besvaret nu, mod den rigtige instans og med brugerens eget token; opskriften og
+svarene står i `docs/plans/2026-09-14-closing-a-deleted-item.md` under Task 0. En falsk instans kan
+ikke svare på den sidste: en `FakeJira` der udsender vores egen antagelse måler sig selv.
 
-1. **Svarer Jiras `issue/{key}` 404 eller 403 på en sag du ikke må se?** *Den vigtigste af de tre.*
-   Kun 404 læses som "kender den ikke"; alt andet kastes. Er svaret **403**, udløser
-   alle-fraværende-grænsen aldrig i praksis, og den er så et sikkerhedsnet mod noget der ikke sker —
-   værd at vide, før nogen "forenkler" den væk. Er svaret **404**, er grænsen det eneste der står
-   mellem en mistet projektrettighed og en skærm fuld af "kilden kender den ikke".
-2. **Gør ADO's `&errorPolicy=omit` det vi tror?** Bed batch-læsningen om et id der ikke findes, med
-   og uden flaget. **Uden** flaget er svaret målt til **400** med de ugyldige id'er navngivet
-   (2026-08-20); det er *med* flaget der er umålt, og hele afstemningens ADO-halvdel afhænger af at
-   de øvrige rækker overlever.
-3. **Er `WHERE [System.Id] IN (…)` gyldig WIQL på din server?** Formen er valgt, ikke prøvet.
+1. **Svarer Jiras `issue/{key}` 404 eller 403 på en sag du ikke må se?** **Stadig umålt, og nu den
+   vigtigste af egen kraft.** Kun 404 læses som "kender den ikke"; alt andet kastes. Er svaret
+   **403**, udløser alle-fraværende-grænsen aldrig i praksis, og den er så et sikkerhedsnet mod
+   noget der ikke sker — værd at vide, før nogen "forenkler" den væk. Er svaret **404**, er grænsen
+   det eneste der står mellem en mistet projektrettighed og en skærm fuld af "kilden kender den
+   ikke". Fra og med lukketilbuddet på en slettet sag er den grænse **bærende**: en afstemt række
+   kan accepteres, hvor den før kun kunne læses.
+De to andre er besvaret og står ikke længere på listen: `&errorPolicy=omit` gør det vi tror, og
+`WHERE [System.Id] IN (…)` er gyldig WIQL der. Svarene med tal står i
+`docs/plans/2026-09-14-closing-a-deleted-item-design.md` afsnit 1, sammen med et tredje fund ingen
+havde spurgt om — et *slettet* id svarer **404 `TF401232`**, ikke den 400 fra 2026-08-20, som
+gælder id'er der aldrig har eksisteret.
 
 De tre nedenfor er skive 12's. De kræver din egen instans og dit eget token, så ingen agent kan køre dem.
 Opskriften — variabler, kommandoer og fælderne — står i skive 12's plan under "Måling 0". **Læg aldrig

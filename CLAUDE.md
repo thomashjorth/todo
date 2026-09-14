@@ -675,7 +675,9 @@ kilder spørger på hver sin måde.** ADO læser dem i ét batch-kald; Jira går
 findes for, og spørger først bagefter om ejerskabet i én søgning over kun de fundne. **Og blev
 ingen af flere nøgler fundet, vises der én notits i stedet for en række pr. nøgle:** Jira DC skjuler
 en sag du ikke må browse bag 404 frem for 403, så en mistet projektrettighed svarer nøjagtigt som en
-massesletning. Begge dele står **umålt mod den rigtige instans** — se `docs/HANDOFF.md`.
+massesletning. **ADO's halvdel er målt 2026-09-11 og holder:** `errorPolicy=omit` udelader det
+ukendte id og lader resten stå, og `[System.Id] IN (…)` er gyldig WIQL. Jiras 404-mod-403 står
+stadig umålt — se `docs/HANDOFF.md`.
 
 **Vagt slår ventende.** `JiraStatusRoles.For` spørger om vagten **først**: står et statusnavn i
 *begge* lister, og er kontakten slået til, er rollen `Duty` — ikke `Waiting`. Samme status betyder
