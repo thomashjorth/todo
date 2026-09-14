@@ -75,7 +75,7 @@
 
   @if (review.lastCompletedAt(); as last) {
     <p data-testid="review-last" class="text-xs text-gray-500 dark:text-gray-400">
-      {{ 'review.lastCompleted' | transloco: { at: last } }}
+      {{ 'review.lastCompleted' | transloco: { at: last | timestamp } }}
     </p>
   } @else {
     <p data-testid="review-never" class="text-xs text-gray-500 dark:text-gray-400">

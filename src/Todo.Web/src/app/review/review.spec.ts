@@ -181,6 +181,13 @@ describe('Review', () => {
     );
 
     const last = await shown(fixture, '[data-testid="review-last"]');
-    expect(last.textContent).toContain('2026-08-26');
+    // The wire value is an instant, and the screen must not hand it over raw - which is what
+    // this line asserted until the format was fixed. It reads the classic Danish way now: the
+    // month written out, kl. in front of the time, and a period between hours and minutes.
+    // Asserted on the month rather than the day so it survives a runner in any zone - 09:00 UTC
+    // is still August ten hours behind Greenwich and fourteen ahead alike.
+    expect(last.textContent).toContain('august');
+    expect(last.textContent).toMatch(/kl\. \d{2}\.\d{2}/);
+    expect(last.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
   });
 });

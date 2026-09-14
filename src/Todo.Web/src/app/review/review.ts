@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { TodoTask } from '../api/todo-client';
+import { Timestamp } from '../i18n/timestamp';
 import { SystemStore } from '../system/system-store';
 import { TaskRow } from '../tasks/task-row';
 import { TaskStore } from '../tasks/task-store';
@@ -10,7 +11,7 @@ import { ReviewStore } from './review-store';
 
 @Component({
   selector: 'app-review',
-  imports: [ReviewSection, TaskRow, TranslocoPipe],
+  imports: [ReviewSection, TaskRow, Timestamp, TranslocoPipe],
   templateUrl: './review.html',
   // The shell's ceiling is raised on xl so the task list can be two columns. This screen is not two
   // columns - it is a walk through five questions, and a list stretched over 1440px is unreadable -

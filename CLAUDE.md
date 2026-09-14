@@ -1208,8 +1208,14 @@ forkerte grund.
 
 ## Testtal
 
-**186** Todo.Core.Tests, **399** Todo.Api.Tests, **83** Todo.E2E, **358** Vitest — alle grønne,
-målt med `Check.cmd` 2026-09-08.
+**186** Todo.Core.Tests, **399** Todo.Api.Tests, **83** Todo.E2E, **366** Vitest — alle grønne,
+målt med `Check.cmd` 2026-09-14.
+
+**Kun Vitest flyttede sig, fordi gennemgangens tidsstempel fik et format.**
+`format-timestamp.spec.ts` lagde otte til (358 → 366). `review.spec.ts` står stille på syv, og det
+er pointen: dens eksisterende påstand **vendte** fra at kræve wire-formen (`2026-08-26`) til at
+kræve den danske (`26. august 2026 kl. 11.00`) frem for at få en søster ved siden af sig. Core, Api
+og E2E rørte funktionen ikke.
 
 **Kun Api flyttede sig, og kun med én, fordi kommentarerne blev engelske.** `SourceLanguageTests`
 lagde to påstande til (398 → 400), og da efterslæbslisten var tømt, blev
