@@ -15,42 +15,42 @@ Uden for scope: deling, samarbejde, mobil, tilbageskrivning til Jira/ADO.
 
 ## 2. Beslutninger
 
-| Emne | Valg |
-| --- | --- |
-| Sync-retning | Læs eksternt, berig lokalt. Eksterne felter er read-only. |
-| Platform | Photino.NET-vindue + ASP.NET Core i én proces, Angular som UI. |
-| Hovedvisning | Én liste sorteret efter deadline, med tidssektioner. |
-| Vinduesbredde | Primært mål ~480 px (kvart 1080p-skærm). Skal forblive brugbar ved fuld bredde. |
-| Styling | Standard Tailwind utility-klasser. Ingen egne CSS/SCSS-regler, ingen egne tokens. |
-| Tilgængelighed | WCAG AA i begge temaer. Hver handling skal kunne nås med tastaturet. |
-| Genveje | Hold **Alt** for at vise genvejene på knapperne — Windows-konventionen, hvor tasten udfører elementets aktiveringshandling og ikke blot flytter fokus. **Leveret i skive 8.** |
-| Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. |
-| Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. |
-| Id-type | `long`, tildelt af SQLite ved indsættelse. **Leveret i skive 10.** `INTEGER PRIMARY KEY` er et alias for rowid, så "opgave 42" kan siges højt — argumentet er SQLite-specifikt og ergonomisk. **Ikke** fragmentering: branchen gik fra tilfældig `Guid` v4 til tidsordnet UUIDv7, ikke til `long`. Se afsnit 10. |
-| Tokens | I `Setting`-tabellen i klartekst. **Bevidst valg** — se afsnit 3. |
-| Indstillinger | Én side i appen til sprog, URL'er, tokens, aliaser og sync-interval. |
-| Sprog | Dansk og engelsk med Transloco. Systemets sprog som standard, skiftes i indstillinger. |
-| Datoformat | `Intl.DateTimeFormat` med det aktive sprog. Ikke Angulars `DatePipe` — `LOCALE_ID` bindes ved opstart og kan ikke skiftes i runtime. |
-| API-fejl | `{ code, message }` — `code` er en oversættelsesnøgle, `message` engelsk fallback til logs. |
-| Kodeorganisering | Feature-mapper, én type pr. fil (også enums), namespaces følger mapper. |
-| E2E-opsætning | Testdata-builders i `Todo.TestSupport`; navigation kædes via `TodoApp`. |
-| Retro-board | Indsat CSV-eksport. Afstemningskort filtreres væk; rækker hvor `Action Owner` matcher mine aliaser er forudvalgt. |
-| Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. |
-| Noter | Fuld CommonMark, vist renderet. Klik på noten for at redigere. |
-| Venter på | Egen status. Egen sektion nederst, altid synlig når den ikke er tom. |
-| Someday/Maybe | Egen status. Skjult bag en kontakt, ligesom færdige. |
-| Redigering | Inline i listen. Ingen dialog — ved 480 px ville den dække alt. |
-| Færdige opgaver | Forsvinder straks; en "Vis færdige"-kontakt henter dem frem. |
-| Angular state | Signal-baseret store-service. **Ikke NgRx** — bevidst fravalg. |
-| Mentions | Indbakke der godkendes manuelt, ikke automatisk opgaveoprettelse. |
-| Livscyklus | Frakoblede items markeres færdige og bevares med lokale felter. |
-| Kørsel | Tray-ikon, baggrundssync, Windows-notifikationer. |
-| Jira | **Data Center 10.3.24**, målt 2026-08-18. REST v2 med wiki-markup. **PAT som Bearer verificeret** mod `/rest/api/2/myself` (200), ikke kun udledt af versionen. |
-| Azure DevOps | Azure DevOps Server (on-prem), PAT. |
-| API-kontrakt | Contract-first: `contracts/openapi.yaml` er sandheden. |
-| Kodegenerering | NSwag → C#-DTO'er + Angular-klient. Genereret kode committes. |
-| Serverside | Håndskrevne minimal APIs + drift-test mod kontrakten. |
-| Kilder | Registreres eksplicit. Ingen auto-discovery (bevidst fravalgt). |
+| Emne | Valg | Hvorfor |
+| --- | --- | --- |
+| Sync-retning | Læs eksternt, berig lokalt. Eksterne felter er read-only. | [ADR 14](../adr/0014-read-external-enrich-locally.md) |
+| Platform | Photino.NET-vindue + ASP.NET Core i én proces, Angular som UI. | [ADR 1](../adr/0001-single-process-photino-shell.md) |
+| Hovedvisning | Én liste sorteret efter deadline, med tidssektioner. | |
+| Vinduesbredde | Primært mål ~480 px (kvart 1080p-skærm). Skal forblive brugbar ved fuld bredde. | [ADR 6](../adr/0006-narrow-column-first.md) |
+| Styling | Standard Tailwind utility-klasser. Ingen egne CSS/SCSS-regler, ingen egne tokens. | [ADR 7](../adr/0007-tailwind-only.md) |
+| Tilgængelighed | WCAG AA i begge temaer. Hver handling skal kunne nås med tastaturet. | [ADR 22](../adr/0022-accessibility-measured-in-browser.md) |
+| Genveje | Hold **Alt** for at vise genvejene på knapperne, hvor tasten udfører elementets aktiveringshandling og ikke blot flytter fokus. To lag: `Alt` til navigation, `Alt+Shift` til detaljepanelets felter. | [ADR 23](../adr/0023-keyboard-shortcuts.md) |
+| Dark mode | Følger Windows via `prefers-color-scheme`. Ingen knap, intet at gemme. | [ADR 11](../adr/0011-theme-follows-os.md) |
+| Database | SQLite via EF Core, code-first med migrationer der køres ved opstart. | [ADR 3](../adr/0003-sqlite-in-appdata.md) |
+| Id-type | `long`, tildelt af SQLite ved indsættelse. | [ADR 4](../adr/0004-long-identifiers.md) |
+| Tokens | I `Setting`-tabellen i klartekst. | [ADR 17](../adr/0017-credentials-in-clear-text.md) |
+| Indstillinger | Én side i appen til sprog, URL'er, tokens, aliaser og sync-interval. | |
+| Sprog | Dansk og engelsk med Transloco. Systemets sprog som standard, skiftes i indstillinger. | [ADR 10](../adr/0010-danish-product-english-code.md) |
+| Datoformat | `Intl.DateTimeFormat` med det aktive sprog. Ikke Angulars `DatePipe` — `LOCALE_ID` bindes ved opstart og kan ikke skiftes i runtime. | [ADR 10](../adr/0010-danish-product-english-code.md) |
+| API-fejl | `{ code, message }` — `code` er en oversættelsesnøgle, `message` engelsk fallback til logs. | [ADR 10](../adr/0010-danish-product-english-code.md) |
+| Kodeorganisering | Feature-mapper, én type pr. fil (også enums), namespaces følger mapper. | |
+| E2E-opsætning | Testdata-builders i `Todo.TestSupport`; navigation kædes via `TodoApp`. | [ADR 20](../adr/0020-four-test-layers.md) |
+| Retro-board | Indsat CSV-eksport. Afstemningskort filtreres væk; rækker hvor `Action Owner` matcher mine aliaser er forudvalgt. | |
+| Underopgaver | Tjekliste under opgaven: titel + flueben, ét niveau. | |
+| Noter | Fuld CommonMark, vist renderet. Klik på noten for at redigere. | |
+| Venter på | Egen status. Egen sektion nederst, altid synlig når den ikke er tom. | |
+| Someday/Maybe | Egen status. Skjult bag en kontakt, ligesom færdige. | |
+| Redigering | Inline i listen. Ingen dialog — ved 480 px ville den dække alt. | |
+| Færdige opgaver | Forsvinder straks; en "Vis færdige"-kontakt henter dem frem. | |
+| Angular state | Signal-baseret store-service. **Ikke NgRx** — bevidst fravalg. | [ADR 8](../adr/0008-signal-stores.md) |
+| Mentions | Indbakke der godkendes manuelt, ikke automatisk opgaveoprettelse. | |
+| Livscyklus | Frakoblede items markeres færdige og bevares med lokale felter. | |
+| Kørsel | Appen åbnes manuelt. **Intet tray-ikon, ingen baggrundssync, ingen notifikationer og ingen autostart** — intet kører når vinduet er lukket, og alt forfald beregnes derfor ved opslag. | [ADR 16](../adr/0016-weekly-review-is-computed.md), [ADR 19](../adr/0019-publishing-and-no-autostart.md) |
+| Jira | **Data Center 10.3.24**, målt 2026-08-18. REST v2 med wiki-markup. **PAT som Bearer verificeret** mod `/rest/api/2/myself` (200), ikke kun udledt af versionen. | |
+| Azure DevOps | Azure DevOps Server (on-prem), PAT. | |
+| API-kontrakt | Contract-first: `contracts/openapi.yaml` er sandheden. | [ADR 2](../adr/0002-contract-first-openapi.md) |
+| Kodegenerering | NSwag → C#-DTO'er + Angular-klient. Genereret kode committes. | [ADR 2](../adr/0002-contract-first-openapi.md) |
+| Serverside | Håndskrevne minimal APIs + drift-test mod kontrakten. | [ADR 2](../adr/0002-contract-first-openapi.md) |
+| Kilder | Registreres eksplicit. Ingen auto-discovery (bevidst fravalgt). | |
 
 ## 3. Arkitektur
 
