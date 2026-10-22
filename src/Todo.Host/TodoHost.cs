@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
 using Todo.Core.Ado;
+using Todo.Core.Ai;
 using Todo.Core.Jira;
 using Todo.Core.Review;
 using Todo.Host.Ado;
@@ -74,6 +75,8 @@ public static class TodoHost
         // types: the timeout is a property of one external system's habits, and an Azure DevOps that
         // has stopped answering must not be told apart from a Jira that has.
         builder.Services.AddHttpClient<AdoTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
+
+        builder.Services.Configure<AiOptions>(builder.Configuration.GetSection(AiOptions.Section));
 
         builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
 

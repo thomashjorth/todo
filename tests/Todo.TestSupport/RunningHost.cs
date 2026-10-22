@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -84,6 +86,10 @@ public sealed class RunningHost : IAsyncDisposable
             "--urls", "http://127.0.0.1:0",
             "--contentRoot", RepoPaths.HostContentRoot,
             "--Data:Path", databasePath,
+
+            // Before extraArgs, so a test's own --Ai:BaseUrl wins: the command-line provider keeps
+            // the last value for a repeated key.
+            "--Ai:BaseUrl", ClosedLoopbackUrl(),
             .. extraArgs
         ];
 
@@ -98,6 +104,22 @@ public sealed class RunningHost : IAsyncDisposable
             .Addresses.First();
 
         return new RunningHost(app, baseUrl, databasePath, ownsDatabase);
+    }
+
+    /// <summary>
+    /// An address nothing listens on, so no test host can reach the user's real Ollama, which
+    /// answers on the default address on the machine the suite runs on. Asked for rather than
+    /// hard-coded, because a fixed port can be taken on somebody's machine. Measured 2026-10-22: a
+    /// refused connect on loopback takes under 1 ms on Windows, so this costs the suite nothing.
+    /// </summary>
+    private static string ClosedLoopbackUrl()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+
+        return $"http://127.0.0.1:{port}";
     }
 
     /// <summary>
