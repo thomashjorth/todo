@@ -1208,8 +1208,15 @@ forkerte grund.
 
 ## Testtal
 
-**220** Todo.Core.Tests, **428** Todo.Api.Tests, **88** Todo.E2E, **383** Vitest — alle grønne,
-målt med `Check.cmd` 2026-10-22.
+**243** Todo.Core.Tests, **463** Todo.Api.Tests, **105** Todo.E2E, **408** Vitest — alle grønne,
+målt med `Check.cmd` 2026-10-22 sidst på dagen.
+
+**Alle fire steg igen samme dag, fordi anden runde AI og tags kom til — 100 tests er lagt til med
+vilje** (220 → 243, 428 → 463, 88 → 105, 383 → 408). Det er rettelserne efter brugerens første
+afprøvning, de tre resterende AI-funktioner, underopgaver i hurtig indtastning og tags. Spørg
+`git log --stat` fra `36dd29d` for fordelingen pr. fil frem for at føre den her; den forældes. Én
+eksisterende test skiftede *forventning*: `LongIdMigrationTests` ruller nu tilbage til migreringen
+før `LongIds` ved navn, fordi `Tags` ligger efter den.
 
 **Alle fire steg, fordi den lokale AI-model kom til — 85 tests er lagt til med vilje.** Fordelingen:
 **34** Core (11 i `AiPromptsTests`, 14 i `AiSuggestionsTests`, 9 i `AiLanguageTests`), **29** Api (2 i

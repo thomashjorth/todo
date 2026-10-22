@@ -388,5 +388,31 @@ ting er værd at vide før gennemgangen:
   `dotnet test` eller `Check.cmd`, fordi suiten aldrig må ramme den rigtige model. Ret en prompt i
   `AiPrompts`, kør den, og sammenlign med forrige kørsel. Sidste kørsel: 21 af 21.
 
-Tilbage af de seks: handlingsrettede titler i retro-importen, søgning på betydning (kræver en
-embedding-model på `-Approved`-listen) og hjælp til den ugentlige gennemgang.
+**Anden runde samme dag, også til gennemgang:** de tre resterende funktioner og tags (brugerens
+eget ønske midt i leverancen). Designene er `docs/plans/2026-10-22-remaining-ai-features-design.md`
+og `docs/plans/2026-10-22-tags-design.md`, ingen af dem godkendt afsnit for afsnit.
+
+- **Brugerens første afprøvning fandt fire ting, alle rettet:** et kald tog 2 s ekstra, fordi
+  `localhost` prøver IPv6 først på Windows (nu `127.0.0.1`); modellen blev smidt ud efter 5 minutter
+  og kostede ~13 s at hente ind igen (nu `keep_alive` 8 timer og opvarmning ved start); ingen knap i
+  hele appen havde en pointer (Tailwind 4, nu `cursor-pointer` på alle og en vagt); og knapperne var
+  engelske, fordi **Windows' visningssprog er `en-US`** og appen står på "Følg systemet" — målt på
+  WebView2's `--lang=en-US`. Det sidste er en indstilling, ikke en fejl: vælg Dansk.
+- **Genveje til alt:** Alt+T Fortolk, Alt+Shift+F underopgaver, Alt+Shift+R resumé, Alt+H
+  retro-handlinger, Alt+B betydning, Alt+U ugens overblik, Alt+L tag-filter, Alt+Y tilføj foreslåede
+  tags, Alt+Shift+G tags i panelet. Et forslag tager fokus, så Enter accepterer og Escape kasserer —
+  undtagen tag-forslaget, som aldrig må tage feltet fra en der skriver videre.
+- **Hurtig indtastning laver nu underopgaver** af de trin, linjen selv nævner ("først udkast så
+  finpudsning") — brugerens eget eksempel. Aldrig et opfundet trin, og aldrig ét alene.
+- **EmbeddingGemma** (`embeddinggemma:latest`, 621 MB) er hentet med brugerens tilladelse og står på
+  `-Approved`-listen. Den driver søgning på betydning (tærskel 0,40) og "Ligner:" i Jira- og
+  ADO-forhåndsvisningen (tærskel 0,62); vektorerne ligger i hukommelsen, målt til 1,4 s pr. 100
+  opgaver første gang.
+- **Ugens overblik genfortæller ikke længere det fuldførte** — brugerens dom over første udgave var,
+  at det punkt var ubrugeligt og forkert gengivet. Det handler nu om det overskredne, det ventende og
+  gamle Måske-opgaver, og et tomt emne får en fast sætning.
+- **Eval'en har 50 cases** over ni funktioner. Kendte grænser, målt og skrevet ned frem for skjult:
+  søgningen finder begreber, ikke viden ("regning" finder ikke "faktura"), og et tag-navn der betyder
+  noget andet på engelsk ("Drift") foreslås dårligere.
+
+Tilbage af de oprindelige seks: ingen. Åbne spørgsmål til gennemgangen står i de to designs.
