@@ -644,6 +644,103 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /api/ai/status:
+    get:
+      operationId: getAiStatus
+      tags:
+        - Ai
+      summary: Reports whether the local AI model can be asked right now.
+      description: >-
+        Never an error. An Ollama that is not running, does not have the configured model or does
+        not answer within three seconds is reported as not ready, and the app hides its AI features.
+      responses:
+        '200':
+          description: Whether the model is ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiStatusResponse'
+  /api/ai/parse-task:
+    post:
+      operationId: parseTask
+      tags:
+        - Ai
+      summary: Suggests a task from one line of free text. Nothing is saved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiParseTaskRequest'
+      responses:
+        '200':
+          description: The suggested task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiTaskSuggestion'
+        '400':
+          description: The text is blank, or the model could not be asked or could not be read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/ai/tasks/{id}/split:
+    post:
+      operationId: suggestSubTasks
+      tags:
+        - Ai
+      summary: Suggests subtasks for a task from its title, note and existing subtasks. Nothing is saved.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: The suggested subtask titles, at most six.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSubTaskSuggestions'
+        '400':
+          description: The model could not be asked or could not be read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: No task with that id.
+  /api/ai/tasks/{id}/summary:
+    post:
+      operationId: summarizeNote
+      tags:
+        - Ai
+      summary: Suggests a summary of a task's note in at most two sentences. Nothing is saved.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: The suggested summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiNoteSummary'
+        '400':
+          description: The note is empty, or the model could not be asked or could not be read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: No task with that id.
 components:
   schemas:
     ApiError:
@@ -1777,3 +1874,37 @@ components:
         url:
           type: string
           example: https://example.com/docs
+    AiStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [ready]
+      properties:
+        ready: { type: boolean }
+    AiParseTaskRequest:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text: { type: string, example: Ring til Anna om fakturaen på fredag }
+    AiTaskSuggestion:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: { type: string }
+        requester: { type: string, nullable: true }
+        deadline: { type: string, format: date, nullable: true }
+    AiSubTaskSuggestions:
+      type: object
+      additionalProperties: false
+      required: [titles]
+      properties:
+        titles:
+          type: array
+          items: { type: string }
+    AiNoteSummary:
+      type: object
+      additionalProperties: false
+      required: [summary]
+      properties:
+        summary: { type: string }

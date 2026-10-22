@@ -10,6 +10,7 @@ using Todo.Core.Ai;
 using Todo.Core.Jira;
 using Todo.Core.Review;
 using Todo.Host.Ado;
+using Todo.Host.Ai;
 using Todo.Host.Endpoints;
 using Todo.Host.Jira;
 using Todo.Host.Links;
@@ -77,6 +78,11 @@ public static class TodoHost
         builder.Services.AddHttpClient<AdoTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
 
         builder.Services.Configure<AiOptions>(builder.Configuration.GetSection(AiOptions.Section));
+
+        // Sixty seconds rather than the sources' thirty: the first call after the model was unloaded
+        // measured 22 s with thinking on, and every AI call measured about 7 s warm. Startup is not
+        // what this protects - readiness has its own three-second limit inside OllamaClient.
+        builder.Services.AddHttpClient<OllamaClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
 
         builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
 
@@ -166,6 +172,7 @@ public static class TodoHost
         app.MapSettings();
         app.MapReview();
         app.MapSystem();
+        app.MapAi();
 
         app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = frontend });
 

@@ -362,7 +362,9 @@
     },
     "ai": {
       "unavailable": "The local AI model is not answering. Check that Ollama is running.",
-      "unreadableAnswer": "The AI model gave an answer that could not be read. Try again."
+      "unreadableAnswer": "The AI model gave an answer that could not be read. Try again.",
+      "textRequired": "Type the task in the field first.",
+      "noteRequired": "The note is empty, so there is nothing to summarise."
     }
   }
 }

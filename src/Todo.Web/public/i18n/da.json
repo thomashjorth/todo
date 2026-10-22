@@ -362,7 +362,9 @@
     },
     "ai": {
       "unavailable": "Den lokale AI-model svarer ikke. Kontrollér at Ollama kører.",
-      "unreadableAnswer": "AI-modellen gav et svar der ikke kunne læses. Prøv igen."
+      "unreadableAnswer": "AI-modellen gav et svar der ikke kunne læses. Prøv igen.",
+      "textRequired": "Skriv opgaven i feltet først.",
+      "noteRequired": "Noten er tom, så der er intet at opsummere."
     }
   }
 }

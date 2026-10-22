@@ -1847,6 +1847,267 @@ export class SystemClient {
     }
 }
 
+@Injectable({
+    providedIn: 'root'
+})
+export class AiClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * Reports whether the local AI model can be asked right now.
+     * @return Whether the model is ready.
+     */
+    getAiStatus(): Observable<AiStatusResponse> {
+        let url_ = this.baseUrl + "/api/ai/status";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processGetAiStatus(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processGetAiStatus(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AiStatusResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AiStatusResponse>;
+        }));
+    }
+
+    protected processGetAiStatus(response: HttpResponseBase): Observable<AiStatusResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AiStatusResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Suggests a task from one line of free text. Nothing is saved.
+     * @return The suggested task.
+     */
+    parseTask(body: AiParseTaskRequest): Observable<AiTaskSuggestion> {
+        let url_ = this.baseUrl + "/api/ai/parse-task";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processParseTask(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processParseTask(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AiTaskSuggestion>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AiTaskSuggestion>;
+        }));
+    }
+
+    protected processParseTask(response: HttpResponseBase): Observable<AiTaskSuggestion> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AiTaskSuggestion.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The text is blank, or the model could not be asked or could not be read.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Suggests subtasks for a task from its title, note and existing subtasks. Nothing is saved.
+     * @return The suggested subtask titles, at most six.
+     */
+    suggestSubTasks(id: number): Observable<AiSubTaskSuggestions> {
+        let url_ = this.baseUrl + "/api/ai/tasks/{id}/split";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processSuggestSubTasks(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processSuggestSubTasks(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AiSubTaskSuggestions>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AiSubTaskSuggestions>;
+        }));
+    }
+
+    protected processSuggestSubTasks(response: HttpResponseBase): Observable<AiSubTaskSuggestions> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AiSubTaskSuggestions.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The model could not be asked or could not be read.", status, _responseText, _headers, result400);
+            }));
+        } else if (status === 404) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("No task with that id.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Suggests a summary of a task's note in at most two sentences. Nothing is saved.
+     * @return The suggested summary.
+     */
+    summarizeNote(id: number): Observable<AiNoteSummary> {
+        let url_ = this.baseUrl + "/api/ai/tasks/{id}/summary";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processSummarizeNote(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processSummarizeNote(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AiNoteSummary>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AiNoteSummary>;
+        }));
+    }
+
+    protected processSummarizeNote(response: HttpResponseBase): Observable<AiNoteSummary> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AiNoteSummary.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The note is empty, or the model could not be asked or could not be read.", status, _responseText, _headers, result400);
+            }));
+        } else if (status === 404) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("No task with that id.", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
 export class ApiError implements IApiError {
     code!: string;
     message!: string;
@@ -4426,6 +4687,205 @@ export class OpenLinkRequest implements IOpenLinkRequest {
 
 export interface IOpenLinkRequest {
     url: string;
+}
+
+export class AiStatusResponse implements IAiStatusResponse {
+    ready!: boolean;
+
+    constructor(data?: IAiStatusResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.ready = _data["ready"];
+        }
+    }
+
+    static fromJS(data: any): AiStatusResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiStatusResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["ready"] = this.ready;
+        return data;
+    }
+}
+
+export interface IAiStatusResponse {
+    ready: boolean;
+}
+
+export class AiParseTaskRequest implements IAiParseTaskRequest {
+    text!: string;
+
+    constructor(data?: IAiParseTaskRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.text = _data["text"];
+        }
+    }
+
+    static fromJS(data: any): AiParseTaskRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiParseTaskRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["text"] = this.text;
+        return data;
+    }
+}
+
+export interface IAiParseTaskRequest {
+    text: string;
+}
+
+export class AiTaskSuggestion implements IAiTaskSuggestion {
+    title!: string;
+    requester?: string | undefined;
+    deadline?: string | undefined;
+
+    constructor(data?: IAiTaskSuggestion) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.title = _data["title"];
+            this.requester = _data["requester"];
+            this.deadline = _data["deadline"];
+        }
+    }
+
+    static fromJS(data: any): AiTaskSuggestion {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiTaskSuggestion();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["title"] = this.title;
+        data["requester"] = this.requester;
+        data["deadline"] = this.deadline;
+        return data;
+    }
+}
+
+export interface IAiTaskSuggestion {
+    title: string;
+    requester?: string | undefined;
+    deadline?: string | undefined;
+}
+
+export class AiSubTaskSuggestions implements IAiSubTaskSuggestions {
+    titles!: string[];
+
+    constructor(data?: IAiSubTaskSuggestions) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.titles = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["titles"])) {
+                this.titles = [] as any;
+                for (let item of _data["titles"])
+                    this.titles!.push(item);
+            }
+        }
+    }
+
+    static fromJS(data: any): AiSubTaskSuggestions {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiSubTaskSuggestions();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.titles)) {
+            data["titles"] = [];
+            for (let item of this.titles)
+                data["titles"].push(item);
+        }
+        return data;
+    }
+}
+
+export interface IAiSubTaskSuggestions {
+    titles: string[];
+}
+
+export class AiNoteSummary implements IAiNoteSummary {
+    summary!: string;
+
+    constructor(data?: IAiNoteSummary) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.summary = _data["summary"];
+        }
+    }
+
+    static fromJS(data: any): AiNoteSummary {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiNoteSummary();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["summary"] = this.summary;
+        return data;
+    }
+}
+
+export interface IAiNoteSummary {
+    summary: string;
 }
 
 export class ApiException extends Error {

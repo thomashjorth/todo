@@ -21,10 +21,14 @@ public abstract class ApiTest : IAsyncLifetime
     {
     }
 
-    public async ValueTask InitializeAsync()
+    /// <summary>
+    /// Virtual so a class can start a fake server first: <see cref="ConfigureServices"/> runs inside
+    /// the host's start and has to know the fake's address by then.
+    /// </summary>
+    public virtual async ValueTask InitializeAsync()
         => _host = await RunningHost.StartWithAsync(ConfigureServices);
 
-    public async ValueTask DisposeAsync()
+    public virtual async ValueTask DisposeAsync()
     {
         if (_host is not null)
         {

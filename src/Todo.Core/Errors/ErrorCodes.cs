@@ -213,4 +213,9 @@ public static class ErrorCodes
 
     /// <summary>The model answered, but not in the requested shape. The user's move is to try again.</summary>
     public const string AiUnreadableAnswer = "ai.unreadableAnswer";
+
+    public const string AiTextRequired = "ai.textRequired";
+
+    /// <summary>A summary was asked for a task whose note is empty, so there is nothing to summarise.</summary>
+    public const string AiNoteRequired = "ai.noteRequired";
 }
