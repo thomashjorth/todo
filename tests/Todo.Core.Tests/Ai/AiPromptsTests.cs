@@ -48,7 +48,7 @@ public class AiPromptsTests
     public void The_split_prompt_carries_the_title_the_note_and_the_existing_subtasks()
     {
         var prompt = AiPrompts.Split(
-            "Opdatér certifikatet", "Det ligger i Key Vault.", ["Find ejeren", "Bestil certifikat"]);
+            "Opdatér certifikatet", "Det ligger i Key Vault.", ["Find ejeren", "Bestil certifikat"], AiLanguage.Danish);
 
         Assert.Contains("Task: Opdatér certifikatet", prompt);
         Assert.Contains("Note: Det ligger i Key Vault.", prompt);
@@ -58,7 +58,7 @@ public class AiPromptsTests
     [Fact]
     public void The_split_prompt_says_none_rather_than_leaving_a_field_empty()
     {
-        var prompt = AiPrompts.Split("Opdatér certifikatet", null, []);
+        var prompt = AiPrompts.Split("Opdatér certifikatet", null, [], AiLanguage.Danish);
 
         Assert.Contains("Note: (none)", prompt);
         Assert.Contains("Existing subtasks: (none)", prompt);
@@ -67,9 +67,31 @@ public class AiPromptsTests
     [Fact]
     public void The_summary_prompt_carries_the_title_and_the_whole_note()
     {
-        var prompt = AiPrompts.Summarize("CSV-eksport fejler", "Første linje.\nAnden linje.");
+        var prompt = AiPrompts.Summarize("CSV-eksport fejler", "Første linje.\nAnden linje.", AiLanguage.Danish);
 
         Assert.Contains("Title: CSV-eksport fejler", prompt);
         Assert.Contains("Første linje.\nAnden linje.", prompt.ReplaceLineEndings("\n"));
+    }
+
+    /// <summary>
+    /// The language is named, and Danish rules Norwegian out in so many words: the first eval run got
+    /// "Ring tannlegen" and Norwegian subtasks for Danish input.
+    /// </summary>
+    [Fact]
+    public void A_prompt_names_the_language_it_was_given()
+    {
+        Assert.Contains(
+            "Write in Danish - not Norwegian, not Swedish.",
+            AiPrompts.Summarize("Login fejler", "Noget fejler.", AiLanguage.Danish));
+        Assert.Contains(
+            "Write in English.",
+            AiPrompts.Split("Login fejler", null, [], AiLanguage.English));
+    }
+
+    [Fact]
+    public void The_quick_entry_prompt_names_the_language_of_the_line()
+    {
+        Assert.Contains("Write in English.", AiPrompts.ParseTask("Call the dentist tomorrow", Thursday));
+        Assert.Contains("Write in Danish", AiPrompts.ParseTask("Ryd op i backloggen", Thursday));
     }
 }

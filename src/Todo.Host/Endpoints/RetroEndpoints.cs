@@ -12,7 +12,8 @@ namespace Todo.Host.Endpoints;
 
 public static class RetroEndpoints
 {
-    private const string RetroSource = "retro";
+    /// <summary>Public for the AI routes, which choose the answer's language by source.</summary>
+    public const string RetroSource = "retro";
     private const int TitleMaxLength = 500;
 
     public static IEndpointRouteBuilder MapRetro(this IEndpointRouteBuilder app)

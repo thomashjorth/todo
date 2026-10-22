@@ -6,7 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Todo.Core.Ai;
 using Todo.Core.Errors;
 using Todo.Core.Sources;
+using Todo.Host.Ado;
 using Todo.Host.Ai;
+using Todo.Host.Jira;
 
 namespace Todo.Host.Endpoints;
 
@@ -66,7 +68,9 @@ public static class AiEndpoints
             try
             {
                 var answer = await ollama.CompleteAsync<SplitAnswer>(
-                    AiPrompts.Split(task.Title, task.Note, existing), AiPrompts.SplitSchema(), ct);
+                    AiPrompts.Split(task.Title, task.Note, existing, LanguageOf(task.SourceId, $"{task.Title} {task.Note}")),
+                    AiPrompts.SplitSchema(),
+                    ct);
 
                 return TypedResults.Ok(new AiSubTaskSuggestions
                 {
@@ -99,7 +103,9 @@ public static class AiEndpoints
             try
             {
                 var answer = await ollama.CompleteAsync<SummaryAnswer>(
-                    AiPrompts.Summarize(task.Title, task.Note), AiPrompts.SummarySchema(), ct);
+                    AiPrompts.Summarize(task.Title, task.Note, LanguageOf(task.SourceId, $"{task.Title} {task.Note}")),
+                    AiPrompts.SummarySchema(),
+                    ct);
 
                 return AiSuggestions.Summary(answer.Summary) is { } summary
                     ? TypedResults.Ok(new AiNoteSummary { Summary = summary })
@@ -115,6 +121,19 @@ public static class AiEndpoints
 
         return app;
     }
+
+    /// <summary>
+    /// The language an answer about a task is written in. The source decides for an imported task,
+    /// because the user knows how each one is written (2026-10-22): retro boards and Azure DevOps in
+    /// English, Jira in Danish. Only a task made in the app is guessed from its text. Public, so the
+    /// eval runner asks the model exactly what the app asks it.
+    /// </summary>
+    public static string LanguageOf(string sourceId, string text) => sourceId switch
+    {
+        JiraTaskSource.Id => AiLanguage.Danish,
+        AdoTaskSource.Id or RetroEndpoints.RetroSource => AiLanguage.English,
+        _ => AiLanguage.Of(text),
+    };
 
     private static BadRequest<ApiError> Refused(SourceException exception) =>
         ApiErrors.BadRequest(exception.Code, exception.Message);

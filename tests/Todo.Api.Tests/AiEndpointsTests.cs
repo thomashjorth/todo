@@ -132,6 +132,32 @@ public class AiEndpointsTests : ApiTest
         Assert.Contains("Existing subtasks: Find ejeren", prompt);
     }
 
+    /// <summary>
+    /// The source decides, not the text: each task here is written in the OTHER language, so a rule
+    /// that read the text instead would fail all three. Retro and Azure DevOps are English and Jira is
+    /// Danish, as the user told it 2026-10-22; only a task made in the app is guessed from its words.
+    /// </summary>
+    [Theory]
+    [InlineData("jira", "Login page times out for every user", "Write in Danish")]
+    [InlineData("retro", "Vi skal blive bedre til at teste", "Write in English.")]
+    [InlineData("manual", "Prepare the quarterly security review", "Write in English.")]
+    public async Task The_answer_language_follows_the_source(string source, string title, string expected)
+    {
+        var builder = new TaskItemBuilder().Titled(title).WithNote(title);
+        var task = (source switch
+        {
+            "jira" => builder.FromJira("SAAS-1"),
+            "retro" => builder.FromRetro("retro-1"),
+            _ => builder,
+        }).Build();
+        await Host.AddAndSaveChangesAsync(task);
+        _ollama.Answer = """{"summary":"Kort."}""";
+
+        await Client.PostAsync($"/api/ai/tasks/{task.Id}/summary", null);
+
+        Assert.Contains(expected, PromptSent());
+    }
+
     [Fact]
     public async Task Splitting_a_task_that_does_not_exist_is_a_404()
     {

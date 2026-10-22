@@ -50,9 +50,11 @@ public static class AiPrompts
             {calendar.ToString().TrimEnd()}
 
             Return:
-            - title: the task, in the same language and close to the same words as the line, without the date.
+            - title: the task, close to the same words as the line. Leave out the due date and the words that only introduce it, such as "på fredag", "til onsdag", "i morgen", "inden 1. november" or "tomorrow".
             - requester: the person the task is for or about, if the line names one. Otherwise null.
             - deadline: the date the task is due, as YYYY-MM-DD, if the line names one. Otherwise null. A weekday on its own means the first such day in the list above; "næste <weekday>" means the one in the week after this one.
+
+            {WriteIn(AiLanguage.Of(text))}
 
             The line:
             {text}
@@ -75,13 +77,18 @@ public static class AiPrompts
     /// The existing subtasks are in the prompt so the model does not suggest them again, and they are
     /// filtered out afterwards as well, because a prompt is a request and not a promise.
     /// </summary>
-    public static string Split(string title, string? note, IEnumerable<string> existing)
+    /// <param name="language">
+    /// <see cref="AiLanguage.Danish"/> or <see cref="AiLanguage.English"/>, chosen by the caller from
+    /// the task's source - see <see cref="AiLanguage"/>.
+    /// </param>
+    public static string Split(string title, string? note, IEnumerable<string> existing, string language)
     {
         var known = string.Join("; ", existing);
 
         return $"""
             Break this task from a to-do list into 3 to {AiSuggestions.MaxSubTasks} concrete subtasks.
-            Each subtask is a short imperative phrase in the same language as the task. Do not repeat a subtask that already exists.
+            Each subtask is a short imperative phrase. Do not repeat a subtask that already exists.
+            {WriteIn(language)}
 
             Task: {title}
             Note: {(string.IsNullOrWhiteSpace(note) ? "(none)" : note)}
@@ -105,9 +112,15 @@ public static class AiPrompts
         ["required"] = new JsonArray("subTasks"),
     };
 
-    public static string Summarize(string title, string note) => $"""
-        Summarise this issue in at most two short sentences, in the same language as the description.
-        Say what is wrong or wanted and what has to be done. Leave out greetings, signatures, reproduction steps and history. Plain text, no markdown.
+    /// <summary>
+    /// "Keep the concrete facts" came from the eval: without it a summary said "store datasæt" for
+    /// "over 10.000 rækker". "Leave out code" came from it too: with the facts rule alone, a
+    /// description holding a SQL statement got the statement copied into its summary.
+    /// </summary>
+    public static string Summarize(string title, string note, string language) => $"""
+        Summarise this issue in at most two short sentences on one line.
+        Say what is wrong or wanted and what has to be done. Keep the concrete facts - numbers, limits, system names and error names. Leave out code, greetings, signatures, reproduction steps and history. Plain text, no markdown.
+        {WriteIn(language)}
 
         Title: {title}
         Description:
@@ -120,6 +133,17 @@ public static class AiPrompts
         ["properties"] = new JsonObject { ["summary"] = new JsonObject { ["type"] = "string" } },
         ["required"] = new JsonArray("summary"),
     };
+
+    /// <summary>
+    /// The language is named rather than left to the model, and Norwegian is ruled out in so many
+    /// words: the first eval run answered "Call the dentist" with the Norwegian "Ring tannlegen", gave
+    /// a Danish task Norwegian subtasks, and summarised a Danish description in English because it
+    /// held a block of SQL. See <see cref="AiLanguage"/> for what the model got wrong when asked to
+    /// work the language out itself.
+    /// </summary>
+    private static string WriteIn(string language) => language == AiLanguage.Danish
+        ? "Write in Danish - not Norwegian, not Swedish."
+        : "Write in English.";
 
     private static string Weekday(DateOnly day) => Weekdays[(int)day.DayOfWeek];
 
