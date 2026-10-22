@@ -121,6 +121,44 @@ public class OllamaClientTests
     }
 
     [Fact]
+    public async Task Search_is_ready_only_when_the_embedding_model_is_there_too()
+    {
+        await using var fake = await FakeOllama.StartAsync();
+        var client = fake.ClientFor();
+
+        Assert.True(await client.IsSearchReadyAsync());
+
+        fake.WithoutEmbeddingModel = true;
+
+        Assert.False(await client.IsSearchReadyAsync());
+        Assert.True(await client.IsReadyAsync());
+    }
+
+    [Fact]
+    public async Task Texts_come_back_as_one_vector_each_in_order()
+    {
+        await using var fake = await FakeOllama.StartAsync();
+
+        var vectors = await fake.ClientFor().EmbedAsync(["Køb mælk", "Forny certifikatet"]);
+
+        Assert.Equal(2, vectors.Length);
+        Assert.Equal(FakeOllama.VectorOf("Køb mælk"), vectors[0]);
+        Assert.Equal(FakeOllama.VectorOf("Forny certifikatet"), vectors[1]);
+        Assert.Equal(["Køb mælk", "Forny certifikatet"], fake.EmbeddedTexts);
+    }
+
+    [Fact]
+    public async Task A_missing_embedding_model_is_unavailable()
+    {
+        await using var fake = await FakeOllama.StartAsync();
+        fake.WithoutEmbeddingModel = true;
+
+        var exception = await Assert.ThrowsAsync<SourceException>(() => fake.ClientFor().EmbedAsync(["Køb mælk"]));
+
+        Assert.Equal(ErrorCodes.AiUnavailable, exception.Code);
+    }
+
+    [Fact]
     public async Task A_missing_model_is_unavailable()
     {
         await using var fake = await FakeOllama.StartAsync();

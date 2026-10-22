@@ -660,6 +660,100 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AiStatusResponse'
+  /api/ai/retro-actions:
+    post:
+      operationId: suggestRetroActions
+      tags:
+        - Ai
+      summary: Suggests an action title, and an owner where the board names none, for each retro note. Nothing is saved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiRetroActionsRequest'
+      responses:
+        '200':
+          description: One suggestion per note the model answered for; a note it skipped has none.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiRetroActionsResponse'
+        '400':
+          description: There are no notes, or the model could not be asked or could not be read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/ai/search:
+    post:
+      operationId: searchByMeaning
+      tags:
+        - Ai
+      summary: Ranks every task by how close it is in meaning to the query.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiSearchRequest'
+      responses:
+        '200':
+          description: The ids of the tasks above the similarity threshold, best first, at most twenty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiSearchResponse'
+        '400':
+          description: The query is blank, or the embedding model could not be asked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/ai/duplicates:
+    post:
+      operationId: findDuplicates
+      tags:
+        - Ai
+      summary: Finds the tasks from other sources that import rows resemble. A warning, never a block.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiDuplicatesRequest'
+      responses:
+        '200':
+          description: The closest task per row that resembles one; rows without a match are left out.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiDuplicatesResponse'
+        '400':
+          description: The embedding model could not be asked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/ai/review-overview:
+    post:
+      operationId: writeReviewOverview
+      tags:
+        - Ai
+      summary: Writes three to five points for the weekly review from facts the host gathers itself.
+      responses:
+        '200':
+          description: The points.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiReviewOverview'
+        '400':
+          description: The model could not be asked or could not be read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/ai/warm:
     post:
       operationId: warmAi
@@ -1889,9 +1983,111 @@ components:
     AiStatusResponse:
       type: object
       additionalProperties: false
-      required: [ready]
+      required: [ready, searchReady]
       properties:
         ready: { type: boolean }
+        searchReady:
+          type: boolean
+          description: >-
+            Whether the embedding model is there too, which search by meaning and duplicate
+            warnings need. Asked apart, because the two models are installed apart.
+    AiRetroActionsRequest:
+      type: object
+      additionalProperties: false
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiRetroNote'
+    AiRetroNote:
+      type: object
+      additionalProperties: false
+      required: [key, text]
+      properties:
+        key: { type: string }
+        text: { type: string }
+        owner: { type: string, nullable: true }
+    AiRetroActionsResponse:
+      type: object
+      additionalProperties: false
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiRetroAction'
+    AiRetroAction:
+      type: object
+      additionalProperties: false
+      required: [key, title, ownerIsMine]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        owner:
+          type: string
+          nullable: true
+          description: A guessed owner, only for a note whose board names none.
+        ownerIsMine:
+          type: boolean
+          description: Whether the guessed owner is one of the user's aliases.
+    AiSearchRequest:
+      type: object
+      additionalProperties: false
+      required: [query]
+      properties:
+        query: { type: string }
+    AiSearchResponse:
+      type: object
+      additionalProperties: false
+      required: [taskIds]
+      properties:
+        taskIds:
+          type: array
+          items: { type: integer, format: int64 }
+    AiDuplicatesRequest:
+      type: object
+      additionalProperties: false
+      required: [sourceId, rows]
+      properties:
+        sourceId: { type: string }
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiDuplicateCandidate'
+    AiDuplicateCandidate:
+      type: object
+      additionalProperties: false
+      required: [key, title]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        note: { type: string, nullable: true }
+    AiDuplicatesResponse:
+      type: object
+      additionalProperties: false
+      required: [matches]
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiDuplicateMatch'
+    AiDuplicateMatch:
+      type: object
+      additionalProperties: false
+      required: [key, taskId, taskTitle]
+      properties:
+        key: { type: string }
+        taskId: { type: integer, format: int64 }
+        taskTitle: { type: string }
+    AiReviewOverview:
+      type: object
+      additionalProperties: false
+      required: [points]
+      properties:
+        points:
+          type: array
+          items: { type: string }
     AiParseTaskRequest:
       type: object
       additionalProperties: false

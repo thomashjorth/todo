@@ -84,6 +84,9 @@ public static class TodoHost
         // what this protects - readiness has its own three-second limit inside OllamaClient.
         builder.Services.AddHttpClient<OllamaClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
 
+        // A singleton, because it is a cache: the tasks' vectors live as long as the process.
+        builder.Services.AddSingleton<TaskEmbeddings>();
+
         builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
 
         configureServices?.Invoke(builder.Services);

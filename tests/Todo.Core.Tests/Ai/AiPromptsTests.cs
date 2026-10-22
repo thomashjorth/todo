@@ -97,6 +97,46 @@ public class AiPromptsTests
     }
 
     [Fact]
+    public void The_retro_prompt_numbers_every_note_from_one_and_asks_for_english()
+    {
+        var prompt = AiPrompts.RetroActions(["We should test more", "Bo: fix the build"]).ReplaceLineEndings("\n");
+
+        Assert.Contains("1. We should test more\n2. Bo: fix the build", prompt);
+        Assert.Contains("Write in English.", prompt);
+        Assert.Contains("Never invent a name", prompt);
+    }
+
+    /// <summary>
+    /// The facts are the prompt's whole content, so each kind is asserted to reach it - and the
+    /// creation date is named as the only one a Someday task has, because there is no UpdatedAt.
+    /// </summary>
+    [Fact]
+    public void The_review_prompt_carries_every_fact_it_was_given()
+    {
+        var prompt = AiPrompts.ReviewOverview(new ReviewFacts(
+            12,
+            ["Send referatet"],
+            [new WaitingFact("Svar revisoren", "Bo", 21)],
+            3,
+            [new AgeFact("Lær harmonika", 200)]));
+
+        Assert.Contains("Completed in the last 7 days (12):\n- Send referatet", prompt.ReplaceLineEndings("\n"));
+        Assert.Contains("- Svar revisoren - waiting on Bo for 21 days", prompt);
+        Assert.Contains("Overdue: 3", prompt);
+        Assert.Contains("- Lær harmonika - created 200 days ago", prompt);
+        Assert.Contains("the creation date is the only date known", prompt);
+        Assert.Contains("Write in Danish", prompt);
+    }
+
+    [Fact]
+    public void An_empty_list_says_none_rather_than_nothing()
+    {
+        var prompt = AiPrompts.ReviewOverview(new ReviewFacts(0, [], [], 0, [])).ReplaceLineEndings("\n");
+
+        Assert.Contains("Waiting, longest first:\n- (none)", prompt);
+    }
+
+    [Fact]
     public void The_quick_entry_prompt_names_the_language_of_the_line()
     {
         Assert.Contains("Write in English.", AiPrompts.ParseTask("Call the dentist tomorrow", Thursday));

@@ -35,13 +35,17 @@ public class AiEndpointsTests : ApiTest
         services.AddSingleton<IClock>(new FixedClock(Today));
 
         // After the host bound Ai:BaseUrl to RunningHost's closed port, so this is the last word.
-        services.Configure<AiOptions>(o => o.BaseUrl = _ollama.BaseUrl);
+        services.Configure<AiOptions>(o =>
+        {
+            o.BaseUrl = _ollama.BaseUrl;
+            o.EmbeddingModel = FakeOllama.EmbeddingModel;
+        });
     }
 
     [Fact]
     public async Task The_status_is_ready_when_ollama_has_the_model()
     {
-        Assert.Equal("""{"ready":true}""", await Client.GetStringAsync("/api/ai/status"));
+        Assert.Equal("""{"ready":true,"searchReady":true}""", await Client.GetStringAsync("/api/ai/status"));
     }
 
     [Fact]
@@ -52,7 +56,16 @@ public class AiEndpointsTests : ApiTest
         var response = await Client.GetAsync("/api/ai/status");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("""{"ready":false}""", await response.Content.ReadAsStringAsync());
+        Assert.Equal("""{"ready":false,"searchReady":false}""", await response.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>The answering model can be installed while the embedding model is still downloading.</summary>
+    [Fact]
+    public async Task Search_is_not_ready_without_the_embedding_model()
+    {
+        _ollama.WithoutEmbeddingModel = true;
+
+        Assert.Equal("""{"ready":true,"searchReady":false}""", await Client.GetStringAsync("/api/ai/status"));
     }
 
     [Fact]

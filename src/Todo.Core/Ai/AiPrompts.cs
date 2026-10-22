@@ -130,6 +130,90 @@ public static class AiPrompts
     };
 
     /// <summary>
+    /// Turns retro notes into actions, all in one call: on the user's CPU every call costs seconds,
+    /// so one per row would multiply the wait by the number of rows. The notes are numbered, and the
+    /// answer refers back by number, because a note's text is not unique enough to match on. English,
+    /// because retro boards always are (the user, 2026-10-22).
+    /// </summary>
+    public static string RetroActions(IReadOnlyList<string> notes)
+    {
+        var numbered = string.Join("\n", notes.Select((note, i) => $"{i + 1}. {note}"));
+
+        return $"""
+            These notes come from a team retrospective board. Rewrite each as one short action someone can do, starting with a verb, keeping the note's meaning and as many of its words as you can. A note that is already an action stays close to as it is.
+            owner: the person who should do it, only if the note names a person. Otherwise null. Never invent a name, and a team or role is not a person.
+            Answer once per note, with its number.
+            {WriteIn(AiLanguage.English)}
+            Notes:
+            {numbered}
+            """;
+    }
+
+    public static JsonObject RetroActionsSchema() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["actions"] = new JsonObject
+            {
+                ["type"] = "array",
+                ["items"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["note"] = new JsonObject { ["type"] = "integer" },
+                        ["title"] = new JsonObject { ["type"] = "string" },
+                        ["owner"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
+                    },
+                    ["required"] = new JsonArray("note", "title", "owner"),
+                },
+            },
+        },
+        ["required"] = new JsonArray("actions"),
+    };
+
+    /// <summary>
+    /// The facts are gathered by the host and the model only phrases them, so it cannot invent a
+    /// task: the prompt says so, and the eval checks every point against the facts it was given.
+    /// "Created" is said in so many words for the Someday tasks, because it is the only date there
+    /// is - TaskItem has no UpdatedAt and the app has no revision log.
+    /// </summary>
+    public static string ReviewOverview(ReviewFacts facts)
+    {
+        static string List(IEnumerable<string> lines) =>
+            string.Join("\n", lines.Select(l => $"- {l}")) is { Length: > 0 } text ? text : "- (none)";
+
+        return $"""
+            Write 3 to 5 short points for a weekly review of a personal to-do list. Say what got done, which waiting tasks have waited longest and whether to chase them, and which Someday tasks have sat for months and could be dropped or scheduled. Use only the facts below and name tasks by their titles; never mention a task that is not listed.
+            {WriteIn(AiLanguage.Danish)}
+            Completed in the last 7 days ({facts.CompletedCount}):
+            {List(facts.Completed)}
+            Waiting, longest first:
+            {List(facts.Waiting.Select(w => $"{w.Title} - waiting on {w.WaitingOn ?? "nobody named"} for {w.Days} days"))}
+            Overdue: {facts.OverdueCount}
+            Someday tasks created more than {ReviewFacts.StaleDays} days ago (the creation date is the only date known):
+            {List(facts.StaleSomeday.Select(s => $"{s.Title} - created {s.Days} days ago"))}
+            """;
+    }
+
+    public static JsonObject ReviewOverviewSchema() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["points"] = new JsonObject
+            {
+                ["type"] = "array",
+                ["items"] = new JsonObject { ["type"] = "string" },
+                ["minItems"] = 3,
+                ["maxItems"] = AiSuggestions.MaxReviewPoints,
+            },
+        },
+        ["required"] = new JsonArray("points"),
+    };
+
+    /// <summary>
     /// The language is named rather than left to the model, and Norwegian is ruled out in so many
     /// words: the first eval run answered "Call the dentist" with the Norwegian "Ring tannlegen", gave
     /// a Danish task Norwegian subtasks, and summarised a Danish description in English because it

@@ -68,6 +68,49 @@ public class AiSuggestionsTests
     }
 
     [Fact]
+    public void Retro_actions_are_matched_back_to_their_notes_by_number()
+    {
+        var actions = AiSuggestions.RetroActions(
+            [new(2, " Write integration tests ", null), new(1, "Book the room", null)],
+            [null, null]);
+
+        Assert.Equal("Book the room", actions[0].Title);
+        Assert.Equal("Write integration tests", actions[1].Title);
+    }
+
+    /// <summary>A number the prompt never used, one used twice, or no title at all: that note gets nothing.</summary>
+    [Fact]
+    public void A_retro_action_that_cannot_be_placed_is_dropped()
+    {
+        var actions = AiSuggestions.RetroActions(
+            [new(0, "Zero", null), new(3, "Three", null), new(1, "First", null), new(1, "Again", null), new(2, " ", null), null],
+            [null, null]);
+
+        Assert.Equal([0], actions.Keys);
+        Assert.Equal("First", actions[0].Title);
+    }
+
+    /// <summary>The board's own Action Owner wins: a guess is only kept where the board names nobody.</summary>
+    [Fact]
+    public void A_guessed_owner_never_overrides_the_board()
+    {
+        var actions = AiSuggestions.RetroActions(
+            [new(1, "Ask Bo for the logs", "Bo"), new(2, "Fix the build", "Mads")],
+            [null, "Thomas"]);
+
+        Assert.Equal("Bo", actions[0].Owner);
+        Assert.Null(actions[1].Owner);
+    }
+
+    [Fact]
+    public void Review_points_lose_blanks_and_stop_at_five()
+    {
+        var points = AiSuggestions.ReviewPoints([" Et ", "", null, "To", "Tre", "Fire", "Fem", "Seks"]);
+
+        Assert.Equal(["Et", "To", "Tre", "Fire", "Fem"], points);
+    }
+
+    [Fact]
     public void A_blank_summary_is_no_summary()
     {
         Assert.Null(AiSuggestions.Summary(" \n "));

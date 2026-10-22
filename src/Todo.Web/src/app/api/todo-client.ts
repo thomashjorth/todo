@@ -1913,6 +1913,254 @@ export class AiClient {
     }
 
     /**
+     * Suggests an action title, and an owner where the board names none, for each retro note. Nothing is saved.
+     * @return One suggestion per note the model answered for; a note it skipped has none.
+     */
+    suggestRetroActions(body: AiRetroActionsRequest): Observable<AiRetroActionsResponse> {
+        let url_ = this.baseUrl + "/api/ai/retro-actions";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processSuggestRetroActions(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processSuggestRetroActions(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AiRetroActionsResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AiRetroActionsResponse>;
+        }));
+    }
+
+    protected processSuggestRetroActions(response: HttpResponseBase): Observable<AiRetroActionsResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AiRetroActionsResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("There are no notes, or the model could not be asked or could not be read.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Ranks every task by how close it is in meaning to the query.
+     * @return The ids of the tasks above the similarity threshold, best first, at most twenty.
+     */
+    searchByMeaning(body: AiSearchRequest): Observable<AiSearchResponse> {
+        let url_ = this.baseUrl + "/api/ai/search";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processSearchByMeaning(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processSearchByMeaning(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AiSearchResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AiSearchResponse>;
+        }));
+    }
+
+    protected processSearchByMeaning(response: HttpResponseBase): Observable<AiSearchResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AiSearchResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The query is blank, or the embedding model could not be asked.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Finds the tasks from other sources that import rows resemble. A warning, never a block.
+     * @return The closest task per row that resembles one; rows without a match are left out.
+     */
+    findDuplicates(body: AiDuplicatesRequest): Observable<AiDuplicatesResponse> {
+        let url_ = this.baseUrl + "/api/ai/duplicates";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processFindDuplicates(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processFindDuplicates(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AiDuplicatesResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AiDuplicatesResponse>;
+        }));
+    }
+
+    protected processFindDuplicates(response: HttpResponseBase): Observable<AiDuplicatesResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AiDuplicatesResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The embedding model could not be asked.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Writes three to five points for the weekly review from facts the host gathers itself.
+     * @return The points.
+     */
+    writeReviewOverview(): Observable<AiReviewOverview> {
+        let url_ = this.baseUrl + "/api/ai/review-overview";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processWriteReviewOverview(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processWriteReviewOverview(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<AiReviewOverview>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<AiReviewOverview>;
+        }));
+    }
+
+    protected processWriteReviewOverview(response: HttpResponseBase): Observable<AiReviewOverview> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = AiReviewOverview.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ApiError.fromJS(resultData400);
+            return throwException("The model could not be asked or could not be read.", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
      * Loads the local model so the first suggestion does not wait for it.
      * @return The model is loaded, or could not be and the features stay as they were.
      */
@@ -4739,6 +4987,8 @@ export interface IOpenLinkRequest {
 
 export class AiStatusResponse implements IAiStatusResponse {
     ready!: boolean;
+    /** Whether the embedding model is there too, which search by meaning and duplicate warnings need. Asked apart, because the two models are installed apart. */
+    searchReady!: boolean;
 
     constructor(data?: IAiStatusResponse) {
         if (data) {
@@ -4752,6 +5002,7 @@ export class AiStatusResponse implements IAiStatusResponse {
     init(_data?: any) {
         if (_data) {
             this.ready = _data["ready"];
+            this.searchReady = _data["searchReady"];
         }
     }
 
@@ -4765,12 +5016,521 @@ export class AiStatusResponse implements IAiStatusResponse {
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
         data["ready"] = this.ready;
+        data["searchReady"] = this.searchReady;
         return data;
     }
 }
 
 export interface IAiStatusResponse {
     ready: boolean;
+    /** Whether the embedding model is there too, which search by meaning and duplicate warnings need. Asked apart, because the two models are installed apart. */
+    searchReady: boolean;
+}
+
+export class AiRetroActionsRequest implements IAiRetroActionsRequest {
+    rows!: AiRetroNote[];
+
+    constructor(data?: IAiRetroActionsRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(AiRetroNote.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): AiRetroActionsRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiRetroActionsRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IAiRetroActionsRequest {
+    rows: AiRetroNote[];
+}
+
+export class AiRetroNote implements IAiRetroNote {
+    key!: string;
+    text!: string;
+    owner?: string | undefined;
+
+    constructor(data?: IAiRetroNote) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.text = _data["text"];
+            this.owner = _data["owner"];
+        }
+    }
+
+    static fromJS(data: any): AiRetroNote {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiRetroNote();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["text"] = this.text;
+        data["owner"] = this.owner;
+        return data;
+    }
+}
+
+export interface IAiRetroNote {
+    key: string;
+    text: string;
+    owner?: string | undefined;
+}
+
+export class AiRetroActionsResponse implements IAiRetroActionsResponse {
+    rows!: AiRetroAction[];
+
+    constructor(data?: IAiRetroActionsResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(AiRetroAction.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): AiRetroActionsResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiRetroActionsResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IAiRetroActionsResponse {
+    rows: AiRetroAction[];
+}
+
+export class AiRetroAction implements IAiRetroAction {
+    key!: string;
+    title!: string;
+    /** A guessed owner, only for a note whose board names none. */
+    owner?: string | undefined;
+    /** Whether the guessed owner is one of the user's aliases. */
+    ownerIsMine!: boolean;
+
+    constructor(data?: IAiRetroAction) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.title = _data["title"];
+            this.owner = _data["owner"];
+            this.ownerIsMine = _data["ownerIsMine"];
+        }
+    }
+
+    static fromJS(data: any): AiRetroAction {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiRetroAction();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["title"] = this.title;
+        data["owner"] = this.owner;
+        data["ownerIsMine"] = this.ownerIsMine;
+        return data;
+    }
+}
+
+export interface IAiRetroAction {
+    key: string;
+    title: string;
+    /** A guessed owner, only for a note whose board names none. */
+    owner?: string | undefined;
+    /** Whether the guessed owner is one of the user's aliases. */
+    ownerIsMine: boolean;
+}
+
+export class AiSearchRequest implements IAiSearchRequest {
+    query!: string;
+
+    constructor(data?: IAiSearchRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.query = _data["query"];
+        }
+    }
+
+    static fromJS(data: any): AiSearchRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiSearchRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["query"] = this.query;
+        return data;
+    }
+}
+
+export interface IAiSearchRequest {
+    query: string;
+}
+
+export class AiSearchResponse implements IAiSearchResponse {
+    taskIds!: number[];
+
+    constructor(data?: IAiSearchResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.taskIds = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["taskIds"])) {
+                this.taskIds = [] as any;
+                for (let item of _data["taskIds"])
+                    this.taskIds!.push(item);
+            }
+        }
+    }
+
+    static fromJS(data: any): AiSearchResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiSearchResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.taskIds)) {
+            data["taskIds"] = [];
+            for (let item of this.taskIds)
+                data["taskIds"].push(item);
+        }
+        return data;
+    }
+}
+
+export interface IAiSearchResponse {
+    taskIds: number[];
+}
+
+export class AiDuplicatesRequest implements IAiDuplicatesRequest {
+    sourceId!: string;
+    rows!: AiDuplicateCandidate[];
+
+    constructor(data?: IAiDuplicatesRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.rows = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.sourceId = _data["sourceId"];
+            if (Array.isArray(_data["rows"])) {
+                this.rows = [] as any;
+                for (let item of _data["rows"])
+                    this.rows!.push(AiDuplicateCandidate.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): AiDuplicatesRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiDuplicatesRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["sourceId"] = this.sourceId;
+        if (Array.isArray(this.rows)) {
+            data["rows"] = [];
+            for (let item of this.rows)
+                data["rows"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IAiDuplicatesRequest {
+    sourceId: string;
+    rows: AiDuplicateCandidate[];
+}
+
+export class AiDuplicateCandidate implements IAiDuplicateCandidate {
+    key!: string;
+    title!: string;
+    note?: string | undefined;
+
+    constructor(data?: IAiDuplicateCandidate) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.title = _data["title"];
+            this.note = _data["note"];
+        }
+    }
+
+    static fromJS(data: any): AiDuplicateCandidate {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiDuplicateCandidate();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["title"] = this.title;
+        data["note"] = this.note;
+        return data;
+    }
+}
+
+export interface IAiDuplicateCandidate {
+    key: string;
+    title: string;
+    note?: string | undefined;
+}
+
+export class AiDuplicatesResponse implements IAiDuplicatesResponse {
+    matches!: AiDuplicateMatch[];
+
+    constructor(data?: IAiDuplicatesResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.matches = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["matches"])) {
+                this.matches = [] as any;
+                for (let item of _data["matches"])
+                    this.matches!.push(AiDuplicateMatch.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): AiDuplicatesResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiDuplicatesResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.matches)) {
+            data["matches"] = [];
+            for (let item of this.matches)
+                data["matches"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IAiDuplicatesResponse {
+    matches: AiDuplicateMatch[];
+}
+
+export class AiDuplicateMatch implements IAiDuplicateMatch {
+    key!: string;
+    taskId!: number;
+    taskTitle!: string;
+
+    constructor(data?: IAiDuplicateMatch) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.key = _data["key"];
+            this.taskId = _data["taskId"];
+            this.taskTitle = _data["taskTitle"];
+        }
+    }
+
+    static fromJS(data: any): AiDuplicateMatch {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiDuplicateMatch();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["taskId"] = this.taskId;
+        data["taskTitle"] = this.taskTitle;
+        return data;
+    }
+}
+
+export interface IAiDuplicateMatch {
+    key: string;
+    taskId: number;
+    taskTitle: string;
+}
+
+export class AiReviewOverview implements IAiReviewOverview {
+    points!: string[];
+
+    constructor(data?: IAiReviewOverview) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+        if (!data) {
+            this.points = [];
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["points"])) {
+                this.points = [] as any;
+                for (let item of _data["points"])
+                    this.points!.push(item);
+            }
+        }
+    }
+
+    static fromJS(data: any): AiReviewOverview {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiReviewOverview();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.points)) {
+            data["points"] = [];
+            for (let item of this.points)
+                data["points"].push(item);
+        }
+        return data;
+    }
+}
+
+export interface IAiReviewOverview {
+    points: string[];
 }
 
 export class AiParseTaskRequest implements IAiParseTaskRequest {

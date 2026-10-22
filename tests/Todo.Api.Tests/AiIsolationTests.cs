@@ -37,6 +37,23 @@ public partial class AiIsolationTests : ApiTest
         Assert.Equal(match.Groups[1].Value, new AiOptions().Model);
     }
 
+    /// <summary>
+    /// The same for the embedding model, and sharper: the script deletes every model not on its
+    /// approved list, so a drift here would have Todo.cmd delete the model the app asks for.
+    /// </summary>
+    [Fact]
+    public void The_host_asks_for_the_embedding_model_the_install_script_installs()
+    {
+        var script = File.ReadAllText(Path.Combine(RepoPaths.Root, "scripts", "install-ai-model.ps1"));
+        var match = ScriptEmbeddingModel().Match(script);
+
+        Assert.True(match.Success, "install-ai-model.ps1 no longer declares [string]$EmbeddingModel = '...'.");
+        Assert.Equal(match.Groups[1].Value, new AiOptions().EmbeddingModel);
+    }
+
     [GeneratedRegex(@"\[string\]\$Model\s*=\s*'([^']+)'")]
     private static partial Regex ScriptModel();
+
+    [GeneratedRegex(@"\[string\]\$EmbeddingModel\s*=\s*'([^']+)'")]
+    private static partial Regex ScriptEmbeddingModel();
 }

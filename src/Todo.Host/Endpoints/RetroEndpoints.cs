@@ -138,7 +138,8 @@ public static class RetroEndpoints
         return app;
     }
 
-    private static async Task<List<string>> LoadAliasesAsync(TodoDbContext db)
+    /// <summary>Internal for the AI routes, which check a guessed owner against the same names.</summary>
+    internal static async Task<List<string>> LoadAliasesAsync(TodoDbContext db)
         => await db.Aliases.OrderBy(a => a.Value).Select(a => a.Value).ToListAsync();
 
     private static async Task<HashSet<string>> ImportedKeysAsync(TodoDbContext db, List<string> keys)

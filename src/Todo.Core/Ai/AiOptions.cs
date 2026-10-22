@@ -29,4 +29,11 @@ public sealed class AiOptions
     /// installed. AiIsolationTests holds the two together.
     /// </summary>
     public string Model { get; set; } = "gemma4:e4b";
+
+    /// <summary>
+    /// Turns text into vectors for search by meaning and duplicate warnings; Gemma 4 cannot
+    /// ("does not support embeddings", measured). Spelled with its tag, as "ollama list" prints it,
+    /// and held to scripts\install-ai-model.ps1 by AiIsolationTests like <see cref="Model"/>.
+    /// </summary>
+    public string EmbeddingModel { get; set; } = "embeddinggemma:latest";
 }

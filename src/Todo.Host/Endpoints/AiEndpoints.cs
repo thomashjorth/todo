@@ -20,10 +20,18 @@ public static class AiEndpoints
 {
     public static IEndpointRouteBuilder MapAi(this IEndpointRouteBuilder app)
     {
+        // Both asked at once, so the answer takes one round trip's time rather than two.
         app.MapGet("/api/ai/status", async (OllamaClient ollama, CancellationToken ct) =>
-            TypedResults.Ok(new AiStatusResponse { Ready = await ollama.IsReadyAsync(ct) }))
-            .WithName("getAiStatus")
-            .WithTags("Ai");
+        {
+            var ready = ollama.IsReadyAsync(ct);
+            var searchReady = ollama.IsSearchReadyAsync(ct);
+
+            return TypedResults.Ok(new AiStatusResponse { Ready = await ready, SearchReady = await searchReady });
+        })
+        .WithName("getAiStatus")
+        .WithTags("Ai");
+
+        app.MapAiOnOtherScreens();
 
         app.MapPost("/api/ai/warm", async (OllamaClient ollama, CancellationToken ct) =>
         {

@@ -26,6 +26,15 @@ public sealed class FakeOllama : IAsyncDisposable
     /// <summary>The one model this Ollama has. Any other name answers 404, as the real one does.</summary>
     public const string Model = "gemma4:e4b";
 
+    /// <summary>The embedding model, which this Ollama has unless <see cref="WithoutEmbeddingModel"/> says not.</summary>
+    public const string EmbeddingModel = "embeddinggemma:latest";
+
+    /// <summary>
+    /// The width of the fake vectors. Small on purpose: each word lands in one of these by its hash,
+    /// and a collision between two unrelated words is a similarity a test did not ask for.
+    /// </summary>
+    private const int Dimensions = 256;
+
     private const string Loopback = "http://127.0.0.1:0";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -51,6 +60,15 @@ public sealed class FakeOllama : IAsyncDisposable
 
     /// <summary>Every chat request body, so a test can assert what was sent.</summary>
     public List<JsonObject> ChatRequests { get; } = [];
+
+    /// <summary>
+    /// Makes the embedding model missing, as on a machine where only Gemma 4 was installed: search
+    /// and duplicates are then not ready, while the rest is.
+    /// </summary>
+    public bool WithoutEmbeddingModel { get; set; }
+
+    /// <summary>Every text sent to <c>/api/embed</c>, in order.</summary>
+    public List<string> EmbeddedTexts { get; } = [];
 
     /// <summary>Every <c>/api/generate</c> body: the warm-up, which loads the model without a prompt.</summary>
     public List<JsonObject> GenerateRequests { get; } = [];
@@ -85,7 +103,37 @@ public sealed class FakeOllama : IAsyncDisposable
     /// Not the DI constructor, because there is no configuration here to read options out of.
     /// </summary>
     public OllamaClient ClientFor(string? model = null) =>
-        OllamaClient.With(_client, new AiOptions { BaseUrl = BaseUrl, Model = model ?? Model });
+        OllamaClient.With(
+            _client, new AiOptions { BaseUrl = BaseUrl, Model = model ?? Model, EmbeddingModel = EmbeddingModel });
+
+    /// <summary>
+    /// The fake's own vector for a text: words counted into <see cref="Dimensions"/> buckets by a
+    /// stable hash. Two texts sharing words are close and two sharing none are orthogonal, which is
+    /// all a test of the app around the model needs - how well the real model ranks is the eval's.
+    /// The query prefix is dropped first, because its four words would otherwise sit in every query
+    /// and in no task.
+    /// </summary>
+    public static float[] VectorOf(string text)
+    {
+        var vector = new float[Dimensions];
+        var start = text.IndexOf("query: ", StringComparison.Ordinal);
+        var words = (start >= 0 ? text[(start + 7)..] : text)
+            .ToLowerInvariant()
+            .Split([' ', ',', '.', ':', ';', '-', '\n', '\r', '(', ')'], StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var word in words)
+        {
+            var hash = 2166136261u;
+            foreach (var c in word)
+            {
+                hash = (hash ^ c) * 16777619u;
+            }
+
+            vector[hash % Dimensions] += 1;
+        }
+
+        return vector;
+    }
 
     /// <summary>
     /// Stops answering while keeping <see cref="BaseUrl"/>. Nothing is listening on the port
@@ -123,7 +171,28 @@ public sealed class FakeOllama : IAsyncDisposable
             }
 
             // The real body is several kilobytes of model metadata nobody here reads.
-            return model == Model ? Results.Json(new JsonObject(), Json) : NotFound(model);
+            var has = model == Model || (model == EmbeddingModel && !WithoutEmbeddingModel);
+
+            return has ? Results.Json(new JsonObject(), Json) : NotFound(model);
+        });
+
+        // The real answer is {"model":...,"embeddings":[[...]],"total_duration":...}.
+        app.MapPost("/api/embed", async (HttpRequest request) =>
+        {
+            var body = await ReadAsync(request);
+            var model = (string?)body["model"];
+
+            if (model != EmbeddingModel || WithoutEmbeddingModel)
+            {
+                return NotFound(model);
+            }
+
+            var texts = body["input"]!.AsArray().Select(n => (string)n!).ToList();
+            EmbeddedTexts.AddRange(texts);
+
+            return Results.Json(
+                new { model, embeddings = texts.Select(VectorOf).ToArray() },
+                Json);
         });
 
         // The real answer to an empty prompt is {"model":...,"response":"","done":true,"done_reason":"load"}.

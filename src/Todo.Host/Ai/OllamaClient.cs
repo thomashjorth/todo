@@ -54,7 +54,61 @@ public sealed class OllamaClient
     /// <c>/api/show</c> rather than <c>/api/tags</c>, so Ollama resolves the name itself - the same
     /// question install-ai-model.ps1 asks with <c>ollama show</c>.
     /// </summary>
-    public async Task<bool> IsReadyAsync(CancellationToken ct = default)
+    public Task<bool> IsReadyAsync(CancellationToken ct = default) => HasAsync(_options.Model, ct);
+
+    /// <summary>
+    /// Whether search by meaning and duplicate warnings can run. Asked apart from
+    /// <see cref="IsReadyAsync"/>, because the two models are installed apart: the answering model
+    /// can be there while the embedding model is still downloading.
+    /// </summary>
+    public Task<bool> IsSearchReadyAsync(CancellationToken ct = default) => HasAsync(_options.EmbeddingModel, ct);
+
+    /// <summary>
+    /// One vector per text, in order. Throws <see cref="SourceException"/> like
+    /// <see cref="CompleteAsync{T}"/>. Measured 2026-10-22: 100 short texts in 1.4 s, a query in
+    /// about 30 ms.
+    /// </summary>
+    public async Task<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default)
+    {
+        if (texts.Count == 0)
+        {
+            return [];
+        }
+
+        HttpResponseMessage response;
+
+        try
+        {
+            response = await _client.PostAsJsonAsync(
+                UriFor("api/embed"), new EmbedRequest(_options.EmbeddingModel, texts, _options.KeepAlive), Json, ct);
+        }
+        catch (HttpRequestException exception)
+        {
+            throw Unavailable(exception.Message);
+        }
+        catch (TaskCanceledException)
+        {
+            throw Unavailable("it did not answer in time");
+        }
+
+        using (response)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw Unavailable($"it answered {(int)response.StatusCode}: {body}");
+            }
+
+            var vectors = JsonSerializer.Deserialize<EmbedResponse>(body, Json)?.Embeddings;
+
+            return vectors is not null && vectors.Length == texts.Count
+                ? vectors
+                : throw new SourceException(ErrorCodes.AiUnreadableAnswer, "The embedding answer did not match the texts sent.");
+        }
+    }
+
+    private async Task<bool> HasAsync(string model, CancellationToken ct)
     {
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limit.CancelAfter(ReadinessLimit);
@@ -62,7 +116,7 @@ public sealed class OllamaClient
         try
         {
             using var response = await _client.PostAsJsonAsync(
-                UriFor("api/show"), new ShowRequest(_options.Model), Json, limit.Token);
+                UriFor("api/show"), new ShowRequest(model), Json, limit.Token);
 
             return response.IsSuccessStatusCode;
         }
@@ -189,6 +243,13 @@ public sealed class OllamaClient
     private sealed record WarmRequest(
         string Model,
         [property: JsonPropertyName("keep_alive")] string KeepAlive);
+
+    private sealed record EmbedRequest(
+        string Model,
+        IReadOnlyList<string> Input,
+        [property: JsonPropertyName("keep_alive")] string KeepAlive);
+
+    private sealed record EmbedResponse(float[][]? Embeddings);
 
     private sealed record ChatMessage(string Role, string Content);
 

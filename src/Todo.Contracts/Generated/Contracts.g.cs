@@ -1290,6 +1290,163 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("ready")]
         public bool Ready { get; set; }
 
+        /// <summary>
+        /// Whether the embedding model is there too, which search by meaning and duplicate warnings need. Asked apart, because the two models are installed apart.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("searchReady")]
+        public bool SearchReady { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiRetroActionsRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<AiRetroNote> Rows { get; set; } = new System.Collections.ObjectModel.Collection<AiRetroNote>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiRetroNote
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("text")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Text { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("owner")]
+        public string Owner { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiRetroActionsResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<AiRetroAction> Rows { get; set; } = new System.Collections.ObjectModel.Collection<AiRetroAction>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiRetroAction
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        /// <summary>
+        /// A guessed owner, only for a note whose board names none.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("owner")]
+        public string Owner { get; set; }
+
+        /// <summary>
+        /// Whether the guessed owner is one of the user's aliases.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("ownerIsMine")]
+        public bool OwnerIsMine { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiSearchRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("query")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Query { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiSearchResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("taskIds")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<long> TaskIds { get; set; } = new System.Collections.ObjectModel.Collection<long>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiDuplicatesRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("sourceId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string SourceId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("rows")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<AiDuplicateCandidate> Rows { get; set; } = new System.Collections.ObjectModel.Collection<AiDuplicateCandidate>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiDuplicateCandidate
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("note")]
+        public string Note { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiDuplicatesResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("matches")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<AiDuplicateMatch> Matches { get; set; } = new System.Collections.ObjectModel.Collection<AiDuplicateMatch>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiDuplicateMatch
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Key { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("taskId")]
+        public long TaskId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("taskTitle")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string TaskTitle { get; set; }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiReviewOverview
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("points")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> Points { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]

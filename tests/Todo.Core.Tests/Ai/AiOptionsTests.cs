@@ -20,6 +20,13 @@ public class AiOptionsTests
     /// Ollama unloads a model after five idle minutes, and loading it again measured about 13 s on
     /// the user's CPU. A workday keeps it in memory instead.
     /// </summary>
+    /// <summary>With its tag, as "ollama list" prints it - the install script's approved list is compared with that.</summary>
+    [Fact]
+    public void The_embedding_model_is_named_with_its_tag()
+    {
+        Assert.Equal("embeddinggemma:latest", new AiOptions().EmbeddingModel);
+    }
+
     [Fact]
     public void The_model_is_kept_loaded_for_a_workday()
     {
