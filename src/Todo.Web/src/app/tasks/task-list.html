@@ -53,7 +53,7 @@
         <button
           type="button"
           data-testid="quick-entry-parse"
-          class="shrink-0 rounded border border-gray-500 px-3 py-2 text-sm text-gray-900 disabled:cursor-wait dark:border-gray-500 dark:text-gray-100"
+          class="cursor-pointer shrink-0 rounded border border-gray-500 px-3 py-2 text-sm text-gray-900 disabled:cursor-wait dark:border-gray-500 dark:text-gray-100"
           [attr.aria-label]="'ai.parseLabel' | transloco"
           [disabled]="ai.parsing()"
           (click)="parse(newTask)"
@@ -97,7 +97,7 @@
           <button
             type="button"
             data-testid="quick-entry-accept"
-            class="text-xs text-blue-700 underline dark:text-blue-300"
+            class="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
             (click)="acceptSuggestion(newTask)"
           >
             {{ 'ai.create' | transloco }}
@@ -105,7 +105,7 @@
           <button
             type="button"
             data-testid="quick-entry-discard"
-            class="text-xs text-gray-700 underline dark:text-gray-300"
+            class="cursor-pointer text-xs text-gray-700 underline dark:text-gray-300"
             (click)="ai.discardTask()"
           >
             {{ 'ai.discard' | transloco }}

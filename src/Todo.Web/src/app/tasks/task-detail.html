@@ -159,7 +159,7 @@
           <button
             type="button"
             data-testid="summarize-note"
-            class="text-xs text-blue-700 underline disabled:cursor-wait dark:text-blue-300"
+            class="cursor-pointer text-xs text-blue-700 underline disabled:cursor-wait dark:text-blue-300"
             [disabled]="ai.summarizing() === task().id"
             (click)="summarize()"
           >
@@ -172,7 +172,7 @@
           appShortcut="n"
           appShortcutModifier="alt-shift"
           appShortcutAction="activate"
-          class="text-xs text-blue-700 underline dark:text-blue-300"
+          class="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
           (click)="noteEditStarted.emit()"
         >
           {{ 'tasks.editNote' | transloco }}
@@ -194,7 +194,7 @@
         <button
           type="button"
           data-testid="summary-accept"
-          class="text-xs text-blue-700 underline dark:text-blue-300"
+          class="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
           (click)="acceptSummary()"
         >
           {{ 'ai.replaceNote' | transloco }}
@@ -202,7 +202,7 @@
         <button
           type="button"
           data-testid="summary-discard"
-          class="text-xs text-gray-700 underline dark:text-gray-300"
+          class="cursor-pointer text-xs text-gray-700 underline dark:text-gray-300"
           (click)="ai.discardSummary()"
         >
           {{ 'ai.discard' | transloco }}
@@ -360,7 +360,7 @@
         type="button"
         data-testid="delete-subtask"
         [attr.aria-label]="'tasks.deleteSubTask' | transloco"
-        class="shrink-0 text-xs text-red-600 dark:text-red-400"
+        class="cursor-pointer shrink-0 text-xs text-red-600 dark:text-red-400"
         (click)="removeSubTask(subTask)"
       >
         ✕
@@ -409,7 +409,7 @@
             <button
               type="button"
               data-testid="split-accept"
-              class="text-xs text-blue-700 underline dark:text-blue-300"
+              class="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
               (click)="acceptSubTasks()"
             >
               {{ 'ai.addChosen' | transloco }}
@@ -418,7 +418,7 @@
           <button
             type="button"
             data-testid="split-discard"
-            class="text-xs text-gray-700 underline dark:text-gray-300"
+            class="cursor-pointer text-xs text-gray-700 underline dark:text-gray-300"
             (click)="ai.discardSubTasks()"
           >
             {{ 'ai.discard' | transloco }}
@@ -429,7 +429,7 @@
       <button
         type="button"
         data-testid="split-task"
-        class="text-xs text-blue-700 underline disabled:cursor-wait dark:text-blue-300"
+        class="cursor-pointer text-xs text-blue-700 underline disabled:cursor-wait dark:text-blue-300"
         [disabled]="ai.splitting() === task().id"
         (click)="split()"
       >
@@ -452,7 +452,7 @@
   data-testid="delete-task"
   appShortcut="l"
   appShortcutModifier="alt-shift"
-  class="text-xs text-red-600 underline dark:text-red-400"
+  class="cursor-pointer text-xs text-red-600 underline dark:text-red-400"
   (click)="removed.emit()"
 >
   {{ 'tasks.deleteTask' | transloco }}

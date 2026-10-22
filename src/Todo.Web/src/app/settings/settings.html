@@ -86,7 +86,7 @@
               type="button"
               data-testid="remove-delegate"
               [attr.aria-label]="'settings.delegates.remove' | transloco: { name }"
-              class="shrink-0 text-xs text-red-700 dark:text-red-300"
+              class="cursor-pointer shrink-0 text-xs text-red-700 dark:text-red-300"
               (click)="removeDelegate(name)"
             >
               ✕
@@ -188,7 +188,7 @@
       <button
         type="button"
         data-testid="jira-save-token"
-        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+        class="cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
         (click)="storeToken()"
       >
         {{ 'settings.jira.saveToken' | transloco }}
@@ -198,7 +198,7 @@
         <button
           type="button"
           data-testid="jira-clear-token"
-          class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+          class="cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
           (click)="clearToken()"
         >
           {{ 'settings.jira.clearToken' | transloco }}
@@ -213,7 +213,7 @@
         type="button"
         data-testid="jira-test"
         [disabled]="jira.busy()"
-        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+        class="cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
         (click)="jira.testConnection()"
       >
         {{ 'settings.jira.testConnection' | transloco }}
@@ -253,7 +253,7 @@
       type="button"
       data-testid="jira-load-statuses"
       [disabled]="jira.busy()"
-      class="mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+      class="cursor-pointer mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
       (click)="jira.loadStatuses()"
     >
       {{ 'settings.jira.loadStatuses' | transloco }}
@@ -484,7 +484,7 @@
       <button
         type="button"
         data-testid="ado-save-token"
-        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+        class="cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
         (click)="storeAdoToken()"
       >
         {{ 'settings.ado.saveToken' | transloco }}
@@ -494,7 +494,7 @@
         <button
           type="button"
           data-testid="ado-clear-token"
-          class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+          class="cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
           (click)="clearAdoToken()"
         >
           {{ 'settings.ado.clearToken' | transloco }}
@@ -509,7 +509,7 @@
         type="button"
         data-testid="ado-test"
         [disabled]="ado.busy()"
-        class="rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+        class="cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
         (click)="ado.testConnection()"
       >
         {{ 'settings.ado.testConnection' | transloco }}
@@ -545,7 +545,7 @@
       type="button"
       data-testid="ado-load-states"
       [disabled]="ado.busy()"
-      class="mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+      class="cursor-pointer mt-2 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
       (click)="ado.loadStates()"
     >
       {{ 'settings.ado.loadStates' | transloco }}
@@ -646,7 +646,7 @@
             type="button"
             data-testid="remove-work-item-type"
             [attr.aria-label]="'settings.ado.removeWorkItemType' | transloco: { type }"
-            class="shrink-0 text-xs text-red-700 dark:text-red-300"
+            class="cursor-pointer shrink-0 text-xs text-red-700 dark:text-red-300"
             (click)="removeWorkItemType(type)"
           >
             ✕
@@ -731,7 +731,7 @@
             type="button"
             data-testid="remove-alias"
             [attr.aria-label]="'settings.aliases.remove' | transloco: { alias }"
-            class="shrink-0 text-xs text-red-700 dark:text-red-300"
+            class="cursor-pointer shrink-0 text-xs text-red-700 dark:text-red-300"
             (click)="removeAlias(alias)"
           >
             ✕

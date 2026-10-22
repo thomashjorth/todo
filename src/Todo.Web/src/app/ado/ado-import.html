@@ -28,7 +28,7 @@
   <button
     type="button"
     data-testid="ado-preview"
-    class="mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+    class="cursor-pointer mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
     [disabled]="store.busy()"
     (click)="preview()"
   >
@@ -303,7 +303,7 @@
             <button
               type="button"
               data-testid="ado-open-item"
-              class="text-blue-700 underline dark:text-blue-300"
+              class="cursor-pointer text-blue-700 underline dark:text-blue-300"
               (click)="openItem(row)"
             >
               {{ 'tasks.openIssue' | transloco }}
@@ -328,7 +328,7 @@
     <button
       type="button"
       data-testid="ado-import"
-      class="mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
+      class="cursor-pointer mt-3 rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:text-gray-500 dark:border-gray-500 dark:text-gray-100 dark:disabled:text-gray-400"
       [disabled]="chosenCount() === 0 || store.busy()"
       (click)="importSelected()"
     >

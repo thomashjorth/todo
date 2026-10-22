@@ -8,7 +8,7 @@
     [attr.data-testid]="toggleId()"
     [attr.aria-expanded]="open()"
     [attr.aria-controls]="panelId()"
-    class="flex w-full items-center justify-between gap-2 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:focus-visible:outline-blue-400"
+    class="cursor-pointer flex w-full items-center justify-between gap-2 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:focus-visible:outline-blue-400"
     (click)="toggled.emit()"
   >
     <span

@@ -34,7 +34,7 @@
     @let rowNumber = number();
     <button
       type="button"
-      class="relative w-full text-left"
+      class="cursor-pointer relative w-full text-left"
       [class.pr-6]="rowNumber"
       [appShortcut]="shortcut()"
       appShortcutAction="activate"
@@ -119,7 +119,7 @@
         <button
           type="button"
           data-testid="external-link"
-          class="text-blue-700 underline dark:text-blue-300"
+          class="cursor-pointer text-blue-700 underline dark:text-blue-300"
           (click)="openIssue(issueUrl)"
         >
           {{ 'tasks.openIssue' | transloco }}
