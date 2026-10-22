@@ -213,6 +213,7 @@
     "groups": {
       "language": "Generelt",
       "delegates": "Uddelegering",
+      "tags": "Tags",
       "jira": "Jira-import",
       "ado": "ADO-import",
       "retro": "Retro-import",

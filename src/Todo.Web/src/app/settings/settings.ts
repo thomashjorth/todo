@@ -4,6 +4,7 @@ import { AdoStore } from '../ado/ado-store';
 import { JiraStore } from '../jira/jira-store';
 import { RetroStore } from '../retro/retro-store';
 import { SettingsSection } from './settings-section';
+import { TagStore } from '../tags/tag-store';
 import { SettingsStore } from './settings-store';
 
 /** Anything the browser's number field can hand over that is not a whole number of days. */
@@ -12,7 +13,7 @@ const wholeNumber = /^\d+$/;
 const languageOptions = ['system', 'da', 'en'] as const;
 
 /** The six groups. Only used as a type here — the page names them one by one in the template. */
-type SettingsSectionName = 'language' | 'delegate' | 'jira' | 'ado' | 'retro' | 'review';
+type SettingsSectionName = 'language' | 'delegate' | 'tags' | 'jira' | 'ado' | 'retro' | 'review';
 
 /** Sunday first, the way DayOfWeek numbers them, so the value is the index and not a lookup. */
 const weekdayNames = [
@@ -37,6 +38,7 @@ const weekdayNames = [
 })
 export class Settings {
   protected readonly settings = inject(SettingsStore);
+  protected readonly tagStore = inject(TagStore);
   protected readonly retro = inject(RetroStore);
   protected readonly jira = inject(JiraStore);
   protected readonly ado = inject(AdoStore);
@@ -160,6 +162,24 @@ export class Settings {
 
     input.value = '';
     void this.settings.saveDelegates([...this.settings.delegates(), name]);
+  }
+
+  /** The field is emptied only once the tag exists, so a refused name stays to be corrected. */
+  protected addTag(input: HTMLInputElement): void {
+    const name = input.value.trim();
+    if (!name) {
+      return;
+    }
+
+    void this.tagStore.add(name).then((added) => {
+      if (added) {
+        input.value = '';
+      }
+    });
+  }
+
+  protected removeTag(id: number): void {
+    void this.tagStore.remove(id);
   }
 
   protected removeDelegate(name: string): void {

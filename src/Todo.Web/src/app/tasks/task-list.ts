@@ -1,6 +1,7 @@
 import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { AiStore } from '../ai/ai-store';
+import { TagStore } from '../tags/tag-store';
 import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
 import { WideScreen } from '../layout/wide-screen';
@@ -25,6 +26,7 @@ import { TaskStore } from './task-store';
 export class TaskList {
   protected readonly store = inject(TaskStore);
   protected readonly ai = inject(AiStore);
+  protected readonly tagStore = inject(TagStore);
   protected readonly shortcuts = inject(ShortcutStore);
   protected readonly wide = inject(WideScreen);
   // For the shared <datalist> at the bottom of the template alone: the signal is never null, and
@@ -110,6 +112,10 @@ export class TaskList {
     return `tasks.sections.${bucket}`;
   }
 
+  protected acceptTags(): void {
+    this.ai.acceptTags().catch(() => {});
+  }
+
   protected parse(field: HTMLInputElement): void {
     this.ai.parse(field.value).catch(() => {});
   }
@@ -139,7 +145,11 @@ export class TaskList {
     }
 
     field.value = '';
-    this.store.add(title).catch(() => {});
+    // Not awaited past the creation: the tags are suggested in the background, never in the way.
+    this.store
+      .add(title)
+      .then((created) => (created ? this.ai.suggestTags(created) : undefined))
+      .catch(() => {});
   }
 
   /**

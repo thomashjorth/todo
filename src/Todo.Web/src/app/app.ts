@@ -8,6 +8,7 @@ import { Shortcut } from './shortcuts/shortcut';
 import { ShortcutModifier, shortcutKey } from './shortcuts/shortcut-key';
 import { ShortcutStore } from './shortcuts/shortcut-store';
 import { SystemStore } from './system/system-store';
+import { TagStore } from './tags/tag-store';
 
 @Component({
   selector: 'app-root',
@@ -25,6 +26,8 @@ export class App {
   private readonly system = inject(SystemStore);
 
   private readonly ai = inject(AiStore);
+
+  private readonly tags = inject(TagStore);
 
   protected readonly shortcuts = inject(ShortcutStore);
 
@@ -45,6 +48,9 @@ export class App {
     });
 
     this.review.load().catch(() => {});
+
+    // At startup, because three screens read them: settings, the panel and the list's filter.
+    this.tags.load().catch(() => {});
 
     // Once, here: the AI features hide themselves unless the model answered at startup.
     this.ai.load().catch(() => {});

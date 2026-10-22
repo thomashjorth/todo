@@ -1,6 +1,7 @@
 import { Component, ElementRef, effect, inject, input, output, viewChild } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { AiStore } from '../ai/ai-store';
+import { TagStore } from '../tags/tag-store';
 import { TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
 import { renderMarkdown } from '../markdown/render-markdown';
 import { Shortcut } from '../shortcuts/shortcut';
@@ -47,6 +48,7 @@ export class TaskDetail {
   protected readonly system = inject(SystemStore);
   protected readonly shortcuts = inject(ShortcutStore);
   protected readonly ai = inject(AiStore);
+  protected readonly tagStore = inject(TagStore);
   protected readonly waitingFor = TodoStatus.WaitingFor;
   protected readonly statusOptions = statusOptions;
 
@@ -175,6 +177,25 @@ export class TaskDetail {
 
     field.value = '';
     this.store.addSubTask(this.task().id, title).catch(() => {});
+  }
+
+  protected carries(tagId: number): boolean {
+    return this.task().tags?.some((tag) => tag.id === tagId) ?? false;
+  }
+
+  /**
+   * Writes the box back from the task after the round trip: [checked] is reapplied only when its
+   * value changes, so a refused save would otherwise leave the box ticked over nothing saved -
+   * CLAUDE.md's [checked] trap, which this field would be the fourth instance of.
+   */
+  protected toggleTag(tagId: number, box: HTMLInputElement): void {
+    const carried = (this.task().tags ?? []).map((tag) => tag.id).filter((id) => id !== tagId);
+    const ids = box.checked ? [...carried, tagId] : carried;
+
+    this.store
+      .setTags(this.task().id, ids)
+      .catch(() => {})
+      .finally(() => (box.checked = this.carries(tagId)));
   }
 
   protected split(): void {

@@ -5,6 +5,8 @@ import {
   CreateTodoTaskRequest,
   DeadlineBucket,
   IAiTaskSuggestion,
+  SetTaskTagsRequest,
+  TagsClient,
   TasksClient,
   TodoStatus,
   TodoSubTask,
@@ -138,6 +140,7 @@ export interface TaskChanges {
 @Injectable({ providedIn: 'root' })
 export class TaskStore {
   private readonly client = inject(TasksClient);
+  private readonly tagsClient = inject(TagsClient);
   private readonly appRef = inject(ApplicationRef);
   private readonly reducedMotion = inject(ReducedMotion);
 
@@ -183,7 +186,7 @@ export class TaskStore {
     const query = this.query().trim().toLowerCase();
 
     if (query.length === 0) {
-      return this.tasks();
+      return this.tagged();
     }
 
     // Only while the box still holds the words the ids were found for: typing again is a new
@@ -191,13 +194,43 @@ export class TaskStore {
     const meaning = this.meaning();
     const alike = meaning?.query === query ? meaning.ids : null;
 
-    return this.tasks().filter(
+    return this.tagged().filter(
       (t) =>
         t.title.toLowerCase().includes(query) ||
         (t.note?.toLowerCase().includes(query) ?? false) ||
         (alike?.has(t.id) ?? false),
     );
   });
+
+  /**
+   * The tags pressed in the filter above the list. Several narrow the list - a task must carry all
+   * of them - the way the search narrows it: each choice takes tasks away (the tags design, 4).
+   * Not saved, like the search.
+   */
+  readonly tagFilter = signal<ReadonlySet<number>>(new Set());
+
+  /** The tasks the tag filter leaves in, which the search then narrows further. */
+  private readonly tagged = computed(() => {
+    const wanted = this.tagFilter();
+
+    if (wanted.size === 0) {
+      return this.tasks();
+    }
+
+    return this.tasks().filter((t) =>
+      [...wanted].every((id) => t.tags?.some((tag) => tag.id === id)),
+    );
+  });
+
+  toggleTagFilter(id: number): void {
+    this.tagFilter.update((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) {
+        next.add(id);
+      }
+      return next;
+    });
+  }
 
   /**
    * The tasks the AI search found close in meaning to the query, set by `AiStore.searchByMeaning`.
@@ -344,13 +377,25 @@ export class TaskStore {
     return Promise.resolve();
   }
 
-  async add(title: string): Promise<void> {
+  /** Answers the new task, so the caller can ask for tag suggestions for it without waiting. */
+  async add(title: string): Promise<TodoTask | null> {
     const trimmed = title.trim();
     if (!trimmed) {
-      return;
+      return null;
     }
 
-    await firstValueFrom(this.client.createTask(new CreateTodoTaskRequest({ title: trimmed })));
+    const created = await firstValueFrom(
+      this.client.createTask(new CreateTodoTaskRequest({ title: trimmed })),
+    );
+    await this.load();
+    return created;
+  }
+
+  /** The task carries exactly these tags afterwards; its own route, see the tags design. */
+  async setTags(taskId: number, tagIds: readonly number[]): Promise<void> {
+    await firstValueFrom(
+      this.tagsClient.setTaskTags(taskId, new SetTaskTagsRequest({ tagIds: [...tagIds] })),
+    );
     await this.load();
   }
 
@@ -359,7 +404,7 @@ export class TaskStore {
    * read out of the line. The steps go in one after another under the new task's id, and the list
    * is loaded once at the end.
    */
-  async addSuggested(suggestion: IAiTaskSuggestion): Promise<void> {
+  async addSuggested(suggestion: IAiTaskSuggestion): Promise<TodoTask> {
     const created = await firstValueFrom(
       this.client.createTask(
         new CreateTodoTaskRequest({
@@ -375,6 +420,7 @@ export class TaskStore {
       );
     }
     await this.load();
+    return created;
   }
 
   async update(task: TodoTask, changes: TaskChanges): Promise<void> {

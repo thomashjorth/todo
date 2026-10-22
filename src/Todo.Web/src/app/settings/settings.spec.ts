@@ -243,13 +243,14 @@ describe('Settings', () => {
   // the sources are set up once while the language and the delegates are what you touch. ADO sits
   // beside Jira because the two groups have the same shape, and the retro import is last because it
   // is not a connected source at all — no URL, no token, just a file.
-  it('should hold the settings in six equal groups', async () => {
+  it('should hold the settings in seven equal groups', async () => {
     const { element } = await open(null);
 
     const sections = [...element.querySelectorAll('section')];
     expect(sections.map((s) => s.getAttribute('data-testid'))).toEqual([
       'language-settings',
       'delegate-settings',
+      'tag-settings',
       'jira-settings',
       'ado-settings',
       'retro-settings',
@@ -264,6 +265,7 @@ describe('Settings', () => {
     expect(headings.map((h) => h.querySelector('span')!.textContent!.trim())).toEqual([
       'Generelt',
       'Uddelegering',
+      'Tags',
       'Jira-import',
       'ADO-import',
       'Retro-import',
@@ -273,7 +275,7 @@ describe('Settings', () => {
     // Equal groups look equal: one class list for all six, rather than three structures with
     // three levels, which is what the page had.
     expect([...new Set(headings.map((h) => h.className))]).toHaveLength(1);
-    expect(element.querySelectorAll('h3')).toHaveLength(6);
+    expect(element.querySelectorAll('h3')).toHaveLength(7);
   });
 
   // One group at a time, so each of these has to be unfolded before its subsections exist at all.
@@ -366,12 +368,13 @@ describe('Settings', () => {
     const screen = await open(null, [], {}, 'jira');
 
     const chevrons = [...screen.element.querySelectorAll('[data-testid="section-chevron"]')];
-    expect(chevrons).toHaveLength(6);
+    expect(chevrons).toHaveLength(7);
     expect(chevrons.every((c) => c.getAttribute('aria-hidden') === 'true')).toBe(true);
 
-    // The open one points down, the folded ones sideways.
-    expect(chevrons[2].textContent!.trim()).toBe('▾');
-    expect(chevrons.filter((c) => c.textContent!.trim() === '▸')).toHaveLength(5);
+    // The open one points down, the folded ones sideways. Jira is the fourth since the tags group
+    // came in as the third.
+    expect(chevrons[3].textContent!.trim()).toBe('▾');
+    expect(chevrons.filter((c) => c.textContent!.trim() === '▸')).toHaveLength(6);
   });
 
   it('should say that delegating is bookkeeping only, and that nobody is on the list yet', async () => {

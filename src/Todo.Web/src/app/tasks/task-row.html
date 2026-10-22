@@ -59,6 +59,19 @@
           'tasks.requesterValue' | transloco: { value: task().requester }
         }}</span>
       }
+      <!-- Inside the button and read aloud, unlike the badge below: the tags are what the row is
+           filtered by, and a reader should hear them. RowTitled stops matching a tagged row, so a
+           journey with tags uses RowShowing (the tags design, 4). -->
+      @if (task().tags?.length) {
+        <span data-testid="row-tags" class="block text-xs text-gray-700 dark:text-gray-300">
+          @for (tag of task().tags; track tag.id) {
+            <span
+              class="mr-1 inline-block rounded border border-gray-400 px-1 dark:border-gray-500"
+              >{{ tag.name }}</span
+            >
+          }
+        </span>
+      }
       @if (task().subTasks.length > 0) {
         <span
           data-testid="subtask-progress"

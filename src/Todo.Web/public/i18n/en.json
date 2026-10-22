@@ -213,6 +213,7 @@
     "groups": {
       "language": "General",
       "delegates": "Delegating",
+      "tags": "Tags",
       "jira": "Jira import",
       "ado": "ADO import",
       "retro": "Retro import",

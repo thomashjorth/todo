@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../api/api-error-message';
@@ -14,6 +14,7 @@ import {
   RetroPreviewRow,
   TodoTask,
 } from '../api/todo-client';
+import { TagStore } from '../tags/tag-store';
 import { TaskStore } from '../tasks/task-store';
 
 /** A suggestion or an error that belongs to one task's panel and must not show in another's. */
@@ -43,6 +44,7 @@ export interface SubTaskChoice {
 export class AiStore {
   private readonly client = inject(AiClient);
   private readonly tasks = inject(TaskStore);
+  private readonly tagStore = inject(TagStore);
   private readonly transloco = inject(TranslocoService);
 
   /** Starts false, so a feature never flashes on and off again while the first answer is on its way. */
@@ -105,8 +107,9 @@ export class AiStore {
       return;
     }
 
-    await this.tasks.addSuggested(suggestion);
+    const created = await this.tasks.addSuggested(suggestion);
     this.taskSuggestion.set(null);
+    void this.suggestTags(created);
   }
 
   discardTask(): void {
@@ -189,6 +192,61 @@ export class AiStore {
   discardSummary(): void {
     this.summary.set(null);
     this.summaryError.set(null);
+  }
+
+  // --- Tags for a task just created ---
+
+  /** One at a time: a newer task's suggestion replaces an older one nobody answered. */
+  readonly tagSuggestion = signal<{
+    taskId: number;
+    title: string;
+    tagIds: readonly number[];
+  } | null>(null);
+
+  /** The suggested tags' names, in the user's own order, for the line under the new-task field. */
+  readonly tagSuggestionNames = computed(() => {
+    const suggested = new Set(this.tagSuggestion()?.tagIds ?? []);
+    return this.tagStore
+      .tags()
+      .filter((tag) => suggested.has(tag.id))
+      .map((tag) => tag.name);
+  });
+
+  /**
+   * Asked in the background right after a task is created, so the creation never waits on it - the
+   * user's own word for it was "uden at blokere". Nothing is asked without tags to choose from, and
+   * a failure or an empty answer shows nothing: a suggestion nobody asked for is not worth an error.
+   */
+  async suggestTags(task: TodoTask): Promise<void> {
+    if (!this.ready() || this.tagStore.tags().length === 0) {
+      return;
+    }
+
+    try {
+      const { tagIds } = await firstValueFrom(this.client.suggestTags(task.id));
+      if (tagIds.length > 0) {
+        this.tagSuggestion.set({ taskId: task.id, title: task.title, tagIds });
+      }
+    } catch {
+      // See above: silence is the answer to a suggestion that could not be made.
+    }
+  }
+
+  /** Adds the suggested tags to whatever the task carries by now, rather than replacing them. */
+  async acceptTags(): Promise<void> {
+    const suggestion = this.tagSuggestion();
+    if (!suggestion) {
+      return;
+    }
+
+    const carried = this.tasks.tasks().find((t) => t.id === suggestion.taskId)?.tags ?? [];
+    const ids = new Set([...carried.map((t) => t.id), ...suggestion.tagIds]);
+    this.tagSuggestion.set(null);
+    await this.tasks.setTags(suggestion.taskId, [...ids]);
+  }
+
+  dismissTags(): void {
+    this.tagSuggestion.set(null);
   }
 
   // --- The retro import ---

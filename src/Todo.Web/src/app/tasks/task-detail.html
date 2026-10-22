@@ -341,6 +341,40 @@
     />
   </label>
 }
+<!-- Every tag as a checkbox, saved on change like the other fields. ⇧G focuses the first. Only
+     when the user has tags: with none there is nothing to tick, and no letter to claim. -->
+@if (tagStore.tags().length > 0) {
+  <fieldset data-testid="task-tags" class="space-y-1">
+    <legend class="block text-xs text-gray-500 dark:text-gray-400">
+      {{ 'tags.field' | transloco }}
+      @if (shortcuts.altHeld()) {
+        <span
+          data-testid="shortcut-badge"
+          aria-hidden="true"
+          class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
+          >⇧G</span
+        >
+      }
+    </legend>
+    <div class="flex flex-wrap gap-x-3 gap-y-1">
+      @for (tag of tagStore.tags(); track tag.id; let first = $first) {
+        <label class="flex items-center gap-1 text-sm text-gray-900 dark:text-gray-100">
+          <input
+            #tagBox
+            type="checkbox"
+            data-testid="task-tag"
+            class="shrink-0"
+            [appShortcut]="first ? 'g' : ''"
+            appShortcutModifier="alt-shift"
+            [checked]="carries(tag.id)"
+            (change)="toggleTag(tag.id, tagBox)"
+          />
+          {{ tag.name }}
+        </label>
+      }
+    </div>
+  </fieldset>
+}
 <div class="space-y-1">
   <span class="block text-xs text-gray-500 dark:text-gray-400"
     >{{ 'tasks.subTasks' | transloco }}

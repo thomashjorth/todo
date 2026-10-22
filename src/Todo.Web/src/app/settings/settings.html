@@ -121,6 +121,62 @@
     }
   </section>
 
+  <!-- The delegates' pattern: a list with a remove button each, and a field to add one. A tag is a
+       row in its own table rather than a name in a setting, because tasks refer to it. -->
+  <section
+    appSettingsSection
+    data-testid="tag-settings"
+    name="tags"
+    heading="settings.groups.tags"
+    [open]="isOpen('tags')"
+    (toggled)="toggleSection('tags')"
+  >
+    @if (tagStore.tags().length === 0) {
+      <p data-testid="tags-empty" class="mt-2 text-xs text-gray-700 dark:text-gray-300">
+        {{ 'tags.none' | transloco }}
+      </p>
+    } @else {
+      <ul class="mt-2 space-y-1">
+        @for (tag of tagStore.tags(); track tag.id) {
+          <li data-testid="tag-row" class="flex items-center gap-2">
+            <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
+              tag.name
+            }}</span>
+            <button
+              type="button"
+              data-testid="remove-tag"
+              [attr.aria-label]="'tags.remove' | transloco: { name: tag.name }"
+              class="shrink-0 cursor-pointer text-xs text-red-700 dark:text-red-300"
+              (click)="removeTag(tag.id)"
+            >
+              ✕
+            </button>
+          </li>
+        }
+      </ul>
+    }
+
+    <label class="mt-2 block">
+      <span class="block text-xs text-gray-700 dark:text-gray-300">{{
+        'tags.new' | transloco
+      }}</span>
+      <input
+        #tagInput
+        data-testid="tag-input"
+        type="text"
+        maxlength="50"
+        class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+        (keyup.enter)="addTag(tagInput)"
+      />
+    </label>
+
+    @if (tagStore.error(); as message) {
+      <p data-testid="tags-error" role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">
+        {{ message }}
+      </p>
+    }
+  </section>
+
   <section
     appSettingsSection
     data-testid="jira-settings"

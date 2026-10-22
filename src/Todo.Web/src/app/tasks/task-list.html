@@ -141,6 +141,51 @@
         </div>
       </section>
     }
+    <!-- Tags for the task just created, asked in the background. It never takes the focus - the user
+         may already be typing the next task - so Alt+Y adds them and Escape inside it dismisses. -->
+    @if (ai.tagSuggestion(); as tagged) {
+      <section
+        data-testid="tag-suggestion"
+        class="mt-2 space-y-1 rounded border border-gray-300 bg-gray-50 p-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+        [attr.aria-label]="'tags.suggested' | transloco: { title: tagged.title }"
+        (keydown.escape)="ai.dismissTags()"
+      >
+        <p class="text-gray-700 dark:text-gray-300">
+          {{ 'tags.suggested' | transloco: { title: tagged.title } }}
+        </p>
+        <p data-testid="tag-suggestion-names" class="font-medium text-gray-900 dark:text-gray-100">
+          {{ ai.tagSuggestionNames().join(', ') }}
+        </p>
+        <div class="flex gap-4 pt-1">
+          <button
+            type="button"
+            data-testid="tag-suggestion-accept"
+            appShortcut="y"
+            appShortcutAction="activate"
+            class="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
+            (click)="acceptTags()"
+          >
+            {{ 'tags.accept' | transloco }}
+            @if (shortcuts.altHeld()) {
+              <span
+                data-testid="shortcut-badge"
+                aria-hidden="true"
+                class="ml-1 inline-block rounded border border-gray-500 px-1 leading-none text-gray-700 no-underline dark:border-gray-400 dark:text-gray-300"
+                >Y</span
+              >
+            }
+          </button>
+          <button
+            type="button"
+            data-testid="tag-suggestion-dismiss"
+            class="cursor-pointer text-xs text-gray-700 underline dark:text-gray-300"
+            (click)="ai.dismissTags()"
+          >
+            {{ 'tags.dismiss' | transloco }}
+          </button>
+        </div>
+      </section>
+    }
 
     <!-- type="search" rather than "text", so the browser offers its own clear affordance and a screen
          reader announces the field for what it is. The label is hidden for the eye only: the
@@ -257,6 +302,45 @@
         }
       </label>
     </div>
+
+    <!-- The tag filter: each tag a button pressed or not, several narrowing the list (AND), like the
+         search. Alt+L focuses the first; Tab walks the rest, Space presses. -->
+    @if (tagStore.tags().length > 0) {
+      <div
+        data-testid="tag-filter"
+        role="group"
+        class="mt-3 flex flex-wrap items-center gap-2"
+        [attr.aria-label]="'tags.filter' | transloco"
+      >
+        @for (tag of tagStore.tags(); track tag.id; let first = $first) {
+          <button
+            type="button"
+            data-testid="tag-filter-option"
+            class="cursor-pointer rounded border px-2 py-0.5 text-xs"
+            [class]="
+              store.tagFilter().has(tag.id)
+                ? 'border-blue-700 bg-blue-700 text-white dark:border-blue-300 dark:bg-blue-300 dark:text-gray-900'
+                : 'border-gray-500 text-gray-900 dark:border-gray-500 dark:text-gray-100'
+            "
+            [appShortcut]="first ? 'l' : ''"
+            [attr.aria-pressed]="store.tagFilter().has(tag.id)"
+            (click)="store.toggleTagFilter(tag.id)"
+          >
+            {{ tag.name }}
+            <!-- The badge takes the button's own colour, pressed or not: a fixed grey would stand on
+                 the pressed button's blue. -->
+            @if (first && shortcuts.altHeld()) {
+              <span
+                data-testid="shortcut-badge"
+                aria-hidden="true"
+                class="ml-1 rounded border border-current px-1"
+                >L</span
+              >
+            }
+          </button>
+        }
+      </div>
+    }
 
     <div class="mt-4 space-y-5">
       @for (section of store.sections(); track section.bucket) {
