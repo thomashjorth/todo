@@ -322,6 +322,19 @@
     "writeOverview": "Write the week's overview",
     "overviewLabel": "The week's overview from the AI model"
   },
+  "tags": {
+    "heading": "Tags",
+    "new": "New tag",
+    "add": "Add",
+    "remove": "Remove {{name}}",
+    "none": "You have no tags yet.",
+    "filter": "Filter by tags",
+    "field": "Tags",
+    "noneDefined": "Create tags under Settings.",
+    "suggested": "Suggested tags for “{{title}}”",
+    "accept": "Add",
+    "dismiss": "Dismiss"
+  },
   "errors": {
     "generic": "Something went wrong. Try again.",
     "task": {
@@ -392,6 +405,12 @@
       "unreadableAnswer": "The AI model gave an answer that could not be read. Try again.",
       "textRequired": "Type the task in the field first.",
       "noteRequired": "The note is empty, so there is nothing to summarise."
+    },
+    "tags": {
+      "nameRequired": "A tag needs a name.",
+      "nameTooLong": "A tag name may be at most 50 characters.",
+      "duplicate": "A tag of that name exists already.",
+      "unknown": "One of the tags no longer exists. Reload and try again."
     }
   }
 }

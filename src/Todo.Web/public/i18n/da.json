@@ -322,6 +322,19 @@
     "writeOverview": "Skriv ugens overblik",
     "overviewLabel": "Ugens overblik fra AI-modellen"
   },
+  "tags": {
+    "heading": "Tags",
+    "new": "Nyt tag",
+    "add": "Tilføj",
+    "remove": "Fjern {{name}}",
+    "none": "Du har ingen tags endnu.",
+    "filter": "Filtrér på tags",
+    "field": "Tags",
+    "noneDefined": "Opret tags under Indstillinger.",
+    "suggested": "Foreslåede tags til “{{title}}”",
+    "accept": "Tilføj",
+    "dismiss": "Afvis"
+  },
   "errors": {
     "generic": "Noget gik galt. Prøv igen.",
     "task": {
@@ -392,6 +405,12 @@
       "unreadableAnswer": "AI-modellen gav et svar der ikke kunne læses. Prøv igen.",
       "textRequired": "Skriv opgaven i feltet først.",
       "noteRequired": "Noten er tom, så der er intet at opsummere."
+    },
+    "tags": {
+      "nameRequired": "Et tag skal have et navn.",
+      "nameTooLong": "Et tag-navn må højst være 50 tegn.",
+      "duplicate": "Der findes allerede et tag med det navn.",
+      "unknown": "Et af tagsene findes ikke længere. Genindlæs og prøv igen."
     }
   }
 }

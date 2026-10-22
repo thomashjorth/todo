@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
 using Todo.Core.Ai;
 using Todo.Core.Errors;
+using Todo.Core.Tags;
 using Todo.Core.Time;
 using Todo.TestSupport.Ai;
 using Todo.TestSupport.Builders;
@@ -189,6 +190,45 @@ public class AiEndpointsTests : ApiTest
         await Client.PostAsync($"/api/ai/tasks/{task.Id}/summary", null);
 
         Assert.Contains(expected, PromptSent());
+    }
+
+    /// <summary>
+    /// The schema's enum is the user's own tags, so the model cannot name another; the names come
+    /// back as ids, and a tag the task carries already is not suggested again.
+    /// </summary>
+    [Fact]
+    public async Task Tags_are_suggested_from_the_user_s_own_list_as_ids()
+    {
+        var privat = new Tag { Name = "Privat" };
+        var indkob = new Tag { Name = "Indkøb" };
+        var backend = new Tag { Name = "Backend" };
+        var task = new TaskItemBuilder().Titled("Køb mælk").Build();
+        task.Tags.Add(privat);
+        await Host.AddAndSaveChangesAsync(privat, indkob, backend, task);
+        _ollama.Answer = """{"tags":["Indkøb","Privat","Ukendt"]}""";
+
+        var response = await Client.PostAsync($"/api/ai/tasks/{task.Id}/tag-suggestions", null);
+        var suggestions = await response.Content.ReadFromJsonAsync<AiTagSuggestions>();
+
+        Assert.Equal([indkob.Id], suggestions!.TagIds);
+        var request = Assert.Single(_ollama.ChatRequests);
+        Assert.Equal(
+            ["Backend", "Indkøb", "Privat"],
+            request["format"]!["properties"]!["tags"]!["items"]!["enum"]!.AsArray().Select(n => (string)n!));
+        Assert.Contains("Task: Køb mælk", PromptSent());
+    }
+
+    /// <summary>Asked in the background after every creation, so with no tags it must cost nothing.</summary>
+    [Fact]
+    public async Task With_no_tags_defined_the_model_is_not_asked()
+    {
+        var task = new TaskItemBuilder().Titled("Køb mælk").Build();
+        await Host.AddAndSaveChangesAsync(task);
+
+        var response = await Client.PostAsync($"/api/ai/tasks/{task.Id}/tag-suggestions", null);
+
+        Assert.Empty((await response.Content.ReadFromJsonAsync<AiTagSuggestions>())!.TagIds);
+        Assert.Empty(_ollama.ChatRequests);
     }
 
     [Fact]
