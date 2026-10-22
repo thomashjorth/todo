@@ -1625,6 +1625,18 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await split.ClickAsync();
         await Assertions.Expect(tasks.Detail.GetByTestId("split-choice")).ToHaveCountAsync(2);
         await Snapshot();
+        await tasks.Detail.GetByTestId("split-discard").ClickAsync();
+
+        // The three AI badges - T on the interpret button, ⇧F and ⇧R in the panel - render only
+        // while the model is ready, so no other Alt-held snapshot ever painted them. Released
+        // before anything else is clicked, or the clicks below would fire shortcuts instead.
+        await App.Page.Keyboard.DownAsync("Alt");
+        await Assertions.Expect(App.Page.GetByTestId("shortcut-badge").GetByText("⇧F", new() { Exact = true }))
+            .ToBeVisibleAsync();
+        await Assertions.Expect(App.Page.GetByTestId("shortcut-badge").GetByText("⇧R", new() { Exact = true }))
+            .ToBeVisibleAsync();
+        await Snapshot();
+        await App.Page.Keyboard.UpAsync("Alt");
 
         var summarize = tasks.Detail.GetByTestId("summarize-note");
 
