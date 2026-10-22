@@ -1,6 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { AiStore } from '../ai/ai-store';
 import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
+import { DeadlineDate } from '../i18n/deadline-date';
 import { WideScreen } from '../layout/wide-screen';
 import { SettingsStore } from '../settings/settings-store';
 import { Shortcut } from '../shortcuts/shortcut';
@@ -12,7 +14,7 @@ import { TaskStore } from './task-store';
 
 @Component({
   selector: 'app-task-list',
-  imports: [Shortcut, TaskDetail, TaskRow, TranslocoPipe],
+  imports: [DeadlineDate, Shortcut, TaskDetail, TaskRow, TranslocoPipe],
   templateUrl: './task-list.html',
   // `block`, because a custom element is inline by default and an inline box has no height to give
   // its children - and side by side the grid inside needs `h-full` to have something to be full of.
@@ -22,6 +24,7 @@ import { TaskStore } from './task-store';
 })
 export class TaskList {
   protected readonly store = inject(TaskStore);
+  protected readonly ai = inject(AiStore);
   protected readonly shortcuts = inject(ShortcutStore);
   protected readonly wide = inject(WideScreen);
   // For the shared <datalist> at the bottom of the template alone: the signal is never null, and
@@ -98,6 +101,18 @@ export class TaskList {
   // The API's enum values are the leaves of the key, so a new bucket needs no mapping here.
   protected sectionKey(bucket: DeadlineBucket): string {
     return `tasks.sections.${bucket}`;
+  }
+
+  protected parse(field: HTMLInputElement): void {
+    this.ai.parse(field.value).catch(() => {});
+  }
+
+  /** The field is emptied only once the task exists, so a failed save leaves the typed line. */
+  protected acceptSuggestion(field: HTMLInputElement): void {
+    this.ai
+      .acceptTask()
+      .then(() => (field.value = ''))
+      .catch(() => {});
   }
 
   protected create(field: HTMLInputElement): void {

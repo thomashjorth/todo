@@ -4,6 +4,7 @@ import {
   CreateSubTaskRequest,
   CreateTodoTaskRequest,
   DeadlineBucket,
+  IAiTaskSuggestion,
   TasksClient,
   TodoStatus,
   TodoSubTask,
@@ -334,6 +335,20 @@ export class TaskStore {
     await this.load();
   }
 
+  /** An accepted AI suggestion: the title plus the requester and deadline the model read out of it. */
+  async addSuggested(suggestion: IAiTaskSuggestion): Promise<void> {
+    await firstValueFrom(
+      this.client.createTask(
+        new CreateTodoTaskRequest({
+          title: suggestion.title,
+          requester: suggestion.requester ?? undefined,
+          deadline: suggestion.deadline ?? undefined,
+        }),
+      ),
+    );
+    await this.load();
+  }
+
   async update(task: TodoTask, changes: TaskChanges): Promise<void> {
     const current = {
       title: task.title,
@@ -371,6 +386,20 @@ export class TaskStore {
     await firstValueFrom(
       this.client.createSubTask(taskId, new CreateSubTaskRequest({ title: trimmed })),
     );
+    await this.load();
+  }
+
+  /**
+   * One after another rather than at once, so they land in the order given - the server numbers
+   * each subtask after the highest it has. The list is loaded once, at the end, instead of after
+   * every one.
+   */
+  async addSubTasks(taskId: number, titles: readonly string[]): Promise<void> {
+    for (const title of titles) {
+      await firstValueFrom(
+        this.client.createSubTask(taskId, new CreateSubTaskRequest({ title: title.trim() })),
+      );
+    }
     await this.load();
   }
 

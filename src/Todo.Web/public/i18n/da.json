@@ -295,6 +295,21 @@
       "doneStatesHint": "Står en hentet sag i en af dem, foreslår importen at lukke opgaven her."
     }
   },
+  "ai": {
+    "asking": "Spørger modellen…",
+    "parse": "Fortolk",
+    "parseLabel": "Fortolk teksten med den lokale AI-model",
+    "suggestedTask": "Forslag fra AI-modellen",
+    "create": "Opret",
+    "discard": "Kassér",
+    "split": "Foreslå underopgaver",
+    "suggestedSubTasks": "Foreslåede underopgaver",
+    "addChosen": "Tilføj valgte",
+    "noSubTasks": "Modellen foreslog ingen nye underopgaver.",
+    "summarize": "Opsummér",
+    "suggestedSummary": "Foreslået resumé",
+    "replaceNote": "Erstat noten"
+  },
   "errors": {
     "generic": "Noget gik galt. Prøv igen.",
     "task": {

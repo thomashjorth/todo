@@ -2,7 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoService } from '@jsverse/transloco';
-import { API_BASE_URL } from '../api/todo-client';
+import { AiStore } from '../ai/ai-store';
+import { API_BASE_URL, AiTaskSuggestion } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { WideScreen } from '../layout/wide-screen';
 import { SettingsStore } from '../settings/settings-store';
@@ -177,6 +178,84 @@ describe('TaskList', () => {
         { provide: API_BASE_URL, useValue: '' },
       ],
     }).compileComponents();
+  });
+
+  it('should offer no interpret button while the model is not ready', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items })]));
+
+    const element = await rendered(fixture);
+
+    expect(element.querySelector('[data-testid="quick-entry-parse"]')).toBeNull();
+  });
+
+  it('should send the typed line to the model and show what it suggested', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items })]));
+    TestBed.inject(AiStore).ready.set(true);
+    const element = await rendered(fixture);
+    const field = element.querySelector<HTMLInputElement>('[data-testid="new-task-input"]')!;
+
+    field.value = 'Ring til Anna om fakturaen på fredag';
+    element.querySelector<HTMLButtonElement>('[data-testid="quick-entry-parse"]')!.click();
+    const parsed = http.expectOne('/api/ai/parse-task');
+    expect(JSON.parse(parsed.request.body).text).toBe('Ring til Anna om fakturaen på fredag');
+    parsed.flush(
+      new Blob([
+        JSON.stringify({
+          title: 'Ring til Anna om fakturaen',
+          requester: 'Anna',
+          deadline: '2026-10-23',
+        }),
+      ]),
+    );
+
+    const suggestion = await shown(fixture, '[data-testid="quick-entry-suggestion"]');
+    expect(suggestion.querySelector('[data-testid="quick-entry-title"]')!.textContent!.trim()).toBe(
+      'Ring til Anna om fakturaen',
+    );
+    expect(
+      suggestion.querySelector('[data-testid="quick-entry-requester"]')!.textContent!.trim(),
+    ).toBe('Opgavestiller: Anna');
+    expect(suggestion.querySelector('[data-testid="quick-entry-deadline"]')!.textContent).toContain(
+      '23.',
+    );
+    // Nothing is saved before the click, and the typed line is still there to go back to.
+    http.expectNone('/api/tasks');
+    expect(field.value).toBe('Ring til Anna om fakturaen på fredag');
+  });
+
+  it('should empty the field once the suggested task is created', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const ai = TestBed.inject(AiStore);
+    ai.ready.set(true);
+    ai.taskSuggestion.set(new AiTaskSuggestion({ title: 'Køb mælk' }));
+    const element = await rendered(fixture);
+    const field = element.querySelector<HTMLInputElement>('[data-testid="new-task-input"]')!;
+    field.value = 'Køb mælk i dag';
+
+    (await shown(fixture, '[data-testid="quick-entry-accept"]')).click();
+    http.expectOne('/api/tasks').flush(new Blob([JSON.stringify(items[0])]), {
+      status: 201,
+      statusText: 'Created',
+    });
+    (
+      await vi.waitFor(() =>
+        http.expectOne('/api/tasks?includeCompleted=false&includeSomeday=true'),
+      )
+    ).flush(new Blob([JSON.stringify({ items })]));
+
+    await vi.waitFor(() => expect(field.value).toBe(''));
+    expect(ai.taskSuggestion()).toBeNull();
   });
 
   it('should render a Danish heading per deadline section', async () => {

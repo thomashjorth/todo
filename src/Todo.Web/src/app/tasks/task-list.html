@@ -27,25 +27,92 @@
     class="xl:-ml-2 xl:overflow-y-auto xl:pl-2 xl:pr-2"
     [style.view-transition-name]="'task-column'"
   >
-    <div class="relative mt-4">
-      <input
-        #newTask
-        data-testid="new-task-input"
-        appShortcut="n"
-        type="text"
-        [placeholder]="'tasks.newTask' | transloco"
-        class="w-full rounded border border-gray-500 px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
-        (keyup.enter)="create(newTask)"
-      />
-      @if (shortcuts.altHeld()) {
-        <span
-          data-testid="shortcut-badge"
-          aria-hidden="true"
-          class="absolute top-1/2 right-2 -translate-y-1/2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
-          >N</span
+    <!-- Enter keeps creating a plain task exactly as before, so nothing anyone types today changes
+         meaning: the model is asked only through the button, and only when it is ready. -->
+    <div class="mt-4 flex gap-2">
+      <div class="relative min-w-0 flex-1">
+        <input
+          #newTask
+          data-testid="new-task-input"
+          appShortcut="n"
+          type="text"
+          [placeholder]="'tasks.newTask' | transloco"
+          class="w-full rounded border border-gray-500 px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:text-gray-100 dark:placeholder-gray-400 dark:focus-visible:outline-blue-400"
+          (keyup.enter)="create(newTask)"
+        />
+        @if (shortcuts.altHeld()) {
+          <span
+            data-testid="shortcut-badge"
+            aria-hidden="true"
+            class="absolute top-1/2 right-2 -translate-y-1/2 rounded border border-gray-500 px-1 text-xs text-gray-700 dark:border-gray-400 dark:text-gray-300"
+            >N</span
+          >
+        }
+      </div>
+      @if (ai.ready()) {
+        <button
+          type="button"
+          data-testid="quick-entry-parse"
+          class="shrink-0 rounded border border-gray-500 px-3 py-2 text-sm text-gray-900 disabled:cursor-wait dark:border-gray-500 dark:text-gray-100"
+          [attr.aria-label]="'ai.parseLabel' | transloco"
+          [disabled]="ai.parsing()"
+          (click)="parse(newTask)"
         >
+          {{ (ai.parsing() ? 'ai.asking' : 'ai.parse') | transloco }}
+        </button>
       }
     </div>
+    @if (ai.parseError(); as message) {
+      <p
+        data-testid="quick-entry-error"
+        role="alert"
+        class="mt-1 text-sm text-red-700 dark:text-red-300"
+      >
+        {{ message }}
+      </p>
+    }
+    @if (ai.taskSuggestion(); as suggestion) {
+      <section
+        data-testid="quick-entry-suggestion"
+        class="mt-2 space-y-1 rounded border border-gray-300 bg-gray-50 p-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+        [attr.aria-label]="'ai.suggestedTask' | transloco"
+      >
+        <p
+          data-testid="quick-entry-title"
+          class="font-medium break-words text-gray-900 dark:text-gray-100"
+        >
+          {{ suggestion.title }}
+        </p>
+        @if (suggestion.requester) {
+          <p data-testid="quick-entry-requester" class="text-gray-700 dark:text-gray-300">
+            {{ 'tasks.requesterValue' | transloco: { value: suggestion.requester } }}
+          </p>
+        }
+        @if (suggestion.deadline) {
+          <p data-testid="quick-entry-deadline" class="text-gray-700 dark:text-gray-300">
+            {{ 'tasks.deadlineValue' | transloco: { value: suggestion.deadline | deadlineDate } }}
+          </p>
+        }
+        <div class="flex gap-4 pt-1">
+          <button
+            type="button"
+            data-testid="quick-entry-accept"
+            class="text-xs text-blue-700 underline dark:text-blue-300"
+            (click)="acceptSuggestion(newTask)"
+          >
+            {{ 'ai.create' | transloco }}
+          </button>
+          <button
+            type="button"
+            data-testid="quick-entry-discard"
+            class="text-xs text-gray-700 underline dark:text-gray-300"
+            (click)="ai.discardTask()"
+          >
+            {{ 'ai.discard' | transloco }}
+          </button>
+        </div>
+      </section>
+    }
 
     <!-- type="search" rather than "text", so the browser offers its own clear affordance and a screen
          reader announces the field for what it is. The label is hidden for the eye only: the

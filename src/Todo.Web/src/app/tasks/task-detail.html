@@ -151,19 +151,71 @@
       }
     </span>
     @if (!editingNote()) {
-      <button
-        type="button"
-        data-testid="note-edit"
-        appShortcut="n"
-        appShortcutModifier="alt-shift"
-        appShortcutAction="activate"
-        class="shrink-0 text-xs text-blue-700 underline dark:text-blue-300"
-        (click)="noteEditStarted.emit()"
-      >
-        {{ 'tasks.editNote' | transloco }}
-      </button>
+      <div class="flex shrink-0 gap-3">
+        <!-- Only on an imported task: there the full description is one click away behind the
+             link, and re-import never overwrites the note (ADR 14). On a task of your own the note
+             is the only copy, and replacing it would lose it. -->
+        @if (ai.ready() && task().externalUrl && task().note?.trim()) {
+          <button
+            type="button"
+            data-testid="summarize-note"
+            class="text-xs text-blue-700 underline disabled:cursor-wait dark:text-blue-300"
+            [disabled]="ai.summarizing() === task().id"
+            (click)="summarize()"
+          >
+            {{ (ai.summarizing() === task().id ? 'ai.asking' : 'ai.summarize') | transloco }}
+          </button>
+        }
+        <button
+          type="button"
+          data-testid="note-edit"
+          appShortcut="n"
+          appShortcutModifier="alt-shift"
+          appShortcutAction="activate"
+          class="text-xs text-blue-700 underline dark:text-blue-300"
+          (click)="noteEditStarted.emit()"
+        >
+          {{ 'tasks.editNote' | transloco }}
+        </button>
+      </div>
     }
   </div>
+  @let summary = ai.summary();
+  @if (summary && summary.taskId === task().id) {
+    <section
+      data-testid="summary-suggestion"
+      class="space-y-1 rounded border border-gray-300 p-2 dark:border-gray-600"
+      [attr.aria-label]="'ai.suggestedSummary' | transloco"
+    >
+      <p data-testid="summary-text" class="text-sm break-words text-gray-900 dark:text-gray-100">
+        {{ summary.value }}
+      </p>
+      <div class="flex gap-4">
+        <button
+          type="button"
+          data-testid="summary-accept"
+          class="text-xs text-blue-700 underline dark:text-blue-300"
+          (click)="acceptSummary()"
+        >
+          {{ 'ai.replaceNote' | transloco }}
+        </button>
+        <button
+          type="button"
+          data-testid="summary-discard"
+          class="text-xs text-gray-700 underline dark:text-gray-300"
+          (click)="ai.discardSummary()"
+        >
+          {{ 'ai.discard' | transloco }}
+        </button>
+      </div>
+    </section>
+  }
+  @let summaryError = ai.summaryError();
+  @if (summaryError && summaryError.taskId === task().id) {
+    <p data-testid="summary-error" role="alert" class="text-sm text-red-700 dark:text-red-300">
+      {{ summaryError.value }}
+    </p>
+  }
   @if (editingNote()) {
     <textarea
       #note
@@ -325,6 +377,72 @@
     class="w-full rounded border border-gray-500 px-2 py-1 text-sm placeholder-gray-500 dark:border-gray-500 dark:placeholder-gray-400"
     (keyup.enter)="createSubTask(newSubTask)"
   />
+  @if (ai.ready()) {
+    @let suggested = ai.subTaskSuggestions();
+    @if (suggested && suggested.taskId === task().id) {
+      <fieldset
+        data-testid="split-suggestions"
+        class="space-y-1 rounded border border-gray-300 p-2 dark:border-gray-600"
+      >
+        <legend class="px-1 text-xs text-gray-700 dark:text-gray-300">
+          {{ 'ai.suggestedSubTasks' | transloco }}
+        </legend>
+        @for (choice of suggested.value; track $index) {
+          <label class="flex items-start gap-2 text-sm text-gray-900 dark:text-gray-100">
+            <input
+              #pick
+              type="checkbox"
+              data-testid="split-choice"
+              class="mt-1 shrink-0"
+              [checked]="choice.chosen"
+              (change)="ai.choose($index, pick.checked)"
+            />
+            <span class="min-w-0 flex-1 break-words">{{ choice.title }}</span>
+          </label>
+        } @empty {
+          <p data-testid="split-none" class="text-sm text-gray-700 dark:text-gray-300">
+            {{ 'ai.noSubTasks' | transloco }}
+          </p>
+        }
+        <div class="flex gap-4 pt-1">
+          @if (suggested.value.length > 0) {
+            <button
+              type="button"
+              data-testid="split-accept"
+              class="text-xs text-blue-700 underline dark:text-blue-300"
+              (click)="acceptSubTasks()"
+            >
+              {{ 'ai.addChosen' | transloco }}
+            </button>
+          }
+          <button
+            type="button"
+            data-testid="split-discard"
+            class="text-xs text-gray-700 underline dark:text-gray-300"
+            (click)="ai.discardSubTasks()"
+          >
+            {{ 'ai.discard' | transloco }}
+          </button>
+        </div>
+      </fieldset>
+    } @else {
+      <button
+        type="button"
+        data-testid="split-task"
+        class="text-xs text-blue-700 underline disabled:cursor-wait dark:text-blue-300"
+        [disabled]="ai.splitting() === task().id"
+        (click)="split()"
+      >
+        {{ (ai.splitting() === task().id ? 'ai.asking' : 'ai.split') | transloco }}
+      </button>
+    }
+    @let splitError = ai.splitError();
+    @if (splitError && splitError.taskId === task().id) {
+      <p data-testid="split-error" role="alert" class="text-sm text-red-700 dark:text-red-300">
+        {{ splitError.value }}
+      </p>
+    }
+  }
 </div>
 <!-- Focus only, unlike the rest of the activating shortcuts: there is no confirmation and no undo
      in the app, so the second press IS the confirmation. Do not change it to activate without

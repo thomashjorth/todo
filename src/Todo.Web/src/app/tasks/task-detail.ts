@@ -1,5 +1,6 @@
 import { Component, ElementRef, effect, inject, input, output, viewChild } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { AiStore } from '../ai/ai-store';
 import { TodoStatus, TodoSubTask, TodoTask } from '../api/todo-client';
 import { renderMarkdown } from '../markdown/render-markdown';
 import { Shortcut } from '../shortcuts/shortcut';
@@ -45,6 +46,7 @@ export class TaskDetail {
 
   protected readonly system = inject(SystemStore);
   protected readonly shortcuts = inject(ShortcutStore);
+  protected readonly ai = inject(AiStore);
   protected readonly waitingFor = TodoStatus.WaitingFor;
   protected readonly statusOptions = statusOptions;
 
@@ -162,6 +164,22 @@ export class TaskDetail {
 
     field.value = '';
     this.store.addSubTask(this.task().id, title).catch(() => {});
+  }
+
+  protected split(): void {
+    this.ai.split(this.task().id).catch(() => {});
+  }
+
+  protected acceptSubTasks(): void {
+    this.ai.acceptSubTasks().catch(() => {});
+  }
+
+  protected summarize(): void {
+    this.ai.summarize(this.task().id).catch(() => {});
+  }
+
+  protected acceptSummary(): void {
+    this.ai.acceptSummary(this.task()).catch(() => {});
   }
 
   protected setSubTaskDone(subTask: TodoSubTask, isDone: boolean): void {

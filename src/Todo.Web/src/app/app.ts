@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { AiStore } from './ai/ai-store';
 import { HealthClient, HealthResponse } from './api/todo-client';
 import { ReviewStore } from './review/review-store';
 import { Shortcut } from './shortcuts/shortcut';
@@ -23,6 +24,8 @@ export class App {
 
   private readonly system = inject(SystemStore);
 
+  private readonly ai = inject(AiStore);
+
   protected readonly shortcuts = inject(ShortcutStore);
 
   /**
@@ -42,6 +45,9 @@ export class App {
     });
 
     this.review.load().catch(() => {});
+
+    // Once, here: the AI features hide themselves unless the model answered at startup.
+    this.ai.load().catch(() => {});
   }
 
   /** The port is random, so the URL is built from the app's own origin. */

@@ -295,6 +295,21 @@
       "doneStatesHint": "An imported work item in one of these makes the import offer to close the task."
     }
   },
+  "ai": {
+    "asking": "Asking the model…",
+    "parse": "Interpret",
+    "parseLabel": "Interpret the text with the local AI model",
+    "suggestedTask": "Suggestion from the AI model",
+    "create": "Create",
+    "discard": "Discard",
+    "split": "Suggest subtasks",
+    "suggestedSubTasks": "Suggested subtasks",
+    "addChosen": "Add selected",
+    "noSubTasks": "The model suggested no new subtasks.",
+    "summarize": "Summarise",
+    "suggestedSummary": "Suggested summary",
+    "replaceNote": "Replace the note"
+  },
   "errors": {
     "generic": "Something went wrong. Try again.",
     "task": {

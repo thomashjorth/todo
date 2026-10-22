@@ -39,6 +39,12 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
+  it('should ask once at startup whether the AI model is ready', () => {
+    TestBed.createComponent(App);
+
+    TestBed.inject(HttpTestingController).expectOne('/api/ai/status');
+  });
+
   it('should render the health status returned by the API', async () => {
     const fixture = TestBed.createComponent(App);
     TestBed.inject(HttpTestingController)
