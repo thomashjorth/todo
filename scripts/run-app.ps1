@@ -33,6 +33,12 @@ if ($needsBuild) {
     Write-Host 'Angular is up to date.' -ForegroundColor DarkGray
 }
 
+try {
+    & (Join-Path $PSScriptRoot 'install-ai-model.ps1')
+} catch {
+    Write-Host "AI model: the check failed and was skipped - $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
 Write-Host 'Starting Todo...' -ForegroundColor Cyan
 
 # The content root is named here because the default is the binary's own folder since slice 16, and
