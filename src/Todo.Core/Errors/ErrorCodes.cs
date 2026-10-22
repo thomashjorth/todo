@@ -218,4 +218,14 @@ public static class ErrorCodes
 
     /// <summary>A summary was asked for a task whose note is empty, so there is nothing to summarise.</summary>
     public const string AiNoteRequired = "ai.noteRequired";
+
+    public const string TagNameRequired = "tags.nameRequired";
+
+    public const string TagNameTooLong = "tags.nameTooLong";
+
+    /// <summary>A tag of that name exists already, compared without regard to case.</summary>
+    public const string TagDuplicate = "tags.duplicate";
+
+    /// <summary>A task was given a tag id that does not exist - deleted meanwhile, most likely.</summary>
+    public const string TagUnknown = "tags.unknown";
 }

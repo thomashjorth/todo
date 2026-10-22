@@ -176,6 +176,7 @@ public static class TodoHost
         app.MapReview();
         app.MapSystem();
         app.MapAi();
+        app.MapTags();
 
         app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = frontend });
 

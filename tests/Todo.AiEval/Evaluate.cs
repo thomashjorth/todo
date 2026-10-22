@@ -239,6 +239,25 @@ public static class Evaluate
         return (string.Join(" | ", points), failures);
     }
 
+    public static async Task<(string, List<string>)> TagsAsync(OllamaClient client, TagCase c)
+    {
+        var answer = await client.CompleteAsync<TagSuggestionAnswer>(
+            AiPrompts.SuggestTags(c.Title, null, Cases.TagNames), AiPrompts.SuggestTagsSchema(Cases.TagNames));
+        var picked = (answer.Tags ?? []).OfType<string>().ToList();
+        var failures = new List<string>();
+
+        failures.AddRange(c.Required.Where(t => !picked.Contains(t)).Select(t => $"missing {t}"));
+        failures.AddRange(c.Forbidden.Where(picked.Contains).Select(t => $"picked {t}"));
+
+        if (c.KnownGap && failures.Count > 0)
+        {
+            Console.WriteLine($"     known gap: {string.Join("; ", failures)}");
+            failures.Clear();
+        }
+
+        return (string.Join(", ", picked), failures);
+    }
+
     /// <summary>The tasks are embedded as the app embeds them, and the query with the app's own prefix.</summary>
     public static async Task<(string, List<string>)> SearchAsync(OllamaClient client, SearchCase c)
     {

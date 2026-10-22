@@ -29,7 +29,7 @@ public static class TaskEndpoints
             bool includeCompleted = false,
             bool includeSomeday = false) =>
         {
-            IQueryable<TaskItem> query = db.Tasks.Include(t => t.SubTasks);
+            IQueryable<TaskItem> query = db.Tasks.Include(t => t.SubTasks).Include(t => t.Tags);
 
             if (!includeCompleted)
             {
@@ -121,7 +121,7 @@ public static class TaskEndpoints
                 return invalid;
             }
 
-            var task = await db.Tasks.Include(t => t.SubTasks).FirstOrDefaultAsync(t => t.Id == id);
+            var task = await db.Tasks.Include(t => t.SubTasks).Include(t => t.Tags).FirstOrDefaultAsync(t => t.Id == id);
             if (task is null)
             {
                 return TypedResults.NotFound();
@@ -303,6 +303,7 @@ public static class TaskEndpoints
         CompletedAt = AsUtc(task.CompletedAt),
         CreatedAt = AsUtc(task.CreatedAt),
         SubTasks = [.. task.SubTasks.OrderBy(s => s.SortOrder).Select(ToContract)],
+        Tags = [.. task.Tags.OrderBy(t => t.Name).Select(t => new TagRef { Id = t.Id, Name = t.Name })],
     };
 
     /// <summary>

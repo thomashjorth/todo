@@ -86,6 +86,14 @@ if (only is null or "review")
     }
 }
 
+if (only is null or "tags")
+{
+    foreach (var c in Cases.Tags)
+    {
+        results.Add(await Run("tags", c.Title, () => Evaluate.TagsAsync(client, c)));
+    }
+}
+
 if (only is null or "search")
 {
     foreach (var c in Cases.Search)

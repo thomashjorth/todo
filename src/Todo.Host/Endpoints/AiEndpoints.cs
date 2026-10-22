@@ -139,6 +139,45 @@ public static class AiEndpoints
         .WithName("summarizeNote")
         .WithTags("Ai");
 
+        // Asked in the background right after a task is created, so it must never be in the way:
+        // with no tags defined it answers at once without asking the model at all.
+        app.MapPost("/api/ai/tasks/{id:long}/tag-suggestions", async Task<Results<Ok<AiTagSuggestions>, BadRequest<ApiError>, NotFound>> (
+            long id, TodoDbContext db, OllamaClient ollama, CancellationToken ct) =>
+        {
+            var task = await db.Tasks.Include(t => t.Tags).SingleOrDefaultAsync(t => t.Id == id, ct);
+
+            if (task is null)
+            {
+                return TypedResults.NotFound();
+            }
+
+            var tags = await db.Tags.OrderBy(t => t.Name).Select(t => new { t.Id, t.Name }).ToListAsync(ct);
+
+            if (tags.Count == 0)
+            {
+                return TypedResults.Ok(new AiTagSuggestions { TagIds = [] });
+            }
+
+            try
+            {
+                var names = tags.Select(t => t.Name).ToList();
+                var answer = await ollama.CompleteAsync<TagSuggestionAnswer>(
+                    AiPrompts.SuggestTags(task.Title, task.Note, names), AiPrompts.SuggestTagsSchema(names), ct);
+
+                return TypedResults.Ok(new AiTagSuggestions
+                {
+                    TagIds = [.. AiSuggestions.TagIds(
+                        answer.Tags, [.. tags.Select(t => (t.Id, t.Name))], [.. task.Tags.Select(t => t.Id)])],
+                });
+            }
+            catch (SourceException exception)
+            {
+                return Refused(exception);
+            }
+        })
+        .WithName("suggestTags")
+        .WithTags("Ai");
+
         return app;
     }
 

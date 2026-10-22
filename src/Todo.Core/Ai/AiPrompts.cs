@@ -132,6 +132,36 @@ public static class AiPrompts
     };
 
     /// <summary>
+    /// Picks none or more of the user's own tags for a task. The schema's <c>enum</c> is what keeps it
+    /// to the user's tags - a model told "from the list only" is asked, a schema is enforced - and
+    /// "none is fine" is said in so many words, because a suggestion nobody needs costs a click.
+    /// </summary>
+    public static string SuggestTags(string title, string? note, IReadOnlyList<string> tags) => $"""
+        Go through the tags one at a time and pick each one that fits this to-do task - what the task does or is about falls under what the tag names. Several can fit, and none is a fine answer.
+        Tags: {string.Join(", ", tags)}
+        Task: {title}
+        Note: {(string.IsNullOrWhiteSpace(note) ? "(none)" : note.Length <= 600 ? note : note[..600])}
+        """;
+
+    public static JsonObject SuggestTagsSchema(IReadOnlyList<string> tags) => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["tags"] = new JsonObject
+            {
+                ["type"] = "array",
+                ["items"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["enum"] = new JsonArray([.. tags.Select(t => (JsonNode)t)]),
+                },
+            },
+        },
+        ["required"] = new JsonArray("tags"),
+    };
+
+    /// <summary>
     /// Turns retro notes into actions, all in one call: on the user's CPU every call costs seconds,
     /// so one per row would multiply the wait by the number of rows. The notes are numbered, and the
     /// answer refers back by number, because a note's text is not unique enough to match on. English,

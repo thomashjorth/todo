@@ -167,6 +167,23 @@ public static class Cases
             ["revisor", "Send referatet"]),
     ];
 
+    /// <summary>A plausible set of a user's own tags, Danish like the user's.</summary>
+    public static readonly string[] TagNames = ["Backend", "Drift", "Frontend", "Indkøb", "Kunde", "Møde", "Privat"];
+
+    public static readonly TagCase[] Tags =
+    [
+        new("Køb mælk", ["Indkøb"], ["Backend", "Kunde", "Frontend", "Drift", "Møde"]),
+        new("Ret API-gatewayens timeout i Key Vault", ["Backend"], ["Privat", "Indkøb", "Møde"]),
+        new("Book mødelokale til sprint review", ["Møde"], ["Privat", "Indkøb", "Backend"]),
+        new("Ring til tandlægen", ["Privat"], ["Kunde", "Backend", "Frontend", "Drift"]),
+        new("Opdatér knappernes farver på login-siden", ["Frontend"], ["Privat", "Indkøb", "Møde"]),
+        // "Drift" is Danish for operations and English for something else; measured 2026-10-22 the
+        // model picks Backend instead. A tag name that means two things across the languages is
+        // suggested worse, and that is worth knowing when naming tags.
+        new("Genstart produktionsserveren efter patch-tirsdag", ["Drift"], ["Privat", "Indkøb", "Møde"], KnownGap: true),
+        new("Send tilbud til Region Syd på eksportmodulet", ["Kunde"], ["Privat", "Indkøb"]),
+    ];
+
     /// <summary>The tasks every search case is asked against: the ten the thresholds were measured on.</summary>
     public static readonly string[] SearchTasks =
     [

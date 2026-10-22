@@ -65,6 +65,24 @@ public static class AiSuggestions
 
     public static string? Summary(string? suggested) => Clean(suggested);
 
+    /// <summary>
+    /// The suggested tag names as ids, in the order given: unknown names dropped (the schema should
+    /// make them impossible, and a prompt is a request), and nothing the task carries already.
+    /// </summary>
+    public static IReadOnlyList<long> TagIds(
+        IEnumerable<string?>? suggested, IReadOnlyCollection<(long Id, string Name)> tags, IReadOnlyCollection<long> carried)
+    {
+        var byName = tags.ToDictionary(t => t.Name, t => t.Id, StringComparer.OrdinalIgnoreCase);
+
+        return [.. (suggested ?? [])
+            .Select(Clean)
+            .OfType<string>()
+            .Select(name => byName.TryGetValue(name, out var id) ? id : (long?)null)
+            .OfType<long>()
+            .Where(id => !carried.Contains(id))
+            .Distinct()];
+    }
+
     /// <summary>Trimmed, blanks gone, at most five - the schema asks for that, the prompt is a request.</summary>
     public static IReadOnlyList<string> ReviewPoints(IEnumerable<string?>? suggested) =>
         (suggested ?? []).Select(Clean).OfType<string>().Take(MaxReviewPoints).ToList();
