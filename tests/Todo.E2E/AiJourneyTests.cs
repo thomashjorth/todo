@@ -234,6 +234,45 @@ public class AiJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         Assert.True(twice.Count == 0, $"Claimed twice: {string.Join(", ", twice)}");
     }
 
+    /// <summary>
+    /// The user's finding 2026-10-22: "Fortolk" and "Betydning" were not the same width, so the two
+    /// fields beside them ended in two places. Measured with Alt held as well, because the badge
+    /// inside a button is what would widen it - and no label may overflow the fixed width.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task The_interpret_and_meaning_buttons_line_up(bool altHeld)
+    {
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+        var parse = App.Page.GetByTestId("quick-entry-parse");
+        var meaning = App.Page.GetByTestId("search-by-meaning");
+        await Assertions.Expect(meaning).ToBeVisibleAsync();
+
+        if (altHeld)
+        {
+            await App.Page.Keyboard.DownAsync("Alt");
+            await Assertions.Expect(meaning.GetByTestId("shortcut-badge")).ToBeVisibleAsync();
+        }
+
+        var a = (await parse.BoundingBoxAsync())!;
+        var b = (await meaning.BoundingBoxAsync())!;
+
+        Assert.Equal(a.Width, b.Width);
+        Assert.Equal(a.X, b.X);
+
+        foreach (var button in new[] { parse, meaning })
+        {
+            var overflow = await button.EvaluateAsync<bool>("b => b.scrollWidth > b.clientWidth");
+            Assert.False(overflow, $"{await button.GetAttributeAsync("data-testid")} overflows its width.");
+        }
+
+        if (altHeld)
+        {
+            await App.Page.Keyboard.UpAsync("Alt");
+        }
+    }
+
     private string PromptSent()
     {
         var request = Assert.Single(_ollama.ChatRequests);

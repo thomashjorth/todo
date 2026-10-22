@@ -298,6 +298,7 @@
   },
   "ai": {
     "asking": "Spørger modellen…",
+    "askingShort": "Spørger…",
     "parse": "Fortolk",
     "parseLabel": "Fortolk teksten med den lokale AI-model",
     "suggestedTask": "Forslag fra AI-modellen",
