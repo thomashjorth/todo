@@ -136,6 +136,29 @@ describe('TaskDetail', () => {
       expect(has(fixture, 'summarize-note')).toBe(false);
     });
 
+    // The order is the document's: the summary's R sits beside the note's N, and the split's F under
+    // the new-subtask field's U. A comparison of sets would pass if two letters swapped.
+    it('should announce the AI actions in the panel layer, beside the field they belong to', () => {
+      const element = panelFor(imported, true).nativeElement as HTMLElement;
+
+      const labels = Array.from(element.querySelectorAll('[aria-keyshortcuts]')).map((el) =>
+        el.getAttribute('aria-keyshortcuts'),
+      );
+
+      expect(labels).toEqual([
+        'Alt+Shift+I',
+        'Alt+Shift+D',
+        'Alt+Shift+S',
+        'Alt+Shift+O',
+        'Alt+Shift+R',
+        'Alt+Shift+N',
+        'Alt+Shift+T',
+        'Alt+Shift+U',
+        'Alt+Shift+F',
+        'Alt+Shift+L',
+      ]);
+    });
+
     // On a task of your own the note is the only copy, so replacing it with a summary would lose it.
     it('should offer a summary only on an imported task with a note', () => {
       expect(has(panelFor(imported, true), 'summarize-note')).toBe(true);

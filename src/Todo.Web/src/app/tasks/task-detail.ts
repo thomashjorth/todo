@@ -54,10 +54,21 @@ export class TaskDetail {
   private readonly noteEditor = viewChild<ElementRef<HTMLTextAreaElement>>('note');
   private readonly whoField = viewChild<ElementRef<HTMLInputElement>>('waitingOn');
 
+  // Rendered only while their suggestion is on screen, so their arrival is what the effects react to.
+  private readonly acceptSplit = viewChild<ElementRef<HTMLButtonElement>>('acceptSplit');
+  private readonly discardSplit = viewChild<ElementRef<HTMLButtonElement>>('discardSplit');
+  private readonly acceptSummaryButton = viewChild<ElementRef<HTMLButtonElement>>('summaryAccept');
+
   constructor() {
     // Without this the click that opened the editor leaves the caret outside it, and the user
     // has to click once more before they can type.
     effect(() => this.noteEditor()?.nativeElement.focus());
+
+    // An AI suggestion takes the focus when it arrives, on the button Enter should press: the
+    // shortcut asked, so the hands are on the keyboard. With no subtasks to add, "Kassér" is all
+    // there is to press.
+    effect(() => (this.acceptSplit() ?? this.discardSplit())?.nativeElement.focus());
+    effect(() => this.acceptSummaryButton()?.nativeElement.focus());
 
     // Delegating is a shortcut for "Venter på" plus a name: the picker asks, the field answers.
     // The field is read FIRST, so the effect tracks it and runs again when it turns up - and it

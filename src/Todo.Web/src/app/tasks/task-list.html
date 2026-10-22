@@ -50,15 +50,28 @@
         }
       </div>
       @if (ai.ready()) {
+        <!-- Alt+T, for "tolk": the field's own letter is N, and F - for "fortolk" - is Chrome's menu
+             key. Activate rather than focus, as for every button: the second press would be the
+             same click. -->
         <button
           type="button"
           data-testid="quick-entry-parse"
+          appShortcut="t"
+          appShortcutAction="activate"
           class="cursor-pointer shrink-0 rounded border border-gray-500 px-3 py-2 text-sm text-gray-900 disabled:cursor-wait dark:border-gray-500 dark:text-gray-100"
           [attr.aria-label]="'ai.parseLabel' | transloco"
           [disabled]="ai.parsing()"
           (click)="parse(newTask)"
         >
           {{ (ai.parsing() ? 'ai.asking' : 'ai.parse') | transloco }}
+          @if (shortcuts.altHeld()) {
+            <span
+              data-testid="shortcut-badge"
+              aria-hidden="true"
+              class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
+              >T</span
+            >
+          }
         </button>
       }
     </div>
@@ -72,10 +85,13 @@
       </p>
     }
     @if (ai.taskSuggestion(); as suggestion) {
+      <!-- The accept button takes the focus when the suggestion arrives, so Enter creates the task and
+           Escape throws the suggestion away - the whole flow without the mouse. -->
       <section
         data-testid="quick-entry-suggestion"
         class="mt-2 space-y-1 rounded border border-gray-300 bg-gray-50 p-2 text-sm dark:border-gray-600 dark:bg-gray-800"
         [attr.aria-label]="'ai.suggestedTask' | transloco"
+        (keydown.escape)="discardSuggestion(newTask)"
       >
         <p
           data-testid="quick-entry-title"
@@ -95,6 +111,7 @@
         }
         <div class="flex gap-4 pt-1">
           <button
+            #acceptTask
             type="button"
             data-testid="quick-entry-accept"
             class="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
@@ -106,7 +123,7 @@
             type="button"
             data-testid="quick-entry-discard"
             class="cursor-pointer text-xs text-gray-700 underline dark:text-gray-300"
-            (click)="ai.discardTask()"
+            (click)="discardSuggestion(newTask)"
           >
             {{ 'ai.discard' | transloco }}
           </button>

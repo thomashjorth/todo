@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { AiStore } from '../ai/ai-store';
 import { DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
@@ -93,9 +93,16 @@ export class TaskList {
 
   private readonly system = inject(SystemStore);
 
+  /** Rendered only while a suggestion is on screen, so its arrival is what the effect reacts to. */
+  private readonly acceptTaskButton = viewChild<ElementRef<HTMLButtonElement>>('acceptTask');
+
   constructor() {
     // A failed load needs no message of its own: the health line already reports the API down.
     this.store.load().catch(() => {});
+
+    // The suggestion's accept button takes the focus when it appears, so Enter creates the task:
+    // the line was typed, Alt+T asked, and the hands never leave the keyboard.
+    effect(() => this.acceptTaskButton()?.nativeElement.focus());
   }
 
   // The API's enum values are the leaves of the key, so a new bucket needs no mapping here.
@@ -107,12 +114,22 @@ export class TaskList {
     this.ai.parse(field.value).catch(() => {});
   }
 
-  /** The field is emptied only once the task exists, so a failed save leaves the typed line. */
+  /**
+   * The field is emptied only once the task exists, so a failed save leaves the typed line. The
+   * focus goes back to it either way, ready for the next line - the accept button it was on is gone.
+   */
   protected acceptSuggestion(field: HTMLInputElement): void {
     this.ai
       .acceptTask()
       .then(() => (field.value = ''))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => field.focus());
+  }
+
+  /** Back to the field with the line still in it, so it can be corrected or saved as typed. */
+  protected discardSuggestion(field: HTMLInputElement): void {
+    this.ai.discardTask();
+    field.focus();
   }
 
   protected create(field: HTMLInputElement): void {

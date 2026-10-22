@@ -156,14 +156,26 @@
              link, and re-import never overwrites the note (ADR 14). On a task of your own the note
              is the only copy, and replacing it would lose it. -->
         @if (ai.ready() && task().externalUrl && task().note?.trim()) {
+          <!-- ⇧R, for "resumé". -->
           <button
             type="button"
             data-testid="summarize-note"
+            appShortcut="r"
+            appShortcutModifier="alt-shift"
+            appShortcutAction="activate"
             class="cursor-pointer text-xs text-blue-700 underline disabled:cursor-wait dark:text-blue-300"
             [disabled]="ai.summarizing() === task().id"
             (click)="summarize()"
           >
             {{ (ai.summarizing() === task().id ? 'ai.asking' : 'ai.summarize') | transloco }}
+            @if (shortcuts.altHeld()) {
+              <span
+                data-testid="shortcut-badge"
+                aria-hidden="true"
+                class="ml-1 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 no-underline dark:border-gray-400 dark:text-gray-300"
+                >⇧R</span
+              >
+            }
           </button>
         }
         <button
@@ -182,16 +194,20 @@
   </div>
   @let summary = ai.summary();
   @if (summary && summary.taskId === task().id) {
+    <!-- Its accept button takes the focus when it arrives, so Enter replaces the note and Escape
+         throws the summary away. -->
     <section
       data-testid="summary-suggestion"
       class="space-y-1 rounded border border-gray-300 p-2 dark:border-gray-600"
       [attr.aria-label]="'ai.suggestedSummary' | transloco"
+      (keydown.escape)="ai.discardSummary()"
     >
       <p data-testid="summary-text" class="text-sm break-words text-gray-900 dark:text-gray-100">
         {{ summary.value }}
       </p>
       <div class="flex gap-4">
         <button
+          #summaryAccept
           type="button"
           data-testid="summary-accept"
           class="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
@@ -380,9 +396,12 @@
   @if (ai.ready()) {
     @let suggested = ai.subTaskSuggestions();
     @if (suggested && suggested.taskId === task().id) {
+      <!-- "Tilføj valgte" takes the focus when the suggestions arrive, or "Kassér" when there are
+           none, so Enter accepts and Escape throws them away; Shift+Tab reaches the checkboxes. -->
       <fieldset
         data-testid="split-suggestions"
         class="space-y-1 rounded border border-gray-300 p-2 dark:border-gray-600"
+        (keydown.escape)="ai.discardSubTasks()"
       >
         <legend class="px-1 text-xs text-gray-700 dark:text-gray-300">
           {{ 'ai.suggestedSubTasks' | transloco }}
@@ -407,6 +426,7 @@
         <div class="flex gap-4 pt-1">
           @if (suggested.value.length > 0) {
             <button
+              #acceptSplit
               type="button"
               data-testid="split-accept"
               class="cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
@@ -416,6 +436,7 @@
             </button>
           }
           <button
+            #discardSplit
             type="button"
             data-testid="split-discard"
             class="cursor-pointer text-xs text-gray-700 underline dark:text-gray-300"
@@ -426,14 +447,27 @@
         </div>
       </fieldset>
     } @else {
+      <!-- ⇧F, for "foreslå": U is the new-subtask field's, and the field and this button sit
+           together under the same heading. -->
       <button
         type="button"
         data-testid="split-task"
+        appShortcut="f"
+        appShortcutModifier="alt-shift"
+        appShortcutAction="activate"
         class="cursor-pointer text-xs text-blue-700 underline disabled:cursor-wait dark:text-blue-300"
         [disabled]="ai.splitting() === task().id"
         (click)="split()"
       >
         {{ (ai.splitting() === task().id ? 'ai.asking' : 'ai.split') | transloco }}
+        @if (shortcuts.altHeld()) {
+          <span
+            data-testid="shortcut-badge"
+            aria-hidden="true"
+            class="ml-1 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 no-underline dark:border-gray-400 dark:text-gray-300"
+            >⇧F</span
+          >
+        }
       </button>
     }
     @let splitError = ai.splitError();
