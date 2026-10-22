@@ -204,4 +204,13 @@ public static class ErrorCodes
     public const string ReviewTimeOfDayInvalid = "review.timeOfDayInvalid";
 
     public const string SystemUnsupportedScheme = "system.unsupportedScheme";
+
+    /// <summary>
+    /// Ollama did not answer, or does not have the model. The user's move is to start Ollama, which
+    /// is why this is told apart from <see cref="AiUnreadableAnswer"/>.
+    /// </summary>
+    public const string AiUnavailable = "ai.unavailable";
+
+    /// <summary>The model answered, but not in the requested shape. The user's move is to try again.</summary>
+    public const string AiUnreadableAnswer = "ai.unreadableAnswer";
 }

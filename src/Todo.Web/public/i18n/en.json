@@ -359,6 +359,10 @@
     },
     "system": {
       "unsupportedScheme": "Only http and https links can be opened."
+    },
+    "ai": {
+      "unavailable": "The local AI model is not answering. Check that Ollama is running.",
+      "unreadableAnswer": "The AI model gave an answer that could not be read. Try again."
     }
   }
 }
