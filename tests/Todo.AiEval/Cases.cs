@@ -150,19 +150,17 @@ public static class Cases
         new(
             "an ordinary week",
             new ReviewFacts(
-                4,
-                ["Send referatet", "Opdatér certifikatet", "Ryd op i backloggen", "Book mødelokale"],
+                [new AgeFact("Send tilbud til Region Syd", 5)],
                 [
                     new WaitingFact("Svar fra revisoren om årsregnskabet", "Revisoren", 23),
                     new WaitingFact("Svar fra Bo om loggen", "Bo", 4),
                 ],
-                2,
                 [new AgeFact("Lær at spille harmonika", 210), new AgeFact("Skriv en blog om Angular", 130)]),
-            ["revisor", "harmonika"],
-            ["Ring til Anna", "Køb mælk", "Opdatér wikien"]),
+            ["revisor", "harmonika", "Region Syd"],
+            ["Ring til Anna", "Køb mælk", "Send referatet"]),
         new(
             "a quiet week",
-            new ReviewFacts(0, [], [], 0, [new AgeFact("Lær at spille harmonika", 210)]),
+            new ReviewFacts([], [], [new AgeFact("Lær at spille harmonika", 210)]),
             ["harmonika"],
             ["revisor", "Send referatet"]),
     ];

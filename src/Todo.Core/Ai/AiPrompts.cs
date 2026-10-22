@@ -213,19 +213,22 @@ public static class AiPrompts
     /// </summary>
     public static string ReviewOverview(ReviewFacts facts)
     {
-        static string List(IEnumerable<string> lines) =>
-            string.Join("\n", lines.Select(l => $"- {l}")) is { Length: > 0 } text ? text : "- (none)";
+        // An empty topic carries the sentence to write for it: told to "say so plainly", the model
+        // wrote "Du skal sætte en ny dato for ingen overudførte opgaver" (eval, 2026-10-22).
+        static string List(IEnumerable<string> lines, string whenEmpty) =>
+            string.Join("\n", lines.Select(l => $"- {l}")) is { Length: > 0 } text
+                ? text
+                : $"- (none - write exactly: \"{whenEmpty}\")";
 
         return $"""
-            Write 1 to 5 short points for a weekly review of a personal to-do list, one sentence each, plain text without markdown. Leave out a topic the facts say nothing about rather than saying so. Say what got done, which waiting tasks have waited longest and whether to chase them, and which Someday tasks have sat for months and could be dropped or scheduled. Use only the facts below and name tasks by their titles; never mention a task that is not listed.
+            Write 1 to 5 short points for a weekly review of a personal to-do list, one sentence each, plain text without markdown, speaking to the user as "du". Each point says what to do: which overdue tasks need a new date or a decision, which waiting tasks to chase, and which Someday tasks could be dropped or scheduled. When a topic has nothing in it, write the sentence given for it. Do not recap what is done. Use only the facts below and name tasks by their exact titles; never mention a task that is not listed.
             {WriteIn(AiLanguage.Danish)}
-            Completed in the last 7 days ({facts.CompletedCount}):
-            {List(facts.Completed)}
+            Overdue, longest first:
+            {List(facts.Overdue.Select(o => $"{o.Title} - {o.Days} days overdue"), "Intet er overskredet.")}
             Waiting, longest first:
-            {List(facts.Waiting.Select(w => $"{w.Title} - waiting on {w.WaitingOn ?? "nobody named"} for {w.Days} days"))}
-            Overdue: {facts.OverdueCount}
+            {List(facts.Waiting.Select(w => $"{w.Title} - waiting on {w.WaitingOn ?? "nobody named"} for {w.Days} days"), "Ingen venter på svar.")}
             Someday tasks created more than {ReviewFacts.StaleDays} days ago (the creation date is the only date known):
-            {List(facts.StaleSomeday.Select(s => $"{s.Title} - created {s.Days} days ago"))}
+            {List(facts.StaleSomeday.Select(s => $"{s.Title} - created {s.Days} days ago"), "Ingen Måske-opgaver har ligget længe.")}
             """;
     }
 

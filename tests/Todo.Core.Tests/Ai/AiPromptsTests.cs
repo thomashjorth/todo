@@ -114,15 +114,13 @@ public class AiPromptsTests
     public void The_review_prompt_carries_every_fact_it_was_given()
     {
         var prompt = AiPrompts.ReviewOverview(new ReviewFacts(
-            12,
-            ["Send referatet"],
+            [new AgeFact("Betal regningen", 4)],
             [new WaitingFact("Svar revisoren", "Bo", 21)],
-            3,
             [new AgeFact("Lær harmonika", 200)]));
 
-        Assert.Contains("Completed in the last 7 days (12):\n- Send referatet", prompt.ReplaceLineEndings("\n"));
+        Assert.Contains("- Betal regningen - 4 days overdue", prompt);
         Assert.Contains("- Svar revisoren - waiting on Bo for 21 days", prompt);
-        Assert.Contains("Overdue: 3", prompt);
+        Assert.Contains("Do not recap what is done.", prompt);
         Assert.Contains("- Lær harmonika - created 200 days ago", prompt);
         Assert.Contains("the creation date is the only date known", prompt);
         Assert.Contains("Write in Danish", prompt);
@@ -131,9 +129,9 @@ public class AiPromptsTests
     [Fact]
     public void An_empty_list_says_none_rather_than_nothing()
     {
-        var prompt = AiPrompts.ReviewOverview(new ReviewFacts(0, [], [], 0, [])).ReplaceLineEndings("\n");
+        var prompt = AiPrompts.ReviewOverview(new ReviewFacts([], [], [])).ReplaceLineEndings("\n");
 
-        Assert.Contains("Waiting, longest first:\n- (none)", prompt);
+        Assert.Contains("Waiting, longest first:\n- (none - write exactly: \"Ingen venter på svar.\")", prompt);
     }
 
     [Fact]

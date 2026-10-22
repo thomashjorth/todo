@@ -223,17 +223,19 @@ public class AiScreenEndpointsTests : ApiTest
             builder().Titled("Betal regningen").Overdue().Build(),
             staleSomeday,
             freshSomeday);
-        _ollama.Answer = """{"points":[" Du fik sendt referatet. ","","Svar revisoren har ventet 21 dage."]}""";
+        _ollama.Answer = """{"points":[" Giv Betal regningen en ny dato. ","","Ryk revisoren, der har ventet 21 dage."]}""";
 
         var response = await Client.PostAsync("/api/ai/review-overview", null);
         var overview = await response.Content.ReadFromJsonAsync<AiReviewOverview>();
 
-        Assert.Equal(["Du fik sendt referatet.", "Svar revisoren har ventet 21 dage."], overview!.Points);
+        Assert.Equal(["Giv Betal regningen en ny dato.", "Ryk revisoren, der har ventet 21 dage."], overview!.Points);
         var prompt = PromptSent();
-        Assert.Contains("Completed in the last 7 days (1):\n- Send referatet\n", prompt);
+
+        // The done tasks are not in the prompt at all: the user found the recap useless (2026-10-22).
+        Assert.DoesNotContain("Send referatet", prompt);
         Assert.DoesNotContain("Gammel sag", prompt);
         Assert.Contains("- Svar revisoren - waiting on Revisoren for 21 days\n- Svar Bo - waiting on Bo for 3 days", prompt);
-        Assert.Contains("Overdue: 1", prompt);
+        Assert.Contains("- Betal regningen - 1 days overdue", prompt);
         Assert.Contains("- Lær harmonika - created 100 days ago", prompt);
         Assert.DoesNotContain("Læs om typografi", prompt);
     }

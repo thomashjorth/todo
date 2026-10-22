@@ -215,6 +215,13 @@ public static class Evaluate
             failures.Add($"{points.Count} points, expected 1 to {AiSuggestions.MaxReviewPoints}");
         }
 
+        // The user's own finding: the first overview spoke as "Jeg har gennemført...". The points
+        // speak to the user, never as the user.
+        if (points.Any(p => p.StartsWith("Jeg ", StringComparison.Ordinal)))
+        {
+            failures.Add("speaks in the first person");
+        }
+
         // The screen shows the points as plain text, so markdown would reach the user as asterisks.
         if (all.Contains("**", StringComparison.Ordinal) || points.Any(p => p.StartsWith('#')))
         {

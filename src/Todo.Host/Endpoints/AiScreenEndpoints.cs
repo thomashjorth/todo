@@ -163,15 +163,8 @@ public static class AiScreenEndpoints
     internal static async Task<ReviewFacts> ReviewFactsAsync(TodoDbContext db, IClock clock, CancellationToken ct)
     {
         var now = clock.UtcNow;
-        var weekAgo = now.AddDays(-7);
         var staleBefore = now.AddDays(-ReviewFacts.StaleDays);
         var today = clock.Today;
-
-        var completed = await db.Tasks
-            .Where(t => t.Status == CoreStatus.Done && t.CompletedAt >= weekAgo)
-            .OrderByDescending(t => t.CompletedAt)
-            .Select(t => t.Title)
-            .ToListAsync(ct);
 
         var waiting = await db.Tasks
             .Where(t => t.Status == CoreStatus.WaitingFor)
@@ -181,8 +174,12 @@ public static class AiScreenEndpoints
             .Select(t => new { t.Title, t.WaitingOn, t.WaitingSince })
             .ToListAsync(ct);
 
-        var overdue = await db.Tasks.CountAsync(
-            t => (t.Status == CoreStatus.Open || t.Status == CoreStatus.InProgress) && t.Deadline < today, ct);
+        var overdue = await db.Tasks
+            .Where(t => (t.Status == CoreStatus.Open || t.Status == CoreStatus.InProgress) && t.Deadline < today)
+            .OrderBy(t => t.Deadline)
+            .Take(ReviewFacts.MaxPerList)
+            .Select(t => new { t.Title, t.Deadline })
+            .ToListAsync(ct);
 
         var stale = await db.Tasks
             .Where(t => t.Status == CoreStatus.Someday && t.CreatedAt < staleBefore)
@@ -192,10 +189,8 @@ public static class AiScreenEndpoints
             .ToListAsync(ct);
 
         return new ReviewFacts(
-            completed.Count,
-            [.. completed.Take(ReviewFacts.MaxPerList)],
+            [.. overdue.Select(o => new AgeFact(o.Title, today.DayNumber - o.Deadline!.Value.DayNumber))],
             [.. waiting.Select(w => new WaitingFact(w.Title, w.WaitingOn, w.WaitingSince is { } since ? (int)(now - since).TotalDays : 0))],
-            overdue,
             [.. stale.Select(s => new AgeFact(s.Title, (int)(now - s.CreatedAt).TotalDays))]);
     }
 }

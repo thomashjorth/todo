@@ -55,10 +55,17 @@ Both need vectors, and Gemma 4 cannot make them (`501 does not support embedding
 ## 4. Help with the weekly review
 
 A button at the top of `/review`, **"Skriv ugens overblik"** (Alt+U, for "ugen"), sends the host a
-request, and the host gathers the facts itself: what was completed in the last seven days, what has
-waited longest (with days), and which Someday tasks were created more than 90 days ago. The model
-turns them into three to five short points in Danish, including what it would do about them.
-Nothing is saved, so there is nothing to accept.
+request, and the host gathers the facts itself: what is overdue (with days), what has waited
+longest (with days), and which Someday tasks were created more than 90 days ago. The model turns
+them into one to five short points in Danish, each saying what to do. Nothing is saved, so there
+is nothing to accept.
+
+- **Corrected 2026-10-22 after the user's first use.** The first version also recapped what was
+  completed in the week. The user's verdict: that point "gengiver forkert og det giver ingen
+  værdi" - the model ran four titles into one wrong sentence, in the first person - while the
+  points about what to act on were the useful ones, the "nothing here" ones included. So the
+  completed tasks are no longer in the facts at all, the overdue ones are, and an empty topic gets
+  a fixed sentence ("Intet er overskredet.") rather than one the model makes up.
 
 - **"Not touched" can only mean "created long ago".** `TaskItem` has no `UpdatedAt` and there is no
   revision log, so a Someday task edited yesterday but created in spring counts as stale. The

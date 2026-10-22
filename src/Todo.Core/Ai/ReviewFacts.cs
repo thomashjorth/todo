@@ -4,11 +4,15 @@ namespace Todo.Core.Ai;
 /// What the weekly review overview is written from, gathered by the host so the model only phrases
 /// it. <see cref="StaleSomeday"/> is read off the creation date, the only one a Someday task has.
 /// </summary>
+/// <remarks>
+/// Nothing about what was completed, on purpose: the user's verdict on the first overview
+/// (2026-10-22) was that the recap of done tasks "gengiver forkert og det giver ingen værdi" - the
+/// model ran four titles together into one wrong sentence, in the first person - while the points
+/// about what to act on were the useful ones. So the facts are only what can be acted on.
+/// </remarks>
 public sealed record ReviewFacts(
-    int CompletedCount,
-    IReadOnlyList<string> Completed,
+    IReadOnlyList<AgeFact> Overdue,
     IReadOnlyList<WaitingFact> Waiting,
-    int OverdueCount,
     IReadOnlyList<AgeFact> StaleSomeday)
 {
     /// <summary>
