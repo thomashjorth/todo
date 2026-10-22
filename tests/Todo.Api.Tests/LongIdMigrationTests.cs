@@ -511,13 +511,16 @@ public class LongIdMigrationTests
         using var scope = host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
 
+        // Found by name rather than taken as the last one: later migrations (Tags, 2026-10-22) sit
+        // after it, are rolled back with it, and ride along when the test migrates up again.
         var applied = (await db.Database.GetAppliedMigrationsAsync()).ToList();
-        Assert.EndsWith("LongIds", applied[^1], StringComparison.Ordinal);
+        var longIds = applied.FindIndex(m => m.EndsWith("LongIds", StringComparison.Ordinal));
+        Assert.True(longIds > 0, $"LongIds is not among the applied migrations: {string.Join(", ", applied)}");
 
-        await db.Database.GetService<IMigrator>().MigrateAsync(applied[^2]);
+        await db.Database.GetService<IMigrator>().MigrateAsync(applied[longIds - 1]);
 
-        var pending = Assert.Single(await db.Database.GetPendingMigrationsAsync());
-        Assert.EndsWith("LongIds", pending, StringComparison.Ordinal);
+        var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+        Assert.EndsWith("LongIds", pending[0], StringComparison.Ordinal);
     }
 
     private static async Task<IReadOnlyList<string>> PendingMigrationsAsync(RunningHost host)

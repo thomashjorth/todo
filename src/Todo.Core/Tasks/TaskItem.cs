@@ -1,3 +1,5 @@
+using Todo.Core.Tags;
+
 namespace Todo.Core.Tasks;
 
 public class TaskItem
@@ -30,4 +32,7 @@ public class TaskItem
     public DateTime CreatedAt { get; set; }
 
     public List<SubTask> SubTasks { get; set; } = [];
+
+    /// <summary>Through the TaskTags join table; deleting either side takes the link with it.</summary>
+    public List<Tag> Tags { get; set; } = [];
 }
