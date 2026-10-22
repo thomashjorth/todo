@@ -5,9 +5,16 @@
 #
 # Chinese models are forbidden on this work PC. A model's name does not reveal what it is built on,
 # so the rule is an approved list rather than a blocked one.
+#
+# Two models: Gemma 4 answers, EmbeddingGemma turns text into vectors for search by meaning and
+# duplicate warnings, which Gemma 4 cannot ("does not support embeddings", measured 2026-10-22).
+# Both are Google's. The embedding model's name carries its tag because that is how "ollama list"
+# prints it, and the approved list is compared with that output: "embeddinggemma" alone would have
+# this script delete the model it had just downloaded.
 param(
     [string]$Model = 'gemma4:e4b',
-    [string[]]$Approved = @($Model)
+    [string]$EmbeddingModel = 'embeddinggemma:latest',
+    [string[]]$Approved = @($Model, $EmbeddingModel)
 )
 
 # Under 'Stop', Windows PowerShell 5.1 turns anything a native command writes to stderr into a
@@ -70,22 +77,24 @@ foreach ($name in $installed) {
     }
 }
 
-& $exe show $Model *> $null
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "AI model: $Model is installed." -ForegroundColor DarkGray
-    return
-}
+foreach ($wanted in @($Model, $EmbeddingModel)) {
+    & $exe show $wanted *> $null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "AI model: $wanted is installed." -ForegroundColor DarkGray
+        continue
+    }
 
-# A second start of the app while the first download runs would otherwise open a second window
-# pulling the same layers.
-$pulling = Get-CimInstance Win32_Process -Filter "Name = 'ollama.exe'" |
-    Where-Object { $_.CommandLine -match "\bpull\s+$([regex]::Escape($Model))" }
-if ($pulling) {
-    Write-Host "AI model: $Model is still downloading in its own window." -ForegroundColor Cyan
-    return
-}
+    # A second start of the app while the first download runs would otherwise open a second window
+    # pulling the same layers.
+    $pulling = Get-CimInstance Win32_Process -Filter "Name = 'ollama.exe'" |
+        Where-Object { $_.CommandLine -match "\bpull\s+$([regex]::Escape($wanted))" }
+    if ($pulling) {
+        Write-Host "AI model: $wanted is still downloading in its own window." -ForegroundColor Cyan
+        continue
+    }
 
-# Several GB, so it runs beside the app rather than before it. The window stays open on a failure
-# so the message can be read.
-Write-Host "AI model: downloading $Model in a separate window. The app starts meanwhile." -ForegroundColor Cyan
-Start-Process -FilePath $env:ComSpec -ArgumentList "/c `"`"$exe`" pull $Model || pause`""
+    # Up to several GB, so it runs beside the app rather than before it. The window stays open on a
+    # failure so the message can be read.
+    Write-Host "AI model: downloading $wanted in a separate window. The app starts meanwhile." -ForegroundColor Cyan
+    Start-Process -FilePath $env:ComSpec -ArgumentList "/c `"`"$exe`" pull $wanted || pause`""
+}
