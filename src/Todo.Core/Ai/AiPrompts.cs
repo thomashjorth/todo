@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json.Nodes;
 
 namespace Todo.Core.Ai;
@@ -32,32 +31,28 @@ public static class AiPrompts
     /// <summary>
     /// Turns one typed line into a task. The calendar is the point: given only today's date, the
     /// model put "næste mandag" on 2026-10-27, a Tuesday. With the days written out it looked them up
-    /// and got five of five right. It costs about two seconds of prompt reading per call.
+    /// and got five of five right.
+    /// <para>
+    /// Terse on purpose. Reading the prompt is most of a call's time on the user's CPU, and it cannot
+    /// be cached between two lines: Ollama reused 424 of 429 tokens for an identical prompt and none
+    /// when only the line changed (measured 2026-10-22). The terse wording kept the eval at 12 of 12
+    /// and took the median from 5.6 s to 4.9 s.
+    /// </para>
     /// </summary>
     public static string ParseTask(string text, DateOnly today)
     {
-        var calendar = new StringBuilder();
-
-        for (var i = 1; i <= CalendarDays; i++)
-        {
-            var day = today.AddDays(i);
-            calendar.Append("- ").Append(Weekday(day)).Append(' ').AppendLine(Iso(day));
-        }
+        var calendar = string.Join(
+            ", ",
+            Enumerable.Range(1, CalendarDays).Select(i => today.AddDays(i)).Select(d => $"{Weekday(d)} {Iso(d)}"));
 
         return $"""
-            You turn one line that a person typed into their to-do list into a task.
-            Today is {Weekday(today)} {Iso(today)}. The next {CalendarDays} days are:
-            {calendar.ToString().TrimEnd()}
-
-            Return:
-            - title: the task, close to the same words as the line. Leave out the due date and the words that only introduce it, such as "på fredag", "til onsdag", "i morgen", "inden 1. november" or "tomorrow".
-            - requester: the person the task is for or about, if the line names one. Otherwise null.
-            - deadline: the date the task is due, as YYYY-MM-DD, if the line names one. Otherwise null. A weekday on its own means the first such day in the list above; "næste <weekday>" means the one in the week after this one.
-
+            Make a to-do task from the line below. Today is {Weekday(today)} {Iso(today)}.
+            Coming days: {calendar}.
+            title: the line's own words without the due date or the words that introduce it ("på fredag", "til onsdag", "i morgen", "inden 1. november", "tomorrow").
+            requester: the person the task is for or about, if named, else null.
+            deadline: the due date as YYYY-MM-DD, if named, else null. A bare weekday is its first date above; "næste <weekday>" is the one a week after that.
             {WriteIn(AiLanguage.Of(text))}
-
-            The line:
-            {text}
+            Line: {text}
             """;
     }
 

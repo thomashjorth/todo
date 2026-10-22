@@ -77,7 +77,7 @@ public class AiEndpointsTests : ApiTest
 
         var prompt = PromptSent();
         Assert.Contains("Today is torsdag 2026-10-22.", prompt);
-        Assert.Contains("- fredag 2026-10-23", prompt);
+        Assert.Contains("fredag 2026-10-23", prompt);
         Assert.EndsWith("Køb mælk", prompt);
     }
 

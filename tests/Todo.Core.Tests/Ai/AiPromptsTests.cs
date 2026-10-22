@@ -18,22 +18,30 @@ public class AiPromptsTests
     /// model got wrong without it, and the boundary of the fourteen.
     /// </summary>
     [Theory]
-    [InlineData("- fredag 2026-10-23")]
-    [InlineData("- mandag 2026-10-26")]
-    [InlineData("- torsdag 2026-11-05")]
-    public void The_quick_entry_prompt_writes_out_the_next_two_weeks(string line)
+    [InlineData("fredag 2026-10-23")]
+    [InlineData("mandag 2026-10-26")]
+    [InlineData("torsdag 2026-11-05")]
+    public void The_quick_entry_prompt_writes_out_the_next_two_weeks(string day)
     {
-        Assert.Contains(line, AiPrompts.ParseTask("Køb mælk", Thursday));
+        Assert.Contains(day, AiPrompts.ParseTask("Køb mælk", Thursday));
     }
 
+    /// <summary>
+    /// One line, comma-separated, because prompt reading is most of a call's time on the user's CPU
+    /// and cannot be cached between two lines (see the three-features design): the shorter prompt
+    /// scored 12 of 12 in the eval and saved 0.7 s of the median.
+    /// </summary>
     [Fact]
     public void The_calendar_starts_tomorrow_and_stops_after_fourteen_days()
     {
-        var prompt = AiPrompts.ParseTask("Køb mælk", Thursday);
+        var calendar = AiPrompts.ParseTask("Køb mælk", Thursday)
+            .ReplaceLineEndings("\n")
+            .Split('\n')
+            .Single(l => l.StartsWith("Coming days: ", StringComparison.Ordinal));
 
-        Assert.DoesNotContain("- torsdag 2026-10-22", prompt);
-        Assert.DoesNotContain("2026-11-06", prompt);
-        Assert.Equal(AiPrompts.CalendarDays, prompt.Split('\n').Count(l => l.StartsWith("- ")) - 3);
+        Assert.StartsWith("Coming days: fredag 2026-10-23, ", calendar);
+        Assert.EndsWith(", torsdag 2026-11-05.", calendar);
+        Assert.Equal(AiPrompts.CalendarDays, calendar.Split(", ").Length);
     }
 
     [Fact]
@@ -41,7 +49,7 @@ public class AiPromptsTests
     {
         var prompt = AiPrompts.ParseTask("Ring til Anna om fakturaen på fredag", Thursday);
 
-        Assert.EndsWith("The line:\nRing til Anna om fakturaen på fredag", prompt.ReplaceLineEndings("\n"));
+        Assert.EndsWith("Line: Ring til Anna om fakturaen på fredag", prompt.ReplaceLineEndings("\n"));
     }
 
     [Fact]
