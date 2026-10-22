@@ -64,12 +64,10 @@ describe('Tags', () => {
     const store = TestBed.inject(TagStore);
 
     const adding = store.add('kunde');
-    http
-      .expectOne('/api/tags')
-      .flush(json({ code: 'tags.duplicate', message: 'x' }), {
-        status: 400,
-        statusText: 'Bad Request',
-      });
+    http.expectOne('/api/tags').flush(json({ code: 'tags.duplicate', message: 'x' }), {
+      status: 400,
+      statusText: 'Bad Request',
+    });
 
     expect(await adding).toBe(false);
     expect(store.error()).toBe('Der findes allerede et tag med det navn.');
