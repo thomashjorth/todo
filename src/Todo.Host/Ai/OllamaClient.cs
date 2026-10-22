@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using Todo.Core.Ai;
 using Todo.Core.Errors;
@@ -92,7 +93,8 @@ public sealed class OllamaClient
             Stream: false,
             Think: false,
             Format: schema,
-            Options: new ChatOptions(Temperature: 0));
+            Options: new ChatOptions(Temperature: 0),
+            KeepAlive: _options.KeepAlive);
 
         HttpResponseMessage response;
 
@@ -129,6 +131,27 @@ public sealed class OllamaClient
     }
 
     /// <summary>
+    /// Loads the model, so the first suggestion does not pay for it: an empty prompt to
+    /// <c>/api/generate</c> is Ollama's own way of loading a model without asking it anything.
+    /// Measured 2026-10-22 on the user's CPU, the load is about 13 s of a cold call's 15. Never throws,
+    /// for the same reason as readiness - it only makes the features faster, never possible.
+    /// </summary>
+    public async Task WarmAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _client.PostAsJsonAsync(
+                UriFor("api/generate"), new WarmRequest(_options.Model, _options.KeepAlive), Json, ct);
+        }
+        catch (HttpRequestException)
+        {
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+        }
+    }
+
+    /// <summary>
     /// The answer is JSON inside a JSON string: <c>message.content</c> is text, so it is read twice.
     /// A wrong shape at either level is the same thing to the user - an answer that cannot be used.
     /// </summary>
@@ -159,7 +182,13 @@ public sealed class OllamaClient
         bool Stream,
         bool? Think,
         JsonObject Format,
-        ChatOptions Options);
+        ChatOptions Options,
+        [property: JsonPropertyName("keep_alive")] string KeepAlive);
+
+    /// <summary>Ollama spells it with an underscore, so the web naming policy would send "keepAlive".</summary>
+    private sealed record WarmRequest(
+        string Model,
+        [property: JsonPropertyName("keep_alive")] string KeepAlive);
 
     private sealed record ChatMessage(string Role, string Content);
 

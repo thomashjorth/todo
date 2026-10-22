@@ -56,6 +56,27 @@ describe('AiStore', () => {
     expect(store.ready()).toBe(true);
   });
 
+  it('should load the model in the background once it is ready', async () => {
+    const { store, http } = configure();
+
+    const loading = store.load();
+    http.expectOne('/api/ai/status').flush(json({ ready: true }));
+    await loading;
+
+    const warm = await vi.waitFor(() => http.expectOne('/api/ai/warm'));
+    expect(warm.request.method).toBe('POST');
+  });
+
+  it('should not load a model that is not ready', async () => {
+    const { store, http } = configure();
+
+    const loading = store.load();
+    http.expectOne('/api/ai/status').flush(json({ ready: false }));
+    await loading;
+
+    http.expectNone('/api/ai/warm');
+  });
+
   it('should stay not ready when the host says not ready', async () => {
     const { store, http } = configure();
 

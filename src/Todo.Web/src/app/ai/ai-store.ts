@@ -55,6 +55,13 @@ export class AiStore {
     } catch {
       // The AI features are an addition, not the app. A status that cannot be read hides them and
       // says nothing.
+      return;
+    }
+
+    if (this.ready()) {
+      // Not awaited: loading the model took about 13 s on the user's CPU, and that is the wait the
+      // first click would otherwise pay. The host never fails it, and nothing here waits on it.
+      firstValueFrom(this.client.warmAi()).catch(() => {});
     }
   }
 

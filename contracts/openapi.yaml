@@ -660,6 +660,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AiStatusResponse'
+  /api/ai/warm:
+    post:
+      operationId: warmAi
+      tags:
+        - Ai
+      summary: Loads the local model so the first suggestion does not wait for it.
+      description: >-
+        Never an error. Asked once by the app at startup when the model is ready; on the user's CPU
+        the load is most of a cold call's fifteen seconds.
+      responses:
+        '204':
+          description: The model is loaded, or could not be and the features stay as they were.
   /api/ai/parse-task:
     post:
       operationId: parseTask

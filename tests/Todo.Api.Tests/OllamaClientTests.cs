@@ -80,6 +80,46 @@ public class OllamaClientTests
         Assert.Equal("Hvad er 2+3?", (string?)message["content"]);
     }
 
+    /// <summary>
+    /// With an underscore, as Ollama spells it: the web naming policy would send "keepAlive", which
+    /// Ollama ignores, and the model would unload after its own five minutes - silently, because
+    /// every answer still arrives, only 13 s later.
+    /// </summary>
+    [Fact]
+    public async Task A_request_asks_ollama_to_keep_the_model_loaded()
+    {
+        await using var fake = await FakeOllama.StartAsync();
+        fake.Answer = "{\"svar\": 5}";
+
+        await fake.ClientFor().CompleteAsync<Sum>("Hvad er 2+3?", SumSchema());
+
+        Assert.Equal("8h", (string?)Assert.Single(fake.ChatRequests)["keep_alive"]);
+    }
+
+    [Fact]
+    public async Task Warming_loads_the_model_without_a_prompt()
+    {
+        await using var fake = await FakeOllama.StartAsync();
+
+        await fake.ClientFor().WarmAsync();
+
+        var request = Assert.Single(fake.GenerateRequests);
+        Assert.Equal(FakeOllama.Model, (string?)request["model"]);
+        Assert.Equal("8h", (string?)request["keep_alive"]);
+        Assert.Null(request["prompt"]);
+        Assert.Empty(fake.ChatRequests);
+    }
+
+    [Fact]
+    public async Task Warming_with_nothing_listening_is_not_an_error()
+    {
+        await using var fake = await FakeOllama.StartAsync();
+        var client = fake.ClientFor();
+        await fake.StopServerAsync();
+
+        await client.WarmAsync();
+    }
+
     [Fact]
     public async Task A_missing_model_is_unavailable()
     {

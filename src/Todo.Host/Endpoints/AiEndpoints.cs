@@ -25,6 +25,15 @@ public static class AiEndpoints
             .WithName("getAiStatus")
             .WithTags("Ai");
 
+        app.MapPost("/api/ai/warm", async (OllamaClient ollama, CancellationToken ct) =>
+        {
+            await ollama.WarmAsync(ct);
+
+            return TypedResults.NoContent();
+        })
+        .WithName("warmAi")
+        .WithTags("Ai");
+
         app.MapPost("/api/ai/parse-task", async Task<Results<Ok<AiTaskSuggestion>, BadRequest<ApiError>>> (
             AiParseTaskRequest request, OllamaClient ollama, IClock clock, CancellationToken ct) =>
         {

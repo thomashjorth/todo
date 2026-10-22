@@ -52,6 +52,9 @@ public sealed class FakeOllama : IAsyncDisposable
     /// <summary>Every chat request body, so a test can assert what was sent.</summary>
     public List<JsonObject> ChatRequests { get; } = [];
 
+    /// <summary>Every <c>/api/generate</c> body: the warm-up, which loads the model without a prompt.</summary>
+    public List<JsonObject> GenerateRequests { get; } = [];
+
     public static async Task<FakeOllama> StartAsync()
     {
         var builder = WebApplication.CreateSlimBuilder();
@@ -121,6 +124,18 @@ public sealed class FakeOllama : IAsyncDisposable
 
             // The real body is several kilobytes of model metadata nobody here reads.
             return model == Model ? Results.Json(new JsonObject(), Json) : NotFound(model);
+        });
+
+        // The real answer to an empty prompt is {"model":...,"response":"","done":true,"done_reason":"load"}.
+        app.MapPost("/api/generate", async (HttpRequest request) =>
+        {
+            var body = await ReadAsync(request);
+
+            GenerateRequests.Add(body);
+
+            return Results.Json(
+                new JsonObject { ["model"] = (string?)body["model"], ["response"] = "", ["done"] = true, ["done_reason"] = "load" },
+                Json);
         });
 
         app.MapPost("/api/chat", async (HttpRequest request) =>
