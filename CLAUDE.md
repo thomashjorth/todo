@@ -1208,8 +1208,17 @@ forkerte grund.
 
 ## Testtal
 
-**186** Todo.Core.Tests, **399** Todo.Api.Tests, **83** Todo.E2E, **366** Vitest — alle grønne,
-målt med `Check.cmd` 2026-09-14.
+**220** Todo.Core.Tests, **428** Todo.Api.Tests, **88** Todo.E2E, **383** Vitest — alle grønne,
+målt med `Check.cmd` 2026-10-22.
+
+**Alle fire steg, fordi den lokale AI-model kom til — 85 tests er lagt til med vilje.** Fordelingen:
+**34** Core (11 i `AiPromptsTests`, 14 i `AiSuggestionsTests`, 9 i `AiLanguageTests`), **29** Api (2 i
+`AiIsolationTests`, 10 i `OllamaClientTests`, 16 i `AiEndpointsTests`, 1 i
+`OllamaClientRegistrationTests`), **5** E2E (3 i `AiJourneyTests`, 2 teorikørsler i `ContrastTests`)
+og **17** Vitest (10 i `ai-store.spec.ts`, 3 i `task-list.spec.ts`, 3 i `task-detail.spec.ts`, 1 i
+`app.spec.ts`). `tests\Todo.AiEval` er **ikke** med i tallene: den er en konsol-app mod den rigtige
+model og kører hverken i `dotnet test` eller `Check.cmd`. Designene er
+`docs/plans/2026-10-22-ai-foundation-design.md` og `2026-10-22-three-ai-features-design.md`.
 
 **Kun Vitest flyttede sig, fordi gennemgangens tidsstempel fik et format.**
 `format-timestamp.spec.ts` lagde otte til (358 → 366). `review.spec.ts` står stille på syv, og det

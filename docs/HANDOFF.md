@@ -371,3 +371,22 @@ Punkterne:
   tage revisionsloggen først. Kan have brug for 26B A4B frem for E4B; mål det, før det besluttes.
 
 *(Et rykkerudkast til opgaver i Venter på blev foreslået samme dag og fravalgt.)*
+
+**Leveret 2026-10-22, til brugerens gennemgang:** fundamentet og de tre første punkter — hurtig
+indtastning, del en opgave op og resumé af importerede sager. Designene er
+`docs/plans/2026-10-22-ai-foundation-design.md` og `docs/plans/2026-10-22-three-ai-features-design.md`;
+det sidste er **ikke** godkendt afsnit for afsnit, fordi brugeren bad om at gennemgå til sidst. Tre
+ting er værd at vide før gennemgangen:
+
+- **Hvert kald tager 4–8 s** varmt på brugerens maskine, og det første efter en kold model ~15 s
+  mere. Knappen skriver "Spørger modellen…" så længe.
+- **Svarets sprog afgøres af koden, ikke af modellen.** Retro og Azure DevOps er engelsk, Jira er
+  dansk (brugerens ord 2026-10-22); kun egne opgaver og hurtig indtastning gættes ud fra teksten
+  (`AiLanguage`). Bedt om selv at finde sproget svarede Gemma på norsk og på engelsk til dansk input.
+- **Promptkvaliteten måles med `dotnet run --project tests\Todo.AiEval`** mod den rigtige model —
+  21 faste cases med forventede svar, en score pr. funktion og tiderne. Den er **ikke** en del af
+  `dotnet test` eller `Check.cmd`, fordi suiten aldrig må ramme den rigtige model. Ret en prompt i
+  `AiPrompts`, kør den, og sammenlign med forrige kørsel. Sidste kørsel: 21 af 21.
+
+Tilbage af de seks: handlingsrettede titler i retro-importen, søgning på betydning (kræver en
+embedding-model på `-Approved`-listen) og hjælp til den ugentlige gennemgang.
