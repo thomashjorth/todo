@@ -19,6 +19,8 @@ public sealed class SettingsScreen(TodoApp app)
 
     public const string DelegateSection = "delegate";
 
+    public const string TagsSection = "tags";
+
     public const string JiraSection = "jira";
 
     public const string AdoSection = "ado";

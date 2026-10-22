@@ -1785,6 +1785,84 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         AssertNoFailures(failures, scheme);
     }
 
+    /// <summary>
+    /// Tags on every surface they paint: the row's tags, the filter pressed and not (the pressed one
+    /// is white on blue, a pair nothing else in the app uses), the suggestion under the new-task
+    /// field, the panel's boxes, and the settings group with its refusal. The badges L, Y and ⇧G are
+    /// measured with Alt held, the L one on a pressed button, where it takes the button's colour.
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task The_tags_meet_WCAG_AA(ColorScheme scheme)
+    {
+        var privat = new Todo.Core.Tags.Tag { Name = "Privat" };
+        var indkob = new Todo.Core.Tags.Tag { Name = "Indkøb" };
+        var tagged = new TaskItemBuilder(Clock).Titled("Køb mælk").Build();
+        tagged.Tags.Add(indkob);
+        await Host.AddAndSaveChangesAsync(privat, indkob, tagged);
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
+        await App.Page.RouteAsync("**/api/ai/status", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = """{ "ready": true, "searchReady": false }""",
+        }));
+        await App.Page.RouteAsync("**/api/ai/tasks/*/tag-suggestions", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = $$"""{ "tagIds": [{{privat.Id}}] }""",
+        }));
+        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
+
+        var tasks = await App.ReloadAsync();
+        var failures = new List<string>();
+
+        async Task Snapshot() => failures.AddRange(await App.ContrastFailuresAsync());
+
+        async Task BadgesHeld(string letter)
+        {
+            await App.Page.Keyboard.DownAsync("Alt");
+            await Assertions.Expect(App.Page.GetByTestId("shortcut-badge").GetByText(letter, new() { Exact = true }))
+                .ToBeVisibleAsync();
+            await Snapshot();
+            await App.Page.Keyboard.UpAsync("Alt");
+        }
+
+        // The row's tags and the suggestion for a task just created.
+        await tasks.NewTaskInput.FillAsync("Ring til tandlægen");
+        await tasks.NewTaskInput.PressAsync("Enter");
+        await Assertions.Expect(App.Page.GetByTestId("tag-suggestion-names")).ToHaveTextAsync("Privat");
+        await Assertions.Expect(App.Page.GetByTestId("row-tags")).ToHaveTextAsync("Indkøb");
+        await Snapshot();
+        await BadgesHeld("Y");
+
+        // One filter pressed, one not - and the L badge on the pressed one.
+        await App.Page.GetByTestId("tag-filter-option").Filter(new() { HasText = "Indkøb" }).ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("tag-filter-option").First).ToHaveAttributeAsync("aria-pressed", "true");
+        await Snapshot();
+        await BadgesHeld("L");
+
+        // The panel's boxes.
+        await tasks.RowShowing("Køb mælk").ClickAsync();
+        await Assertions.Expect(tasks.Detail.GetByTestId("task-tag")).ToHaveCountAsync(2);
+        await Snapshot();
+        await BadgesHeld("⇧G");
+
+        // The settings group, with its rows and its refusal of a name taken already.
+        var settings = await App.GoToSettings();
+        await settings.OpenAsync(SettingsScreen.TagsSection);
+        await App.Page.GetByTestId("tag-input").FillAsync("privat");
+        await App.Page.GetByTestId("tag-input").PressAsync("Enter");
+        await Assertions.Expect(App.Page.GetByTestId("tags-error")).ToBeVisibleAsync();
+        await Assertions.Expect(App.Page.GetByTestId("tag-row")).ToHaveCountAsync(2);
+        await Snapshot();
+
+        AssertNoFailures(failures, scheme);
+    }
+
     private static void AssertNoFailures(IEnumerable<string> found, ColorScheme scheme)
     {
         var distinct = found.Distinct().Order().ToList();

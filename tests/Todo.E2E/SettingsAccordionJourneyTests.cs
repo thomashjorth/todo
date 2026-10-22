@@ -21,6 +21,7 @@ public class SettingsAccordionJourneyTests(BrowserFixture fixture) : BrowserTest
         // "Generelt", not "Sprog": the group is general settings rather than the language picker.
         (SettingsScreen.LanguageSection, "Generelt"),
         (SettingsScreen.DelegateSection, "Uddelegering"),
+        (SettingsScreen.TagsSection, "Tags"),
         (SettingsScreen.JiraSection, "Jira-import"),
         (SettingsScreen.AdoSection, "ADO-import"),
         (SettingsScreen.RetroSection, "Retro-import"),
