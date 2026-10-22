@@ -1653,6 +1653,138 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         AssertNoFailures(failures, scheme);
     }
 
+    /// <summary>
+    /// The second round of AI features, on the four screens they live on: the search field's note and
+    /// error, the retro row's suggestion with its original, guessed owner and switch, the Jira row's
+    /// resemblance warning, and the week's overview with its error. Every answer is staged, as in
+    /// the panel's theory, and each screen's new badge is measured with Alt held.
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task The_AI_on_the_other_screens_meets_WCAG_AA(ColorScheme scheme)
+    {
+        var alike = new TaskItemBuilder(Clock).Titled("Ret login timeout for mange roller").Build();
+        await Host.AddAndSaveChangesAsync(
+            alike,
+            new UserAlias { Value = "Thomas" },
+            new Setting { Key = SettingKeys.JiraBaseUrl, Value = JiraBaseUrl },
+            new Setting { Key = SettingKeys.JiraProjectKey, Value = JiraProjectKey },
+            new Setting { Key = SettingKeys.JiraToken, Value = "not-a-real-token" });
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
+
+        const string refused = """{ "code": "ai.unavailable", "message": "refused" }""";
+        var answer = (Status: 400, Body: refused);
+
+        Task Answer(IRoute route) => route.FulfillAsync(new()
+        {
+            Status = answer.Status,
+            ContentType = "application/json",
+            Body = answer.Body,
+        });
+
+        await App.Page.RouteAsync("**/api/ai/status", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = """{ "ready": true, "searchReady": true }""",
+        }));
+        await App.Page.RouteAsync("**/api/ai/search", Answer);
+        await App.Page.RouteAsync("**/api/ai/retro-actions", Answer);
+        await App.Page.RouteAsync("**/api/ai/review-overview", Answer);
+        await App.Page.RouteAsync("**/api/ai/duplicates", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = $$"""{ "matches": [{ "key": "SAAS-2", "taskId": {{alike.Id}}, "taskTitle": "{{alike.Title}}" }] }""",
+        }));
+        await App.Page.RouteAsync("**/api/jira/preview", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = """
+                { "rows": [{ "key": "SAAS-2", "title": "Login timeout for mange roller", "url": "https://jira.test/browse/SAAS-2",
+                  "status": "I gang", "isWaiting": false, "isDuty": false, "alreadyImported": false,
+                  "reconciled": false, "suggestsClosing": false, "suggestsReopening": false }], "total": 1 }
+                """,
+        }));
+        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
+
+        var tasks = await App.ReloadAsync();
+        var failures = new List<string>();
+
+        async Task Snapshot() => failures.AddRange(await App.ContrastFailuresAsync());
+
+        async Task BadgesHeld(string letter)
+        {
+            await App.Page.Keyboard.DownAsync("Alt");
+            await Assertions.Expect(App.Page.GetByTestId("shortcut-badge").GetByText(letter, new() { Exact = true }))
+                .ToBeVisibleAsync();
+            await Snapshot();
+            await App.Page.Keyboard.UpAsync("Alt");
+        }
+
+        // The search field: its error, then the note that says the meaning is in the list.
+        var meaning = App.Page.GetByTestId("search-by-meaning");
+        await tasks.Search.FillAsync("login roller");
+        await meaning.ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("search-meaning-error")).ToBeVisibleAsync();
+        await Snapshot();
+
+        answer = (200, $$"""{ "taskIds": [{{alike.Id}}] }""");
+        await meaning.ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("search-meaning-note")).ToBeVisibleAsync();
+        await Snapshot();
+        await BadgesHeld("B");
+
+        // The retro import: its error, then a suggestion with a guessed owner who is the user.
+        var retro = await App.GoToImport();
+        await retro.PasteAsync("""
+            "Content","Author","Zone","Action Owner"
+            "Thomas should renew the certificate","Thomas","Went badly","Thomas"
+            """);
+        await retro.AnalyseAsync();
+        var suggest = App.Page.GetByTestId("retro-suggest");
+
+        answer = (400, refused);
+        await suggest.ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("retro-ai-error")).ToBeVisibleAsync();
+        await Snapshot();
+
+        answer = (200, """{ "rows": [{ "key": "%KEY%", "title": "Renew the certificate", "owner": "Thomas", "ownerIsMine": true }] }""");
+        var key = await App.Page.EvaluateAsync<string>(
+            "fetch('/api/retro/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv: document.querySelector('[data-testid=retro-csv]').value }) }).then(r => r.json()).then(b => b.rows[0].key)");
+        answer = (200, answer.Body.Replace("%KEY%", key));
+        await suggest.ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("retro-suggested-title")).ToBeVisibleAsync();
+        await Snapshot();
+        await BadgesHeld("H");
+
+        // The Jira preview: the warning beside a row that resembles a task of the user's own.
+        var jira = await App.GoToJira();
+        await jira.PreviewAsync();
+        await Assertions.Expect(App.Page.GetByTestId("jira-resembles")).ToBeVisibleAsync();
+        await Snapshot();
+
+        // The weekly review: its error, then the points.
+        await App.GoToReview();
+        var overview = App.Page.GetByTestId("review-overview");
+
+        answer = (400, refused);
+        await overview.ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("review-overview-error")).ToBeVisibleAsync();
+        await Snapshot();
+
+        answer = (200, """{ "points": ["Du fik sendt referatet.", "Svar revisoren har ventet længst."] }""");
+        await overview.ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("review-overview-point")).ToHaveCountAsync(2);
+        await Snapshot();
+        await BadgesHeld("U");
+
+        AssertNoFailures(failures, scheme);
+    }
+
     private static void AssertNoFailures(IEnumerable<string> found, ColorScheme scheme)
     {
         var distinct = found.Distinct().Order().ToList();
