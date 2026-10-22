@@ -328,3 +328,46 @@ her som "bliver dyrere" gennem tre leverancer, og aftrykket voksede med cirka é
   skiverne". Den var den billigste af de tre, fordi den læste data der allerede fandtes.)*
 *(Animationer side om side stod her i nogle timer 2026-08-25 og er nu leveret — se "Uden for
 skiverne". Det der lukkede den var afsnit 8b: nesting plus én CSS-regel, målt frem for gættet.)*
+
+### Lokal AI-model
+
+Ønsket 2026-10-22. Seks punkter, der deler de samme præmisser:
+
+- **Modellen er Gemma 4 E4B gennem Ollama** på `http://localhost:11434`. `Todo.cmd` henter den ved
+  opstart, hvis den mangler (`scripts\install-ai-model.ps1`). Den udgivne exe gør ikke, og Ollama
+  selv installeres ikke af scriptet.
+- **Ingen kinesiske modeller.** Appen kører på en arbejds-pc, hvor de er forbudt — heller ikke
+  Qwen, DeepSeek, Kimi, GLM eller MiniMax som embedding-model eller via Ollamas cloud. Scriptet
+  fjerner ved opstart enhver Ollama-model, der ikke står i dets `-Approved`-liste, så en ny model
+  (fx EmbeddingGemma) skal på listen, før appen tager den i brug.
+- **Hosten kalder Ollama, siden gør ikke.** ADR 18 forbyder en side at kalde ud, og
+  `localhost:11434` er en anden origin end appens egen.
+- **Modellen foreslår, brugeren vælger.** Intet gemmes uden et klik — samme mønster som importens
+  forslag om at lukke en løst sag.
+- **Svarer Ollama ikke, er funktionerne skjult**, og appen virker som før. Ingen fejl i ansigtet.
+- **Testene kører mod en falsk Ollama** som rigtig Kestrel (ADR 21), aldrig mod den rigtige model.
+
+Punkterne:
+
+- **Hurtig indtastning i fri tekst.** "Ring til Anna om fakturaen på fredag" i feltet til ny opgave
+  bliver til titel, `Requester` og `Deadline`. Modellen svarer i JSON mod et skema. Dagens dato
+  kommer fra `IClock` og sendes med, for modellen kender ikke dagen. Den billigste af de seks og den
+  der bruges oftest — start her.
+- **Del en opgave op.** En knap i detaljepanelet foreslår 3–6 underopgaver ud fra titel og note.
+  Brugeren krydser dem af, som rækkerne i retro-importen.
+- **Handlingsrettede titler i retro-importen.** En seddel skrevet som en observation ("Vi skal blive
+  bedre til at teste") får en handling som foreslået titel. Er `Action Owner` tom, men står navnet i
+  teksten, gætter modellen ejeren. Forslaget står ved siden af originalen, og genkendelsen af en
+  allerede importeret række bruger stadig originalens `Content` + `Zone` + `Author` + `Created`.
+- **Resumé af importerede sager.** En lang Jira- eller ADO-beskrivelse bliver til en note på to
+  linjer, og linket til sagen bevares. Resuméet er en lokal berigelse i ADR 14's forstand.
+- **Søgning på betydning og dubletter.** Søgningen finder "den med certifikatet", også når ordet ikke
+  står i opgaven, og importen advarer, når samme sag allerede findes fra en anden kilde. **Kræver en
+  embedding-model ved siden af** (fx EmbeddingGemma), som scriptet ikke installerer i dag. Vektorerne
+  gemmes i SQLite pr. opgave og regnes om, når titel eller note ændres.
+- **Hjælp til den ugentlige gennemgang.** Et kort overblik øverst på `/review`: hvad blev færdigt i
+  ugen, hvad har ventet længst, og hvilke Måske-opgaver er ikke rørt i måneder. `TaskItem` har intet
+  `UpdatedAt`, så "ikke rørt" kan uden revisionsloggen kun læses af `CreatedAt` — et argument for at
+  tage revisionsloggen først. Kan have brug for 26B A4B frem for E4B; mål det, før det besluttes.
+
+*(Et rykkerudkast til opgaver i Venter på blev foreslået samme dag og fravalgt.)*
