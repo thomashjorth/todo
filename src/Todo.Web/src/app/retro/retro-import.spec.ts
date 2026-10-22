@@ -107,15 +107,13 @@ describe('RetroImport', () => {
     const screen = await analyse({ rows: [mine], skippedRatingCards: 0 });
 
     (await settled(screen, '[data-testid="retro-suggest"]')).click();
-    screen.http
-      .expectOne('/api/ai/retro-actions')
-      .flush(
-        new Blob([
-          JSON.stringify({
-            rows: [{ key: 'aaaa', title: 'Write the summary', ownerIsMine: false }],
-          }),
-        ]),
-      );
+    screen.http.expectOne('/api/ai/retro-actions').flush(
+      new Blob([
+        JSON.stringify({
+          rows: [{ key: 'aaaa', title: 'Write the summary', ownerIsMine: false }],
+        }),
+      ]),
+    );
 
     const suggested = await settled(screen, '[data-testid="retro-suggested-title"]');
     expect(suggested.textContent!.trim()).toBe('Write the summary');
@@ -137,15 +135,13 @@ describe('RetroImport', () => {
     TestBed.inject(AiStore).ready.set(true);
     const screen = await analyse({ rows: [mine], skippedRatingCards: 0 });
     (await settled(screen, '[data-testid="retro-suggest"]')).click();
-    screen.http
-      .expectOne('/api/ai/retro-actions')
-      .flush(
-        new Blob([
-          JSON.stringify({
-            rows: [{ key: 'aaaa', title: 'Write the summary', ownerIsMine: false }],
-          }),
-        ]),
-      );
+    screen.http.expectOne('/api/ai/retro-actions').flush(
+      new Blob([
+        JSON.stringify({
+          rows: [{ key: 'aaaa', title: 'Write the summary', ownerIsMine: false }],
+        }),
+      ]),
+    );
 
     (await settled(screen, '[data-testid="retro-use-toggle"]')).click();
     screen.fixture.detectChanges();

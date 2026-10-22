@@ -186,12 +186,10 @@ describe('AiStore on the other screens', () => {
     store.searchReady.set(true);
 
     const finding = store.findDuplicates('jira', [{ key: 'SAAS-1', title: 'Login' }]);
-    http
-      .expectOne('/api/ai/duplicates')
-      .flush(json({ code: 'ai.unavailable', message: 'x' }), {
-        status: 400,
-        statusText: 'Bad Request',
-      });
+    http.expectOne('/api/ai/duplicates').flush(json({ code: 'ai.unavailable', message: 'x' }), {
+      status: 400,
+      statusText: 'Bad Request',
+    });
 
     await expect(finding).resolves.toBeUndefined();
     expect(store.duplicateOf('jira', 'SAAS-1')).toBeUndefined();
