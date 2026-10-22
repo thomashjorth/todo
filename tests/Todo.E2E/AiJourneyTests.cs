@@ -68,6 +68,24 @@ public class AiJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         Assert.Contains("Today is ", prompt);
     }
 
+    /// <summary>The user's own example: the steps in the line arrive as the new task's subtasks.</summary>
+    [Fact]
+    public async Task The_steps_a_line_lists_become_the_new_task_s_subtasks()
+    {
+        _ollama.Answer = """{"title":"Lav en præsentation","requester":null,"deadline":null,"subTasks":["Udkast","Finpudsning"]}""";
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var tasks = App.Tasks;
+
+        await tasks.NewTaskInput.FillAsync("Lav en præsentation, først udkast så finpudsning");
+        await App.Page.GetByTestId("quick-entry-parse").ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("quick-entry-subtasks").Locator("li"))
+            .ToHaveTextAsync(["Udkast", "Finpudsning"]);
+        await App.Page.GetByTestId("quick-entry-accept").ClickAsync();
+
+        await tasks.RowShowing("Lav en præsentation").ClickAsync();
+        await Assertions.Expect(tasks.SubTaskRows.Locator("span")).ToHaveTextAsync(["Udkast", "Finpudsning"]);
+    }
+
     [Fact]
     public async Task Splitting_a_task_adds_only_the_subtasks_left_ticked()
     {

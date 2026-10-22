@@ -354,9 +354,13 @@ export class TaskStore {
     await this.load();
   }
 
-  /** An accepted AI suggestion: the title plus the requester and deadline the model read out of it. */
+  /**
+   * An accepted AI suggestion: the title plus the requester, deadline and listed steps the model
+   * read out of the line. The steps go in one after another under the new task's id, and the list
+   * is loaded once at the end.
+   */
   async addSuggested(suggestion: IAiTaskSuggestion): Promise<void> {
-    await firstValueFrom(
+    const created = await firstValueFrom(
       this.client.createTask(
         new CreateTodoTaskRequest({
           title: suggestion.title,
@@ -365,6 +369,11 @@ export class TaskStore {
         }),
       ),
     );
+    for (const step of suggestion.subTasks ?? []) {
+      await firstValueFrom(
+        this.client.createSubTask(created.id, new CreateSubTaskRequest({ title: step })),
+      );
+    }
     await this.load();
   }
 

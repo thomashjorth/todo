@@ -2097,11 +2097,17 @@ components:
     AiTaskSuggestion:
       type: object
       additionalProperties: false
-      required: [title]
+      required: [title, subTasks]
       properties:
         title: { type: string }
         requester: { type: string, nullable: true }
         deadline: { type: string, format: date, nullable: true }
+        subTasks:
+          type: array
+          description: >-
+            The steps the line itself lists, in its order. Empty when it lists none, and never one
+            alone: a single step is no split.
+          items: { type: string }
     AiSubTaskSuggestions:
       type: object
       additionalProperties: false

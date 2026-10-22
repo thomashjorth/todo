@@ -255,7 +255,7 @@ describe('TaskList', () => {
       .flush(new Blob([JSON.stringify({ items })]));
     const ai = TestBed.inject(AiStore);
     ai.ready.set(true);
-    ai.taskSuggestion.set(new AiTaskSuggestion({ title: 'Køb mælk' }));
+    ai.taskSuggestion.set(new AiTaskSuggestion({ title: 'Køb mælk', subTasks: [] }));
     const element = await rendered(fixture);
     const field = element.querySelector<HTMLInputElement>('[data-testid="new-task-input"]')!;
     field.value = 'Køb mælk i dag';

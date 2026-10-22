@@ -1,7 +1,13 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { API_BASE_URL, DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
+import {
+  AiTaskSuggestion,
+  API_BASE_URL,
+  DeadlineBucket,
+  TodoStatus,
+  TodoTask,
+} from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { AiStore } from './ai-store';
 
@@ -121,6 +127,37 @@ describe('AiStore', () => {
       deadline: '2026-10-23',
     });
     created.flush(json({}), { status: 201, statusText: 'Created' });
+    (await vi.waitFor(() => http.expectOne(reload))).flush(json({ items: [] }));
+    await accepting;
+
+    expect(store.taskSuggestion()).toBeNull();
+  });
+
+  it('should create the listed steps under the new task, then load once', async () => {
+    const { store, http } = configure();
+    store.taskSuggestion.set(
+      new AiTaskSuggestion({ title: 'Lav en præsentation', subTasks: ['Udkast', 'Finpudsning'] }),
+    );
+
+    const accepting = store.acceptTask();
+    http
+      .expectOne('/api/tasks')
+      .flush(json({ ...imported.toJSON(), id: 9, title: 'Lav en præsentation' }), {
+        status: 201,
+        statusText: 'Created',
+      });
+    const first = await vi.waitFor(() => http.expectOne('/api/tasks/9/subtasks'));
+    expect(JSON.parse(first.request.body).title).toBe('Udkast');
+    first.flush(json({ id: 1, title: 'Udkast', isDone: false }), {
+      status: 201,
+      statusText: 'Created',
+    });
+    const second = await vi.waitFor(() => http.expectOne('/api/tasks/9/subtasks'));
+    expect(JSON.parse(second.request.body).title).toBe('Finpudsning');
+    second.flush(json({ id: 2, title: 'Finpudsning', isDone: false }), {
+      status: 201,
+      statusText: 'Created',
+    });
     (await vi.waitFor(() => http.expectOne(reload))).flush(json({ items: [] }));
     await accepting;
 

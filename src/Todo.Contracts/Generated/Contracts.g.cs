@@ -1473,6 +1473,13 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("deadline")]
         public System.DateOnly? Deadline { get; set; }
 
+        /// <summary>
+        /// The steps the line itself lists, in its order. Empty when it lists none, and never one alone: a single step is no split.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("subTasks")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> SubTasks { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]

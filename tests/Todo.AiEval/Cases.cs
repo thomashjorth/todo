@@ -32,6 +32,10 @@ public static class Cases
 
         // A month is not a day, and the prompt asks for a date only if the line names one.
         new("Husk at forny kørekortet i december", null, null, ["kørekort"], []),
+
+        // The user's own test 2026-10-22: the steps are in the line, so they become subtasks.
+        new("Lav en præsentation, først udkast så finpudsning", null, null, ["præsentation"], ["udkast", "finpudsning"], ["udkast", "finpudsning"]),
+        new("Flyt kontoret: pak kasser, bestil flyttemand og meld adresseændring", null, null, ["flyt"], ["kasser"], ["kasser", "flyttemand", "adresse"]),
     ];
 
     public static readonly SplitCase[] Split =

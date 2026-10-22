@@ -55,9 +55,12 @@ public static class AiEndpoints
                 var answer = await ollama.CompleteAsync<ParsedTaskAnswer>(
                     AiPrompts.ParseTask(request.Text.Trim(), clock.Today), AiPrompts.ParseTaskSchema(), ct);
 
+                var title = AiSuggestions.Title(answer.Title, request.Text);
+
                 return TypedResults.Ok(new AiTaskSuggestion
                 {
-                    Title = AiSuggestions.Title(answer.Title, request.Text),
+                    Title = title,
+                    SubTasks = [.. AiSuggestions.ListedSteps(answer.SubTasks, title)],
                     Requester = AiSuggestions.Requester(answer.Requester),
                     Deadline = AiSuggestions.Deadline(answer.Deadline),
                 });

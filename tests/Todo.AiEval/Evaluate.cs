@@ -44,6 +44,23 @@ public static class Evaluate
             where title.Contains(word, StringComparison.OrdinalIgnoreCase)
             select $"title keeps \"{word}\"");
 
+        // Scored after AiSuggestions.ListedSteps, like the retro owner: the rule against a lone step
+        // is code because no prompt held it, and the code's answer is what the user sees.
+        var steps = AiSuggestions.ListedSteps(answer.SubTasks, AiSuggestions.Title(answer.Title, c.Line)).ToList();
+        var expected = c.SubTasks ?? [];
+
+        if (steps.Count != expected.Length)
+        {
+            failures.Add($"{steps.Count} subtasks ({string.Join(" / ", steps)}), expected {expected.Length}");
+        }
+        else
+        {
+            failures.AddRange(
+                from i in Enumerable.Range(0, expected.Length)
+                where !steps[i].Contains(expected[i], StringComparison.OrdinalIgnoreCase)
+                select $"subtask {i + 1} \"{steps[i]}\" lacks \"{expected[i]}\"");
+        }
+
         // The line's own language is the expectation, read the same way as the answer's.
         if (Languages.Guess(title) is { } language && language != (Languages.Guess(c.Line) ?? language))
         {

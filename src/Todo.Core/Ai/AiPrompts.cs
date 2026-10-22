@@ -48,7 +48,8 @@ public static class AiPrompts
         return $"""
             Make a to-do task from the line below. Today is {Weekday(today)} {Iso(today)}.
             Coming days: {calendar}.
-            title: the line's own words without the due date or the words that introduce it ("på fredag", "til onsdag", "i morgen", "inden 1. november", "tomorrow").
+            title: the line's own words without the due date or the words that introduce it ("på fredag", "til onsdag", "i morgen", "inden 1. november", "tomorrow"). When the line lists steps, the title is only what they add up to - "Lav en præsentation", "Flyt kontoret" - and the steps go in subTasks.
+            subTasks: the steps the line itself lists, in its order and words ("først udkast så finpudsning" gives "Udkast", "Finpudsning"). An empty list when it lists none; never add a step it does not name.
             requester: the person the task is for or about, if named, else null.
             deadline: the due date as YYYY-MM-DD, if named, else null. A bare weekday is its first date above; "næste <weekday>" is the one a week after that.
             {WriteIn(AiLanguage.Of(text))}
@@ -64,8 +65,9 @@ public static class AiPrompts
             ["title"] = new JsonObject { ["type"] = "string" },
             ["requester"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
             ["deadline"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
+            ["subTasks"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } },
         },
-        ["required"] = new JsonArray("title", "requester", "deadline"),
+        ["required"] = new JsonArray("title", "requester", "deadline", "subTasks"),
     };
 
     /// <summary>

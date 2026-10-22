@@ -126,6 +126,23 @@ public class AiSuggestionsTests
     }
 
     [Fact]
+    public void The_steps_a_line_lists_are_kept_in_order()
+    {
+        Assert.Equal(["Udkast", "Finpudsning"], AiSuggestions.ListedSteps([" Udkast ", "Finpudsning"], "Lav en præsentation"));
+    }
+
+    /// <summary>The model's answer when a line listed nothing: the title again, as its one step.</summary>
+    [Theory]
+    [InlineData("Ring til Anna om fakturaen")]
+    [InlineData("Udkast")]
+    public void A_lone_step_or_the_title_again_is_no_split(string step)
+    {
+        Assert.Empty(AiSuggestions.ListedSteps([step], "Ring til Anna om fakturaen"));
+        Assert.Empty(AiSuggestions.ListedSteps(["ring til anna om fakturaen", step], "Ring til Anna om fakturaen")
+            .Where(s => s == "ring til anna om fakturaen"));
+    }
+
+    [Fact]
     public void A_blank_summary_is_no_summary()
     {
         Assert.Null(AiSuggestions.Summary(" \n "));

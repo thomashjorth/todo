@@ -95,6 +95,26 @@ public class AiEndpointsTests : ApiTest
     }
 
     [Fact]
+    public async Task The_steps_a_line_lists_come_back_as_subtasks()
+    {
+        _ollama.Answer = """{"title":"Lav en præsentation","requester":null,"deadline":null,"subTasks":["Udkast","Finpudsning"]}""";
+
+        var suggestion = await ParseAsync("Lav en præsentation, først udkast så finpudsning");
+
+        Assert.Equal(["Udkast", "Finpudsning"], suggestion.SubTasks);
+    }
+
+    [Fact]
+    public async Task A_line_that_lists_no_steps_gets_none_even_when_the_model_repeats_the_title()
+    {
+        _ollama.Answer = """{"title":"Køb mælk","requester":null,"deadline":null,"subTasks":["Køb mælk"]}""";
+
+        var suggestion = await ParseAsync("Køb mælk");
+
+        Assert.Empty(suggestion.SubTasks);
+    }
+
+    [Fact]
     public async Task A_deadline_that_is_not_a_date_is_left_out_rather_than_refused()
     {
         _ollama.Answer = """{"title":"Køb mælk","requester":null,"deadline":"på fredag"}""";

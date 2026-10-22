@@ -50,6 +50,19 @@ public static class AiSuggestions
             .ToList();
     }
 
+    /// <summary>
+    /// The steps a typed line listed itself. A step that only repeats the title is dropped, and one
+    /// step left is no split at all - both are what the model did when the line listed nothing: "Ring
+    /// til Anna om fakturaen" came back with itself as its one subtask (eval, 2026-10-22). Code
+    /// rather than prompt, because tightening the prompt moved the mistake to another line instead.
+    /// </summary>
+    public static IReadOnlyList<string> ListedSteps(IEnumerable<string?>? suggested, string title)
+    {
+        var steps = SubTasks(suggested, [title]);
+
+        return steps.Count >= 2 ? steps : [];
+    }
+
     public static string? Summary(string? suggested) => Clean(suggested);
 
     /// <summary>Trimmed, blanks gone, at most five - the schema asks for that, the prompt is a request.</summary>

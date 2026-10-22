@@ -5573,6 +5573,8 @@ export class AiTaskSuggestion implements IAiTaskSuggestion {
     title!: string;
     requester?: string | undefined;
     deadline?: string | undefined;
+    /** The steps the line itself lists, in its order. Empty when it lists none, and never one alone: a single step is no split. */
+    subTasks!: string[];
 
     constructor(data?: IAiTaskSuggestion) {
         if (data) {
@@ -5581,6 +5583,9 @@ export class AiTaskSuggestion implements IAiTaskSuggestion {
                     (this as any)[property] = (data as any)[property];
             }
         }
+        if (!data) {
+            this.subTasks = [];
+        }
     }
 
     init(_data?: any) {
@@ -5588,6 +5593,11 @@ export class AiTaskSuggestion implements IAiTaskSuggestion {
             this.title = _data["title"];
             this.requester = _data["requester"];
             this.deadline = _data["deadline"];
+            if (Array.isArray(_data["subTasks"])) {
+                this.subTasks = [] as any;
+                for (let item of _data["subTasks"])
+                    this.subTasks!.push(item);
+            }
         }
     }
 
@@ -5603,6 +5613,11 @@ export class AiTaskSuggestion implements IAiTaskSuggestion {
         data["title"] = this.title;
         data["requester"] = this.requester;
         data["deadline"] = this.deadline;
+        if (Array.isArray(this.subTasks)) {
+            data["subTasks"] = [];
+            for (let item of this.subTasks)
+                data["subTasks"].push(item);
+        }
         return data;
     }
 }
@@ -5611,6 +5626,8 @@ export interface IAiTaskSuggestion {
     title: string;
     requester?: string | undefined;
     deadline?: string | undefined;
+    /** The steps the line itself lists, in its order. Empty when it lists none, and never one alone: a single step is no split. */
+    subTasks: string[];
 }
 
 export class AiSubTaskSuggestions implements IAiSubTaskSuggestions {
