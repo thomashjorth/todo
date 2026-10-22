@@ -27,10 +27,10 @@ public abstract class BrowserTest(BrowserFixture fixture) : IClassFixture<Browse
         ViewportSize? viewport = null, ColorScheme? colorScheme = null)
         => App = await TodoApp.OpenAsync(fixture.Browser, _host, viewport, colorScheme);
 
-    public async ValueTask InitializeAsync()
+    public virtual async ValueTask InitializeAsync()
         => _host = await RunningHost.StartWithAsync(ConfigureServices);
 
-    public async ValueTask DisposeAsync()
+    public virtual async ValueTask DisposeAsync()
     {
         if (_host is not null)
         {

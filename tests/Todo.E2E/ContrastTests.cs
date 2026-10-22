@@ -1547,6 +1547,100 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// The message carries every line, because this list is the work list: Assert.Empty prints
     /// only the first five, which is not enough to fix anything by.
     /// </summary>
+    /// <summary>
+    /// The three AI features, which no other measurement here can see: they hide themselves unless
+    /// the model is ready, and RunningHost points every test host at a closed port. So the status and
+    /// every answer are staged, and the page is reloaded once the status route is in place, because
+    /// the app asks only at startup.
+    /// <para>
+    /// Each feature has an error line and a suggestion, and they exclude each other, so the answer is
+    /// one variable the journey moves along - the same shape as the Jira theory - and each branch is
+    /// snapshotted while it is on screen. The empty split is a branch of its own: it renders a
+    /// sentence instead of checkboxes.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task The_AI_suggestions_meet_WCAG_AA(ColorScheme scheme)
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder(Clock).Titled(JiraTitle).FromJira("SAAS-1")
+                .WithNote("Kunden oplever at eksporten fejler over 10.000 rækker.").Build(),
+            new Setting { Key = SettingKeys.JiraBaseUrl, Value = JiraBaseUrl });
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
+
+        const string refused = """{ "code": "ai.unavailable", "message": "refused" }""";
+        var answer = (Status: 400, Body: refused);
+
+        Task Answer(IRoute route) => route.FulfillAsync(new()
+        {
+            Status = answer.Status,
+            ContentType = "application/json",
+            Body = answer.Body,
+        });
+
+        await App.Page.RouteAsync("**/api/ai/status", route => route.FulfillAsync(new()
+        {
+            Status = 200,
+            ContentType = "application/json",
+            Body = """{ "ready": true }""",
+        }));
+        await App.Page.RouteAsync("**/api/ai/parse-task", Answer);
+        await App.Page.RouteAsync("**/api/ai/tasks/*/split", Answer);
+        await App.Page.RouteAsync("**/api/ai/tasks/*/summary", Answer);
+        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
+
+        var tasks = await App.ReloadAsync();
+        var failures = new List<string>();
+
+        async Task Snapshot() => failures.AddRange(await App.ContrastFailuresAsync());
+
+        await tasks.NewTaskInput.FillAsync("Ring til Anna om fakturaen på fredag");
+        await App.Page.GetByTestId("quick-entry-parse").ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("quick-entry-error")).ToBeVisibleAsync();
+        await Snapshot();
+
+        answer = (200, """{ "title": "Ring til Anna om fakturaen", "requester": "Anna", "deadline": "2026-08-21" }""");
+        await App.Page.GetByTestId("quick-entry-parse").ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("quick-entry-deadline")).ToBeVisibleAsync();
+        await Snapshot();
+
+        await tasks.RowShowing(JiraTitle).ClickAsync();
+        var split = tasks.Detail.GetByTestId("split-task");
+
+        answer = (400, refused);
+        await split.ClickAsync();
+        await Assertions.Expect(tasks.Detail.GetByTestId("split-error")).ToBeVisibleAsync();
+        await Snapshot();
+
+        answer = (200, """{ "titles": [] }""");
+        await split.ClickAsync();
+        await Assertions.Expect(tasks.Detail.GetByTestId("split-none")).ToBeVisibleAsync();
+        await Snapshot();
+        await tasks.Detail.GetByTestId("split-discard").ClickAsync();
+
+        answer = (200, """{ "titles": ["Find ejeren", "Bestil certifikat"] }""");
+        await split.ClickAsync();
+        await Assertions.Expect(tasks.Detail.GetByTestId("split-choice")).ToHaveCountAsync(2);
+        await Snapshot();
+
+        var summarize = tasks.Detail.GetByTestId("summarize-note");
+
+        answer = (400, refused);
+        await summarize.ClickAsync();
+        await Assertions.Expect(tasks.Detail.GetByTestId("summary-error")).ToBeVisibleAsync();
+        await Snapshot();
+
+        answer = (200, """{ "summary": "Eksporten fejler over 10.000 rækker." }""");
+        await summarize.ClickAsync();
+        await Assertions.Expect(tasks.Detail.GetByTestId("summary-text")).ToBeVisibleAsync();
+        await Snapshot();
+
+        AssertNoFailures(failures, scheme);
+    }
+
     private static void AssertNoFailures(IEnumerable<string> found, ColorScheme scheme)
     {
         var distinct = found.Distinct().Order().ToList();
