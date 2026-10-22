@@ -6,6 +6,50 @@
   {{ 'review.intro' | transloco }}
 </p>
 
+<!-- The week in a few sentences, written from facts the host gathers itself, so the model cannot
+     invent a task. Alt+U, for "ugen". Nothing is saved, so there is nothing to accept. -->
+@if (ai.ready()) {
+  <button
+    type="button"
+    data-testid="review-overview"
+    appShortcut="u"
+    appShortcutAction="activate"
+    class="mt-3 cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:cursor-wait dark:border-gray-500 dark:text-gray-100"
+    [disabled]="ai.writingReview()"
+    (click)="writeOverview()"
+  >
+    {{ (ai.writingReview() ? 'ai.asking' : 'ai.writeOverview') | transloco }}
+    @if (shortcuts.altHeld()) {
+      <span
+        data-testid="shortcut-badge"
+        aria-hidden="true"
+        class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
+        >U</span
+      >
+    }
+  </button>
+  @if (ai.reviewError(); as message) {
+    <p
+      data-testid="review-overview-error"
+      role="alert"
+      class="mt-2 text-sm text-red-700 dark:text-red-300"
+    >
+      {{ message }}
+    </p>
+  }
+  @if (ai.reviewPoints(); as points) {
+    <ul
+      data-testid="review-overview-points"
+      class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-900 dark:text-gray-100"
+      [attr.aria-label]="'ai.overviewLabel' | transloco"
+    >
+      @for (point of points; track $index) {
+        <li data-testid="review-overview-point">{{ point }}</li>
+      }
+    </ul>
+  }
+}
+
 <!-- Five groups in decision order, not in chronological order: broken commitments first, because
      they need a decision now, and "Måske" last, because that is the one you take a view on once
      the rest is cleared. The order is the whole reason the screen is not just a fifth list — see

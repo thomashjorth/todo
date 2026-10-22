@@ -291,6 +291,16 @@
                   >{{ 'ado.alreadyImported' | transloco }}</span
                 >
               }
+              <!-- A warning beside the row, never a block: a task from another source that
+                   resembles it in meaning. Same-source duplicates have their own line above. -->
+              @let alike = row.alreadyImported ? undefined : ai.duplicateOf('ado', row.key);
+              @if (alike) {
+                <span
+                  data-testid="ado-resembles"
+                  class="block text-xs font-medium text-amber-700 dark:text-amber-300"
+                  >{{ 'ai.resembles' | transloco: { value: alike.taskTitle } }}</span
+                >
+              }
             </span>
           </label>
           <!-- Outside the <label> on purpose: a button inside it would put its text into the

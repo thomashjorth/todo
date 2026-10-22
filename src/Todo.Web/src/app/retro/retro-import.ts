@@ -1,14 +1,17 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { AiStore } from '../ai/ai-store';
 import { RetroPreviewRow } from '../api/todo-client';
 import { DeadlineDate } from '../i18n/deadline-date';
 import { pluralKey } from '../i18n/plural-key';
+import { Shortcut } from '../shortcuts/shortcut';
+import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { RetroStore } from './retro-store';
 
 @Component({
   selector: 'app-retro-import',
-  imports: [DeadlineDate, RouterLink, TranslocoPipe],
+  imports: [DeadlineDate, RouterLink, Shortcut, TranslocoPipe],
   templateUrl: './retro-import.html',
   // The shell's ceiling is raised on xl so the task list can be two columns. This screen is not two
   // columns, and a form stretched over 1440 px is unreadable - so it puts the ceiling back.
@@ -18,6 +21,8 @@ import { RetroStore } from './retro-store';
 })
 export class RetroImport {
   protected readonly store = inject(RetroStore);
+  protected readonly ai = inject(AiStore);
+  protected readonly shortcuts = inject(ShortcutStore);
   private readonly transloco = inject(TranslocoService);
 
   protected readonly pluralKey = pluralKey;
@@ -56,7 +61,11 @@ export class RetroImport {
   }
 
   protected async importSelected(): Promise<void> {
-    const result = await this.store.import(this.selectedRows());
+    // A row with a suggestion in use goes in with the suggested title, and the guessed owner where
+    // the board named none; the key is the original's, so deduplication does not move.
+    const result = await this.store.import(
+      this.selectedRows().map((row) => this.ai.asImported(row)),
+    );
     if (!result) {
       return;
     }
@@ -70,7 +79,13 @@ export class RetroImport {
     await this.reanalyse();
   }
 
+  protected suggestActions(): void {
+    this.ai.suggestRetroActions(this.selectedRows()).catch(() => {});
+  }
+
   private async reanalyse(): Promise<void> {
+    // A new analysis may hold other rows, and a suggestion belongs to the row it was asked for.
+    this.ai.clearRetroActions();
     await this.store.preview(this.csv());
     this.analysed.set(this.store.error() === null);
     this.selectedKeys.set(

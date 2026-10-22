@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { API_BASE_URL } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
+import { AiStore } from '../ai/ai-store';
 import { RetroImport } from './retro-import';
 
 const csv = '"Content","Author","Zone"\n"Write the retro summary","Thomas Hjorth","Actions"';
@@ -91,6 +92,68 @@ describe('RetroImport', () => {
         { provide: API_BASE_URL, useValue: '' },
       ],
     }).compileComponents();
+  });
+
+  it('should offer no action suggestions while the model is not ready', async () => {
+    const { element } = await analyse({ rows: [mine], skippedRatingCards: 0 });
+
+    expect(element.querySelector('[data-testid="retro-suggest"]')).toBeNull();
+  });
+
+  // The suggestion stands above the original, the switch sits outside the row's label - inside, it
+  // would take the label's text into its name - and the import carries the suggested title.
+  it('should show a suggested action above the original and import it under the same key', async () => {
+    TestBed.inject(AiStore).ready.set(true);
+    const screen = await analyse({ rows: [mine], skippedRatingCards: 0 });
+
+    (await settled(screen, '[data-testid="retro-suggest"]')).click();
+    screen.http
+      .expectOne('/api/ai/retro-actions')
+      .flush(
+        new Blob([
+          JSON.stringify({
+            rows: [{ key: 'aaaa', title: 'Write the summary', ownerIsMine: false }],
+          }),
+        ]),
+      );
+
+    const suggested = await settled(screen, '[data-testid="retro-suggested-title"]');
+    expect(suggested.textContent!.trim()).toBe('Write the summary');
+    expect(
+      screen.element.querySelector('[data-testid="retro-original"]')!.textContent!.trim(),
+    ).toBe('Original: Write the retro summary');
+    const toggle = screen.element.querySelector<HTMLButtonElement>(
+      '[data-testid="retro-use-toggle"]',
+    )!;
+    expect(toggle.closest('label')).toBeNull();
+
+    importButton(screen.element).click();
+    const imported = await vi.waitFor(() => screen.http.expectOne('/api/retro/import'));
+    const sent = JSON.parse(imported.request.body).rows[0];
+    expect([sent.key, sent.title]).toEqual(['aaaa', 'Write the summary']);
+  });
+
+  it('should import the original once the switch is pressed back', async () => {
+    TestBed.inject(AiStore).ready.set(true);
+    const screen = await analyse({ rows: [mine], skippedRatingCards: 0 });
+    (await settled(screen, '[data-testid="retro-suggest"]')).click();
+    screen.http
+      .expectOne('/api/ai/retro-actions')
+      .flush(
+        new Blob([
+          JSON.stringify({
+            rows: [{ key: 'aaaa', title: 'Write the summary', ownerIsMine: false }],
+          }),
+        ]),
+      );
+
+    (await settled(screen, '[data-testid="retro-use-toggle"]')).click();
+    screen.fixture.detectChanges();
+
+    expect(screen.element.querySelector('[data-testid="retro-suggested-title"]')).toBeNull();
+    importButton(screen.element).click();
+    const imported = await vi.waitFor(() => screen.http.expectOne('/api/retro/import'));
+    expect(JSON.parse(imported.request.body).rows[0].title).toBe('Write the retro summary');
   });
 
   it('should show nothing but the paste box until the export is analysed', () => {

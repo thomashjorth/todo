@@ -180,6 +180,23 @@ describe('TaskList', () => {
     }).compileComponents();
   });
 
+  // The answering model can be ready while the embedding model is still downloading.
+  it('should offer search by meaning only when the embedding model is ready', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const ai = TestBed.inject(AiStore);
+    ai.ready.set(true);
+    const element = await rendered(fixture);
+
+    expect(element.querySelector('[data-testid="search-by-meaning"]')).toBeNull();
+
+    ai.searchReady.set(true);
+
+    await shown(fixture, '[data-testid="search-by-meaning"]');
+  });
+
   it('should offer no interpret button while the model is not ready', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)

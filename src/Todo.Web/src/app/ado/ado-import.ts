@@ -7,6 +7,7 @@ import { pluralKey } from '../i18n/plural-key';
 import { SettingsStore } from '../settings/settings-store';
 import { SystemStore } from '../system/system-store';
 import { AdoStore } from './ado-store';
+import { AiStore } from '../ai/ai-store';
 
 @Component({
   selector: 'app-ado-import',
@@ -20,6 +21,7 @@ import { AdoStore } from './ado-store';
 })
 export class AdoImport {
   protected readonly store = inject(AdoStore);
+  protected readonly ai = inject(AiStore);
   protected readonly settings = inject(SettingsStore);
   protected readonly system = inject(SystemStore);
 
@@ -298,6 +300,11 @@ export class AdoImport {
   private async reload(): Promise<void> {
     await this.store.preview();
     this.previewed.set(this.store.error() === null);
+    // Not awaited: the warnings arrive after the rows, and the rows are worth showing at once.
+    void this.ai.findDuplicates(
+      'ado',
+      this.store.rows().filter((row) => !row.alreadyImported),
+    );
     // The union of all three, so a suggested closure or reopening arrives ticked like everything
     // else: they are suggestions, and the user unticks what should not happen.
     this.selectedKeys.set(

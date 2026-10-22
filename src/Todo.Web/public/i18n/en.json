@@ -308,7 +308,19 @@
     "noSubTasks": "The model suggested no new subtasks.",
     "summarize": "Summarise",
     "suggestedSummary": "Suggested summary",
-    "replaceNote": "Replace the note"
+    "replaceNote": "Replace the note",
+    "suggestActions": "Suggest actions",
+    "original": "Original: {{value}}",
+    "guessedOwner": "Owner (guess): {{value}}",
+    "guessedOwnerMine": "Owner (guess): {{value}} – that is you",
+    "useOriginal": "Use the original",
+    "useSuggestion": "Use the suggestion",
+    "searchByMeaning": "Meaning",
+    "searchByMeaningLabel": "Also search by meaning with the local AI model",
+    "searchingByMeaning": "Also showing tasks close in meaning to the search.",
+    "resembles": "Resembles: {{value}}",
+    "writeOverview": "Write the week's overview",
+    "overviewLabel": "The week's overview from the AI model"
   },
   "errors": {
     "generic": "Something went wrong. Try again.",

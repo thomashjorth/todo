@@ -182,6 +182,10 @@ export class TaskList {
    * the first task still in view, and in one column the row simply folds away, as it did when this
    * method reset the id by hand.
    */
+  protected searchByMeaning(query: string): void {
+    this.ai.searchByMeaning(query).catch(() => {});
+  }
+
   protected searchFor(query: string): void {
     this.editingNote.set(null);
     this.store.query.set(query);

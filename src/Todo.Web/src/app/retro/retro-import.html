@@ -40,6 +40,7 @@
   <ul class="mt-3 space-y-2">
     @for (row of store.rows(); track row.key) {
       <li data-testid="retro-row" class="rounded border border-gray-200 p-2 dark:border-gray-700">
+        @let suggestion = ai.retroActions().get(row.key);
         <label class="flex items-start gap-2">
           <input
             #pick
@@ -50,9 +51,22 @@
             (change)="select(row, pick.checked)"
           />
           <span class="min-w-0 flex-1">
-            <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
-              row.title
-            }}</span>
+            @if (suggestion && suggestion.used) {
+              <span
+                data-testid="retro-suggested-title"
+                class="block text-sm break-words text-gray-900 dark:text-gray-100"
+                >{{ suggestion.title }}</span
+              >
+              <span
+                data-testid="retro-original"
+                class="block text-xs break-words text-gray-600 dark:text-gray-400"
+                >{{ 'ai.original' | transloco: { value: row.title } }}</span
+              >
+            } @else {
+              <span class="block text-sm break-words text-gray-900 dark:text-gray-100">{{
+                row.title
+              }}</span>
+            }
             <span class="block text-xs text-gray-600 dark:text-gray-400">{{
               'retro.zoneValue' | transloco: { value: row.zone }
             }}</span>
@@ -60,6 +74,15 @@
               <span class="block text-xs text-gray-600 dark:text-gray-400">{{
                 'retro.ownerValue' | transloco: { value: row.owner }
               }}</span>
+            } @else if (suggestion && suggestion.used && suggestion.owner) {
+              <span
+                data-testid="retro-guessed-owner"
+                class="block text-xs text-gray-600 dark:text-gray-400"
+                >{{
+                  (suggestion.ownerIsMine ? 'ai.guessedOwnerMine' : 'ai.guessedOwner')
+                    | transloco: { value: suggestion.owner }
+                }}</span
+              >
             }
             @if (row.deadline) {
               <span class="block text-xs text-gray-600 dark:text-gray-400">{{
@@ -75,6 +98,18 @@
             }
           </span>
         </label>
+        <!-- Outside the label: a button inside it would take the label's text into its accessible
+             name, and the checkbox would be what a screen reader announces (CLAUDE.md). -->
+        @if (suggestion) {
+          <button
+            type="button"
+            data-testid="retro-use-toggle"
+            class="mt-1 ml-6 cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
+            (click)="ai.useRetroAction(row.key, !suggestion.used)"
+          >
+            {{ (suggestion.used ? 'ai.useOriginal' : 'ai.useSuggestion') | transloco }}
+          </button>
+        }
       </li>
     }
   </ul>
@@ -85,6 +120,39 @@
         | transloco: { count: store.skippedRatingCards() }
     }}
   </p>
+
+  @if (ai.ready() && selectedRows().length > 0) {
+    <!-- Alt+H, for "handlinger". One call for every selected row: on the user's CPU each call costs
+         seconds, so one per row would multiply the wait. -->
+    <button
+      type="button"
+      data-testid="retro-suggest"
+      appShortcut="h"
+      appShortcutAction="activate"
+      class="mt-3 mr-2 cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 disabled:cursor-wait dark:border-gray-500 dark:text-gray-100"
+      [disabled]="ai.suggestingRetro()"
+      (click)="suggestActions()"
+    >
+      {{ (ai.suggestingRetro() ? 'ai.asking' : 'ai.suggestActions') | transloco }}
+      @if (shortcuts.altHeld()) {
+        <span
+          data-testid="shortcut-badge"
+          aria-hidden="true"
+          class="ml-2 inline-block rounded border border-gray-500 px-1 text-xs leading-none text-gray-700 dark:border-gray-400 dark:text-gray-300"
+          >H</span
+        >
+      }
+    </button>
+  }
+  @if (ai.retroError(); as message) {
+    <p
+      data-testid="retro-ai-error"
+      role="alert"
+      class="mt-2 text-sm text-red-700 dark:text-red-300"
+    >
+      {{ message }}
+    </p>
+  }
 
   <button
     type="button"

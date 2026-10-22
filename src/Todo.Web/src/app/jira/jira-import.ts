@@ -7,6 +7,7 @@ import { pluralKey } from '../i18n/plural-key';
 import { SettingsStore } from '../settings/settings-store';
 import { SystemStore } from '../system/system-store';
 import { JiraStore } from './jira-store';
+import { AiStore } from '../ai/ai-store';
 
 @Component({
   selector: 'app-jira-import',
@@ -20,6 +21,7 @@ import { JiraStore } from './jira-store';
 })
 export class JiraImport {
   protected readonly store = inject(JiraStore);
+  protected readonly ai = inject(AiStore);
   protected readonly settings = inject(SettingsStore);
   protected readonly system = inject(SystemStore);
 
@@ -264,6 +266,11 @@ export class JiraImport {
   private async reload(): Promise<void> {
     await this.store.preview();
     this.previewed.set(this.store.error() === null);
+    // Not awaited: the warnings arrive after the rows, and the rows are worth showing at once.
+    void this.ai.findDuplicates(
+      'jira',
+      this.store.rows().filter((row) => !row.alreadyImported),
+    );
     // The union of all three, so a suggested closure or reopening arrives ticked like everything
     // else: they are suggestions, and the user unticks what should not happen.
     this.selectedKeys.set(

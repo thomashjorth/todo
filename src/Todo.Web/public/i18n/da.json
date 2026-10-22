@@ -308,7 +308,19 @@
     "noSubTasks": "Modellen foreslog ingen nye underopgaver.",
     "summarize": "Opsummér",
     "suggestedSummary": "Foreslået resumé",
-    "replaceNote": "Erstat noten"
+    "replaceNote": "Erstat noten",
+    "suggestActions": "Foreslå handlinger",
+    "original": "Original: {{value}}",
+    "guessedOwner": "Ejer (gæt): {{value}}",
+    "guessedOwnerMine": "Ejer (gæt): {{value}} – det er dig",
+    "useOriginal": "Brug originalen",
+    "useSuggestion": "Brug forslaget",
+    "searchByMeaning": "Betydning",
+    "searchByMeaningLabel": "Søg også på betydning med den lokale AI-model",
+    "searchingByMeaning": "Viser også opgaver der ligner søgningen i betydning.",
+    "resembles": "Ligner: {{value}}",
+    "writeOverview": "Skriv ugens overblik",
+    "overviewLabel": "Ugens overblik fra AI-modellen"
   },
   "errors": {
     "generic": "Noget gik galt. Prøv igen.",

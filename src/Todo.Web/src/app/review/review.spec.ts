@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { API_BASE_URL, DeadlineBucket, TodoStatus, TodoTask } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { TaskStore } from '../tasks/task-store';
+import { AiStore } from '../ai/ai-store';
 import { Review } from './review';
 
 let nextId = 1;
@@ -189,5 +190,35 @@ describe('Review', () => {
     expect(last.textContent).toContain('august');
     expect(last.textContent).toMatch(/kl\. \d{2}\.\d{2}/);
     expect(last.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('should offer no overview while the model is not ready', async () => {
+    const { fixture } = await open([]);
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="review-overview"]'),
+    ).toBeNull();
+  });
+
+  it('should show the points the model wrote for the week', async () => {
+    TestBed.inject(AiStore).ready.set(true);
+    const { fixture, http } = await open([]);
+
+    (await shown(fixture, '[data-testid="review-overview"]')).click();
+    http
+      .expectOne('/api/ai/review-overview')
+      .flush(
+        new Blob([
+          JSON.stringify({ points: ['Du fik sendt referatet.', 'Svar revisoren venter.'] }),
+        ]),
+      );
+
+    await shown(fixture, '[data-testid="review-overview-points"]');
+    const points = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll(
+        '[data-testid="review-overview-point"]',
+      ),
+    ].map((li) => li.textContent!.trim());
+    expect(points).toEqual(['Du fik sendt referatet.', 'Svar revisoren venter.']);
   });
 });
