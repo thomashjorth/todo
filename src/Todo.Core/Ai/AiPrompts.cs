@@ -140,8 +140,8 @@ public static class AiPrompts
         var numbered = string.Join("\n", notes.Select((note, i) => $"{i + 1}. {note}"));
 
         return $"""
-            These notes come from a team retrospective board. Rewrite each as one short action someone can do, starting with a verb, keeping the note's meaning and as many of its words as you can. A note that is already an action stays close to as it is.
-            owner: the person who should do it, only if the note names a person. Otherwise null. Never invent a name, and a team or role is not a person.
+            These notes come from a team retrospective board. Rewrite each as one short action someone can do, starting with a verb. Keep what the note is about - its problem, not only the next step - and as many of its words as you can. A note that is already an action stays close to as it is.
+            owner: the first name of the person who should do it, only if the note names one. Otherwise null. Never invent a name. A team, group or role - "the QA team", "ops", "nobody" - is never an owner: use null.
             Answer once per note, with its number.
             {WriteIn(AiLanguage.English)}
             Notes:
@@ -185,7 +185,7 @@ public static class AiPrompts
             string.Join("\n", lines.Select(l => $"- {l}")) is { Length: > 0 } text ? text : "- (none)";
 
         return $"""
-            Write 3 to 5 short points for a weekly review of a personal to-do list. Say what got done, which waiting tasks have waited longest and whether to chase them, and which Someday tasks have sat for months and could be dropped or scheduled. Use only the facts below and name tasks by their titles; never mention a task that is not listed.
+            Write 1 to 5 short points for a weekly review of a personal to-do list, one sentence each, plain text without markdown. Leave out a topic the facts say nothing about rather than saying so. Say what got done, which waiting tasks have waited longest and whether to chase them, and which Someday tasks have sat for months and could be dropped or scheduled. Use only the facts below and name tasks by their titles; never mention a task that is not listed.
             {WriteIn(AiLanguage.Danish)}
             Completed in the last 7 days ({facts.CompletedCount}):
             {List(facts.Completed)}
@@ -206,7 +206,7 @@ public static class AiPrompts
             {
                 ["type"] = "array",
                 ["items"] = new JsonObject { ["type"] = "string" },
-                ["minItems"] = 3,
+                ["minItems"] = 1,
                 ["maxItems"] = AiSuggestions.MaxReviewPoints,
             },
         },

@@ -127,4 +127,136 @@ public static class Evaluate
 
         return (summary, failures);
     }
+
+    /// <summary>
+    /// The raw actions are checked note by note, before AiSuggestions drops what it cannot place -
+    /// a note the model skipped is a failure here, even though the app would only show it without a
+    /// suggestion.
+    /// </summary>
+    public static async Task<(string, List<string>)> RetroAsync(OllamaClient client, RetroCase c)
+    {
+        var answer = await client.CompleteAsync<RetroActionsAnswer>(
+            AiPrompts.RetroActions([.. c.Notes.Select(n => n.Text)]), AiPrompts.RetroActionsSchema());
+        var actions = (answer.Actions ?? []).OfType<RetroActionAnswer>().ToList();
+        var failures = new List<string>();
+
+        for (var i = 0; i < c.Notes.Length; i++)
+        {
+            var note = c.Notes[i];
+            var action = actions.FirstOrDefault(a => a.Note == i + 1);
+
+            if (action is null)
+            {
+                failures.Add($"note {i + 1} got no action");
+                continue;
+            }
+
+            var title = action.Title ?? string.Empty;
+            var firstWord = title.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant();
+
+            failures.AddRange(
+                from word in note.TitleContains
+                where !title.Contains(word, StringComparison.OrdinalIgnoreCase)
+                select $"note {i + 1}: title lacks \"{word}\"");
+
+            if (firstWord is "we" or "i" or "the" or "nobody" or "deploys")
+            {
+                failures.Add($"note {i + 1}: \"{title}\" is not an action");
+            }
+
+            if (Languages.Guess(title) is { } language && language != Language.English)
+            {
+                failures.Add($"note {i + 1}: written in {language}");
+            }
+
+            // The owner is scored after AiSuggestions' check, unlike the rest: the prompt could not
+            // make the model stop naming teams, so that rule is code, and the code's answer is what the
+            // user sees. The board owner is passed as the app passes it.
+            var owner = AiSuggestions.RetroActions([action with { Note = 1 }], [(note.Text, note.BoardOwner)])[0].Owner;
+
+            if (note.Owner != Cases.Any && !string.Equals(owner, note.Owner, StringComparison.OrdinalIgnoreCase))
+            {
+                failures.Add($"note {i + 1}: owner {owner ?? "null"}, expected {note.Owner ?? "null"}");
+            }
+        }
+
+        var shown = string.Join(" | ", actions.OrderBy(a => a.Note).Select(a => $"{a.Note}. {a.Title} ({a.Owner ?? "-"})"));
+
+        return (shown, failures);
+    }
+
+    public static async Task<(string, List<string>)> ReviewAsync(OllamaClient client, ReviewCase c)
+    {
+        var answer = await client.CompleteAsync<ReviewOverviewAnswer>(
+            AiPrompts.ReviewOverview(c.Facts), AiPrompts.ReviewOverviewSchema());
+        var points = (answer.Points ?? []).Select(p => p?.Trim() ?? string.Empty).ToList();
+        var all = string.Join(" ", points);
+        var failures = new List<string>();
+
+        if (points.Count is < 1 or > AiSuggestions.MaxReviewPoints)
+        {
+            failures.Add($"{points.Count} points, expected 1 to {AiSuggestions.MaxReviewPoints}");
+        }
+
+        // The screen shows the points as plain text, so markdown would reach the user as asterisks.
+        if (all.Contains("**", StringComparison.Ordinal) || points.Any(p => p.StartsWith('#')))
+        {
+            failures.Add("uses markdown");
+        }
+
+        failures.AddRange(
+            from word in c.Mentions
+            where !all.Contains(word, StringComparison.OrdinalIgnoreCase)
+            select $"does not mention \"{word}\"");
+
+        failures.AddRange(
+            from title in c.Absent
+            where all.Contains(title, StringComparison.OrdinalIgnoreCase)
+            select $"invents \"{title}\"");
+
+        if (Languages.Guess(all) is { } language && language != Language.Danish)
+        {
+            failures.Add($"written in {language}");
+        }
+
+        return (string.Join(" | ", points), failures);
+    }
+
+    /// <summary>The tasks are embedded as the app embeds them, and the query with the app's own prefix.</summary>
+    public static async Task<(string, List<string>)> SearchAsync(OllamaClient client, SearchCase c)
+    {
+        var vectors = await client.EmbedAsync([.. Cases.SearchTasks.Select(t => AiSimilarity.TextOf(t, null))]);
+        var query = (await client.EmbedAsync([AiScreenEndpoints.QueryPrefix + c.Query]))[0];
+        var ranked = AiSimilarity.Rank(query, vectors.Select((v, i) => ((long)i, v)));
+        var best = ranked.Count > 0 ? Cases.SearchTasks[ranked[0]] : null;
+        var score = vectors.Max(v => AiSimilarity.Cosine(query, v));
+        var failures = new List<string>();
+
+        if (best != c.Expected)
+        {
+            var message = $"best {best ?? "nothing"}, expected {c.Expected ?? "nothing"}";
+
+            // A known gap is printed, never counted: it is the model's limit, measured and written down.
+            Console.WriteLine($"     {(c.KnownGap ? "known gap" : "MISS")}: {message}");
+
+            if (!c.KnownGap)
+            {
+                failures.Add(message);
+            }
+        }
+
+        return ($"{best ?? "nothing"} (top score {score:0.00}, {ranked.Count} above {AiSimilarity.SearchThreshold})", failures);
+    }
+
+    public static async Task<(string, List<string>)> DuplicateAsync(OllamaClient client, DuplicateCase c)
+    {
+        var vectors = await client.EmbedAsync([AiSimilarity.TextOf(c.Row, null), AiSimilarity.TextOf(c.Existing, null)]);
+        var score = AiSimilarity.Cosine(vectors[0], vectors[1]);
+        var flagged = AiSimilarity.ClosestDuplicate(vectors[0], [(1, vectors[1])]) is not null;
+        List<string> failures = flagged == c.Same
+            ? []
+            : [$"{(flagged ? "flagged" : "missed")} at {score:0.00} against {AiSimilarity.DuplicateThreshold}"];
+
+        return ($"{score:0.00}", failures);
+    }
 }

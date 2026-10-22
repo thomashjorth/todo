@@ -70,6 +70,35 @@ if (only is null or "summary")
     }
 }
 
+if (only is null or "retro")
+{
+    foreach (var c in Cases.Retro)
+    {
+        results.Add(await Run("retro", c.Name, () => Evaluate.RetroAsync(client, c)));
+    }
+}
+
+if (only is null or "review")
+{
+    foreach (var c in Cases.Review)
+    {
+        results.Add(await Run("review", c.Name, () => Evaluate.ReviewAsync(client, c)));
+    }
+}
+
+if (only is null or "search")
+{
+    foreach (var c in Cases.Search)
+    {
+        results.Add(await Run("search", c.Query, () => Evaluate.SearchAsync(client, c)));
+    }
+
+    foreach (var c in Cases.Duplicates)
+    {
+        results.Add(await Run("dupes", $"{c.Row} | {c.Existing}", () => Evaluate.DuplicateAsync(client, c)));
+    }
+}
+
 Console.WriteLine();
 
 foreach (var feature in results.GroupBy(r => r.Feature))

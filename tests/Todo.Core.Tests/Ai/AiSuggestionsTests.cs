@@ -72,7 +72,7 @@ public class AiSuggestionsTests
     {
         var actions = AiSuggestions.RetroActions(
             [new(2, " Write integration tests ", null), new(1, "Book the room", null)],
-            [null, null]);
+            [("Book a room", null), ("We should test", null)]);
 
         Assert.Equal("Book the room", actions[0].Title);
         Assert.Equal("Write integration tests", actions[1].Title);
@@ -84,7 +84,7 @@ public class AiSuggestionsTests
     {
         var actions = AiSuggestions.RetroActions(
             [new(0, "Zero", null), new(3, "Three", null), new(1, "First", null), new(1, "Again", null), new(2, " ", null), null],
-            [null, null]);
+            [("a", null), ("b", null)]);
 
         Assert.Equal([0], actions.Keys);
         Assert.Equal("First", actions[0].Title);
@@ -96,10 +96,25 @@ public class AiSuggestionsTests
     {
         var actions = AiSuggestions.RetroActions(
             [new(1, "Ask Bo for the logs", "Bo"), new(2, "Fix the build", "Mads")],
-            [null, "Thomas"]);
+            [("Bo has the logs", null), ("Mads: the build is broken", "Thomas")]);
 
         Assert.Equal("Bo", actions[0].Owner);
         Assert.Null(actions[1].Owner);
+    }
+
+    /// <summary>
+    /// The eval's own finding: told in the prompt that a team is not an owner, the model named "the
+    /// QA team" anyway. A guess survives only as one word standing in the note - a first name.
+    /// </summary>
+    [Theory]
+    [InlineData("The QA team should own the regression suite", "the QA team")]
+    [InlineData("Nobody updates the wiki", "Lene")]
+    [InlineData("Somebody should book a room", "Somebody else")]
+    public void A_guess_that_is_not_a_name_in_the_note_is_dropped(string note, string guess)
+    {
+        var actions = AiSuggestions.RetroActions([new(1, "Do it", guess)], [(note, null)]);
+
+        Assert.Null(actions[0].Owner);
     }
 
     [Fact]

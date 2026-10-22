@@ -59,11 +59,16 @@ public static class AiSuggestions
     /// <summary>
     /// The model's actions matched back to the notes by number. A number out of range, a repeated
     /// one or an empty title is dropped rather than guessed at: that note simply gets no suggestion.
-    /// The owner is only kept for a note whose own <c>Action Owner</c> is empty - a guess never
-    /// overrides what the board says.
     /// </summary>
+    /// <remarks>
+    /// A guessed owner is kept only when it can be checked: the note's own <c>Action Owner</c> is
+    /// empty - a guess never overrides the board - and the guess is one word that stands in the note.
+    /// The second rule is code because the prompt could not make it hold: told twice, with "the QA
+    /// team" itself as the example, the model still named the QA team as the owner (eval,
+    /// 2026-10-22). A first name passes, a team, a role or an invented name does not.
+    /// </remarks>
     public static IReadOnlyDictionary<int, (string Title, string? Owner)> RetroActions(
-        IEnumerable<RetroActionAnswer?>? suggested, IReadOnlyList<string?> boardOwners)
+        IEnumerable<RetroActionAnswer?>? suggested, IReadOnlyList<(string Text, string? BoardOwner)> notes)
     {
         var result = new Dictionary<int, (string Title, string? Owner)>();
 
@@ -71,18 +76,27 @@ public static class AiSuggestions
         {
             var index = (action?.Note ?? 0) - 1;
 
-            if (action is null || index < 0 || index >= boardOwners.Count || result.ContainsKey(index)
+            if (action is null || index < 0 || index >= notes.Count || result.ContainsKey(index)
                 || Clean(action.Title) is not { } title)
             {
                 continue;
             }
 
-            var owner = string.IsNullOrWhiteSpace(boardOwners[index]) ? Clean(action.Owner) : null;
+            var (text, boardOwner) = notes[index];
+            var owner = Clean(action.Owner) is { } guess && string.IsNullOrWhiteSpace(boardOwner) && NamedIn(guess, text)
+                ? guess
+                : null;
+
             result[index] = (Cut(title), owner);
         }
 
         return result;
     }
+
+    private static bool NamedIn(string guess, string text) =>
+        !guess.Contains(' ')
+        && text.Split([' ', ',', '.', ':', ';', '!', '?', '(', ')', '"'], StringSplitOptions.RemoveEmptyEntries)
+            .Contains(guess, StringComparer.OrdinalIgnoreCase);
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 

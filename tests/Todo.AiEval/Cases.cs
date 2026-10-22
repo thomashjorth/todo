@@ -1,3 +1,5 @@
+using Todo.Core.Ai;
+
 namespace Todo.AiEval;
 
 /// <summary>
@@ -119,5 +121,89 @@ public static class Cases
             Language.Danish,
             ["afdeling"],
             ["{code}", "SELECT", "*Ønske"]),
+    ];
+
+    /// <summary>
+    /// One board, asked in one call like the app does. Each note tests one thing: an observation made
+    /// an action, a named owner kept, nobody invented, a team that is not a person, a note that
+    /// already is an action, and a board owner the guess may not replace.
+    /// </summary>
+    public static readonly RetroCase[] Retro =
+    [
+        new("one board", [
+            new("We should get better at testing", null, ["test"]),
+            new("Thomas: renew the TLS certificate before November", "Thomas", ["certificate"]),
+            new("Nobody updates the wiki", null, ["wiki"]),
+            new("The QA team should own the regression suite", null, ["regression"]),
+            new("Book a bigger room for planning", null, ["room"]),
+            new("Deploys on Friday keep breaking, ask Mads about the pipeline", Any, ["deploy"]),
+            new("Lene should write the release notes", null, ["release notes"], BoardOwner: "Mathias"),
+        ]),
+    ];
+
+    public static readonly ReviewCase[] Review =
+    [
+        new(
+            "an ordinary week",
+            new ReviewFacts(
+                4,
+                ["Send referatet", "Opdatér certifikatet", "Ryd op i backloggen", "Book mødelokale"],
+                [
+                    new WaitingFact("Svar fra revisoren om årsregnskabet", "Revisoren", 23),
+                    new WaitingFact("Svar fra Bo om loggen", "Bo", 4),
+                ],
+                2,
+                [new AgeFact("Lær at spille harmonika", 210), new AgeFact("Skriv en blog om Angular", 130)]),
+            ["revisor", "harmonika"],
+            ["Ring til Anna", "Køb mælk", "Opdatér wikien"]),
+        new(
+            "a quiet week",
+            new ReviewFacts(0, [], [], 0, [new AgeFact("Lær at spille harmonika", 210)]),
+            ["harmonika"],
+            ["revisor", "Send referatet"]),
+    ];
+
+    /// <summary>The tasks every search case is asked against: the ten the thresholds were measured on.</summary>
+    public static readonly string[] SearchTasks =
+    [
+        "Forny TLS-certifikatet på testserveren",
+        "Ring til Anna om fakturaen",
+        "Køb mælk",
+        "Opdatér API-gatewayens adgangsnøgle i Key Vault",
+        "Book mødelokale til sprint review",
+        "Svar Lene om CSV-eksportfejlen",
+        "Ryd op i backloggen",
+        "Skriv referat fra retro",
+        "Bestil ny skærm til Mathias",
+        "Migrér borgerlisten til ny CPR-integration",
+    ];
+
+    public static readonly SearchCase[] Search =
+    [
+        new("den med certifikatet", "Forny TLS-certifikatet på testserveren"),
+        new("mødet om sprinten", "Book mødelokale til sprint review"),
+        new("eksport til excel", "Svar Lene om CSV-eksportfejlen"),
+        new("nøgle til gatewayen", "Opdatér API-gatewayens adgangsnøgle i Key Vault"),
+        new("ny monitor", "Bestil ny skærm til Mathias", KnownGap: true),
+        new("svømmehal åbningstider", null),
+
+        // Measured 2026-10-22: the model matches concepts, not knowledge or synonyms across languages.
+        // None of the three clears 0.40 - "ny monitor" topped out at 0.27 against "skærm".
+        new("regning", "Ring til Anna om fakturaen", KnownGap: true),
+        new("personnummer opslag", "Migrér borgerlisten til ny CPR-integration", KnownGap: true),
+    ];
+
+    /// <summary>The pairs the duplicate threshold was set from, both kinds, Danish against English included.</summary>
+    public static readonly DuplicateCase[] Duplicates =
+    [
+        new("Login page times out for users with many roles", "Ret login-timeout for brugere med mange roller", true),
+        new("Export to CSV fails over 10,000 rows", "CSV-eksport fejler ved store udtræk", true),
+        new("Renew the TLS certificate on the test server", "Forny TLS-certifikat på testserver", true),
+        new("Citizen list shows wrong addresses after move", "Borgerlisten viser forkerte adresser", true),
+        new("Reports must filter by department", "Rapporter skal kunne filtreres på afdeling", true),
+        new("Login page times out for users with many roles", "CSV-eksport fejler ved store udtræk", false),
+        new("Forny TLS-certifikat på testserver", "Opdatér API-gatewayens adgangsnøgle i Key Vault", false),
+        new("Borgerlisten viser forkerte adresser", "Rapporter skal kunne filtreres på afdeling", false),
+        new("Export to CSV fails over 10,000 rows", "Import of CSV fails for empty files", false),
     ];
 }

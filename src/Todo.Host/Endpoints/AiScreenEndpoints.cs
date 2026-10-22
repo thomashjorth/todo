@@ -23,7 +23,7 @@ public static class AiScreenEndpoints
     /// EmbeddingGemma's own convention for a query, so it is read as a question rather than as a
     /// document. Tasks are embedded as plain text: both document prefixes scored worse (measured).
     /// </summary>
-    private const string QueryPrefix = "task: search result | query: ";
+    public const string QueryPrefix = "task: search result | query: ";
 
     /// <summary>A board export can hold a hundred notes, and every one of them would be prompt to read.</summary>
     private const int MaxRetroNotes = 30;
@@ -44,7 +44,7 @@ public static class AiScreenEndpoints
             {
                 var answer = await ollama.CompleteAsync<RetroActionsAnswer>(
                     AiPrompts.RetroActions([.. rows.Select(r => r.Text.Trim())]), AiPrompts.RetroActionsSchema(), ct);
-                var actions = AiSuggestions.RetroActions(answer.Actions, [.. rows.Select(r => r.Owner)]);
+                var actions = AiSuggestions.RetroActions(answer.Actions, [.. rows.Select(r => (r.Text, r.Owner))]);
                 var aliases = await RetroEndpoints.LoadAliasesAsync(db);
 
                 return TypedResults.Ok(new AiRetroActionsResponse
