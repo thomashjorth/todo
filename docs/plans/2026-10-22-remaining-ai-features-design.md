@@ -120,3 +120,41 @@ not find "faktura", "personnummer" does not find "CPR". Those two are eval cases
 server" against "*production* server" at 0.86, and two Danish login tasks at 0.70. So **0.62 is the
 duplicate threshold**, and the word on screen is "Ligner", not "Dublet": two tasks that close are
 worth a look even when they are not the same.
+
+## 7. Search by meaning, rebuilt on the user's own tasks (2026-10-23)
+
+The user's verdict on section 3's search: *"ubrugelig, eller også forstår jeg den ikke"*. Asked to
+look at their data, the measurement through their running app (read-only, 44 tasks) showed why, and
+the user approved the rebuild below.
+
+**What was wrong, measured.** 37 of the 44 tasks are done, and the list hides done tasks unless a
+switch says otherwise - while finding something solved before is exactly what the search is for.
+The absolute threshold of 0.40 hid the right answer even when it was the best one: "licens udløber"
+had "Renew seq license" first at 0.37, "estimat til kunde" had the A&Til estimate first at 0.38. And
+the notes - long ADO descriptions, 3,700 characters on average - pulled scores down: "alarm når
+noget står stille" scored the message-queue task 0.34 on its title and 0.23 with the note.
+
+**The rule now.** Seventeen questions a reader of this list would ask, each with the task it should
+find, plus three about nothing in the list:
+
+| Rule | Right task first | Right task in the three | Quiet on the unrelated |
+| --- | --- | --- | --- |
+| Title and note, everything at or above 0.40 (section 6) | 5 of 17 | 5 of 17 | - |
+| **Title only, the best three, best at least 0.30, each within 0.08 of the best** | **14 of 17** | **16 of 17** | 2 of 3 |
+
+The one unrelated question that was not quiet - "ferieplanlægning" - got one wrong suggestion at
+0.41. That is the price of a lower floor, and it is why the hits are shown as suggestions in a
+section of their own rather than mixed into the list as if they matched.
+
+**What the screen does.**
+
+- **Every task is searched, done ones included**, and the hits come back with their title, status
+  and link, so a done task can be shown without being loaded into the list.
+- **The hits get a section of their own, "Ligner"**, best first, under the search field - no longer
+  mixed into the deadline sections, where the best match could not be told from the rest.
+- **A hit for a task in the list selects it**; an imported one also offers "Åbn sagen", which is
+  where a done issue's full history is.
+- **"Ingen opgaver ligner søgningen."** when nothing clears the floor - the old screen said nothing
+  and looked as if it had worked.
+- **Titles only, for the duplicate warning too**: its 0.62 was measured on titles, and the cache is
+  shared, so one text per task.
