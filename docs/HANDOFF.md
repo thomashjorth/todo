@@ -405,9 +405,16 @@ og `docs/plans/2026-10-22-tags-design.md`, ingen af dem godkendt afsnit for afsn
 - **Hurtig indtastning laver nu underopgaver** af de trin, linjen selv nævner ("først udkast så
   finpudsning") — brugerens eget eksempel. Aldrig et opfundet trin, og aldrig ét alene.
 - **EmbeddingGemma** (`embeddinggemma:latest`, 621 MB) er hentet med brugerens tilladelse og står på
-  `-Approved`-listen. Den driver søgning på betydning (tærskel 0,40) og "Ligner:" i Jira- og
+  `-Approved`-listen. Den driver søgning på betydning og "Ligner:" i Jira- og
   ADO-forhåndsvisningen (tærskel 0,62); vektorerne ligger i hukommelsen, målt til 1,4 s pr. 100
   opgaver første gang.
+- **Søgning på betydning er ombygget 2026-10-23** efter brugerens dom ("ubrugelig, eller også forstår
+  jeg den ikke") og en måling på brugerens egne 44 opgaver gennem den kørende app, kun læsning. Den
+  gamle regel fandt det rigtige svar først i 5 af 17 realistiske spørgsmål, den nye i 14: kun
+  titler, de tre bedste, bedst mindst 0,30 og hver højst 0,08 efter. Færdige opgaver søges med
+  (37 af 44 var færdige), fundene står i en egen sektion "Ligner" frem for at blive blandet ind i
+  listen, og "Ingen opgaver ligner søgningen." står der, når intet gør. Se afsnit 7 i
+  `docs/plans/2026-10-22-remaining-ai-features-design.md`.
 - **Ugens overblik genfortæller ikke længere det fuldførte** — brugerens dom over første udgave var,
   at det punkt var ubrugeligt og forkert gengivet. Det handler nu om det overskredne, det ventende og
   gamle Måske-opgaver, og et tomt emne får en fast sætning.

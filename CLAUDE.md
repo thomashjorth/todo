@@ -1208,8 +1208,15 @@ forkerte grund.
 
 ## Testtal
 
-**243** Todo.Core.Tests, **463** Todo.Api.Tests, **105** Todo.E2E, **408** Vitest — alle grønne,
-målt med `Check.cmd` 2026-10-22 sidst på dagen.
+**244** Todo.Core.Tests, **465** Todo.Api.Tests, **108** Todo.E2E, **411** Vitest — alle grønne,
+målt med `Check.cmd` 2026-10-23.
+
+**Alle fire flyttede sig, fordi søgning på betydning blev ombygget — og E2E-tallet var forældet med
+to.** Core +1 (fire nye regel-tests, tre gamle væk: to om den absolutte tærskel og én om
+`TextOf`, som ikke findes mere), Api +2 (tre nye søgetests, én gammel væk), Vitest +3 (to i
+`task-list.spec.ts`, netto én i `ai-store-screens.spec.ts`). E2E 105 → 108: én ny rejse for tom-beskeden,
+mens den gamle søgerejse blev skrevet om frem for at få en søster — og de to teorikørsler fra
+`978adbc` (knapbredden) var aldrig bogført her, så tallet stod forkert på 105 i stedet for 107.
 
 **Alle fire steg igen samme dag, fordi anden runde AI og tags kom til — 100 tests er lagt til med
 vilje** (220 → 243, 428 → 463, 88 → 105, 383 → 408). Det er rettelserne efter brugerens første
