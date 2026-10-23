@@ -195,6 +195,14 @@ public static class Cases
         "Skriv referat fra retro",
         "Bestil ny skærm til Mathias",
         "Migrér borgerlisten til ny CPR-integration",
+
+        // The patterns the user's own tasks showed (2026-10-23), written without their real titles:
+        // English work item titles found by Danish words, a yearly chore, and a problem described by
+        // what it does rather than by what it is called.
+        "Renew the license for the log server",
+        "Alert when the message queue stops or falls behind",
+        "Onboard new customer to the payment provider",
+        "Verify live refund and refund webhook end to end",
     ];
 
     public static readonly SearchCase[] Search =
@@ -205,9 +213,15 @@ public static class Cases
         new("nøgle til gatewayen", "Opdatér API-gatewayens adgangsnøgle i Key Vault"),
         new("ny monitor", "Bestil ny skærm til Mathias", KnownGap: true),
         new("svømmehal åbningstider", null),
+        new("licens udløber", "Renew the license for the log server"),
+        new("alarm når noget står stille", "Alert when the message queue stops or falls behind"),
+        new("ny kunde", "Onboard new customer to the payment provider"),
+        new("refundering af penge", "Verify live refund and refund webhook end to end"),
 
         // Measured 2026-10-22: the model matches concepts, not knowledge or synonyms across languages.
-        // None of the three clears 0.40 - "ny monitor" topped out at 0.27 against "skærm".
+        // "ny monitor" topped out at 0.28 against "skærm" and "regning" at 0.29 against "faktura", so
+        // both stay below the 0.30 floor. "personnummer opslag" does not: since the floor came down
+        // from 0.40 (2026-10-23) it shows three wrong suggestions at 0.31 - the price the design names.
         new("regning", "Ring til Anna om fakturaen", KnownGap: true),
         new("personnummer opslag", "Migrér borgerlisten til ny CPR-integration", KnownGap: true),
     ];
