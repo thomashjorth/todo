@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Todo.Core.Ado;
 using Todo.Core.Ai;
+using Todo.Core.Jira;
 using Todo.Core.Errors;
 using Todo.Core.Retro;
 using Todo.Core.Sources;
@@ -67,7 +69,13 @@ public static class AiScreenEndpoints
         .WithTags("Ai");
 
         app.MapPost("/api/ai/search", async Task<Results<Ok<AiSearchResponse>, BadRequest<ApiError>>> (
-            AiSearchRequest request, TodoDbContext db, OllamaClient ollama, TaskEmbeddings embeddings, CancellationToken ct) =>
+            AiSearchRequest request,
+            TodoDbContext db,
+            OllamaClient ollama,
+            TaskEmbeddings embeddings,
+            JiraSettingsReader jiraReader,
+            AdoSettingsReader adoReader,
+            CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Query))
             {
@@ -76,11 +84,26 @@ public static class AiScreenEndpoints
 
             try
             {
-                var tasks = await TaskTextsAsync(db.Tasks, ct);
-                var vectors = await embeddings.ForAsync(ollama, tasks, ct);
+                // Every task, done and someday included: finding what was solved before is what the
+                // search is for, and 37 of the user's 44 tasks were done when it was measured.
+                var tasks = await db.Tasks
+                    .Select(t => new { t.Id, t.Title, t.Status, t.SourceId, t.ExternalKey })
+                    .ToDictionaryAsync(t => t.Id, ct);
+                var vectors = await embeddings.ForAsync(ollama, [.. tasks.Values.Select(t => (t.Id, t.Title))], ct);
                 var query = (await ollama.EmbedAsync([QueryPrefix + request.Query.Trim()], ct))[0];
+                var jira = await jiraReader.ReadAsync();
+                var ado = await adoReader.ReadAsync();
 
-                return TypedResults.Ok(new AiSearchResponse { TaskIds = [.. AiSimilarity.Rank(query, vectors)] });
+                return TypedResults.Ok(new AiSearchResponse
+                {
+                    Hits = [.. AiSimilarity.Rank(query, vectors).Select(id => tasks[id]).Select(t => new AiSearchHit
+                    {
+                        Id = t.Id,
+                        Title = t.Title,
+                        Status = TaskEndpoints.ToContract(t.Status),
+                        ExternalUrl = TaskEndpoints.ExternalUrlOf(t.SourceId, t.ExternalKey, jira, ado),
+                    })],
+                });
             }
             catch (SourceException exception)
             {
@@ -107,8 +130,10 @@ public static class AiScreenEndpoints
 
             try
             {
-                var candidates = await embeddings.ForAsync(ollama, await TaskTextsAsync(others, ct), ct);
-                var vectors = await ollama.EmbedAsync([.. rows.Select(r => AiSimilarity.TextOf(r.Title, r.Note))], ct);
+                // Titles on both sides: the 0.62 was measured on titles, and the cache is shared with
+                // the search, so one text per task.
+                var candidates = await embeddings.ForAsync(ollama, [.. titles.Select(t => (t.Key, t.Value))], ct);
+                var vectors = await ollama.EmbedAsync([.. rows.Select(r => r.Title)], ct);
                 var matches = new List<AiDuplicateMatch>();
 
                 for (var i = 0; i < rows.Count; i++)
@@ -151,10 +176,6 @@ public static class AiScreenEndpoints
 
         return app;
     }
-
-    private static async Task<List<(long Id, string Text)>> TaskTextsAsync(IQueryable<TaskItem> tasks, CancellationToken ct) =>
-        [.. (await tasks.Select(t => new { t.Id, t.Title, t.Note }).ToListAsync(ct))
-            .Select(t => (t.Id, AiSimilarity.TextOf(t.Title, t.Note)))];
 
     /// <summary>
     /// The facts the overview is written from. Read here, not by the client: the client only holds

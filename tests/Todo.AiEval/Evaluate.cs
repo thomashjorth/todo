@@ -268,7 +268,7 @@ public static class Evaluate
     /// <summary>The tasks are embedded as the app embeds them, and the query with the app's own prefix.</summary>
     public static async Task<(string, List<string>)> SearchAsync(OllamaClient client, SearchCase c)
     {
-        var vectors = await client.EmbedAsync([.. Cases.SearchTasks.Select(t => AiSimilarity.TextOf(t, null))]);
+        var vectors = await client.EmbedAsync(Cases.SearchTasks);
         var query = (await client.EmbedAsync([AiScreenEndpoints.QueryPrefix + c.Query]))[0];
         var ranked = AiSimilarity.Rank(query, vectors.Select((v, i) => ((long)i, v)));
         var best = ranked.Count > 0 ? Cases.SearchTasks[ranked[0]] : null;
@@ -288,12 +288,12 @@ public static class Evaluate
             }
         }
 
-        return ($"{best ?? "nothing"} (top score {score:0.00}, {ranked.Count} above {AiSimilarity.SearchThreshold})", failures);
+        return ($"{best ?? "nothing"} (top score {score:0.00}, {ranked.Count} shown)", failures);
     }
 
     public static async Task<(string, List<string>)> DuplicateAsync(OllamaClient client, DuplicateCase c)
     {
-        var vectors = await client.EmbedAsync([AiSimilarity.TextOf(c.Row, null), AiSimilarity.TextOf(c.Existing, null)]);
+        var vectors = await client.EmbedAsync([c.Row, c.Existing]);
         var score = AiSimilarity.Cosine(vectors[0], vectors[1]);
         var flagged = AiSimilarity.ClosestDuplicate(vectors[0], [(1, vectors[1])]) is not null;
         List<string> failures = flagged == c.Same

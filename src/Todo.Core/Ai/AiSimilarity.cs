@@ -9,9 +9,14 @@ namespace Todo.Core.Ai;
 public static class AiSimilarity
 {
     /// <summary>
-    /// Every concept match in the measurement cleared it (0.43-0.62) and no noise did (0.27-0.36).
+    /// The best hit has to reach this for anything to be shown. Measured on the user's own 44 tasks
+    /// (the remaining-features design, section 7): the right task came first at 0.33-0.61, and two of
+    /// three questions about nothing in the list stayed below it.
     /// </summary>
-    public const double SearchThreshold = 0.40;
+    public const double SearchFloor = 0.30;
+
+    /// <summary>A runner-up is shown only this close to the best; further behind it is noise.</summary>
+    public const double SearchMargin = 0.08;
 
     /// <summary>
     /// Every pair that was the same task cleared it (0.63-0.74, Danish against English included).
@@ -20,8 +25,11 @@ public static class AiSimilarity
     /// </summary>
     public const double DuplicateThreshold = 0.62;
 
-    /// <summary>How many search hits come back at most: past that, a list stops being an answer.</summary>
-    public const int MaxSearchHits = 20;
+    /// <summary>
+    /// Three, because the right task was among the best three in 16 of 17 measured questions and first
+    /// in 14: past that, a list stops being an answer.
+    /// </summary>
+    public const int MaxSearchHits = 3;
 
     public static double Cosine(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
@@ -42,22 +50,30 @@ public static class AiSimilarity
         return normA == 0 || normB == 0 ? 0 : dot / Math.Sqrt(normA * normB);
     }
 
-    /// <summary>The ids whose vectors clear the search threshold against the query, best first.</summary>
+    /// <summary>
+    /// The best three ids, best first, when the best reaches <see cref="SearchFloor"/>, and each
+    /// within <see cref="SearchMargin"/> of it. A relative rule rather than one absolute threshold:
+    /// the old 0.40 found the right task first in 5 of 17 measured questions, this one in 14.
+    /// </summary>
     public static IReadOnlyList<long> Rank(ReadOnlySpan<float> query, IEnumerable<(long Id, float[] Vector)> candidates)
     {
         var scored = new List<(long Id, double Score)>();
 
         foreach (var (id, vector) in candidates)
         {
-            var score = Cosine(query, vector);
-
-            if (score >= SearchThreshold)
-            {
-                scored.Add((id, score));
-            }
+            scored.Add((id, Cosine(query, vector)));
         }
 
-        return scored.OrderByDescending(s => s.Score).Take(MaxSearchHits).Select(s => s.Id).ToList();
+        var ranked = scored.OrderByDescending(s => s.Score).ToList();
+
+        if (ranked.Count == 0 || ranked[0].Score < SearchFloor)
+        {
+            return [];
+        }
+
+        var best = ranked[0].Score;
+
+        return [.. ranked.Take(MaxSearchHits).Where(s => s.Score >= best - SearchMargin).Select(s => s.Id)];
     }
 
     /// <summary>The closest candidate at or above the duplicate threshold, or nothing.</summary>
@@ -79,11 +95,4 @@ public static class AiSimilarity
 
         return best;
     }
-
-    /// <summary>
-    /// What a task is embedded as. The note is cut, because a long Jira description would drown the
-    /// title in it - and the title is what a search is usually for.
-    /// </summary>
-    public static string TextOf(string title, string? note) =>
-        string.IsNullOrWhiteSpace(note) ? title : $"{title}\n{(note.Length <= 600 ? note : note[..600])}";
 }

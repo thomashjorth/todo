@@ -1976,8 +1976,8 @@ export class AiClient {
     }
 
     /**
-     * Ranks every task by how close it is in meaning to the query.
-     * @return The ids of the tasks above the similarity threshold, best first, at most twenty.
+     * Finds the tasks closest in meaning to the query, done ones included.
+     * @return At most three, best first, each with what the screen needs to show it - so a done task can be shown without being loaded into the list. Empty when nothing is close enough.
      */
     searchByMeaning(body: AiSearchRequest): Observable<AiSearchResponse> {
         let url_ = this.baseUrl + "/api/ai/search";
@@ -5800,7 +5800,7 @@ export interface IAiSearchRequest {
 }
 
 export class AiSearchResponse implements IAiSearchResponse {
-    taskIds!: number[];
+    hits!: AiSearchHit[];
 
     constructor(data?: IAiSearchResponse) {
         if (data) {
@@ -5810,16 +5810,16 @@ export class AiSearchResponse implements IAiSearchResponse {
             }
         }
         if (!data) {
-            this.taskIds = [];
+            this.hits = [];
         }
     }
 
     init(_data?: any) {
         if (_data) {
-            if (Array.isArray(_data["taskIds"])) {
-                this.taskIds = [] as any;
-                for (let item of _data["taskIds"])
-                    this.taskIds!.push(item);
+            if (Array.isArray(_data["hits"])) {
+                this.hits = [] as any;
+                for (let item of _data["hits"])
+                    this.hits!.push(AiSearchHit.fromJS(item));
             }
         }
     }
@@ -5833,17 +5833,65 @@ export class AiSearchResponse implements IAiSearchResponse {
 
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
-        if (Array.isArray(this.taskIds)) {
-            data["taskIds"] = [];
-            for (let item of this.taskIds)
-                data["taskIds"].push(item);
+        if (Array.isArray(this.hits)) {
+            data["hits"] = [];
+            for (let item of this.hits)
+                data["hits"].push(item ? item.toJSON() : undefined as any);
         }
         return data;
     }
 }
 
 export interface IAiSearchResponse {
-    taskIds: number[];
+    hits: AiSearchHit[];
+}
+
+export class AiSearchHit implements IAiSearchHit {
+    id!: number;
+    title!: string;
+    status!: TodoStatus;
+    externalUrl?: string | undefined;
+
+    constructor(data?: IAiSearchHit) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.title = _data["title"];
+            this.status = _data["status"];
+            this.externalUrl = _data["externalUrl"];
+        }
+    }
+
+    static fromJS(data: any): AiSearchHit {
+        data = typeof data === 'object' ? data : {};
+        let result = new AiSearchHit();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["title"] = this.title;
+        data["status"] = this.status;
+        data["externalUrl"] = this.externalUrl;
+        return data;
+    }
+}
+
+export interface IAiSearchHit {
+    id: number;
+    title: string;
+    status: TodoStatus;
+    externalUrl?: string | undefined;
 }
 
 export class AiDuplicatesRequest implements IAiDuplicatesRequest {
@@ -5900,7 +5948,6 @@ export interface IAiDuplicatesRequest {
 export class AiDuplicateCandidate implements IAiDuplicateCandidate {
     key!: string;
     title!: string;
-    note?: string | undefined;
 
     constructor(data?: IAiDuplicateCandidate) {
         if (data) {
@@ -5915,7 +5962,6 @@ export class AiDuplicateCandidate implements IAiDuplicateCandidate {
         if (_data) {
             this.key = _data["key"];
             this.title = _data["title"];
-            this.note = _data["note"];
         }
     }
 
@@ -5930,7 +5976,6 @@ export class AiDuplicateCandidate implements IAiDuplicateCandidate {
         data = typeof data === 'object' ? data : {};
         data["key"] = this.key;
         data["title"] = this.title;
-        data["note"] = this.note;
         return data;
     }
 }
@@ -5938,7 +5983,6 @@ export class AiDuplicateCandidate implements IAiDuplicateCandidate {
 export interface IAiDuplicateCandidate {
     key: string;
     title: string;
-    note?: string | undefined;
 }
 
 export class AiDuplicatesResponse implements IAiDuplicatesResponse {

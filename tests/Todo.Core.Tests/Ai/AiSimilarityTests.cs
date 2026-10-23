@@ -21,25 +21,37 @@ public class AiSimilarityTests
     }
 
     /// <summary>
-    /// The candidates are given worst first, so a ranking that kept the input order would fail.
-    /// 0.39 and 0.41 straddle the threshold the measurement set.
+    /// The rule measured on the user's own tasks (the remaining-features design, section 7): the best
+    /// three, the best at least 0.30, each within 0.08 of the best. The candidates are given worst
+    /// first, so a ranking that kept the input order would fail.
     /// </summary>
     [Fact]
-    public void Search_keeps_what_clears_the_threshold_best_first()
+    public void Search_returns_the_best_three_best_first()
     {
-        float[] query = [1, 0];
+        var ranked = AiSimilarity.Rank(
+            [1, 0], [(1, Toward(0.44)), (2, Toward(0.45)), (3, Toward(0.43)), (4, Toward(0.5))]);
 
-        var ranked = AiSimilarity.Rank(query, [(1, Toward(0.39)), (2, Toward(0.41)), (3, Toward(0.9))]);
+        Assert.Equal([4L, 2L, 1L], ranked);
+    }
 
-        Assert.Equal([3L, 2L], ranked);
+    /// <summary>"Renew seq license" was the right answer at 0.37, which the old 0.40 threw away.</summary>
+    [Fact]
+    public void A_best_answer_above_the_floor_is_shown_even_when_it_is_weak()
+    {
+        Assert.Equal([1L], AiSimilarity.Rank([1, 0], [(1, Toward(0.31)), (2, Toward(0.1))]));
     }
 
     [Fact]
-    public void Search_returns_at_most_twenty()
+    public void Nothing_at_all_is_shown_when_the_best_is_below_the_floor()
     {
-        var ranked = AiSimilarity.Rank([1, 0], Enumerable.Range(1, 30).Select(i => ((long)i, Toward(0.9))));
+        Assert.Empty(AiSimilarity.Rank([1, 0], [(1, Toward(0.29)), (2, Toward(0.28))]));
+    }
 
-        Assert.Equal(AiSimilarity.MaxSearchHits, ranked.Count);
+    /// <summary>0.43 is within 0.08 of 0.50 and 0.41 is not: a runner-up far behind is noise.</summary>
+    [Fact]
+    public void A_runner_up_far_behind_the_best_is_left_out()
+    {
+        Assert.Equal([1L, 2L], AiSimilarity.Rank([1, 0], [(1, Toward(0.5)), (2, Toward(0.43)), (3, Toward(0.41))]));
     }
 
     [Fact]
@@ -54,14 +66,6 @@ public class AiSimilarityTests
     public void Nothing_above_the_duplicate_threshold_is_no_duplicate()
     {
         Assert.Null(AiSimilarity.ClosestDuplicate([1, 0], [(1, Toward(0.61)), (2, Toward(0.3))]));
-    }
-
-    [Fact]
-    public void A_task_is_embedded_as_its_title_and_the_start_of_its_note()
-    {
-        Assert.Equal("Køb mælk", AiSimilarity.TextOf("Køb mælk", "  "));
-        Assert.Equal("Køb mælk\nLetmælk", AiSimilarity.TextOf("Køb mælk", "Letmælk"));
-        Assert.Equal("T\n" + new string('x', 600), AiSimilarity.TextOf("T", new string('x', 900)));
     }
 
     /// <summary>A unit vector whose cosine with [1, 0] is exactly <paramref name="cosine"/>.</summary>

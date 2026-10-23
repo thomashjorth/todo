@@ -1435,9 +1435,30 @@ namespace Todo.Contracts
     public partial class AiSearchResponse
     {
 
-        [System.Text.Json.Serialization.JsonPropertyName("taskIds")]
+        [System.Text.Json.Serialization.JsonPropertyName("hits")]
         [System.ComponentModel.DataAnnotations.Required]
-        public System.Collections.Generic.ICollection<long> TaskIds { get; set; } = new System.Collections.ObjectModel.Collection<long>();
+        public System.Collections.Generic.ICollection<AiSearchHit> Hits { get; set; } = new System.Collections.ObjectModel.Collection<AiSearchHit>();
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class AiSearchHit
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long Id { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Title { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<TodoStatus>))]
+        public TodoStatus Status { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("externalUrl")]
+        public string ExternalUrl { get; set; }
 
     }
 
@@ -1466,9 +1487,6 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("title")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string Title { get; set; }
-
-        [System.Text.Json.Serialization.JsonPropertyName("note")]
-        public string Note { get; set; }
 
     }
 

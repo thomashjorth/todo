@@ -289,12 +289,7 @@ public static class TaskEndpoints
         // that there are two systems, because an Azure DevOps key is a bare number: task "42" exists
         // in every one of them, so the source decides which URL shape is asked, and nothing falls
         // through to a default.
-        ExternalUrl = task.SourceId switch
-        {
-            JiraTaskSource.Id => jira.BrowseUrl(task.ExternalKey ?? string.Empty),
-            AdoTaskSource.Id => ado.BrowseUrl(task.ExternalKey ?? string.Empty),
-            _ => null,
-        },
+        ExternalUrl = ExternalUrlOf(task.SourceId, task.ExternalKey, jira, ado),
         Status = ToContract(task.Status),
         Bucket = ToContract(DeadlineBuckets.For(task.Deadline, task.DeferUntil, today)),
         WaitingOn = task.WaitingOn,
@@ -331,7 +326,19 @@ public static class TaskEndpoints
 
     private static DateTimeOffset? AsUtc(DateTime? value) => value is { } v ? AsUtc(v) : null;
 
-    private static ContractStatus ToContract(CoreStatus status) => status switch
+    /// <summary>
+    /// Where the source system shows a task, or nothing. Internal so search by meaning links a hit
+    /// the same way the list links a row - two copies of the rule would drift.
+    /// </summary>
+    internal static string? ExternalUrlOf(string sourceId, string? externalKey, JiraSettings jira, AdoSettings ado) =>
+        sourceId switch
+        {
+            JiraTaskSource.Id => jira.BrowseUrl(externalKey ?? string.Empty),
+            AdoTaskSource.Id => ado.BrowseUrl(externalKey ?? string.Empty),
+            _ => null,
+        };
+
+    internal static ContractStatus ToContract(CoreStatus status) => status switch
     {
         CoreStatus.Open => ContractStatus.Open,
         CoreStatus.InProgress => ContractStatus.InProgress,

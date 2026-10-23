@@ -98,17 +98,54 @@ public class AiScreenEndpointsTests : ApiTest
         Assert.Empty(_ollama.ChatRequests);
     }
 
+    /// <summary>
+    /// The fake's vectors count shared words, so the closest task is the one sharing the most: the
+    /// exact title first, the one sharing one word of three far enough behind to be left out by the
+    /// margin, and the one sharing none not at all.
+    /// </summary>
     [Fact]
-    public async Task Search_finds_the_tasks_that_share_meaning_best_first()
+    public async Task Search_finds_the_closest_task_and_leaves_out_one_far_behind()
     {
         var certificate = new TaskItemBuilder().Titled("Forny certifikatet på testserveren").Build();
         var milk = new TaskItemBuilder().Titled("Køb mælk").Build();
-        var both = new TaskItemBuilder().Titled("Certifikatet").Build();
-        await Host.AddAndSaveChangesAsync(certificate, milk, both);
+        var exact = new TaskItemBuilder().Titled("Certifikatet").Build();
+        await Host.AddAndSaveChangesAsync(certificate, milk, exact);
 
-        var ids = await SearchAsync("certifikatet");
+        var hits = await SearchAsync("certifikatet");
 
-        Assert.Equal([both.Id, certificate.Id], ids);
+        Assert.Equal([exact.Id], hits.Select(h => h.Id));
+    }
+
+    /// <summary>
+    /// Done tasks are searched too - 37 of the user's 44 were done when the search was measured - and
+    /// a hit carries what the screen shows without the task being loaded: title, status, and the link
+    /// for an imported one.
+    /// </summary>
+    [Fact]
+    public async Task A_done_imported_task_is_found_with_its_status_and_link()
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder().Titled("Forny licensen").FromJira("SAAS-9").Done().Build(),
+            new Setting { Key = SettingKeys.JiraBaseUrl, Value = "https://jira.test" });
+
+        var hit = Assert.Single(await SearchAsync("forny licensen"));
+
+        Assert.Equal("Forny licensen", hit.Title);
+        Assert.Equal(TodoStatus.Done, hit.Status);
+        Assert.Equal("https://jira.test/browse/SAAS-9", hit.ExternalUrl);
+    }
+
+    /// <summary>
+    /// Titles only: a long note pulled the right task down on the user's data (0.34 on the title
+    /// against 0.23 with the note). A word only in the note is therefore not a match.
+    /// </summary>
+    [Fact]
+    public async Task A_word_only_in_the_note_does_not_make_a_hit()
+    {
+        await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder().Titled("Ret fejlen").WithNote("certifikatet udløber").Build());
+
+        Assert.Empty(await SearchAsync("certifikatet udløber"));
     }
 
     /// <summary>
@@ -259,13 +296,13 @@ public class AiScreenEndpointsTests : ApiTest
         return [.. (await response.Content.ReadFromJsonAsync<AiRetroActionsResponse>())!.Rows];
     }
 
-    private async Task<List<long>> SearchAsync(string query)
+    private async Task<List<AiSearchHit>> SearchAsync(string query)
     {
         var response = await Client.PostAsJsonAsync("/api/ai/search", new AiSearchRequest { Query = query });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        return [.. (await response.Content.ReadFromJsonAsync<AiSearchResponse>())!.TaskIds];
+        return [.. (await response.Content.ReadFromJsonAsync<AiSearchResponse>())!.Hits];
     }
 
     private string PromptSent()
