@@ -3,12 +3,13 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoService } from '@jsverse/transloco';
 import { AiStore } from '../ai/ai-store';
-import { API_BASE_URL, AiTaskSuggestion } from '../api/todo-client';
+import { API_BASE_URL, AiSearchHit, AiTaskSuggestion, TodoStatus } from '../api/todo-client';
 import { translocoTesting } from '../i18n/transloco.testing';
 import { WideScreen } from '../layout/wide-screen';
 import { SettingsStore } from '../settings/settings-store';
 import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { TaskList } from './task-list';
+import { TaskStore } from './task-store';
 
 const items = [
   {
@@ -195,6 +196,65 @@ describe('TaskList', () => {
     ai.searchReady.set(true);
 
     await shown(fixture, '[data-testid="search-by-meaning"]');
+  });
+
+  // A done hit is listed with its status and link but cannot be opened - it has no panel; the open
+  // one is a button, and pressing it clears the words so its row is in the list, then opens it.
+  // The done hit comes first, so a section that dropped the done tasks would show its absence.
+  it('should list the meaning hits best first and open an open one', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items })]));
+    const element = await rendered(fixture);
+    const store = TestBed.inject(TaskStore);
+    store.query.set('regning til tandlæge');
+    TestBed.inject(AiStore).meaningHits.set({
+      query: 'regning til tandlæge',
+      hits: [
+        new AiSearchHit({
+          id: 77,
+          title: 'Betal tandlægen sidste år',
+          status: TodoStatus.Done,
+          externalUrl: 'https://jira.test/browse/SAAS-1',
+        }),
+        new AiSearchHit({ id: 2, title: 'Ring til tandlægen', status: TodoStatus.Open }),
+      ],
+    });
+
+    const section = await shown(fixture, '[data-testid="meaning-hits"]');
+    const titles = [...section.querySelectorAll('[data-testid="meaning-hit-title"]')];
+    expect(titles.map((t) => [t.tagName, t.textContent!.trim()])).toEqual([
+      ['SPAN', 'Betal tandlægen sidste år'],
+      ['BUTTON', 'Ring til tandlægen'],
+    ]);
+    expect(
+      [...section.querySelectorAll('[data-testid="meaning-hit-status"]')].map((s) =>
+        s.textContent!.trim(),
+      ),
+    ).toEqual(['Færdig', 'Åben']);
+    expect(section.querySelectorAll('[data-testid="meaning-hit-open"]')).toHaveLength(1);
+
+    (titles[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(store.query()).toBe('');
+    await shown(fixture, '[data-testid="task-detail"]');
+    expect(element.querySelector('[data-testid="meaning-hits"]')).toBeNull();
+  });
+
+  it('should say so when nothing is alike in meaning', async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items })]));
+    await rendered(fixture);
+    TestBed.inject(TaskStore).query.set('svømmehal');
+    TestBed.inject(AiStore).meaningHits.set({ query: 'svømmehal', hits: [] });
+
+    const none = await shown(fixture, '[data-testid="meaning-none"]');
+
+    expect(none.textContent!.trim()).toBe('Ingen opgaver ligner søgningen.');
   });
 
   it('should offer no interpret button while the model is not ready', async () => {

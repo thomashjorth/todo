@@ -1732,9 +1732,19 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(App.Page.GetByTestId("search-meaning-error")).ToBeVisibleAsync();
         await Snapshot();
 
-        answer = (200, $$"""{ "taskIds": [{{alike.Id}}] }""");
+        // The hits: a done one with its link (a plain title) and an open one (a button), then none.
+        answer = (200, $$"""
+            { "hits": [
+              { "id": 4242, "title": "Ret login timeout", "status": "done", "externalUrl": "https://jira.test/browse/SAAS-1" },
+              { "id": {{alike.Id}}, "title": "{{alike.Title}}", "status": "open", "externalUrl": null } ] }
+            """);
         await meaning.ClickAsync();
-        await Assertions.Expect(App.Page.GetByTestId("search-meaning-note")).ToBeVisibleAsync();
+        await Assertions.Expect(App.Page.GetByTestId("meaning-hit")).ToHaveCountAsync(2);
+        await Snapshot();
+
+        answer = (200, """{ "hits": [] }""");
+        await meaning.ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("meaning-none")).ToBeVisibleAsync();
         await Snapshot();
         await BadgesHeld("B");
 

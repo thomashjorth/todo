@@ -192,6 +192,33 @@ export class TaskList {
    * the first task still in view, and in one column the row simply folds away, as it did when this
    * method reset the id by hand.
    */
+  /**
+   * A hit can be opened when its task can have a panel - not done, and not parked unless Måske is
+   * shown. Asked of the loaded tasks rather than of the list on screen: the list is filtered by the
+   * words in the box, and the tasks the meaning finds are exactly the ones those words miss.
+   */
+  protected isSelectable(id: number): boolean {
+    return this.store
+      .tasks()
+      .some(
+        (task) =>
+          task.id === id &&
+          task.status !== TodoStatus.Done &&
+          (task.status !== TodoStatus.Someday || this.store.showSomeday()),
+      );
+  }
+
+  /** Clears the words, so the task is in the list again, and opens it. */
+  protected openAlike(id: number): void {
+    this.searchFor('');
+    this.selectedId.set(id);
+  }
+
+  /** The system browser, like every other outward link: the window has no address bar to return by. */
+  protected openHit(url: string): void {
+    this.system.openLink(url).catch(() => {});
+  }
+
   protected searchByMeaning(query: string): void {
     this.ai.searchByMeaning(query).catch(() => {});
   }

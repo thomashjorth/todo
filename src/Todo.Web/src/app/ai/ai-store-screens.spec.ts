@@ -119,40 +119,44 @@ describe('AiStore on the other screens', () => {
     expect(c.title).toBe('Keep me');
   });
 
-  it('should hand the meaning hits to the task list for the query they were found for', async () => {
+  it('should hold the hits for the words they were found for', async () => {
     const { store, http } = configure();
-    const tasks = TestBed.inject(TaskStore);
 
     const searching = store.searchByMeaning('  Certifikat ');
     expect(store.searchingByMeaning()).toBe(true);
     const request = http.expectOne('/api/ai/search');
     expect(JSON.parse(request.request.body).query).toBe('Certifikat');
-    request.flush(json({ taskIds: [3, 1] }));
+    request.flush(
+      json({ hits: [{ id: 3, title: 'Forny TLS', status: 'done', externalUrl: null }] }),
+    );
     await searching;
 
-    expect(tasks.meaning()).toEqual({ query: 'certifikat', ids: new Set([3, 1]) });
+    expect(store.meaningFor('certifikat')?.map((h) => h.title)).toEqual(['Forny TLS']);
     expect(store.searchingByMeaning()).toBe(false);
   });
 
-  it('should add the tasks found by meaning to the ones the words match, while the words stand', () => {
+  // Typing again is a new search: the hits belong to the words, and must not linger on new ones.
+  it('should drop the hits once the words in the box change', () => {
+    const { store } = configure();
+    store.meaningHits.set({ query: 'certifikat', hits: [] });
+
+    expect(store.meaningFor(' Certifikat ')).toEqual([]);
+    expect(store.meaningFor('certifikatet')).toBeNull();
+  });
+
+  // The list is the words' alone now; the meaning has a section of its own.
+  it('should leave the list to the words, whatever the meaning found', () => {
     configure();
     const tasks = TestBed.inject(TaskStore);
-    tasks.tasks.set([
-      task(1, 'Forny TLS på testserveren'),
-      task(2, 'Køb mælk'),
-      task(3, 'Certifikat'),
-    ]);
+    TestBed.inject(AiStore).meaningHits.set({
+      query: 'certifikat',
+      hits: [],
+    });
+    tasks.tasks.set([task(1, 'Forny TLS på testserveren'), task(3, 'Certifikat')]);
 
     tasks.query.set('certifikat');
-    tasks.meaning.set({ query: 'certifikat', ids: new Set([1]) });
 
-    expect(tasks.sections().flatMap((s) => s.tasks.map((t) => t.id))).toEqual([1, 3]);
-    expect(tasks.searchingByMeaning()).toBe(true);
-
-    tasks.query.set('certifikatet');
-
-    expect(tasks.sections().flatMap((s) => s.tasks.map((t) => t.id))).toEqual([]);
-    expect(tasks.searchingByMeaning()).toBe(false);
+    expect(tasks.sections().flatMap((s) => s.tasks.map((t) => t.id))).toEqual([3]);
   });
 
   it('should not look for duplicates when search is not ready', async () => {
@@ -167,7 +171,7 @@ describe('AiStore on the other screens', () => {
     const { store, http } = configure();
     store.searchReady.set(true);
 
-    const finding = store.findDuplicates('jira', [{ key: 'SAAS-1', title: 'Login', note: null }]);
+    const finding = store.findDuplicates('jira', [{ key: 'SAAS-1', title: 'Login' }]);
     const request = http.expectOne('/api/ai/duplicates');
     expect(JSON.parse(request.request.body)).toEqual({
       sourceId: 'jira',

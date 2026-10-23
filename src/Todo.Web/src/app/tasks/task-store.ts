@@ -189,16 +189,9 @@ export class TaskStore {
       return this.tagged();
     }
 
-    // Only while the box still holds the words the ids were found for: typing again is a new
-    // search, and the old meaning would otherwise linger on a query that no longer asks for it.
-    const meaning = this.meaning();
-    const alike = meaning?.query === query ? meaning.ids : null;
-
     return this.tagged().filter(
       (t) =>
-        t.title.toLowerCase().includes(query) ||
-        (t.note?.toLowerCase().includes(query) ?? false) ||
-        (alike?.has(t.id) ?? false),
+        t.title.toLowerCase().includes(query) || (t.note?.toLowerCase().includes(query) ?? false),
     );
   });
 
@@ -231,18 +224,6 @@ export class TaskStore {
       return next;
     });
   }
-
-  /**
-   * The tasks the AI search found close in meaning to the query, set by `AiStore.searchByMeaning`.
-   * They are added to the substring matches, never instead of them: a task that says the words
-   * typed is a match whatever the model thinks.
-   */
-  readonly meaning = signal<{ query: string; ids: ReadonlySet<number> } | null>(null);
-
-  /** Whether the list is showing tasks found by meaning for the query in the box right now. */
-  readonly searchingByMeaning = computed(
-    () => this.meaning()?.query === this.query().trim().toLowerCase() && this.searching(),
-  );
 
   /** Whether a search is narrowing the list, so an empty screen can say which kind of empty. */
   readonly searching = computed(() => this.query().trim().length > 0);

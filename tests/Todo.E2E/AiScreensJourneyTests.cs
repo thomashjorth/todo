@@ -74,13 +74,15 @@ public class AiScreensJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     }
 
     /// <summary>
-    /// The words typed are not in the task, so only the meaning can find it - and typing again is a
-    /// new search, which drops what the meaning added.
+    /// The words typed are in neither task, so only the meaning finds them - the done one included,
+    /// which the list itself hides. The hits stand in a section of their own, and the open one opens
+    /// its panel with the words cleared. Rebuilt from the user's own data, 2026-10-23.
     /// </summary>
     [Fact]
-    public async Task Search_by_meaning_adds_a_task_the_words_alone_do_not_find()
+    public async Task Search_by_meaning_finds_done_and_open_tasks_and_opens_the_open_one()
     {
         await Host.AddAndSaveChangesAsync(
+            new TaskItemBuilder().Titled("Forny certifikat").Done().Build(),
             new TaskItemBuilder().Titled("Certifikat forny").Build(),
             new TaskItemBuilder().Titled("Køb mælk").Build());
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
@@ -92,12 +94,29 @@ public class AiScreensJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
 
         await App.Page.Keyboard.PressAsync("Alt+b");
 
-        await Assertions.Expect(tasks.RowTitled("Certifikat forny")).ToBeVisibleAsync();
-        await Assertions.Expect(tasks.Rows).ToHaveCountAsync(1);
-        await Assertions.Expect(App.Page.GetByTestId("search-meaning-note")).ToBeVisibleAsync();
+        var hits = App.Page.GetByTestId("meaning-hit");
+        await Assertions.Expect(hits).ToHaveCountAsync(2);
+        await Assertions.Expect(hits.Filter(new() { HasText = "Forny certifikat" }).GetByTestId("meaning-hit-status"))
+            .ToHaveTextAsync("Færdig");
 
-        await tasks.Search.FillAsync("forny certifikat nu!");
-        await Assertions.Expect(tasks.Rows).ToHaveCountAsync(0);
+        await hits.GetByRole(AriaRole.Button, new() { Name = "Certifikat forny" }).ClickAsync();
+
+        await Assertions.Expect(tasks.Search).ToHaveValueAsync(string.Empty);
+        await Assertions.Expect(tasks.TitleInput).ToHaveValueAsync("Certifikat forny");
+        await Assertions.Expect(App.Page.GetByTestId("meaning-hits")).ToHaveCountAsync(0);
+    }
+
+    [Fact]
+    public async Task Search_by_meaning_says_so_when_nothing_is_alike()
+    {
+        await Host.AddAndSaveChangesAsync(new TaskItemBuilder().Titled("Køb mælk").Build());
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
+        await Assertions.Expect(App.Page.GetByTestId("search-by-meaning")).ToBeVisibleAsync();
+
+        await App.Tasks.Search.FillAsync("kaffemaskine");
+        await App.Page.Keyboard.PressAsync("Alt+b");
+
+        await Assertions.Expect(App.Page.GetByTestId("meaning-none")).ToHaveTextAsync("Ingen opgaver ligner søgningen.");
     }
 
     [Fact]

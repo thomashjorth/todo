@@ -9,6 +9,7 @@ import {
   AiParseTaskRequest,
   AiRetroActionsRequest,
   AiRetroNote,
+  AiSearchHit,
   AiSearchRequest,
   AiTaskSuggestion,
   RetroPreviewRow,
@@ -330,7 +331,20 @@ export class AiStore {
   readonly searchingByMeaning = signal(false);
   readonly searchError = signal<string | null>(null);
 
-  /** Hands the ids to the task list, which adds them to what the words already matched. */
+  /**
+   * The hits for the words they were found for. A section of their own under the search field
+   * rather than mixed into the list (the user's data, 2026-10-23): ranked, done tasks included, and
+   * an empty list says so instead of looking as if it had worked.
+   */
+  readonly meaningHits = signal<{ query: string; hits: readonly AiSearchHit[] } | null>(null);
+
+  /** The hits while the box still holds the words they were found for; typing again is a new search. */
+  meaningFor(query: string): readonly AiSearchHit[] | null {
+    const current = this.meaningHits();
+    return current && current.query === query.trim().toLowerCase() ? current.hits : null;
+  }
+
+  /** The best three tasks by meaning, done ones included, for the section under the search field. */
   async searchByMeaning(query: string): Promise<void> {
     const trimmed = query.trim();
     if (!trimmed) {
@@ -340,10 +354,10 @@ export class AiStore {
     this.searchingByMeaning.set(true);
     this.searchError.set(null);
     try {
-      const { taskIds } = await firstValueFrom(
+      const { hits } = await firstValueFrom(
         this.client.searchByMeaning(new AiSearchRequest({ query: trimmed })),
       );
-      this.tasks.meaning.set({ query: trimmed.toLowerCase(), ids: new Set(taskIds) });
+      this.meaningHits.set({ query: trimmed.toLowerCase(), hits });
     } catch (error) {
       this.searchError.set(apiErrorMessage(this.transloco, error));
     } finally {
@@ -358,7 +372,7 @@ export class AiStore {
 
   async findDuplicates(
     sourceId: string,
-    rows: readonly { key: string; title: string; note?: string | null }[],
+    rows: readonly { key: string; title: string }[],
   ): Promise<void> {
     if (!this.searchReady() || rows.length === 0) {
       return;
@@ -369,14 +383,8 @@ export class AiStore {
         this.client.findDuplicates(
           new AiDuplicatesRequest({
             sourceId,
-            rows: rows.map(
-              (row) =>
-                new AiDuplicateCandidate({
-                  key: row.key,
-                  title: row.title,
-                  note: row.note ?? undefined,
-                }),
-            ),
+            // Titles only: the 0.62 was measured on titles, and the host embeds tasks that way.
+            rows: rows.map((row) => new AiDuplicateCandidate({ key: row.key, title: row.title })),
           }),
         ),
       );

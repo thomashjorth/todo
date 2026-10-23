@@ -319,7 +319,8 @@
     "useSuggestion": "Brug forslaget",
     "searchByMeaning": "Betydning",
     "searchByMeaningLabel": "Søg også på betydning med den lokale AI-model",
-    "searchingByMeaning": "Viser også opgaver der ligner søgningen i betydning.",
+    "alikeHeading": "Ligner",
+    "alikeNone": "Ingen opgaver ligner søgningen.",
     "resembles": "Ligner: {{value}}",
     "writeOverview": "Skriv ugens overblik",
     "overviewLabel": "Ugens overblik fra AI-modellen"

@@ -222,8 +222,8 @@
         }
       </div>
       @if (ai.searchReady()) {
-        <!-- Alt+B, for "betydning". Adds the tasks close in meaning to the words in the box; typing
-             again is a new search, and the added ones go until the button is pressed again. -->
+        <!-- Alt+B, for "betydning". Finds the tasks closest in meaning to the words in the box, done
+             ones included, and shows them in the section below; typing again is a new search. -->
         <button
           type="button"
           data-testid="search-by-meaning"
@@ -231,7 +231,6 @@
           appShortcutAction="activate"
           class="w-32 shrink-0 cursor-pointer rounded border border-gray-500 px-3 py-1 text-center text-sm whitespace-nowrap text-gray-900 disabled:cursor-wait dark:border-gray-500 dark:text-gray-100"
           [attr.aria-label]="'ai.searchByMeaningLabel' | transloco"
-          [attr.aria-pressed]="store.searchingByMeaning()"
           [disabled]="ai.searchingByMeaning()"
           (click)="searchByMeaning(search.value)"
         >
@@ -247,10 +246,59 @@
         </button>
       }
     </div>
-    @if (store.searchingByMeaning()) {
-      <p data-testid="search-meaning-note" class="mt-1 text-xs text-gray-700 dark:text-gray-300">
-        {{ 'ai.searchingByMeaning' | transloco }}
-      </p>
+    <!-- The hits in a section of their own, best first - not mixed into the deadline sections,
+         where the best match could not be told from the rest (the user's data, 2026-10-23). A done
+         task is shown too: finding what was solved before is what the search is for. -->
+    @let alike = ai.meaningFor(store.query());
+    @if (alike) {
+      <section
+        data-testid="meaning-hits"
+        class="mt-2 space-y-1 rounded border border-gray-300 p-2 text-sm dark:border-gray-600"
+        [attr.aria-label]="'ai.alikeHeading' | transloco"
+      >
+        <h2 class="text-xs font-medium text-gray-700 dark:text-gray-300">
+          {{ 'ai.alikeHeading' | transloco }}
+        </h2>
+        @for (hit of alike; track hit.id) {
+          <div data-testid="meaning-hit" class="flex items-baseline gap-2">
+            @if (isSelectable(hit.id)) {
+              <button
+                type="button"
+                data-testid="meaning-hit-title"
+                class="min-w-0 flex-1 cursor-pointer text-left break-words text-gray-900 underline dark:text-gray-100"
+                (click)="openAlike(hit.id)"
+              >
+                {{ hit.title }}
+              </button>
+            } @else {
+              <span
+                data-testid="meaning-hit-title"
+                class="min-w-0 flex-1 break-words text-gray-900 dark:text-gray-100"
+                >{{ hit.title }}</span
+              >
+            }
+            <span
+              data-testid="meaning-hit-status"
+              class="shrink-0 text-xs text-gray-700 dark:text-gray-300"
+              >{{ 'tasks.statuses.' + hit.status | transloco }}</span
+            >
+            @if (hit.externalUrl) {
+              <button
+                type="button"
+                data-testid="meaning-hit-open"
+                class="shrink-0 cursor-pointer text-xs text-blue-700 underline dark:text-blue-300"
+                (click)="openHit(hit.externalUrl)"
+              >
+                {{ 'tasks.openIssue' | transloco }}
+              </button>
+            }
+          </div>
+        } @empty {
+          <p data-testid="meaning-none" class="text-gray-700 dark:text-gray-300">
+            {{ 'ai.alikeNone' | transloco }}
+          </p>
+        }
+      </section>
     }
     @if (ai.searchError(); as message) {
       <p
