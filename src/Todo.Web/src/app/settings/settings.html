@@ -145,7 +145,17 @@
             class="inline-flex max-w-full items-center gap-1 rounded-full border-2 py-1 pr-1 pl-3 text-sm"
             [class]="tagChip(tag.color, true)"
           >
-            <span class="min-w-0 break-words">{{ tag.name }}</span>
+            <!-- The name opens the editing under the chips; the cross beside it still deletes. -->
+            <button
+              type="button"
+              data-testid="edit-tag"
+              class="min-w-0 cursor-pointer break-words"
+              [attr.aria-label]="'tags.edit' | transloco: { name: tag.name }"
+              [attr.aria-expanded]="editingTag() === tag.id"
+              (click)="toggleTagEdit(tag.id)"
+            >
+              {{ tag.name }}
+            </button>
             <button
               type="button"
               data-testid="remove-tag"
@@ -158,6 +168,62 @@
           </li>
         }
       </ul>
+    }
+
+    <!-- One tag's editing at a time (the editing design, 1): the name saves on Enter or blur, a
+         colour on a click. The tick on the chosen colour says it without the colour itself. -->
+    @if (editedTag(); as tag) {
+      <div
+        data-testid="tag-editor"
+        class="mt-3 space-y-3 rounded border border-gray-300 p-3 dark:border-gray-600"
+      >
+        <label class="block">
+          <span class="block text-xs text-gray-700 dark:text-gray-300">{{
+            'tags.name' | transloco
+          }}</span>
+          <input
+            #tagName
+            data-testid="tag-name-input"
+            type="text"
+            maxlength="50"
+            class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+            [value]="tag.name"
+            (keyup.enter)="saveTagName(tag, tagName)"
+            (blur)="saveTagName(tag, tagName)"
+          />
+        </label>
+        <fieldset>
+          <legend class="block text-xs text-gray-700 dark:text-gray-300">
+            {{ 'tags.colour' | transloco }}
+          </legend>
+          @for (row of colourRows; track $index) {
+            <div class="mt-1 flex flex-wrap gap-2">
+              @for (slot of row; track slot) {
+                <button
+                  type="button"
+                  data-testid="tag-colour"
+                  class="inline-flex size-8 cursor-pointer items-center justify-center rounded-full border-2 text-sm"
+                  [class]="tagChip(slot, true)"
+                  [attr.aria-label]="
+                    'tags.colourName'
+                      | transloco
+                        : {
+                            hue: (colourKeys(slot).hue | transloco),
+                            shade: (colourKeys(slot).shade | transloco),
+                          }
+                  "
+                  [attr.aria-pressed]="tag.color === slot"
+                  (click)="setTagColour(tag, slot)"
+                >
+                  @if (tag.color === slot) {
+                    <span aria-hidden="true">✓</span>
+                  }
+                </button>
+              }
+            </div>
+          }
+        </fieldset>
+      </div>
     }
 
     <label class="mt-2 block">

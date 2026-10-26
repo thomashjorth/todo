@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../api/api-error-message';
-import { CreateTagRequest, TagRef, TagsClient } from '../api/todo-client';
+import { CreateTagRequest, TagRef, TagsClient, UpdateTagRequest } from '../api/todo-client';
 
 /**
  * The user's own tags. Loaded at startup, because three screens read them: the settings group that
@@ -29,6 +29,19 @@ export class TagStore {
     this.error.set(null);
     try {
       await firstValueFrom(this.client.createTag(new CreateTagRequest({ name })));
+      await this.load();
+      return true;
+    } catch (error) {
+      this.error.set(apiErrorMessage(this.transloco, error));
+      return false;
+    }
+  }
+
+  /** A rename, a new colour or both: the server takes the two together (the editing design, 2). */
+  async update(id: number, name: string, color: number): Promise<boolean> {
+    this.error.set(null);
+    try {
+      await firstValueFrom(this.client.updateTag(id, new UpdateTagRequest({ name, color })));
       await this.load();
       return true;
     } catch (error) {

@@ -5,7 +5,8 @@ import { JiraStore } from '../jira/jira-store';
 import { RetroStore } from '../retro/retro-store';
 import { SettingsSection } from './settings-section';
 import { TagStore } from '../tags/tag-store';
-import { tagChip } from '../tags/tag-colors';
+import { tagChip, tagColors, tagColourKeys } from '../tags/tag-colors';
+import { TagRef } from '../api/todo-client';
 import { SettingsStore } from './settings-store';
 
 /** Anything the browser's number field can hand over that is not a whole number of days. */
@@ -182,8 +183,48 @@ export class Settings {
   }
 
   protected removeTag(id: number): void {
+    if (this.editingTag() === id) {
+      this.editingTag.set(null);
+    }
     void this.tagStore.remove(id);
   }
+
+  /** The tag whose editing is open under the chips: one at a time, none a valid state. */
+  protected readonly editingTag = signal<number | null>(null);
+
+  protected readonly editedTag = computed(() =>
+    this.tagStore.tags().find((tag) => tag.id === this.editingTag()),
+  );
+
+  /** The palette as the picker shows it: one row per round, the rainbow along each. */
+  protected readonly colourRows = [0, 1, 2].map((round) =>
+    tagColors.slice(round * 7, round * 7 + 7).map((_, i) => round * 7 + i),
+  );
+
+  protected toggleTagEdit(id: number): void {
+    this.editingTag.update((open) => (open === id ? null : id));
+  }
+
+  /**
+   * On Enter or blur, like every field. An empty name puts the old one back, like a task's title; a
+   * refused one stays in the field to be corrected, with the store's error beside it.
+   */
+  protected saveTagName(tag: TagRef, field: HTMLInputElement): void {
+    const trimmed = field.value.trim();
+    field.value = trimmed || tag.name;
+
+    if (trimmed && trimmed !== tag.name) {
+      void this.tagStore.update(tag.id, trimmed, tag.color);
+    }
+  }
+
+  protected setTagColour(tag: TagRef, slot: number): void {
+    if (slot !== tag.color) {
+      void this.tagStore.update(tag.id, tag.name, slot);
+    }
+  }
+
+  protected readonly colourKeys = tagColourKeys;
 
   protected removeDelegate(name: string): void {
     void this.settings.saveDelegates(this.settings.delegates().filter((d) => d !== name));

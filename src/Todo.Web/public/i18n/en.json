@@ -336,7 +336,25 @@
     "noneDefined": "Create tags under Settings.",
     "suggested": "Suggested tags for “{{title}}”",
     "accept": "Add",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "edit": "Edit {{name}}",
+    "name": "Name",
+    "colour": "Colour",
+    "colourName": "{{hue}}, {{shade}}",
+    "hues": {
+      "red": "Red",
+      "orange": "Orange",
+      "yellow": "Yellow",
+      "green": "Green",
+      "blue": "Blue",
+      "indigo": "Indigo",
+      "violet": "Violet"
+    },
+    "shades": {
+      "light": "light",
+      "middle": "middle",
+      "deep": "deep"
+    }
   },
   "errors": {
     "generic": "Something went wrong. Try again.",

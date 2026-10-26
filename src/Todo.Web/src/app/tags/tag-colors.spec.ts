@@ -1,4 +1,4 @@
-import { tagChip, tagColor, tagColors } from './tag-colors';
+import { tagChip, tagColor, tagColourKeys, tagColors } from './tag-colors';
 
 describe('Tag colours', () => {
   // TagColors.Count on the server: a slot it gives must have a colour here.
@@ -14,6 +14,13 @@ describe('Tag colours', () => {
 
     expect(hues).toEqual(['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet']);
     expect(tagColors[7].filled).toContain('bg-red-300');
+  });
+
+  // The name must follow the palette: slot 11 is the middle round's blue, so a name read from the
+  // wrong end of either list would say another colour than the one painted.
+  it('should name a slot by its hue and its shade', () => {
+    expect(tagColourKeys(11)).toEqual({ hue: 'tags.hues.blue', shade: 'tags.shades.middle' });
+    expect(tagColors[11].filled).toContain('bg-blue-300');
   });
 
   it('should paint a slot outside the palette as the first', () => {

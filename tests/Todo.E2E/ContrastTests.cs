@@ -1923,6 +1923,12 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(App.Page.GetByTestId("tag-row")).ToHaveCountAsync(Todo.Core.Tags.TagColors.Count);
         failures.AddRange(await App.ContrastFailuresAsync());
 
+        // The editing with its picker: the field, the labels and the tick on the chosen colour. The
+        // tick takes the chip's text on the chip's fill, which every colour above has measured.
+        await App.Page.GetByTestId("edit-tag").First.ClickAsync();
+        await Assertions.Expect(App.Page.GetByTestId("tag-colour")).ToHaveCountAsync(Todo.Core.Tags.TagColors.Count);
+        failures.AddRange(await App.ContrastFailuresAsync());
+
         AssertNoFailures(failures, scheme);
     }
 

@@ -336,7 +336,25 @@
     "noneDefined": "Opret tags under Indstillinger.",
     "suggested": "Foreslåede tags til “{{title}}”",
     "accept": "Tilføj",
-    "dismiss": "Afvis"
+    "dismiss": "Afvis",
+    "edit": "Redigér {{name}}",
+    "name": "Navn",
+    "colour": "Farve",
+    "colourName": "{{hue}}, {{shade}}",
+    "hues": {
+      "red": "Rød",
+      "orange": "Orange",
+      "yellow": "Gul",
+      "green": "Grøn",
+      "blue": "Blå",
+      "indigo": "Indigo",
+      "violet": "Violet"
+    },
+    "shades": {
+      "light": "lys",
+      "middle": "mellem",
+      "deep": "dyb"
+    }
   },
   "errors": {
     "generic": "Noget gik galt. Prøv igen.",

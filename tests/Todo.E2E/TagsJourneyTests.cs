@@ -127,6 +127,36 @@ public class TagsJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(App.Page.GetByTestId("tag-row")).ToContainTextAsync("Privat");
     }
 
+    /// <summary>
+    /// The user's "Det skal være muligt at overstyre farven og navnet": a click on the chip opens it,
+    /// Enter saves the name, a click the colour, and the task carrying the tag shows both.
+    /// </summary>
+    [Fact]
+    public async Task A_tag_is_renamed_and_recoloured_from_its_chip()
+    {
+        var estimat = new Tag { Name = "estimat" };
+        var task = new TaskItemBuilder().Titled("Adyen talk").Build();
+        task.Tags.Add(estimat);
+        await Host.AddAndSaveChangesAsync(estimat, task);
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var settings = await App.GoToSettings();
+        await settings.OpenAsync(SettingsScreen.TagsSection);
+
+        await App.Page.GetByRole(AriaRole.Button, new() { Name = "Redigér estimat", Exact = true }).ClickAsync();
+        var name = App.Page.GetByTestId("tag-name-input");
+        await name.FillAsync("Estimering");
+        await name.PressAsync("Enter");
+        await Assertions.Expect(App.Page.GetByTestId("tag-row")).ToContainTextAsync("Estimering");
+        var blue = App.Page.GetByRole(AriaRole.Button, new() { Name = "Blå, mellem", Exact = true });
+        await blue.ClickAsync();
+        await Assertions.Expect(blue).ToHaveAttributeAsync("aria-pressed", "true");
+
+        var tasks = await App.GoToTasks();
+        var chip = tasks.RowShowing("Adyen talk").GetByTestId("row-tag");
+        await Assertions.Expect(chip).ToHaveTextAsync("Estimering");
+        await Assertions.Expect(chip).ToHaveClassAsync(new System.Text.RegularExpressions.Regex(@"\bbg-blue-300\b"));
+    }
+
     /// <summary>Ticked in the panel and saved at once; two pressed filters narrow to the task with both.</summary>
     [Fact]
     public async Task Tags_ticked_in_the_panel_narrow_the_list_together()

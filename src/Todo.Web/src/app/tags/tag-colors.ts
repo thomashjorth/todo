@@ -118,3 +118,17 @@ export function tagChip(slot: number, pressed: boolean): string {
     ? `border-transparent ${colour.filled}`
     : `${colour.outline} text-gray-900 dark:text-gray-100`;
 }
+
+/** The rainbow's order, as the leaves of the `tags.hues` keys. */
+export const tagHues = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'] as const;
+
+/** The three rounds, as the leaves of the `tags.shades` keys. */
+export const tagShades = ['light', 'middle', 'deep'] as const;
+
+/** A slot's name as two keys, so the picker can say "Blå, lys" rather than a number. */
+export function tagColourKeys(slot: number): { hue: string; shade: string } {
+  return {
+    hue: `tags.hues.${tagHues[slot % tagHues.length]}`,
+    shade: `tags.shades.${tagShades[Math.floor(slot / tagHues.length)]}`,
+  };
+}

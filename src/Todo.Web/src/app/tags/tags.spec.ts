@@ -59,6 +59,37 @@ describe('Tags', () => {
     expect(store.tags().map((t) => t.name)).toEqual(['Indkøb', 'Privat']);
   });
 
+  it('should send the name and colour of an edit and reload the list', async () => {
+    const http = configure();
+    const store = TestBed.inject(TagStore);
+
+    const updating = store.update(3, 'Estimering', 12);
+    const put = http.expectOne('/api/tags/3');
+    expect(put.request.method).toBe('PUT');
+    expect(JSON.parse(put.request.body)).toEqual({ name: 'Estimering', color: 12 });
+    put.flush(json({ id: 3, name: 'Estimering', color: 12 }));
+    (await vi.waitFor(() => http.expectOne('/api/tags'))).flush(
+      json({ items: [{ id: 3, name: 'Estimering', color: 12 }] }),
+    );
+
+    expect(await updating).toBe(true);
+    expect(store.tags().map((t) => [t.name, t.color])).toEqual([['Estimering', 12]]);
+  });
+
+  it('should say why an edit was refused', async () => {
+    const http = configure();
+    const store = TestBed.inject(TagStore);
+
+    const updating = store.update(3, 'Privat', 2);
+    http.expectOne('/api/tags/3').flush(json({ code: 'tags.duplicate', message: 'x' }), {
+      status: 400,
+      statusText: 'Bad Request',
+    });
+
+    expect(await updating).toBe(false);
+    expect(store.error()).toBe('Der findes allerede et tag med det navn.');
+  });
+
   it('should say why a name was refused and keep the field for it', async () => {
     const http = configure();
     const store = TestBed.inject(TagStore);
