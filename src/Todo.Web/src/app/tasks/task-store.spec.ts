@@ -8,6 +8,7 @@ import {
   TodoSubTask,
   TodoTask,
 } from '../api/todo-client';
+import { translocoTesting } from '../i18n/transloco.testing';
 import { ReducedMotion } from '../layout/reduced-motion';
 import { WideScreen } from '../layout/wide-screen';
 import { TaskStore, subTaskProgress } from './task-store';
@@ -106,6 +107,8 @@ describe('TaskStore', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
+      // The store reads the tags for its filter, and the tag store speaks through Transloco.
+      imports: [translocoTesting()],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),

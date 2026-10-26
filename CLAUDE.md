@@ -1208,8 +1208,14 @@ forkerte grund.
 
 ## Testtal
 
-**244** Todo.Core.Tests, **465** Todo.Api.Tests, **108** Todo.E2E, **411** Vitest — alle grønne,
-målt med `Check.cmd` 2026-10-23.
+**244** Todo.Core.Tests, **465** Todo.Api.Tests, **109** Todo.E2E, **413** Vitest — alle grønne,
+målt med `Check.cmd` 2026-10-26.
+
+**E2E og Vitest steg, fordi tagfilteret kun tilbyder tags en opgave bærer.** E2E 108 → 109:
+`TagsJourneyTests.Deleting_the_last_task_carrying_a_tag_takes_its_button_out_of_the_filter`, brugerens
+egen fejl. Vitest 411 → 413: to i `tags.spec.ts`, filterets tilbud og at et slettet tag holder op med
+at filtrere. `ContrastTests.The_tags_meet_WCAG_AA` fik en opgave der bærer "Privat", ellers var den
+ikke-trykkede knap forsvundet fra målingen uden at noget fejlede.
 
 **Alle fire flyttede sig, fordi søgning på betydning blev ombygget — og E2E-tallet var forældet med
 to.** Core +1 (fire nye regel-tests, tre gamle væk: to om den absolutte tærskel og én om
