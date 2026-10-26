@@ -25,6 +25,21 @@ december 2025**. Brugerens tjekliste er `docs/NAS.md`. Tre ting der ikke kan ses
 - **`deploy/**` og `*.sh` er LF** (`.gitattributes`). En `.env` med CRLF ville ende hashen med `\r`,
   og værten nægter en hash den ikke kan læse.
 
+## Hjælperen og tunnelen (fra leverance 4)
+
+`Todo.Helper` på PC'en holder Jira- og ADO-tokens med DPAPI og åbner en WebSocket **ud** til værten
+(`/api/helper/tunnel`, autoriseret af sin nøgle mod `Helper:KeyHash`). Værtens tre typed clients har
+`TunnelHandler` som primær handler, så hvert kald til Jira, ADO og Ollama går gennem hjælperen, som
+sætter `Authorization` selv og kun kalder sine egne tre mål. Tre ting der ikke kan ses af koden:
+
+- **`Sources:Mode` vælger vejen, og testene kører `Direct`.** `RunningHost` giver det selv; en test der
+  vil have den rigtige vej, giver `--Sources:Mode Helper` i `extraArgs`. Valget sker i konfigurationen,
+  fordi `configureServices` kører efter registreringerne og ikke kan tage en primær handler af en client.
+- **Basis-URL'erne er rækker, men skrives af hjælperens hello** — ikke af indstillingssiden, og
+  `PUT /api/settings` tager dem ikke længere. Kun tokens forlod databasen (migreringen `TokensLeave`).
+- **`helper.offline` spørges før `notConfigured`.** En hjælper der er væk, ville ellers læses som "ikke
+  sat op" og sende brugeren til en side uden noget at rette.
+
 ## Fire kommandoer
 
 ```
@@ -1280,8 +1295,23 @@ forkerte grund.
 
 ## Testtal
 
-**265** Todo.Core.Tests, **484** Todo.Api.Tests, **116** Todo.E2E, **435** Vitest — alle grønne,
-målt med `Check.cmd` 2026-10-26 efter 2.0.0's tredje leverance, containeren.
+**265** Todo.Core.Tests, **487** Todo.Api.Tests, **26** Todo.Helper.Tests, **116** Todo.E2E, **429**
+Vitest — alle grønne, målt med `Check.cmd` 2026-10-26 på grenen `web-hosting/helper` efter
+leverance 4, hjælperen. **Grenen flettes først med leverance 5**, så `main` står stadig på tallene
+nedenfor.
+
+**Api og Vitest flyttede sig i begge retninger, fordi tokens forlod værten.** Api 484 → 487: −5 i
+`JiraSettingsEndpointsTests` og −6 i `AdoSettingsEndpointsTests` (token-ruterne og basis-URL'en i
+`PUT` er væk), +3 og +2 om hvad hjælperen rapporterer i stedet, +1 `TokensLeaveMigrationTests` og +8
+`HelperTunnelTests`. Vitest 435 → 429: −6 token-tests i `settings-store.spec.ts` og −5 felt-tests i
+`settings.spec.ts`, +1 og +2 om hjælperens status og +2 om importskærmenes offline-linje. Den nye
+suite `Todo.Helper.Tests` (26) er hvidlisten, kalderens headers, DPAPI-lageret, det lokale API's
+vagter og **den ene integrationstest der kører den rigtige vært, den rigtige hjælper og en `FakeJira`
+sammen** og fastslår at tokenet når Jira og aldrig værten. Planen er
+`docs/plans/2026-10-26-web-hosting-4-helper.md`.
+
+Tallene på `main`: **265** Todo.Core.Tests, **484** Todo.Api.Tests, **116** Todo.E2E, **435** Vitest,
+målt 2026-10-26 efter 2.0.0's tredje leverance, containeren.
 
 **Kun Api flyttede sig i leverance 3, med to:** `AuthConfigurationTests` måler nøglemappens
 standardplads ved siden af databasen og at en navngiven sti vinder — den standard kun containeren
