@@ -1236,8 +1236,17 @@ forkerte grund.
 
 ## Testtal
 
-**248** Todo.Core.Tests, **477** Todo.Api.Tests, **113** Todo.E2E, **420** Vitest — alle grønne,
-målt med `Check.cmd` 2026-10-26.
+**248** Todo.Core.Tests, **466** Todo.Api.Tests, **113** Todo.E2E, **423** Vitest — alle grønne,
+målt med `Check.cmd` 2026-10-26 efter 2.0.0's første leverance.
+
+**Api faldt og Vitest steg, fordi links åbnes af browseren frem for af serveren.** Api 477 → 466:
+`SystemEndpointsTests` (10) og `LinkLauncherRegistrationTests` (1) er slettet med deres endpoint.
+Vitest 420 → 423: +1 `task-list.spec.ts` (betydningshittets "Åbn sagen", skrevet *før* omlægningen,
+så den kunne bære den igennem), +4 netto i `system-store.spec.ts` (syv nye mod tre gamle), −1 i hver
+af `jira-import.spec.ts` og `ado-import.spec.ts` (rækkens fejllinje, som ikke længere kan nås). E2E
+står stille på 113, og det er pointen: seks rejser der fanger en URL, kørte **uændrede** gennem
+skiftet fra route til `window.open`. Fire af dem skiftede navn fra `…asks_the_shell…` til
+`…in_the_browser…`. Planen er `docs/plans/2026-10-26-web-hosting.md`.
 
 **Api, E2E og Vitest steg, fordi et tags navn og farve kan overstyres — 13 tests er lagt til med
 vilje.** Api +9 i `TagEndpointsTests` (omdøbning, eget navn i andre versaler, dublet, fire afvisninger,
