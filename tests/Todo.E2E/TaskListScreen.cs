@@ -159,7 +159,7 @@ public sealed class TaskListScreen(TodoApp app)
     public ILocator DetailFor(string title) => RowFor(title).GetByTestId("task-detail");
 
     /// <summary>
-    /// The button that asks the shell to open the issue in Jira. Only a task whose source is Jira
+    /// The button that opens the issue in the browser. Only a task whose source is Jira
     /// has one, and it sits outside the row's button so its label stays out of the accessible name
     /// <see cref="RowTitled"/> matches in full.
     /// </summary>

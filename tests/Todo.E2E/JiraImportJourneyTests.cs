@@ -13,8 +13,8 @@ namespace Todo.E2E;
 /// The Jira import screen, driven from the browser. Playwright cannot start a <c>FakeJira</c> inside
 /// the host's process, so the app's own calls are intercepted instead: this suite is about what the
 /// screen does with an answer, and <c>JiraTaskSourceTests</c> already owns what the answer looks
-/// like. <c>/api/system/open-link</c> is aborted rather than answered — letting it through would ask
-/// the operating system to open a real browser window on the machine running the tests.
+/// like. No link leaves the test browser: <c>TodoApp</c> replaces <c>window.open</c> on every page it
+/// opens.
 /// </summary>
 public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
@@ -48,7 +48,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
     ///
     /// <c>url</c> is spelled out on every row, and it has to be: the field is required on the
     /// contract, so nothing hides the Open-the-issue button, but an answer that leaves the field out
-    /// reads as undefined in the client and the button would ask the shell for an empty address.
+    /// reads as undefined in the client and the button would open an empty address.
     /// Intercepting the call is not enough — the body has to carry the field. The addresses match
     /// <see cref="BaseUrl"/>, which is what a real server would compute them from.
     /// </summary>
@@ -253,11 +253,11 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
     /// <summary>
     /// The link on an imported task, which only a Jira-sourced task has: the endpoint computes
     /// <c>externalUrl</c> from the source, so no other fixture can render this button. It is a
-    /// &lt;button&gt; rather than an &lt;a href&gt; because the Photino window has neither an
+    /// &lt;button&gt; rather than an &lt;a href&gt; because the app window has neither an
     /// address bar nor a back button — the tag name is the only thing stopping that simplification.
     /// </summary>
     [Fact]
-    public async Task The_link_on_an_imported_task_asks_the_shell_for_the_issue()
+    public async Task The_link_on_an_imported_task_opens_the_issue_in_the_browser()
     {
         await ConfigureJiraAsync();
         await Host.AddAndSaveChangesAsync(
@@ -286,16 +286,15 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
     /// <summary>
     /// The preview's own button, which is what this slice is for: an issue can be read <em>before</em>
     /// anyone decides to import it. The URL comes from the answer's <c>url</c> field, and the field
-    /// is asserted through the request body rather than through an attribute — a button has no href
-    /// to read, and the body is what actually reaches the shell.
+    /// is asserted as what reached <c>window.open</c> rather than through an attribute — a button has
+    /// no href to read.
     ///
-    /// It is a &lt;button&gt; rather than an &lt;a href&gt; because the Photino window has neither
-    /// an address bar nor a back button, and the tag name is the only thing stopping that
-    /// simplification. <c>/api/system/open-link</c> is aborted rather than answered: letting it
-    /// through would open a real browser window on the machine running the tests.
+    /// It is a &lt;button&gt; rather than an &lt;a href&gt; because the app window has neither an
+    /// address bar nor a back button, and the tag name is the only thing stopping that
+    /// simplification.
     /// </summary>
     [Fact]
-    public async Task Opening_a_previewed_issue_asks_the_shell_for_it_without_importing_it()
+    public async Task Opening_a_previewed_issue_opens_it_in_the_browser_without_importing_it()
     {
         await ConfigureJiraAsync();
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
@@ -321,17 +320,6 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
         Assert.True(
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
             "The click took the window with it, and this window has no way back.");
-
-        // And the failure is said out loud, beside the row that was pressed. The abort above is what
-        // makes this free: an aborted request is a failure to the client, so the error path is
-        // reached without any staging of its own.
-        //
-        // Worth knowing for anyone reading this later: a *successful* open cannot be measured here at
-        // all, because the call is always aborted. After a click the failing branch is the only one
-        // there is, and "no message" is the state before the click — which is what the row is
-        // asserted empty for further up in the Vitest suite.
-        await Assertions.Expect(JiraImportScreen.OpenErrorIn(row))
-            .ToHaveTextAsync("Noget gik galt. Prøv igen.");
 
         // The button sits outside the row's <label> on purpose, and this is the assertion that
         // measures it: a label's text becomes the accessible name of the control inside it, so a

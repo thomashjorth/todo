@@ -27,9 +27,8 @@ namespace Todo.E2E;
 ///
 /// <c>/api/ado/import</c> is deliberately <em>not</em> intercepted in any of the three journeys that
 /// import — the deadline is the server's arithmetic on its own clock, the closure is its re-decision,
-/// and the reopening is its mapping. <c>/api/system/open-link</c> is aborted rather than answered:
-/// letting it through would ask the operating system to open a real browser window on the machine
-/// running the tests, and the abort is per test rather than per file.
+/// and the reopening is its mapping. No link leaves the test browser: <c>TodoApp</c> replaces
+/// <c>window.open</c> on every page it opens.
 /// </summary>
 public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
 {
@@ -120,7 +119,7 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     ///
     /// <c>url</c> is spelled out on every row, and it has to be: the field is required on the contract,
     /// so nothing hides the Open-the-item button, but an answer that leaves it out reads as undefined
-    /// in the client and the button would ask the shell for an empty address. Intercepting the call is
+    /// in the client and the button would open an empty address. Intercepting the call is
     /// not enough — the body has to carry the field.
     /// </summary>
     private const string ThreeWorkItems = """
@@ -332,15 +331,14 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
 
     /// <summary>
     /// The preview's own button: a work item can be read <em>before</em> anyone decides to import it.
-    /// The URL comes from the answer's <c>url</c> field and is asserted through the request body rather
-    /// than through an attribute — a button has no href to read, and the body is what actually reaches
-    /// the shell.
+    /// The URL comes from the answer's <c>url</c> field and is asserted as what reached
+    /// <c>window.open</c> rather than through an attribute — a button has no href to read.
     ///
-    /// It is a &lt;button&gt; rather than an &lt;a href&gt; because the Photino window has neither an
+    /// It is a &lt;button&gt; rather than an &lt;a href&gt; because the app window has neither an
     /// address bar nor a back button, and the tag name is the only thing stopping that simplification.
     /// </summary>
     [Fact]
-    public async Task Opening_a_previewed_work_item_asks_the_shell_for_it_without_importing_it()
+    public async Task Opening_a_previewed_work_item_opens_it_in_the_browser_without_importing_it()
     {
         await ConfigureAdoAsync();
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
@@ -366,13 +364,6 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
         Assert.True(
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
             "The click took the window with it, and this window has no way back.");
-
-        // And the failure is said out loud, beside the row that was pressed. The abort above is what
-        // makes this free: an aborted request is a failure to the client, so the error path is reached
-        // without any staging of its own — and an aborted call carries no error code, so the sentence
-        // is apiErrorMessage's generic fallback rather than a code's own text.
-        await Assertions.Expect(AdoImportScreen.OpenErrorIn(row))
-            .ToHaveTextAsync("Noget gik galt. Prøv igen.");
 
         // The button sits outside the row's <label> on purpose, and this is the assertion that measures
         // it: a label's text becomes the accessible name of the control inside it, so a button moved in

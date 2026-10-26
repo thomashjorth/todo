@@ -466,7 +466,7 @@ public class KeyboardJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// distinctness assertion above — but both read the DOM, and neither presses anything. What is
     /// left is whether the combination survives the browser at all, which is the trap
     /// <c>CLAUDE.md</c> names for <c>Alt+D</c>, <c>Alt+E</c> and <c>Alt+F</c>: a shortcut that works
-    /// in the Photino window and not in Chrome gets debugged at the wrong end. Playwright drives
+    /// in one browser window and not in another gets debugged at the wrong end. Playwright drives
     /// real Chromium, so this is the assertion that answers it.
     /// </para>
     /// <para>

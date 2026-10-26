@@ -101,21 +101,13 @@ public sealed class JiraImportScreen(TodoApp app)
     public static ILocator DutyIn(ILocator row) => row.GetByTestId("jira-duty");
 
     /// <summary>
-    /// The button that opens a previewed issue in the system's browser, so it can be read before
-    /// anyone decides to import it. Scoped to the row, because every row has one — the contract makes
+    /// The button that opens a previewed issue in the browser, so it can be read before anyone
+    /// decides to import it. Scoped to the row, because every row has one — the contract makes
     /// <c>url</c> required, so no branch can leave it out, and a page-wide locator would be
-    /// ambiguous. It is a &lt;button&gt; rather than an &lt;a href&gt;: the Photino window has
-    /// neither an address bar nor a back button.
+    /// ambiguous. It is a &lt;button&gt; rather than an &lt;a href&gt;: the app window has neither an
+    /// address bar nor a back button.
     /// </summary>
     public static ILocator OpenIssueIn(ILocator row) => row.GetByTestId("jira-open-issue");
-
-    /// <summary>
-    /// Why this row's issue could not be opened. Scoped to the row on purpose: the message is held
-    /// beside the button that was pressed rather than at the top of the screen, because the column is
-    /// 480 px wide and a notice above twenty rows would be out of sight — which is the same silence
-    /// as no notice at all. A page-wide locator could not tell the two apart.
-    /// </summary>
-    public static ILocator OpenErrorIn(ILocator row) => row.GetByTestId("jira-open-error");
 
     public static ILocator PickOf(ILocator row) => row.Locator("input[type=checkbox]");
 

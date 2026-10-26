@@ -95,7 +95,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
 
         **Husk** at gennemgå det hele inden vi går på, og kør `dotnet test` først.
 
-        Dagsordenen ligger [her](https://example.com/dagsorden).
+        Dagsordenen ligger [her](file:///C:/dagsorden.md).
 
         - Lyd
         - Lys
@@ -144,13 +144,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// it is the same key: one action on one kind of thing.
     /// </summary>
     private const string OpenIssueLabel = "Åbn sagen";
-
-    /// <summary>
-    /// What the row says when the shell could not be asked. An aborted request carries no error code,
-    /// so <c>apiErrorMessage</c> falls back to the generic sentence — waited for by its text so the
-    /// measurement never runs on an empty paragraph.
-    /// </summary>
-    private const string OpenFailed = "Noget gik galt. Prøv igen.";
 
     /// <summary>
     /// Two rows nothing can be done with, for different reasons: one the user is waiting on, one
@@ -621,11 +614,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
 
-        // A test run has no business asking the operating system to open a browser window, so the
-        // note's link never leaves this process. The abort is also what puts the note's error line
-        // on screen further down: a failed request is what that line is there for.
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
-
         var failures = new List<string>();
         var tasks = App.Tasks;
 
@@ -688,10 +676,11 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await tasks.NoteEditor.PressAsync("Escape");
         await Assertions.Expect(tasks.NoteRendered.Locator("h2")).ToHaveTextAsync("Dagsorden");
 
-        // The link's request is aborted above, so this is the app's own failure path — the line a
-        // dead API would leave here — rather than a state staged from the outside.
+        // The note's link is a file: link, which the app refuses to open, so this is the app's own
+        // refusal - a note somebody else wrote can carry one - rather than a state staged from the
+        // outside. The sentence is asserted before the snapshot, or the contrast measured nothing.
         await tasks.NoteLink.ClickAsync();
-        await Assertions.Expect(tasks.NoteLinkError).ToContainTextAsync("Prøv igen");
+        await Assertions.Expect(tasks.NoteLinkError).ToHaveTextAsync("Kun web- og mail-links kan åbnes.");
         await Snapshot();
 
         // Only the expanded row has a panel, and the row expanded above is not the waiting one:
@@ -880,8 +869,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// <summary>
     /// The fifth screen, and the Jira half of the settings — eleven branches the journey above
     /// cannot reach, because every one of them needs an answer from Jira. Playwright cannot start a
-    /// <c>FakeJira</c> inside the host's process, so the app's own calls are intercepted, the same
-    /// grip <c>/api/system/open-link</c> is held with. Four different answers are needed, and they
+    /// <c>FakeJira</c> inside the host's process, so the app's own calls are intercepted with
+    /// <c>page.RouteAsync</c>. Four different answers are needed, and they
     /// are given in this order because each one leaves the screen in the state the next branch
     /// depends on: a refusal, an empty list, a list where every row is blocked, and a list with one
     /// row that can be imported.
@@ -934,11 +923,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             ContentType = "application/json",
             Body = """{ "imported": 1, "skipped": 0 }""",
         }));
-
-        // A test run has no business asking the operating system to open a browser window. The abort
-        // is also what paints the row's own red line further down: a failed open is what that line
-        // exists for, and it cannot be reached any other way from here.
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         // Unconfigured: a sentence and a link to the page that fixes it, and no Load button at all.
         var jira = await App.GoToJira();
@@ -1112,14 +1096,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         // localized label is interpolated into it, and no text is invisible to the measurement.
         await Assertions.Expect(JiraImportScreen.OpenIssueIn(jira.Row("Ret rapporten")))
             .ToHaveTextAsync(OpenIssueLabel);
-
-        // And the line that says the open failed, which is a branch of its own: the paragraph renders
-        // only while this row is the one that failed, so without the click below its colour is one no
-        // test ever paints. Pressed rather than staged — the route above aborts the call, and an
-        // aborted call is a failure to the client.
-        await JiraImportScreen.OpenIssueIn(jira.Row("Ret rapporten")).ClickAsync();
-        await Assertions.Expect(JiraImportScreen.OpenErrorIn(jira.Row("Ret rapporten")))
-            .ToHaveTextAsync(OpenFailed);
         await Snapshot();
 
         await jira.ImportAsync();
@@ -1133,7 +1109,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// The sixth screen, and the Azure DevOps half of the settings — twenty-odd branches neither
     /// journey above can reach, because almost every one of them needs an answer from Azure DevOps.
     /// Playwright cannot start a <c>FakeAdo</c> inside the host's process, so the app's own calls are
-    /// intercepted, the same grip <c>/api/system/open-link</c> is held with. Four preview answers are
+    /// intercepted with <c>page.RouteAsync</c>. Four preview answers are
     /// needed and they are given in this order because each leaves the screen in the state the next
     /// branch depends on: a refusal, an empty list, a list where every row is blocked, and a list with
     /// one row that can be imported.
@@ -1192,11 +1168,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             ContentType = "application/json",
             Body = """{ "imported": 1, "skipped": 0 }""",
         }));
-
-        // A test run has no business asking the operating system to open a browser window. The abort is
-        // also what paints the row's own red line further down: a failed open is what that line exists
-        // for, and it cannot be reached any other way from here.
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         // Unconfigured: a sentence and a link to the page that fixes it, and no Load button at all.
         var ado = await App.GoToAdo();
@@ -1406,12 +1377,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         // is interpolated into it, and no text is invisible to the measurement.
         await Assertions.Expect(AdoImportScreen.OpenItemIn(importable))
             .ToHaveTextAsync(OpenIssueLabel);
-
-        // And the line that says the open failed, which is a branch of its own: the paragraph renders
-        // only while this row is the one that failed. Pressed rather than staged — the route above
-        // aborts the call, and an aborted call is a failure to the client.
-        await AdoImportScreen.OpenItemIn(importable).ClickAsync();
-        await Assertions.Expect(AdoImportScreen.OpenErrorIn(importable)).ToHaveTextAsync(OpenFailed);
         await Snapshot();
 
         await ado.ImportAsync();

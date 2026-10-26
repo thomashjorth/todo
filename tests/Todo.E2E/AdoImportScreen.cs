@@ -140,20 +140,13 @@ public sealed class AdoImportScreen(TodoApp app)
     public static ILocator ReopenToIn(ILocator row) => row.GetByTestId("ado-reopen-to");
 
     /// <summary>
-    /// The button that opens a previewed work item in the system's browser. Scoped to the row, because
-    /// every row has one — the contract makes <c>url</c> required, so no branch can leave it out. It is
-    /// a &lt;button&gt; rather than an &lt;a href&gt;: the Photino window has neither an address bar
-    /// nor a back button. It sits <em>outside</em> the row's &lt;label&gt;, which is what keeps the
+    /// The button that opens a previewed work item in the browser. Scoped to the row, because every
+    /// row has one — the contract makes <c>url</c> required, so no branch can leave it out. It is a
+    /// &lt;button&gt; rather than an &lt;a href&gt;: the app window has neither an address bar nor a
+    /// back button. It sits <em>outside</em> the row's &lt;label&gt;, which is what keeps the
     /// checkbox from being announced as "… Åbn sagen".
     /// </summary>
     public static ILocator OpenItemIn(ILocator row) => row.GetByTestId("ado-open-item");
-
-    /// <summary>
-    /// Why this row's work item could not be opened. Beside the button that was pressed rather than at
-    /// the top of the screen: the column is 480 px wide and a notice above twenty rows is out of sight,
-    /// which is the same silence as no notice at all.
-    /// </summary>
-    public static ILocator OpenErrorIn(ILocator row) => row.GetByTestId("ado-open-error");
 
     public static ILocator PickOf(ILocator row) => row.Locator("input[type=checkbox]");
 

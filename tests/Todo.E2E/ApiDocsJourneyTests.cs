@@ -5,7 +5,7 @@ namespace Todo.E2E;
 
 /// <summary>
 /// Two claims about the API documentation, and nothing else in the suite covers either: that the
-/// button on the health line asks the shell for the right URL, and that the page behind that URL
+/// button on the health line opens the right URL, and that the page behind that URL
 /// renders without a single request leaving this process.
 /// </summary>
 public class ApiDocsJourneyTests : BrowserTest
@@ -35,7 +35,7 @@ public class ApiDocsJourneyTests : BrowserTest
     public ApiDocsJourneyTests(BrowserFixture fixture) : base(fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task The_health_line_asks_the_shell_to_open_the_documentation_page()
+    public async Task The_health_line_opens_the_documentation_page_in_the_browser()
     {
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
 
@@ -49,8 +49,8 @@ public class ApiDocsJourneyTests : BrowserTest
 
         await Assertions.Expect(button).ToBeVisibleAsync();
 
-        // An <a href> would let a middle-click take this window somewhere else, and the Photino
-        // window has no address bar and no back button to come back with. Nothing but this
+        // An <a href> would let a middle-click take this window somewhere else, and the app window
+        // has no address bar and no back button to come back with. Nothing but this
         // assertion stops the button being "simplified" into a link.
         Assert.Equal("BUTTON", await button.EvaluateAsync<string>("el => el.tagName"));
 
@@ -93,6 +93,10 @@ public class ApiDocsJourneyTests : BrowserTest
                 foreign.Add(route.Request.Url);
                 await route.AbortAsync();
             });
+
+            // The one page the suite opens outside TodoApp.OpenAsync, so it gets the same
+            // replacement by hand: a link Scalar opened would otherwise leave the test browser.
+            await TodoApp.ReplaceWindowOpenAsync(page);
 
             await page.GotoAsync(DocsUrl());
 
