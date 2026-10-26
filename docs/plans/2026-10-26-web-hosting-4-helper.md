@@ -57,6 +57,35 @@ mellemtiden. CI kører på grenen (test-jobbet), men skubber intet image — det
 - `Helper.cmd` starter den med synligt konsolvindue. Autostart er brugerens valg og hører til
   leverance 5.
 
+## Fund fra `prep-refactor` (2026-10-26), som omskriver dele af ovenstående
+
+- **Basis-URL'erne bliver i databasen, men skrives af hjælperens hello** — ikke af
+  indstillingssiden. De er ikke hemmelige, og med dem i databasen forsvinder "Åbn sagen"-links ikke,
+  når hjælperen er offline eller NAS'en genstarter. **Kun tokens forlader databasen.** Designets
+  afsnit 8 beholder netop basis-URL'erne på `SettingsResponse`; `PUT /api/settings` holder op med at
+  tage imod dem.
+- **`ISourceConnections` bærer `Online`**, og endpointenes `NotReady` svarer `helper.offline` før
+  `notConfigured`. Ellers ville en hjælper der er væk, læses som "ikke sat op", og `helper.offline`
+  kunne ikke nås i det almindelige tilfælde.
+- **`HelperOfflineException : HttpRequestException`**, så Ollamas eksisterende catches dækker den
+  uden ændring, og kilderne kun skal have én `catch` foran den generelle. Ventende kald fejler med den
+  **med det samme**, når forbindelsen falder — ikke efter 30 eller 60 sekunders timeout.
+- **Ollamas adresse har to ejere**, værtens `Ai:BaseUrl` og hjælperens hvidliste; hjælperens er
+  konfigurérbar, så integrationstesten kan give den en lukket port og aldrig nå brugerens Ollama.
+- **Importskærmene** afgør selv "sat op" i browseren (`jira-import.ts`, `ado-import.ts`) og skal også
+  se `helperOnline`.
+- **E2E** åbner Jira- og ADO-grupperne gennem `StoreJiraTokenAsync`/`StoreAdoTokenAsync`, og
+  `SettingsAccordionJourneyTests` bruger basis-URL-felterne — begge skrives om.
+- `errors.settings.emptyToken` går med token-ruterne; `ErrorCodeTranslationTests` fanger ikke en
+  nøgle der er tilbage.
+- `RunningHost` giver selv `--Sources:Mode Direct` før `extraArgs`.
+
+**Forberedende, før featuren (kun tests, tallene står stille):** `FakeJira.Record` og `FakeAdo.Record`
+beholder den forrige header, når et kald ingen har — så "intet `Authorization` når `Token` er `null`"
+kan ikke ses. De nulstilles. Og `ConnectJiraAsync`/`ConnectAdoAsync` i TestSupport samler de cirka tolv
+steder der i dag sår token-rækker eller kalder token-ruterne, så opgave 1 ændrer to hjælpere i stedet
+for tolv filer.
+
 ## Opgaver
 
 1. **Core:** `SourceConnection`, `ISourceConnections`, `NoSourceConnections`; `JiraSettings` og
