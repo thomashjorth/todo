@@ -1,0 +1,24 @@
+# The app on the NAS. Copy this folder's three files - this one, update.sh and .env made from
+# .env.example - to /volume1/docker/todo and import it as a project in Container Manager.
+# docs/NAS.md is the checklist.
+services:
+  todo:
+    image: ghcr.io/thomashjorth/todo:latest
+    container_name: todo
+    restart: unless-stopped
+
+    # The NAS user that owns ./data, so the files the app writes are that user's and not root's.
+    # The image's own user (1654) owns nothing on the NAS.
+    user: '${TODO_UID}:${TODO_GID}'
+
+    ports:
+      - '${TODO_PORT:-8080}:8080'
+
+    # The database, its backups before every migration, and the keys that encrypt the login cookie.
+    # Hyper Backup takes this folder.
+    volumes:
+      - ./data:/data
+
+    environment:
+      # Never the password, only its hash - see docs/NAS.md for making one inside the container.
+      Auth__PasswordHash: '${TODO_PASSWORD_HASH}'
