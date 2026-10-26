@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Todo.Core.Ado;
 using Todo.Core.Errors;
 using Todo.Core.Sources;
+using Todo.Host.Helper;
 using Todo.Core.Time;
 
 namespace Todo.Host.Ado;
@@ -663,6 +664,12 @@ public sealed class AdoTaskSource : ITaskSource
         try
         {
             response = await _client.SendAsync(request, ct);
+        }
+        catch (HelperOfflineException exception)
+        {
+            // Before the general catch, which it would otherwise fall into: the helper being away is
+            // not Azure DevOps being unreachable.
+            throw new SourceException(ErrorCodes.HelperOffline, exception.Message);
         }
         catch (HttpRequestException exception)
         {

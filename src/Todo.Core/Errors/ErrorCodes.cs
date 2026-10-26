@@ -17,6 +17,13 @@ public static class ErrorCodes
     /// <summary>Ten attempts a minute from one address; the eleventh waits for the window to turn.</summary>
     public const string AuthTooManyAttempts = "auth.tooManyAttempts";
 
+    /// <summary>
+    /// The helper on the PC is not connected, so nothing outside the host can be reached - Jira, Azure
+    /// DevOps or the model. Said before "not configured": with the helper away, how well a source is
+    /// set up tells the user nothing they can act on.
+    /// </summary>
+    public const string HelperOffline = "helper.offline";
+
     public const string TaskTitleRequired = "task.titleRequired";
     public const string TaskTitleTooLong = "task.titleTooLong";
 

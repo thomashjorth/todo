@@ -36,7 +36,8 @@ public sealed class AdoSettingsReader(TodoDbContext db, ISourceConnections conne
             DoneStates: SettingList.Read(Value(rows, SettingKeys.AdoDoneStates)),
             WorkItemTypes: WorkItemTypes(Value(rows, SettingKeys.AdoWorkItemTypes)),
             DefaultDeadlineDays: DeadlineDays(Value(rows, SettingKeys.AdoDefaultDeadlineDays)),
-            AuthorizedElsewhere: connections.Ado.AuthorizedElsewhere);
+            AuthorizedElsewhere: connections.Ado.AuthorizedElsewhere,
+            Online: connections.Online);
     }
 
     /// <summary>

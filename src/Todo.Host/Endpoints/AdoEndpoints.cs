@@ -650,11 +650,15 @@ public static class AdoEndpoints
     private static BadRequest<ApiError> Refused(SourceException exception)
         => ApiErrors.BadRequest(exception.Code, exception.Message);
 
-    private static BadRequest<ApiError>? NotConfigured(AdoSettings settings) => settings.IsConfigured
-        ? null
-        : ApiErrors.BadRequest(
-            ErrorCodes.AdoNotConfigured,
-            "Azure DevOps needs a collection URL and a token before it can be asked anything.");
+    // The helper first, for the same reason as at Jira.
+    private static BadRequest<ApiError>? NotConfigured(AdoSettings settings) =>
+        !settings.Online
+            ? ApiErrors.BadRequest(ErrorCodes.HelperOffline, "The helper on the PC is not connected.")
+            : settings.IsConfigured
+                ? null
+                : ApiErrors.BadRequest(
+                    ErrorCodes.AdoNotConfigured,
+                    "Azure DevOps needs a collection URL and a token before it can be asked anything.");
 
     /// <summary>
     /// The project is checked here, before the source is touched, and it is its own refusal rather than

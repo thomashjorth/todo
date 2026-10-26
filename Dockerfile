@@ -18,6 +18,7 @@ COPY global.json Directory.Build.props ./
 COPY contracts/ contracts/
 COPY src/Todo.Contracts/ src/Todo.Contracts/
 COPY src/Todo.Core/ src/Todo.Core/
+COPY src/Todo.Tunnel/ src/Todo.Tunnel/
 COPY src/Todo.Host/ src/Todo.Host/
 # The exe's ApplicationIcon, which Todo.Host.csproj reads from the Angular project's public folder.
 COPY src/Todo.Web/public/favicon.ico src/Todo.Web/public/favicon.ico

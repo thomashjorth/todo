@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
 using Todo.Core.Ado;
@@ -14,6 +15,7 @@ using Todo.Host.Ado;
 using Todo.Host.Ai;
 using Todo.Host.Auth;
 using Todo.Host.Endpoints;
+using Todo.Host.Helper;
 using Todo.Host.Jira;
 
 namespace Todo.Host;
@@ -21,6 +23,9 @@ namespace Todo.Host;
 public static class TodoHost
 {
     private const string ContractResourceName = "Todo.Host.openapi.yaml";
+
+    /// <summary>"Helper" (the default) or "Direct", which only the tests use.</summary>
+    public const string SourcesModeKey = "Sources:Mode";
 
     /// <summary>
     /// The route the documentation page reads its document from. Outside <c>/api/</c> on purpose:
@@ -68,8 +73,23 @@ public static class TodoHost
         builder.Services.AddScoped<JiraSettingsReader>();
         builder.Services.AddScoped<AdoSettingsReader>();
 
-        // Where Jira's and Azure DevOps' credentials come from. Never the database from 2.0.0.
-        builder.Services.AddSingleton<ISourceConnections, NoSourceConnections>();
+        // Where Jira's, Azure DevOps' and the model's calls go out, and where their credentials come
+        // from - never the database from 2.0.0. "Helper" is the app's own way: every call goes through
+        // the helper on the PC, which holds the tokens. "Direct" is the tests', whose fake hands a
+        // token over and lets the call leave the host. Chosen here in configuration rather than by
+        // configureServices, because that runs after these registrations and cannot take a primary
+        // handler off a client again.
+        var throughHelper = !string.Equals(
+            builder.Configuration[SourcesModeKey], "Direct", StringComparison.OrdinalIgnoreCase);
+
+        // The hub always, so the tunnel route resolves in both modes; in Direct nothing sends through it.
+        builder.Services.AddSingleton<HelperHub>();
+
+        if (throughHelper)
+        {
+            builder.Services.AddSingleton<ISourceConnections, HelperConnections>();
+            builder.Services.AddTransient<TunnelHandler>();
+        }
         builder.Services.AddScoped<ReviewSettingsReader>();
 
         // A typed client, so the source gets a pooled HttpClient rather than one per call. The
@@ -79,24 +99,28 @@ public static class TodoHost
         //
         // No BaseAddress. The Jira it talks to is a runtime setting the user can change, which is
         // also why the scoped JiraSettingsReader is a constructor dependency of the source.
-        builder.Services.AddHttpClient<JiraTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        ThroughHelper(builder.Services.AddHttpClient<JiraTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30)), throughHelper);
 
         // Its own typed client rather than a shared one, for the same reason the two sources are two
         // types: the timeout is a property of one external system's habits, and an Azure DevOps that
         // has stopped answering must not be told apart from a Jira that has.
-        builder.Services.AddHttpClient<AdoTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        ThroughHelper(builder.Services.AddHttpClient<AdoTaskSource>(c => c.Timeout = TimeSpan.FromSeconds(30)), throughHelper);
 
         builder.Services.Configure<AiOptions>(builder.Configuration.GetSection(AiOptions.Section));
 
         // Sixty seconds rather than the sources' thirty: the first call after the model was unloaded
         // measured 22 s with thinking on, and every AI call measured about 7 s warm. Startup is not
         // what this protects - readiness has its own three-second limit inside OllamaClient.
-        builder.Services.AddHttpClient<OllamaClient>(c => c.Timeout = TimeSpan.FromSeconds(60));
+        ThroughHelper(builder.Services.AddHttpClient<OllamaClient>(c => c.Timeout = TimeSpan.FromSeconds(60)), throughHelper);
 
         // A singleton, because it is a cache: the tasks' vectors live as long as the process.
         builder.Services.AddSingleton<TaskEmbeddings>();
 
         configureServices?.Invoke(builder.Services);
+
+        // After the caller's registrations, so a test's own connections win in Direct mode; and a
+        // no-op in Helper mode, where the helper's were registered above.
+        builder.Services.TryAddSingleton<ISourceConnections, NoSourceConnections>();
 
         var app = builder.Build();
 
@@ -167,6 +191,7 @@ public static class TodoHost
         app.UseStaticFiles(new StaticFileOptions { FileProvider = frontend });
 
         // After the static files, so the frontend and the login page load without a cookie.
+        app.UseWebSockets();
         app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
@@ -181,6 +206,9 @@ public static class TodoHost
         .Produces<HealthResponse>();
 
         app.MapAuth();
+
+        // The helper's door, outside the cookie: it proves itself with its own key.
+        app.MapHelperTunnel();
 
         // Everything else under /api/ wants the cookie. One group rather than a call per route, so a
         // new Map* inside it is protected without anyone remembering to ask - and
@@ -199,6 +227,14 @@ public static class TodoHost
         app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = frontend });
 
         return app;
+    }
+
+    private static void ThroughHelper(IHttpClientBuilder client, bool throughHelper)
+    {
+        if (throughHelper)
+        {
+            client.ConfigurePrimaryHttpMessageHandler<TunnelHandler>();
+        }
     }
 
     /// <summary>

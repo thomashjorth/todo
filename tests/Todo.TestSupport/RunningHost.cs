@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Todo.Contracts;
 using Todo.Core.Auth;
 using Todo.Core.Persistence;
@@ -177,6 +178,11 @@ public sealed class RunningHost : IAsyncDisposable
             // would be the one shared TodoApp.Tests folder. Deleted with the database.
             "--Data:KeysPath", KeysPathFor(databasePath),
 
+            // The tests' own mode: calls leave the host directly, with the token FakeSourceConnections
+            // hands over. The app's default is through the helper, which a test opts into by naming it
+            // again in extraArgs.
+            "--Sources:Mode", "Direct",
+
             // Before extraArgs, so a test's own --Ai:BaseUrl wins: the command-line provider keeps
             // the last value for a repeated key.
             "--Ai:BaseUrl", ClosedLoopbackUrl(),
@@ -188,7 +194,8 @@ public sealed class RunningHost : IAsyncDisposable
 
         var app = TodoHost.Build(args, services =>
         {
-            services.AddSingleton<ISourceConnections>(connections);
+            // TryAdd, so a host started in Helper mode keeps the helper's own connections.
+            services.TryAddSingleton<ISourceConnections>(connections);
             configureServices?.Invoke(services);
         });
         await app.StartAsync();

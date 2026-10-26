@@ -95,7 +95,9 @@ public class AuthEndpointsTests : ApiTest
     [Fact]
     public void Every_api_route_but_health_and_login_requires_the_cookie()
     {
-        string[] open = ["/api/health", "/api/auth/login"];
+        // And the helper's tunnel, which is not a browser and proves itself with its own key instead -
+        // HelperTunnelTests holds it to that, by being refused without one.
+        string[] open = ["/api/health", "/api/auth/login", "/api/helper/tunnel"];
 
         var routes = Host.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .OfType<RouteEndpoint>()

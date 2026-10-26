@@ -492,11 +492,16 @@ public static class JiraEndpoints
     private static BadRequest<ApiError> Refused(SourceException exception)
         => ApiErrors.BadRequest(exception.Code, exception.Message);
 
-    private static BadRequest<ApiError>? NotConfigured(JiraSettings settings) => settings.IsConfigured
-        ? null
-        : ApiErrors.BadRequest(
-            ErrorCodes.JiraNotConfigured,
-            "Jira needs a base URL and a token before it can be asked anything.");
+    // The helper first: with it away nothing reaches Jira however well it is set up, and "not set up"
+    // would send the user to a page with nothing to fix.
+    private static BadRequest<ApiError>? NotConfigured(JiraSettings settings) =>
+        !settings.Online
+            ? ApiErrors.BadRequest(ErrorCodes.HelperOffline, "The helper on the PC is not connected.")
+            : settings.IsConfigured
+                ? null
+                : ApiErrors.BadRequest(
+                    ErrorCodes.JiraNotConfigured,
+                    "Jira needs a base URL and a token before it can be asked anything.");
 
     /// <summary>
     /// The project key is checked here, before the source is touched, and that is the whole point:

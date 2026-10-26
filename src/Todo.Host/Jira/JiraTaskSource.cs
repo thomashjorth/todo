@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Todo.Core.Errors;
 using Todo.Core.Jira;
 using Todo.Core.Sources;
+using Todo.Host.Helper;
 
 namespace Todo.Host.Jira;
 
@@ -573,6 +574,12 @@ public sealed partial class JiraTaskSource : ITaskSource
         try
         {
             response = await _client.SendAsync(request, ct);
+        }
+        catch (HelperOfflineException exception)
+        {
+            // Before the general catch, which it would otherwise fall into: the helper being away is
+            // not Jira being unreachable, and the user's move is a different one.
+            throw new SourceException(ErrorCodes.HelperOffline, exception.Message);
         }
         catch (HttpRequestException exception)
         {

@@ -83,5 +83,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Todo.Contracts\Todo.Contracts.csproj" />
     <ProjectReference Include="..\Todo.Core\Todo.Core.csproj" />
+    <ProjectReference Include="..\Todo.Tunnel\Todo.Tunnel.csproj" />
   </ItemGroup>
 </Project>

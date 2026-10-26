@@ -33,7 +33,8 @@ public sealed class JiraSettingsReader(TodoDbContext db, ISourceConnections conn
             // Same asymmetry as IncludeWaiting above, for the same reason, and read the same way.
             OnDuty: Value(rows, SettingKeys.JiraOnDuty) == "true",
             DoneStatuses: SettingList.Read(Value(rows, SettingKeys.JiraDoneStatuses)),
-            AuthorizedElsewhere: connections.Jira.AuthorizedElsewhere);
+            AuthorizedElsewhere: connections.Jira.AuthorizedElsewhere,
+            Online: connections.Online);
     }
 
     private static string? Value(Dictionary<string, string> rows, string key) =>

@@ -25,7 +25,10 @@ public sealed record JiraSettings(
     // True when the helper puts the token on each call, so Token is null here and the source still
     // counts as set up. Last and defaulted, so the tests' fakes - which hand a token over directly -
     // build the record as before.
-    bool AuthorizedElsewhere = false)
+    bool AuthorizedElsewhere = false,
+    // Whether anything is there to make the call - the helper, outside the tests. True by default for
+    // the same reason as the flag above: the fakes build this record and are always there.
+    bool Online = true)
 {
     /// <summary>
     /// The base URL as something that can actually be called, or null. One spelling shared with
