@@ -39,15 +39,61 @@ try {
     Write-Host "AI model: the check failed and was skipped - $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
+# A fixed port, because the app window and the browser's storage belong to an origin, and a random
+# port would make a new one every time. 5180 is clear of the usual development servers; unmeasured
+# against whatever else runs on this machine.
+$port = 5180
+$url = "http://127.0.0.1:$port/"
+$window = @("--app=$url", '--window-size=480,1000')
+
+# Already running: the user double-clicked again. The window opens on the host that is there,
+# rather than a second host starting and failing on the port.
+if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
+    Write-Host "Todo is already running on $url - opening a window on it." -ForegroundColor Cyan
+    Start-Process 'msedge.exe' -ArgumentList $window
+    exit 0
+}
+
+$hostProject = Join-Path $root 'src\Todo.Host'
+
+# A host running from the build folder on another port - the Photino app from before 2.0.0, which took
+# a random one - locks the files the build below has to write, and the build then fails with an
+# MSB3027 that names neither the cause nor the cure. Measured 2026-10-26. Named here instead.
+$buildFolder = Join-Path $hostProject 'bin\Release'
+$older = @(Get-Process -Name 'Todo.Host' -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -and $_.Path.StartsWith($buildFolder, [StringComparison]::OrdinalIgnoreCase) })
+if ($older.Count -gt 0) {
+    throw ("An older Todo is running from {0} (pid {1}). Close it and start Todo again." -f
+        $buildFolder, (($older | ForEach-Object { $_.Id }) -join ', '))
+}
+
+Write-Host 'Building Todo...' -ForegroundColor Cyan
+& dotnet build $hostProject -c Release --nologo -v quiet
+if ($LASTEXITCODE -ne 0) { throw "dotnet build failed ($LASTEXITCODE)" }
+
 Write-Host 'Starting Todo...' -ForegroundColor Cyan
 
 # The content root is named here because the default is the binary's own folder since slice 16, and
-# under "dotnet run" that folder is bin\Release\net10.0.
-#
-# What it does NOT do any more is find wwwroot: slice 16 embedded the frontend in the assembly, so
-# static files come from there whatever the content root says. This line stays because the content
-# root is also where the host would look for configuration files, and pointing it at the project is
-# the honest answer during development. A published exe needs no argument at all.
-$hostProject = Join-Path $root 'src\Todo.Host'
-& dotnet run --project $hostProject -c Release --no-launch-profile -- --contentRoot $hostProject @args
-exit $LASTEXITCODE
+# under "dotnet run" that folder is bin\Release\net10.0. It no longer finds wwwroot - the frontend is
+# embedded in the assembly - but it is where the host looks for configuration files, and pointing
+# it at the project is the honest answer during development.
+$server = Start-Process -FilePath 'dotnet' -NoNewWindow -PassThru -ArgumentList (@(
+    'run', '--project', $hostProject, '-c', 'Release', '--no-build', '--no-launch-profile', '--',
+    '--contentRoot', $hostProject, '--urls', $url.TrimEnd('/')) + $args)
+
+# curl.exe rather than Invoke-WebRequest: AMSI blocks Start-Process combined with Invoke-WebRequest
+# on this machine (CLAUDE.md, "Maskinen").
+$ready = $false
+foreach ($attempt in 1..120) {
+    Start-Sleep -Milliseconds 500
+    if ($server.HasExited) { exit $server.ExitCode }
+    $code = & curl.exe -s -o NUL -w '%{http_code}' "${url}api/health"
+    if ($code -eq '200') { $ready = $true; break }
+}
+if (-not $ready) { throw "Todo did not answer on ${url}api/health within a minute." }
+
+Start-Process 'msedge.exe' -ArgumentList $window
+Write-Host "Todo runs on $url - close this window to stop it." -ForegroundColor Cyan
+
+$server.WaitForExit()
+exit $server.ExitCode
