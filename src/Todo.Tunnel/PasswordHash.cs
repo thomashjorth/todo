@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Todo.Core.Auth;
+namespace Todo.Tunnel;
 
 /// <summary>
 /// The one password the app has, stored as PBKDF2-SHA256 in a string that carries its own iteration

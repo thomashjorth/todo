@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Todo.Contracts;
-using Todo.Core.Auth;
+using Todo.Tunnel;
 using Todo.Core.Persistence;
 using Todo.Core.Settings;
 using Todo.Core.Sources;

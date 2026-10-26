@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Todo.Core.Auth;
+using Todo.Tunnel;
 using Todo.Core.Errors;
 
 namespace Todo.Host.Auth;

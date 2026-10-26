@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Todo.Core.Auth;
 using Todo.Core.Settings;
 using Todo.Host.Helper;
 using Todo.Tunnel;

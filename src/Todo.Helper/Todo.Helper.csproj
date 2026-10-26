@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- The helper on the PC: it holds the Jira and Azure DevOps tokens, opens the tunnel out to the host
+       and makes the calls the host asks for. A web project for its local API on 127.0.0.1, which
+       delivery 5's microfrontend talks to. Windows only in practice - the tokens are kept with DPAPI. -->
+  <PropertyGroup>
+    <RootNamespace>Todo.Helper</RootNamespace>
+    <!-- Windows, said out loud rather than warned about four times: the tokens are kept with DPAPI,
+         which only Windows has, and the helper runs on the user's Windows PC. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Version>2.0.0</Version>
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Todo.Tunnel\Todo.Tunnel.csproj" />
+  </ItemGroup>
+</Project>

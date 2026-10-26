@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using Todo.Contracts;
-using Todo.Core.Auth;
 using Todo.Core.Errors;
 using Todo.TestSupport;
 using Todo.Tunnel;

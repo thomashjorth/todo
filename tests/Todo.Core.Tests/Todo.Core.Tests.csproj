@@ -14,6 +14,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Todo.Core\Todo.Core.csproj" />
+    <!-- PasswordHash lives there: the host and the helper both hash with it. -->
+    <ProjectReference Include="..\..\src\Todo.Tunnel\Todo.Tunnel.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Fixtures\retro-board.csv" CopyToOutputDirectory="PreserveNewest" />
