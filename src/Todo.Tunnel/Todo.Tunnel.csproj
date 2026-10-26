@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Todo.Tunnel</RootNamespace>
+  </PropertyGroup>
+  <!-- What the host and the helper say to each other, and nothing else: the helper must not drag EF
+       Core and the rest of Todo.Core along to learn the shape of four messages. -->
+</Project>
