@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Configuration;
 using Todo.Host;
+using Todo.Host.Auth;
 using Todo.TestSupport;
 
 namespace Todo.Api.Tests;
@@ -38,6 +40,29 @@ public class AuthConfigurationTests
         Assert.Throws<InvalidOperationException>(() => BuildWith("", databasePath));
 
         Assert.False(File.Exists(databasePath), $"The refused host created {databasePath}.");
+    }
+
+    // The default only the container relies on: every test host names its own keys path, so without
+    // this the folder the NAS keeps its login keys in would be measured by nothing but the probe.
+    [Fact]
+    public void The_keys_live_beside_the_database_when_no_path_is_named()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), "nas-data", "todo.db");
+        var configuration = new ConfigurationBuilder().Build();
+
+        Assert.Equal(
+            Path.Combine(Path.GetTempPath(), "nas-data", "keys"),
+            HostAuth.KeysPath(configuration, databasePath));
+    }
+
+    [Fact]
+    public void A_named_keys_path_wins_over_the_default()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { [HostAuth.KeysPathKey] = "/elsewhere" })
+            .Build();
+
+        Assert.Equal("/elsewhere", HostAuth.KeysPath(configuration, "/data/todo.db"));
     }
 
     private static void BuildWith(string passwordHash, string? databasePath = null) =>
