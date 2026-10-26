@@ -68,7 +68,8 @@ public class HostContentRootTests
 
         try
         {
-            await using var app = TodoHost.Build(["--Data:Path", databasePath, .. extraArgs]);
+            await using var app = TodoHost.Build(
+                ["--Data:Path", databasePath, "--Auth:PasswordHash", RunningHost.TestPasswordHash, .. extraArgs]);
 
             return app.Environment.ContentRootPath;
         }

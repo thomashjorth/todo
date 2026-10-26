@@ -11,6 +11,7 @@ using Todo.Core.Jira;
 using Todo.Core.Review;
 using Todo.Host.Ado;
 using Todo.Host.Ai;
+using Todo.Host.Auth;
 using Todo.Host.Endpoints;
 using Todo.Host.Jira;
 
@@ -49,6 +50,10 @@ public static class TodoHost
         {
             builder.WebHost.UseUrls("http://127.0.0.1:0");
         }
+
+        // Before anything touches the database: a host that is going to refuse to start must not
+        // migrate it or take a backup on the way.
+        var passwordHash = HostAuth.RequirePasswordHash(builder.Configuration);
 
         builder.Services.AddOpenApi();
 

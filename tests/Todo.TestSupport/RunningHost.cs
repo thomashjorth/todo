@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Todo.Core.Auth;
 using Todo.Core.Persistence;
 using Todo.Host;
 
@@ -29,6 +30,15 @@ public sealed class RunningHost : IAsyncDisposable
         _ownsDatabase = ownsDatabase;
         Client = new HttpClient { BaseAddress = new Uri(baseUrl) };
     }
+
+    /// <summary>The password every test host is started with.</summary>
+    public const string TestPassword = "test-password";
+
+    /// <summary>
+    /// One iteration rather than the app's 600,000: the hash format carries its own count, and a
+    /// suite that logs in once per host would otherwise spend most of a minute on key stretching.
+    /// </summary>
+    public static readonly string TestPasswordHash = PasswordHash.Create(TestPassword, iterations: 1);
 
     public string BaseUrl { get; }
 
@@ -86,6 +96,11 @@ public sealed class RunningHost : IAsyncDisposable
             "--urls", "http://127.0.0.1:0",
             "--contentRoot", RepoPaths.HostContentRoot,
             "--Data:Path", databasePath,
+
+            // Always given, never left to the environment: once the user has run SetPassword.cmd,
+            // their own Auth__PasswordHash is in every process this suite starts, and a host that
+            // read it would refuse the test password - on that machine only.
+            "--Auth:PasswordHash", TestPasswordHash,
 
             // Before extraArgs, so a test's own --Ai:BaseUrl wins: the command-line provider keeps
             // the last value for a repeated key.
