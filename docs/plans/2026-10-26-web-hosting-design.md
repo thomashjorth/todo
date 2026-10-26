@@ -80,6 +80,8 @@ Every connection therefore starts from the PC: out to Jira, ADO and Ollama, and 
 
 ## 6. Projects, container and deploy
 
+- **The web version is 2.0.0.** The desktop app it replaces is tagged `v1.16.0`, the number
+  `/api/health` reports for it, with a GitHub Release (the user's choice 2026-10-26).
 - **`Todo.Host` becomes a plain web server** for linux-x64: no Photino, no `ShellLinkLauncher`, no
   `WinExe`. It binds `http://0.0.0.0:8080` in the container.
 - **`Todo.Helper` is a new Windows project:** the tunnel client, the "Forbindelser" microfrontend, the
