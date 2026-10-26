@@ -110,10 +110,13 @@ Every connection therefore starts from the PC: out to Jira, ADO and Ollama, and 
 - **Photino goes.** The window is the browser's "Install as app" in Edge or Chrome: a window of its
   own, no address bar, an icon in the taskbar. Full installation needs HTTPS, which Tailscale can
   issue for the NAS; without it "Create shortcut → Open as window" still works.
-- **Links become plain links.** `/api/system/open-link`, `ShellLinkLauncher` and
-  `ErrorCodes.SystemUnsupportedScheme` leave; the seven call sites in the frontend become
-  `<a target="_blank" rel="noopener">`. The scheme check (http, https, mailto only) moves to where the
-  notes' links are rendered.
+- **Links open in the browser.** `/api/system/open-link`, `ShellLinkLauncher` and
+  `ErrorCodes.SystemUnsupportedScheme` leave. The seven call sites stay buttons and call
+  `window.open(url, '_blank', 'noopener')` through `SystemStore`, which keeps the scheme check (http,
+  https, mailto) in one place. A button rather than an anchor, because the app window has no address
+  bar and no back button either, so a navigation inside it is still one-way. The per-row open errors
+  on the Jira and ADO previews go: their URLs are built from base URLs that only accept http and
+  https, so the branch could no longer be reached. The note's error line stays.
 - **The Alt shortcuts stay.** What the browser's app window takes for itself is measured there, as
   `Alt+1`-`9` was measured in Photino.
 - **The data moves once:** checkpoint, then copy `todo.db` to the volume.
