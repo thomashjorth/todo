@@ -48,6 +48,7 @@ interface SettingsJson {
   adoWorkItemTypes?: string[];
   adoDefaultDeadlineDays?: number;
   hasAdoToken?: boolean;
+  helperOnline?: boolean;
   reviewWeekday?: number;
   reviewTimeOfDay?: string;
 }
@@ -75,6 +76,7 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       adoWorkItemTypes: ['Bug', 'User Story', 'Task'],
       adoDefaultDeadlineDays: 3,
       hasAdoToken: false,
+      helperOnline: true,
       // Friday at three, the two the read layer answers for an absent row. Both are
       // required on the response, so a fixture without them hands the store an
       // undefined the types say cannot happen - and nothing here type-checks that.
@@ -202,10 +204,10 @@ describe('SettingsStore', () => {
   });
 
   it('should keep every setting in the request so saving one does not clear another', async () => {
-    // The backend reads an absent field as "clear". SettingsStore.save must therefore carry all
-    // fourteen fields, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil to
-    // this. Fourteen and not fifteen: neither token is a field on this route, because a full
-    // replacement would wipe it on every other change.
+    // The backend reads an absent field as "clear". SettingsStore.save must therefore carry every
+    // field the route takes, exactly as TaskStore.update has to — slice 9 lost a stored DeferUntil
+    // to this. And not the two base URLs: they are set below and must stay out of the request,
+    // because the helper owns them and the route no longer takes them - toEqual is what says so.
     // Every pair is in here rather than in tests of their own: two tests each asserting half of the
     // request would both pass while the other half was dropped.
     const { store, http } = configure('da-DK');
@@ -233,13 +235,11 @@ describe('SettingsStore', () => {
     expect(JSON.parse(request.request.body)).toEqual({
       language: 'en',
       delegates: ['Mette Kirkegaard'],
-      jiraBaseUrl: 'https://jira.test',
       jiraProjectKey: 'SAAS',
       jiraWaitingStatuses: ['Afventer general'],
       jiraIncludeWaiting: true,
       jiraDutyStatuses: ['Afventer general', 'Afventer 2nd level'],
       jiraOnDuty: true,
-      adoBaseUrl: 'https://ado.test/Min%20Samling',
       adoProject: 'Saas',
       adoWaitingStates: ['Blocked', 'PO Review'],
       adoIncludeWaiting: true,
@@ -274,6 +274,16 @@ describe('SettingsStore', () => {
     expect(store.adoWaitingStates()).toEqual(['Blocked', 'PO Review']);
     expect(store.adoWorkItemTypes()).toEqual(['Bug']);
     expect(store.adoDefaultDeadlineDays()).toBe(7);
+  });
+
+  it('should read whether the helper on the PC is connected', async () => {
+    const { store, http } = configure('da-DK');
+
+    const started = store.start();
+    http.expectOne('/api/settings').flush(settingsJson({ helperOnline: false }));
+    await started;
+
+    expect(store.helperOnline()).toBe(false);
   });
 
   it('should read every Azure DevOps setting the server answers with', async () => {
@@ -374,12 +384,11 @@ describe('SettingsStore', () => {
   // A failed save of a Jira setting answers in the Jira group's line, not in the language group's.
   // A 500 rather than a coded refusal, and that is not laziness: PUT /api/settings validates four
   // things — the language, the delegate list, the ADO work item types and the ADO day count — and
-  // not one Jira field, so a transport failure is the only way this path fails today. The Jira
-  // group's coded refusals come from its token route, which is tested below.
+  // not one Jira field, so a transport failure is the only way this path fails today.
   it('should say a Jira setting could not be saved without touching the settings error', async () => {
     const { store, http } = configure('da-DK');
 
-    const saved = store.saveJira({ jiraBaseUrl: 'https://jira.test' });
+    const saved = store.saveJira({ jiraProjectKey: 'SAAS' });
     http
       .expectOne('/api/settings')
       .flush(new Blob(['boom']), { status: 500, statusText: 'Server Error' });
@@ -410,35 +419,6 @@ describe('SettingsStore', () => {
     );
     expect(store.error()).toBeNull();
     expect(store.delegatesError()).toBeNull();
-  });
-
-  it('should store an Azure DevOps token on its own route and report that there is one', async () => {
-    const { store, http } = configure('da-DK');
-
-    const saved = store.setAdoToken('et-personligt-adgangstoken');
-
-    const request = http.expectOne('/api/settings/ado-token');
-    expect(request.request.method).toBe('PUT');
-    expect(JSON.parse(request.request.body)).toEqual({ token: 'et-personligt-adgangstoken' });
-    request.flush(settingsJson({ hasAdoToken: true }));
-
-    expect(await saved).toBe(true);
-    expect(store.hasAdoToken()).toBe(true);
-    // Its own route, so the Jira token cannot have been touched on the way.
-    expect(store.hasJiraToken()).toBe(false);
-  });
-
-  it('should forget a stored Azure DevOps token', async () => {
-    const { store, http } = configure('da-DK');
-    store.hasAdoToken.set(true);
-
-    const cleared = store.clearAdoToken();
-    const request = http.expectOne('/api/settings/ado-token');
-    expect(request.request.method).toBe('DELETE');
-    request.flush(settingsJson({ hasAdoToken: false }));
-    await cleared;
-
-    expect(store.hasAdoToken()).toBe(false);
   });
 
   it('should send the whole delegate list and take the server list back', async () => {
@@ -497,93 +477,11 @@ describe('SettingsStore', () => {
     const request = http.expectOne('/api/settings');
     expect(JSON.parse(request.request.body)).toEqual({
       language: 'en',
-      jiraBaseUrl: 'https://jira.test',
       jiraProjectKey: 'SAAS',
     });
     request.flush(
       settingsJson({ language: 'en', jiraBaseUrl: 'https://jira.test', jiraProjectKey: 'SAAS' }),
     );
     await chosen;
-  });
-
-  it('should store a token and report that there is one, without echoing it', async () => {
-    const { store, http } = configure('da-DK');
-
-    const saved = store.setToken('  et-personligt-adgangstoken  ');
-
-    const request = http.expectOne('/api/settings/jira-token');
-    expect(request.request.method).toBe('PUT');
-    expect(JSON.parse(request.request.body)).toEqual({ token: '  et-personligt-adgangstoken  ' });
-    request.flush(settingsJson({ hasJiraToken: true }));
-
-    expect(await saved).toBe(true);
-    expect(store.hasJiraToken()).toBe(true);
-  });
-
-  it('should say why a blank token was refused, and report the failure to its caller', async () => {
-    const { store, http } = configure('da-DK');
-
-    const saved = store.setToken('   ');
-    http
-      .expectOne('/api/settings/jira-token')
-      .flush(
-        new Blob([JSON.stringify({ code: 'settings.emptyToken', message: 'A token cannot be' })]),
-        { status: 400, statusText: 'Bad Request' },
-      );
-
-    expect(await saved).toBe(false);
-    // The Jira group's own line, as Azure DevOps' token answers on the ADO group's: `error` is the
-    // language group's, and a message there is invisible once that group is folded shut.
-    expect(store.jiraError()).toBe('Tokenet må ikke være tomt.');
-    expect(store.error()).toBeNull();
-    expect(store.hasJiraToken()).toBe(false);
-  });
-
-  it('should forget a stored token', async () => {
-    const { store, http } = configure('da-DK');
-    store.hasJiraToken.set(true);
-
-    const cleared = store.clearToken();
-    const request = http.expectOne('/api/settings/jira-token');
-    expect(request.request.method).toBe('DELETE');
-    request.flush(settingsJson({ hasJiraToken: false }));
-    await cleared;
-
-    expect(store.hasJiraToken()).toBe(false);
-  });
-
-  it('should never hold either token in a signal', async () => {
-    // Both tokens are write-only: they go out through their own route and come back only as
-    // hasJiraToken and hasAdoToken. A signal holding one would put it in a component's template
-    // scope, and it would survive navigating away from the settings page.
-    const { store, http } = configure('da-DK');
-    const secret = 'det-her-maa-ikke-blive-liggende';
-    const adoSecret = 'og-det-her-heller-ikke';
-
-    const saved = store.setToken(secret);
-    http.expectOne('/api/settings/jira-token').flush(settingsJson({ hasJiraToken: true }));
-    await saved;
-
-    const savedAdo = store.setAdoToken(adoSecret);
-    http.expectOne('/api/settings/ado-token').flush(settingsJson({ hasAdoToken: true }));
-    await savedAdo;
-
-    // Names first, so a field called `jiraToken` is caught even before anything is written to it.
-    // In declaration order, which is the order Object.keys answers in.
-    const own = Object.keys(store);
-    expect(own.filter((key) => /token/i.test(key))).toEqual(['hasJiraToken', 'hasAdoToken']);
-
-    // And then the values, because the name guard on its own is dodged by calling the field
-    // something else. Methods live on the prototype, so the only own properties that are
-    // functions here are the signals — calling them has no side effect.
-    const holding = Object.entries(store as unknown as Record<string, unknown>)
-      .filter(([, value]) => typeof value === 'function')
-      .filter(([, value]) => {
-        const held = JSON.stringify((value as () => unknown)() ?? null);
-        return held.includes(secret) || held.includes(adoSecret);
-      })
-      .map(([key]) => key);
-
-    expect(holding).toEqual([]);
   });
 });

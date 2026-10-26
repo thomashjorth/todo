@@ -52,15 +52,6 @@ export class Settings {
   protected readonly weekdays = [0, 1, 2, 3, 4, 5, 6];
 
   /**
-   * The token being typed. It lives here rather than in the store on purpose: a store is a
-   * singleton, so a token left in one would survive navigating away from this page.
-   */
-  protected readonly token = signal('');
-
-  /** The Azure DevOps token being typed, its own field for the same reason and never mixed in. */
-  protected readonly adoToken = signal('');
-
-  /**
    * Which group is unfolded, where `null` — nothing open — is both the state the page arrives in
    * and a state a click can return to, as an accordion's own convention has it.
    *
@@ -230,26 +221,8 @@ export class Settings {
     void this.settings.saveDelegates(this.settings.delegates().filter((d) => d !== name));
   }
 
-  protected saveBaseUrl(value: string): void {
-    void this.settings.saveJira({ jiraBaseUrl: value });
-  }
-
   protected saveProjectKey(value: string): void {
     void this.settings.saveJira({ jiraProjectKey: value });
-  }
-
-  /**
-   * The blank check is the server's, not this method's: it is the only validation there is, and a
-   * button that quietly does nothing teaches the user less than the answer does.
-   */
-  protected async storeToken(): Promise<void> {
-    if (await this.settings.setToken(this.token())) {
-      this.token.set('');
-    }
-  }
-
-  protected clearToken(): void {
-    void this.settings.clearToken();
   }
 
   protected isWaiting(status: string): boolean {
@@ -305,23 +278,8 @@ export class Settings {
     });
   }
 
-  protected saveAdoBaseUrl(value: string): void {
-    void this.settings.saveAdo({ adoBaseUrl: value });
-  }
-
   protected saveAdoProject(value: string): void {
     void this.settings.saveAdo({ adoProject: value });
-  }
-
-  /** The blank check is the server's, as it is for Jira's token: the answer teaches more. */
-  protected async storeAdoToken(): Promise<void> {
-    if (await this.settings.setAdoToken(this.adoToken())) {
-      this.adoToken.set('');
-    }
-  }
-
-  protected clearAdoToken(): void {
-    void this.settings.clearAdoToken();
   }
 
   protected isWaitingState(state: string): boolean {

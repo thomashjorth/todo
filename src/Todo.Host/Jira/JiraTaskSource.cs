@@ -560,8 +560,13 @@ public sealed partial class JiraTaskSource : ITaskSource
         using var request = new HttpRequestMessage(HttpMethod.Get, UriFor(settings, path, query));
 
         // Per request rather than on the client. The client is shared and long-lived, so a header
-        // set on it would outlive a token the user has since cleared.
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.Token);
+        // set on it would outlive a token the user has since cleared. And only when this process holds
+        // the token: on the NAS it does not, and the helper on the PC puts it on the call instead -
+        // an empty "Bearer" from here would only be something for the helper to strip.
+        if (settings.Token is { } token)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
 
         HttpResponseMessage response;
 

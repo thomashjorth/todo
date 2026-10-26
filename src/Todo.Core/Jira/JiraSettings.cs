@@ -2,8 +2,9 @@ namespace Todo.Core.Jira;
 
 /// <summary>
 /// What the app needs to talk to one Jira. The token is in here because the caller is server-side
-/// only; it must never be put on a contract type. See the design document's section 3 on why it is
-/// stored in cleartext.
+/// only; it must never be put on a contract type. From 2.0.0 it is never stored by the host: it comes
+/// from <see cref="Sources.ISourceConnections"/>, and on the NAS it is null because the helper on the
+/// PC puts it on each call (docs/plans/2026-10-26-web-hosting-design.md, section 3).
 /// </summary>
 public sealed record JiraSettings(
     string? BaseUrl,
@@ -20,7 +21,11 @@ public sealed record JiraSettings(
     // A third list, and the only one without a switch beside it. Waiting and duty both decide what
     // comes back or what is imported, so each needs an opt-in; doneness only ever offers. An empty
     // list is valid and means no suggestions.
-    IReadOnlyList<string> DoneStatuses)
+    IReadOnlyList<string> DoneStatuses,
+    // True when the helper puts the token on each call, so Token is null here and the source still
+    // counts as set up. Last and defaulted, so the tests' fakes - which hand a token over directly -
+    // build the record as before.
+    bool AuthorizedElsewhere = false)
 {
     /// <summary>
     /// The base URL as something that can actually be called, or null. One spelling shared with
@@ -42,7 +47,8 @@ public sealed record JiraSettings(
     /// scheme is checked too, because <c>javascript:alert(1)</c> and <c>file:///c:/temp</c> are both
     /// absolute URIs.
     /// </summary>
-    public bool IsConfigured => BaseUri is not null && !string.IsNullOrWhiteSpace(Token);
+    public bool IsConfigured =>
+        BaseUri is not null && (!string.IsNullOrWhiteSpace(Token) || AuthorizedElsewhere);
 
     /// <summary>
     /// Where the source system shows an item, computed rather than stored. The trailing slash is

@@ -151,7 +151,7 @@ describe('JiraStore', () => {
 
     expect(store.statuses()).toEqual([]);
     expect(store.error()).toBe(
-      'Jira er ikke sat op. Udfyld basisURL, projektnøgle og token under Indstillinger.',
+      'Jira er ikke sat op. Giv hjælperen basisURL og token, og udfyld projektnøglen under Indstillinger.',
     );
   });
 

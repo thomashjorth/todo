@@ -61,7 +61,6 @@ public class AdoEndpointsTests : ApiTest
         await Host.ConnectAdoAsync(ado.BaseUrl, FakeAdo.Token);
         await Host.Client.PutAsJsonAsync("/api/settings", new
         {
-            adoBaseUrl = ado.BaseUrl,
             adoProject = project,
             adoWaitingStates = waitingStates ?? ["Blocked"],
             adoDoneStates = doneStates ?? [],
@@ -1456,7 +1455,6 @@ public class AdoEndpointsTests : ApiTest
     {
         var response = await Host.Client.PutAsJsonAsync("/api/settings", new
         {
-            adoBaseUrl = ado.BaseUrl,
             adoProject = FakeAdo.Project,
             adoWaitingStates = new[] { "Blocked" },
             adoDoneStates = Array.Empty<string>(),

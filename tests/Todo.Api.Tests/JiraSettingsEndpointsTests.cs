@@ -10,27 +10,20 @@ public class JiraSettingsEndpointsTests : ApiTest
     private const string Token = "a-secret-that-must-not-come-back";
 
     /// <summary>
-    /// The whole reason the token has its own endpoint. This asserts on the raw response body
-    /// rather than on a deserialised field, because a leak could arrive under any property name —
-    /// including one the contract does not declare and the generated client would drop silently.
+    /// The host holds a token only in the tests, where the fake hands it over - and even then it must
+    /// not reach a response. Asserted on the raw body rather than on a deserialised field, because a
+    /// leak could arrive under any property name, including one the contract does not declare and the
+    /// generated client would drop silently.
     /// </summary>
     [Fact]
-    public async Task The_token_never_comes_back_out_of_the_api()
+    public async Task A_token_the_host_holds_never_comes_back_out_of_the_api()
     {
-        var stored = await Host.Client.PutAsJsonAsync(
-            "/api/settings/jira-token", new { token = Token });
-
-        // Without this the guard passes on a token that was never stored: a route answering 400
-        // would leave it looking for a string the system does not have. Assert the precondition,
-        // then assert the absence.
-        stored.EnsureSuccessStatusCode();
-
-        Assert.True(
-            (await stored.Content.ReadFromJsonAsync<SettingsBody>())!.HasJiraToken,
-            "The token was not stored, so the leak assertion below would prove nothing.");
+        await Host.ConnectJiraAsync("https://jira.example.invalid", Token);
 
         var body = await Host.Client.GetStringAsync("/api/settings");
 
+        // Without this the guard passes on a token that was never there.
+        Assert.Contains("\"hasJiraToken\":true", body, StringComparison.Ordinal);
         Assert.DoesNotContain(Token, body, StringComparison.Ordinal);
     }
 
@@ -70,9 +63,8 @@ public class JiraSettingsEndpointsTests : ApiTest
             }
 
             // Without this the sweep above proves nothing: a walker that found no properties at
-            // all would run zero assertions and pass. These two are the token-named properties
-            // both documents are known to have.
-            Assert.Contains("token", visited);
+            // all would run zero assertions and pass. This is the token-named property both
+            // documents are known to have, now that the token routes and their request bodies are gone.
             Assert.Contains("hasJiraToken", visited);
 
             // The structural half. Whether a token exists is a boolean; a token is a string. Any
@@ -95,53 +87,44 @@ public class JiraSettingsEndpointsTests : ApiTest
         }
     }
 
+    /// <summary>
+    /// Whether calls will carry a token is the helper's to say, and the settings carry its word: the
+    /// host never stores one, so there is nothing of its own to count.
+    /// </summary>
     [Fact]
-    public async Task Storing_a_token_shows_up_as_having_one()
+    public async Task Having_a_token_follows_what_the_helper_says_it_holds()
     {
         var before = await Host.Client.GetFromJsonAsync<SettingsBody>("/api/settings");
 
         Assert.False(before!.HasJiraToken);
 
-        var response = await Host.Client.PutAsJsonAsync("/api/settings/jira-token", new { token = Token });
+        Host.Connections.Jira = new(Token: null, AuthorizedElsewhere: true);
 
-        response.EnsureSuccessStatusCode();
-
-        var after = await response.Content.ReadFromJsonAsync<SettingsBody>();
+        var after = await Host.Client.GetFromJsonAsync<SettingsBody>("/api/settings");
 
         Assert.True(after!.HasJiraToken);
     }
 
     [Fact]
-    public async Task Clearing_the_token_removes_it()
+    public async Task The_settings_say_whether_the_helper_is_connected()
     {
-        await Host.Client.PutAsJsonAsync("/api/settings/jira-token", new { token = Token });
+        Assert.True((await Host.Client.GetFromJsonAsync<SettingsBody>("/api/settings"))!.HelperOnline);
 
-        var response = await Host.Client.DeleteAsync("/api/settings/jira-token");
+        Host.Connections.Online = false;
 
-        response.EnsureSuccessStatusCode();
-
-        var after = await response.Content.ReadFromJsonAsync<SettingsBody>();
-
-        Assert.False(after!.HasJiraToken);
-    }
-
-    [Fact]
-    public async Task An_empty_token_is_rejected_rather_than_stored_as_blank()
-    {
-        var response = await Host.Client.PutAsJsonAsync("/api/settings/jira-token", new { token = "  " });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False((await Host.Client.GetFromJsonAsync<SettingsBody>("/api/settings"))!.HelperOnline);
     }
 
     /// <summary>
-    /// The regression this slice's own convention warns about. PUT /api/settings is a full
-    /// replacement — an absent field means clear — so a settings save must not be able to reach
-    /// the token. Slice 9 lost a stored DeferUntil to exactly this shape of bug.
+    /// The regression this slice's own convention warns about, moved one field over. PUT
+    /// /api/settings is a full replacement - an absent field means clear - and until 2.0.0 it wrote
+    /// the base URL. Now the helper's hello writes it, so a save from the settings page must leave it
+    /// alone; a field quietly dropped from the contract would otherwise turn every save into a clear.
     /// </summary>
     [Fact]
-    public async Task Saving_the_other_settings_does_not_clear_the_token()
+    public async Task Saving_the_settings_keeps_the_base_url_the_helper_reported()
     {
-        await Host.Client.PutAsJsonAsync("/api/settings/jira-token", new { token = Token });
+        await Host.ConnectJiraAsync("https://jira.example.invalid", Token);
 
         var response = await Host.Client.PutAsJsonAsync(
             "/api/settings", new { language = "en", jiraProjectKey = "SAAS" });
@@ -150,7 +133,7 @@ public class JiraSettingsEndpointsTests : ApiTest
 
         var after = await response.Content.ReadFromJsonAsync<SettingsBody>();
 
-        Assert.True(after!.HasJiraToken);
+        Assert.Equal("https://jira.example.invalid", after!.JiraBaseUrl);
         Assert.Equal("SAAS", after.JiraProjectKey);
     }
 
@@ -266,26 +249,6 @@ public class JiraSettingsEndpointsTests : ApiTest
     }
 
     /// <summary>
-    /// The other of the two layers of trailing-slash trimming, and the one that decides what is
-    /// stored — nothing set jiraBaseUrl through the API before this, so neither layer was measured.
-    /// Read through GET rather than off the request's own response, so this says the slash is gone
-    /// from the database and not merely from one reply. The layer in JiraSettings.BrowseUrl has its
-    /// own test in Todo.Core.Tests; see the note there on why both are kept.
-    /// </summary>
-    [Fact]
-    public async Task A_trailing_slash_is_trimmed_off_the_base_url()
-    {
-        var response = await Host.Client.PutAsJsonAsync(
-            "/api/settings", new { jiraBaseUrl = "https://jira.example.invalid/" });
-
-        response.EnsureSuccessStatusCode();
-
-        var stored = await Host.Client.GetFromJsonAsync<SettingsBody>("/api/settings");
-
-        Assert.Equal("https://jira.example.invalid", stored!.JiraBaseUrl);
-    }
-
-    /// <summary>
     /// JiraSettingsReader reads the waiting list out of one row of JSON and falls back to an empty
     /// list when that row will not parse. Task 3 left the fallback untested because it cannot be
     /// reached through the API — the writer always serialises a real array — so the only way in is
@@ -396,5 +359,6 @@ public class JiraSettingsEndpointsTests : ApiTest
         bool JiraIncludeWaiting,
         string[] JiraDutyStatuses,
         bool JiraOnDuty,
-        bool HasJiraToken);
+        bool HasJiraToken,
+        bool HelperOnline);
 }

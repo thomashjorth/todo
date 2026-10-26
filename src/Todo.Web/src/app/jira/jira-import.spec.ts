@@ -73,6 +73,7 @@ function configure(onDuty = false): void {
   settings.jiraBaseUrl.set('https://jira.test');
   settings.jiraProjectKey.set('SAAS');
   settings.hasJiraToken.set(true);
+  settings.helperOnline.set(true);
   settings.jiraOnDuty.set(onDuty);
 }
 
@@ -141,7 +142,21 @@ describe('JiraImport', () => {
   // A spy on window.open must not outlive the test that made it, failed or not.
   afterEach(() => vi.restoreAllMocks());
 
+  // Before "not set up", and instead of it: with the helper away nothing reaches Jira however well it
+  // is set up, so the settings link would send the user to a page with nothing to fix.
+  it('should say the helper is not connected before it says Jira is not set up', () => {
+    const { element, http } = open();
+
+    expect(element.querySelector('[data-testid="jira-helper-offline"]')!.textContent!.trim()).toBe(
+      'Hjælperen på din PC er ikke forbundet, så der er ingen sager at hente.',
+    );
+    expect(element.querySelector('[data-testid="jira-not-configured"]')).toBeNull();
+    expect(element.querySelector('[data-testid="jira-preview"]')).toBeNull();
+    http.verify();
+  });
+
   it('should say that Jira is not set up and point at the settings page', () => {
+    TestBed.inject(SettingsStore).helperOnline.set(true);
     const { element, http } = open();
 
     expect(element.querySelector('[data-testid="jira-not-configured"]')!.textContent).toContain(

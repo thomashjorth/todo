@@ -2,10 +2,16 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Todo.Core.Persistence;
 using Todo.Core.Settings;
+using Todo.Core.Sources;
 
 namespace Todo.Core.Ado;
 
-public sealed class AdoSettingsReader(TodoDbContext db)
+/// <summary>
+/// The Azure DevOps settings from the database - the collection URL among them, which the helper's
+/// hello writes - and the credentials from <see cref="ISourceConnections"/>, which never come from the
+/// database.
+/// </summary>
+public sealed class AdoSettingsReader(TodoDbContext db, ISourceConnections connections)
 {
     public async Task<AdoSettings> ReadAsync(CancellationToken ct = default)
     {
@@ -16,7 +22,7 @@ public sealed class AdoSettingsReader(TodoDbContext db)
         return new AdoSettings(
             BaseUrl: Value(rows, SettingKeys.AdoBaseUrl),
             Project: Value(rows, SettingKeys.AdoProject),
-            Token: Value(rows, SettingKeys.AdoToken),
+            Token: connections.Ado.Token,
             WaitingStates: SettingList.Read(Value(rows, SettingKeys.AdoWaitingStates)),
             // Asymmetric on purpose, and the asymmetry is the writer's: SettingsEndpoints stores on as
             // a row and off as no row at all, because two tests there assert about the whole Settings
@@ -29,7 +35,8 @@ public sealed class AdoSettingsReader(TodoDbContext db)
             // fall back to and nothing is lost by a corrupt row beyond the offer itself.
             DoneStates: SettingList.Read(Value(rows, SettingKeys.AdoDoneStates)),
             WorkItemTypes: WorkItemTypes(Value(rows, SettingKeys.AdoWorkItemTypes)),
-            DefaultDeadlineDays: DeadlineDays(Value(rows, SettingKeys.AdoDefaultDeadlineDays)));
+            DefaultDeadlineDays: DeadlineDays(Value(rows, SettingKeys.AdoDefaultDeadlineDays)),
+            AuthorizedElsewhere: connections.Ado.AuthorizedElsewhere);
     }
 
     /// <summary>

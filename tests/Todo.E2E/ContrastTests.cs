@@ -951,21 +951,39 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             .ToHaveTextAsync("Sæt Jira op under Indstillinger");
         await Snapshot();
 
-        // The token is stored through the page rather than seeded, because storing it is what puts
-        // the "a token is held" line and the Clear button on screen — two branches of their own.
+        // The token is the helper's, so the group shows a line about the connection rather than a
+        // field. First with no token reported - the branch the user meets before the helper has one.
         var settings = await jira.GoToSettings();
 
-        // The group's own red line first, because storing a real token below is what clears it. It
-        // is the only branch here nothing else paints, and there is exactly one way in: the token
-        // route refuses a blank one, while PUT /api/settings validates no Jira field at all.
         await settings.OpenAsync(SettingsScreen.JiraSection);
-        await settings.SaveJiraToken.ClickAsync();
-        await Assertions.Expect(settings.JiraSettingsError).ToContainTextAsync("må ikke være tomt");
+        await Assertions.Expect(settings.JiraHelperConnection)
+            .ToHaveTextAsync("Hjælperen har ingen Jira-adresse og token endnu.");
         await Snapshot();
 
-        await settings.StoreJiraTokenAsync("not-a-real-token");
-        await Assertions.Expect(settings.JiraTokenStored).ToContainTextAsync("aldrig");
-        await Assertions.Expect(settings.ClearJiraToken).ToHaveTextAsync("Ryd token");
+        // The group's own red line. Only a failed save paints it now - PUT /api/settings validates no
+        // Jira field, and the blank token that used to be the way in left with the token route - so
+        // the save is refused here, once, and let through again straight after.
+        await App.Page.RouteAsync("**/api/settings", route => route.Request.Method == "PUT"
+            ? route.FulfillAsync(new() { Status = 500, Body = "boom" })
+            : route.ContinueAsync());
+        // A different key than the stored one: the field saves on change, and change only fires when
+        // the value did change. The refused save leaves the stored one in place for the screens after.
+        await settings.JiraProjectKey.FillAsync($"{JiraProjectKey}X");
+        await settings.JiraProjectKey.PressAsync("Tab");
+        await Assertions.Expect(settings.JiraSettingsError).ToContainTextAsync("Noget gik galt");
+        await Snapshot();
+        await App.Page.UnrouteAsync("**/api/settings");
+
+        // The helper reports a token, and the app reads the settings again on the next start - a
+        // reload, as the user would see it. The connected line is the third branch.
+        Host.Connections.Jira = new(Token: null, AuthorizedElsewhere: true);
+        await App.Page.ReloadAsync();
+        settings = new SettingsScreen(App);
+        await settings.WaitUntilShownAsync();
+
+        await settings.OpenAsync(SettingsScreen.JiraSection);
+        await Assertions.Expect(settings.JiraHelperConnection)
+            .ToHaveTextAsync($"Forbundet til {JiraBaseUrl} gennem hjælperen.");
         await Snapshot();
 
         await settings.TestJiraConnection.ClickAsync();
@@ -1196,13 +1214,24 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             .ToHaveTextAsync("Sæt Azure DevOps op under Indstillinger");
         await Snapshot();
 
-        // The token is stored through the page rather than seeded, because storing it is what puts the
-        // "a token is held" line and the Clear button on screen — two branches of their own.
+        // The token is the helper's, so the group shows a line about the connection rather than a
+        // field: first with none reported, then - after the helper reports one and the app reads the
+        // settings again - connected. Two branches of their own.
         var settings = await ado.GoToSettings();
 
-        await settings.StoreAdoTokenAsync("not-a-real-token");
-        await Assertions.Expect(settings.AdoTokenStored).ToContainTextAsync("aldrig");
-        await Assertions.Expect(settings.ClearAdoToken).ToHaveTextAsync("Ryd token");
+        await settings.OpenAsync(SettingsScreen.AdoSection);
+        await Assertions.Expect(settings.AdoHelperConnection)
+            .ToHaveTextAsync("Hjælperen har ingen samlings-URL og token endnu.");
+        await Snapshot();
+
+        Host.Connections.Ado = new(Token: null, AuthorizedElsewhere: true);
+        await App.Page.ReloadAsync();
+        settings = new SettingsScreen(App);
+        await settings.WaitUntilShownAsync();
+
+        await settings.OpenAsync(SettingsScreen.AdoSection);
+        await Assertions.Expect(settings.AdoHelperConnection)
+            .ToHaveTextAsync($"Forbundet til {AdoBaseUrl} gennem hjælperen.");
         await Snapshot();
 
         // A refused connection first, because that is the store's own red line — and the successful
@@ -1232,8 +1261,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         // that leaves the row where it is, so it is pressed directly rather than through the helper
         // that waits for the row to go.
         //
-        // This is the last thing done to the settings on purpose: every other saveAdo call, and storing
-        // a token, clears adoError on its way out.
+        // This is the last thing done to the settings on purpose: every other saveAdo call clears
+        // adoError on its way out.
         await settings.RemoveWorkItemTypeAsync("Bug");
         await settings.RemoveWorkItemTypeAsync("User Story");
 

@@ -2,13 +2,7 @@ import { Injectable, WritableSignal, inject, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../api/api-error-message';
-import {
-  AdoTokenRequest,
-  JiraTokenRequest,
-  SettingsClient,
-  SettingsRequest,
-  SettingsResponse,
-} from '../api/todo-client';
+import { SettingsClient, SettingsRequest, SettingsResponse } from '../api/todo-client';
 import { resolveLanguage } from '../i18n/resolve-language';
 import { SYSTEM_LANGUAGE } from '../i18n/system-language';
 
@@ -19,14 +13,12 @@ import { SYSTEM_LANGUAGE } from '../i18n/system-language';
 export interface SettingsChanges {
   language?: string | null;
   delegates?: readonly string[];
-  jiraBaseUrl?: string | null;
   jiraProjectKey?: string | null;
   jiraWaitingStatuses?: readonly string[];
   jiraIncludeWaiting?: boolean;
   jiraDutyStatuses?: readonly string[];
   jiraOnDuty?: boolean;
   jiraDoneStatuses?: readonly string[];
-  adoBaseUrl?: string | null;
   adoProject?: string | null;
   adoWaitingStates?: readonly string[];
   adoDoneStates?: readonly string[];
@@ -99,12 +91,15 @@ export class SettingsStore {
   readonly jiraDoneStatuses = signal<string[]>([]);
 
   /**
-   * Whether a token is stored. There is deliberately no signal for the token itself: it is
-   * write-only, and one held here would sit in every template's scope and outlive the page.
+   * Whether calls to Jira will carry a token - the helper's, on the PC. There is no signal for the
+   * token itself: from 2.0.0 the app never has one, and it is typed into the helper instead.
    */
   readonly hasJiraToken = signal(false);
 
-  /** The Azure DevOps collection URL, which may carry a `%20` for a space in the collection name. */
+  /**
+   * The Azure DevOps collection URL, which may carry a `%20` for a space in the collection name.
+   * Read-only here, like Jira's: the helper reports both when it connects.
+   */
   readonly adoBaseUrl = signal<string | null>(null);
   readonly adoProject = signal<string | null>(null);
 
@@ -135,6 +130,12 @@ export class SettingsStore {
 
   readonly hasAdoToken = signal(false);
 
+  /**
+   * Whether the helper on the PC is connected. Without it nothing reaches Jira, Azure DevOps or the
+   * AI model, and the base URLs above are the last ones it reported.
+   */
+  readonly helperOnline = signal(false);
+
   /** The weekday the weekly review is suggested on, 0 = Sunday. */
   readonly reviewWeekday = signal(defaultWeekday);
 
@@ -160,19 +161,17 @@ export class SettingsStore {
 
   /**
    * The Jira group's own message. The group went without one until the groups could fold: `error`
-   * is written by every save, so a refused base URL, project key, status list or token landed on
-   * the line above the language select — visible, but a screen away from the field that caused it.
-   * Once a group can be folded shut that stops being merely wrong and becomes silent, which is the
-   * same failure the user reported about Test connection. The token routes answer in here too, as
-   * Azure DevOps' do: the field sits in this group.
+   * is written by every save, so a refused project key or status list landed on the line above the
+   * language select — visible, but a screen away from the field that caused it. Once a group can be
+   * folded shut that stops being merely wrong and becomes silent, which is the same failure the user
+   * reported about Test connection.
    */
   readonly jiraError = signal<string | null>(null);
 
   /**
    * The Azure DevOps group's own message, for the same reason the delegate list has one: `error` is
    * written by every save, so a refused work item type shown there would also appear above the
-   * language select the next time a language was chosen. The token routes answer in here too - the
-   * token field sits in that group, and that is where its refusal has to land.
+   * language select the next time a language was chosen.
    */
   readonly adoError = signal<string | null>(null);
 
@@ -245,14 +244,12 @@ export class SettingsStore {
     const next: SettingsChanges = {
       language: this.language(),
       delegates: this.delegates(),
-      jiraBaseUrl: this.jiraBaseUrl(),
       jiraProjectKey: this.jiraProjectKey(),
       jiraWaitingStatuses: this.jiraWaitingStatuses(),
       jiraIncludeWaiting: this.jiraIncludeWaiting(),
       jiraDutyStatuses: this.jiraDutyStatuses(),
       jiraOnDuty: this.jiraOnDuty(),
       jiraDoneStatuses: this.jiraDoneStatuses(),
-      adoBaseUrl: this.adoBaseUrl(),
       adoProject: this.adoProject(),
       adoWaitingStates: this.adoWaitingStates(),
       adoDoneStates: this.adoDoneStates(),
@@ -274,7 +271,6 @@ export class SettingsStore {
     const request = new SettingsRequest({
       language: blank(next.language),
       delegates: delegates.length === 0 ? undefined : delegates,
-      jiraBaseUrl: blank(next.jiraBaseUrl),
       jiraProjectKey: blank(next.jiraProjectKey),
       jiraWaitingStatuses: waiting.length === 0 ? undefined : waiting,
       jiraIncludeWaiting: next.jiraIncludeWaiting === true ? true : undefined,
@@ -283,7 +279,6 @@ export class SettingsStore {
       // Empty is how the wire spells cleared, the same as the two lists above and unlike
       // adoWorkItemTypes, where absent restores a default.
       jiraDoneStatuses: doneStatuses.length === 0 ? undefined : doneStatuses,
-      adoBaseUrl: blank(next.adoBaseUrl),
       adoProject: blank(next.adoProject),
       adoWaitingStates: states.length === 0 ? undefined : states,
       adoDoneStates: doneStates.length === 0 ? undefined : doneStates,
@@ -315,57 +310,7 @@ export class SettingsStore {
     }
   }
 
-  /**
-   * Answers whether the token was stored, because the caller has to clear its own field and the
-   * store cannot do it: the value never comes in here.
-   */
-  async setToken(token: string): Promise<boolean> {
-    this.jiraError.set(null);
-    try {
-      this.read(await firstValueFrom(this.client.setJiraToken(new JiraTokenRequest({ token }))));
-      return true;
-    } catch (error) {
-      this.jiraError.set(apiErrorMessage(this.transloco, error));
-      return false;
-    }
-  }
-
-  async clearToken(): Promise<void> {
-    this.jiraError.set(null);
-    try {
-      this.read(await firstValueFrom(this.client.clearJiraToken()));
-    } catch (error) {
-      this.jiraError.set(apiErrorMessage(this.transloco, error));
-    }
-  }
-
-  /**
-   * The Azure DevOps token, on its own route for the same reason Jira's is: PUT /api/settings is a
-   * full replacement that reads an absent field as "clear", so a token on it would be wiped by every
-   * other change. Written out again rather than shared with the Jira pair - the two call different
-   * generated methods, and a shared one would take the route as a parameter.
-   */
-  async setAdoToken(token: string): Promise<boolean> {
-    this.adoError.set(null);
-    try {
-      this.read(await firstValueFrom(this.client.setAdoToken(new AdoTokenRequest({ token }))));
-      return true;
-    } catch (error) {
-      this.adoError.set(apiErrorMessage(this.transloco, error));
-      return false;
-    }
-  }
-
-  async clearAdoToken(): Promise<void> {
-    this.adoError.set(null);
-    try {
-      this.read(await firstValueFrom(this.client.clearAdoToken()));
-    } catch (error) {
-      this.adoError.set(apiErrorMessage(this.transloco, error));
-    }
-  }
-
-  /** All six routes answer with the whole settings shape, so all six are read the same way. */
+  /** Both routes answer with the whole settings shape, so both are read the same way. */
   private read(response: SettingsResponse): void {
     this.language.set(response.language ?? null);
     this.delegates.set(response.delegates);
@@ -385,6 +330,7 @@ export class SettingsStore {
     this.adoWorkItemTypes.set(response.adoWorkItemTypes);
     this.adoDefaultDeadlineDays.set(response.adoDefaultDeadlineDays);
     this.hasAdoToken.set(response.hasAdoToken);
+    this.helperOnline.set(response.helperOnline);
     this.reviewWeekday.set(response.reviewWeekday);
     this.reviewTimeOfDay.set(response.reviewTimeOfDay);
   }

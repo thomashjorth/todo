@@ -1114,236 +1114,6 @@ export class SettingsClient {
         }
         return _observableOf(null as any);
     }
-
-    /**
-     * Stores the Jira personal access token the import authenticates with.
-     * @return The token was stored.
-     */
-    setJiraToken(body: JiraTokenRequest): Observable<SettingsResponse> {
-        let url_ = this.baseUrl + "/api/settings/jira-token";
-        url_ = url_.replace(/[?&]$/, "");
-
-        const content_ = JSON.stringify(body);
-
-        let options_ : any = {
-            body: content_,
-            observe: "response",
-            responseType: "blob",
-            headers: new HttpHeaders({
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            })
-        };
-
-        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processSetJiraToken(response_);
-        })).pipe(_observableCatch((response_: any) => {
-            if (response_ instanceof HttpResponseBase) {
-                try {
-                    return this.processSetJiraToken(response_ as any);
-                } catch (e) {
-                    return _observableThrow(e) as any as Observable<SettingsResponse>;
-                }
-            } else
-                return _observableThrow(response_) as any as Observable<SettingsResponse>;
-        }));
-    }
-
-    protected processSetJiraToken(response: HttpResponseBase): Observable<SettingsResponse> {
-        const status = response.status;
-        const responseBlob =
-            response instanceof HttpResponse ? response.body :
-            (response as any).error instanceof Blob ? (response as any).error : undefined;
-
-        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
-        if (status === 200) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result200: any = null;
-            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result200 = SettingsResponse.fromJS(resultData200);
-            return _observableOf(result200);
-            }));
-        } else if (status === 400) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result400: any = null;
-            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result400 = ApiError.fromJS(resultData400);
-            return throwException("The token was empty.", status, _responseText, _headers, result400);
-            }));
-        } else if (status !== 200 && status !== 204) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            }));
-        }
-        return _observableOf(null as any);
-    }
-
-    /**
-     * Forgets the stored Jira token.
-     * @return The token was removed.
-     */
-    clearJiraToken(): Observable<SettingsResponse> {
-        let url_ = this.baseUrl + "/api/settings/jira-token";
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_ : any = {
-            observe: "response",
-            responseType: "blob",
-            headers: new HttpHeaders({
-                "Accept": "application/json"
-            })
-        };
-
-        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processClearJiraToken(response_);
-        })).pipe(_observableCatch((response_: any) => {
-            if (response_ instanceof HttpResponseBase) {
-                try {
-                    return this.processClearJiraToken(response_ as any);
-                } catch (e) {
-                    return _observableThrow(e) as any as Observable<SettingsResponse>;
-                }
-            } else
-                return _observableThrow(response_) as any as Observable<SettingsResponse>;
-        }));
-    }
-
-    protected processClearJiraToken(response: HttpResponseBase): Observable<SettingsResponse> {
-        const status = response.status;
-        const responseBlob =
-            response instanceof HttpResponse ? response.body :
-            (response as any).error instanceof Blob ? (response as any).error : undefined;
-
-        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
-        if (status === 200) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result200: any = null;
-            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result200 = SettingsResponse.fromJS(resultData200);
-            return _observableOf(result200);
-            }));
-        } else if (status !== 200 && status !== 204) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            }));
-        }
-        return _observableOf(null as any);
-    }
-
-    /**
-     * Stores the Azure DevOps personal access token the import authenticates with.
-     * @return The token was stored.
-     */
-    setAdoToken(body: AdoTokenRequest): Observable<SettingsResponse> {
-        let url_ = this.baseUrl + "/api/settings/ado-token";
-        url_ = url_.replace(/[?&]$/, "");
-
-        const content_ = JSON.stringify(body);
-
-        let options_ : any = {
-            body: content_,
-            observe: "response",
-            responseType: "blob",
-            headers: new HttpHeaders({
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            })
-        };
-
-        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processSetAdoToken(response_);
-        })).pipe(_observableCatch((response_: any) => {
-            if (response_ instanceof HttpResponseBase) {
-                try {
-                    return this.processSetAdoToken(response_ as any);
-                } catch (e) {
-                    return _observableThrow(e) as any as Observable<SettingsResponse>;
-                }
-            } else
-                return _observableThrow(response_) as any as Observable<SettingsResponse>;
-        }));
-    }
-
-    protected processSetAdoToken(response: HttpResponseBase): Observable<SettingsResponse> {
-        const status = response.status;
-        const responseBlob =
-            response instanceof HttpResponse ? response.body :
-            (response as any).error instanceof Blob ? (response as any).error : undefined;
-
-        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
-        if (status === 200) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result200: any = null;
-            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result200 = SettingsResponse.fromJS(resultData200);
-            return _observableOf(result200);
-            }));
-        } else if (status === 400) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result400: any = null;
-            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result400 = ApiError.fromJS(resultData400);
-            return throwException("The token was empty.", status, _responseText, _headers, result400);
-            }));
-        } else if (status !== 200 && status !== 204) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            }));
-        }
-        return _observableOf(null as any);
-    }
-
-    /**
-     * Forgets the stored Azure DevOps token.
-     * @return The token was removed.
-     */
-    clearAdoToken(): Observable<SettingsResponse> {
-        let url_ = this.baseUrl + "/api/settings/ado-token";
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_ : any = {
-            observe: "response",
-            responseType: "blob",
-            headers: new HttpHeaders({
-                "Accept": "application/json"
-            })
-        };
-
-        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processClearAdoToken(response_);
-        })).pipe(_observableCatch((response_: any) => {
-            if (response_ instanceof HttpResponseBase) {
-                try {
-                    return this.processClearAdoToken(response_ as any);
-                } catch (e) {
-                    return _observableThrow(e) as any as Observable<SettingsResponse>;
-                }
-            } else
-                return _observableThrow(response_) as any as Observable<SettingsResponse>;
-        }));
-    }
-
-    protected processClearAdoToken(response: HttpResponseBase): Observable<SettingsResponse> {
-        const status = response.status;
-        const responseBlob =
-            response instanceof HttpResponse ? response.body :
-            (response as any).error instanceof Blob ? (response as any).error : undefined;
-
-        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
-        if (status === 200) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            let result200: any = null;
-            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result200 = SettingsResponse.fromJS(resultData200);
-            return _observableOf(result200);
-            }));
-        } else if (status !== 200 && status !== 204) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            }));
-        }
-        return _observableOf(null as any);
-    }
 }
 
 @Injectable({
@@ -4833,7 +4603,6 @@ export class SettingsRequest implements ISettingsRequest {
     language?: string | undefined;
     /** People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states. */
     delegates?: string[];
-    jiraBaseUrl?: string | undefined;
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses?: string[];
     jiraIncludeWaiting?: boolean;
@@ -4843,8 +4612,6 @@ export class SettingsRequest implements ISettingsRequest {
     jiraDutyStatuses?: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
     jiraOnDuty?: boolean;
-    /** The Azure DevOps collection URL, which may contain a space in its name. */
-    adoBaseUrl?: string | undefined;
     adoProject?: string | undefined;
     /** States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its own list rather than a shared one: the two systems spell different words. */
     adoDoneStates?: string[];
@@ -4887,7 +4654,6 @@ Local rather than UTC on purpose: "Friday at three" is a statement about the use
                 for (let item of _data["delegates"])
                     this.delegates!.push(item);
             }
-            this.jiraBaseUrl = _data["jiraBaseUrl"];
             this.jiraProjectKey = _data["jiraProjectKey"];
             if (Array.isArray(_data["jiraWaitingStatuses"])) {
                 this.jiraWaitingStatuses = [] as any;
@@ -4906,7 +4672,6 @@ Local rather than UTC on purpose: "Friday at three" is a statement about the use
                     this.jiraDutyStatuses!.push(item);
             }
             this.jiraOnDuty = _data["jiraOnDuty"];
-            this.adoBaseUrl = _data["adoBaseUrl"];
             this.adoProject = _data["adoProject"];
             if (Array.isArray(_data["adoDoneStates"])) {
                 this.adoDoneStates = [] as any;
@@ -4945,7 +4710,6 @@ Local rather than UTC on purpose: "Friday at three" is a statement about the use
             for (let item of this.delegates)
                 data["delegates"].push(item);
         }
-        data["jiraBaseUrl"] = this.jiraBaseUrl;
         data["jiraProjectKey"] = this.jiraProjectKey;
         if (Array.isArray(this.jiraWaitingStatuses)) {
             data["jiraWaitingStatuses"] = [];
@@ -4964,7 +4728,6 @@ Local rather than UTC on purpose: "Friday at three" is a statement about the use
                 data["jiraDutyStatuses"].push(item);
         }
         data["jiraOnDuty"] = this.jiraOnDuty;
-        data["adoBaseUrl"] = this.adoBaseUrl;
         data["adoProject"] = this.adoProject;
         if (Array.isArray(this.adoDoneStates)) {
             data["adoDoneStates"] = [];
@@ -4993,7 +4756,6 @@ export interface ISettingsRequest {
     language?: string | undefined;
     /** People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A suggestion list, not a closed set: the who field stays free text, because waiting on somebody unlisted — or on nobody at all — are both valid states. */
     delegates?: string[];
-    jiraBaseUrl?: string | undefined;
     jiraProjectKey?: string | undefined;
     jiraWaitingStatuses?: string[];
     jiraIncludeWaiting?: boolean;
@@ -5003,8 +4765,6 @@ export interface ISettingsRequest {
     jiraDutyStatuses?: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
     jiraOnDuty?: boolean;
-    /** The Azure DevOps collection URL, which may contain a space in its name. */
-    adoBaseUrl?: string | undefined;
     adoProject?: string | undefined;
     /** States that mean the work item is finished. The counterpart of jiraDoneStatuses, and its own list rather than a shared one: the two systems spell different words. */
     adoDoneStates?: string[];
@@ -5040,7 +4800,7 @@ export class SettingsResponse implements ISettingsResponse {
     jiraDutyStatuses!: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
     jiraOnDuty!: boolean;
-    /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
+    /** Whether calls to Jira will carry a token. The host never holds one: the helper on the PC does, and says so when it connects. */
     hasJiraToken!: boolean;
     /** The Azure DevOps collection URL, which may contain a space in its name. */
     adoBaseUrl?: string | undefined;
@@ -5055,8 +4815,10 @@ export class SettingsResponse implements ISettingsResponse {
     adoWorkItemTypes!: string[];
     /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Always the effective value: an absent row reads back as 3. No default is declared here on purpose — see the request schema. */
     adoDefaultDeadlineDays!: number;
-    /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
+    /** Whether calls to Azure DevOps will carry a token. The host never holds one: the helper on the PC does, and says so when it connects. */
     hasAdoToken!: boolean;
+    /** Whether the helper on the PC is connected. Without it nothing reaches Jira, Azure DevOps or the AI model, and the base URLs above are the last ones it reported. */
+    helperOnline!: boolean;
     /** The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema. */
     reviewWeekday!: number;
     /** The time of day the review is suggested at, HH:mm local. Always the effective value: an absent row reads back as 15:00. */
@@ -5128,6 +4890,7 @@ export class SettingsResponse implements ISettingsResponse {
             }
             this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"];
             this.hasAdoToken = _data["hasAdoToken"];
+            this.helperOnline = _data["helperOnline"];
             this.reviewWeekday = _data["reviewWeekday"];
             this.reviewTimeOfDay = _data["reviewTimeOfDay"];
         }
@@ -5188,6 +4951,7 @@ export class SettingsResponse implements ISettingsResponse {
         }
         data["adoDefaultDeadlineDays"] = this.adoDefaultDeadlineDays;
         data["hasAdoToken"] = this.hasAdoToken;
+        data["helperOnline"] = this.helperOnline;
         data["reviewWeekday"] = this.reviewWeekday;
         data["reviewTimeOfDay"] = this.reviewTimeOfDay;
         return data;
@@ -5208,7 +4972,7 @@ export interface ISettingsResponse {
     jiraDutyStatuses: string[];
     /** Whether the user currently holds the 2nd level support duty. Off by default. Separate from the list so the list survives going off duty. */
     jiraOnDuty: boolean;
-    /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE. */
+    /** Whether calls to Jira will carry a token. The host never holds one: the helper on the PC does, and says so when it connects. */
     hasJiraToken: boolean;
     /** The Azure DevOps collection URL, which may contain a space in its name. */
     adoBaseUrl?: string | undefined;
@@ -5223,8 +4987,10 @@ export interface ISettingsResponse {
     adoWorkItemTypes: string[];
     /** How many days ahead the import sets a deadline, because Azure DevOps has no due date field of its own. 0 means no deadline. Always the effective value: an absent row reads back as 3. No default is declared here on purpose — see the request schema. */
     adoDefaultDeadlineDays: number;
-    /** Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE. */
+    /** Whether calls to Azure DevOps will carry a token. The host never holds one: the helper on the PC does, and says so when it connects. */
     hasAdoToken: boolean;
+    /** Whether the helper on the PC is connected. Without it nothing reaches Jira, Azure DevOps or the AI model, and the base URLs above are the last ones it reported. */
+    helperOnline: boolean;
     /** The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema. */
     reviewWeekday: number;
     /** The time of day the review is suggested at, HH:mm local. Always the effective value: an absent row reads back as 15:00. */
@@ -5281,78 +5047,6 @@ Deliberately absent from SettingsResponse and never written by PUT /api/settings
     lastCompletedAt?: string | undefined;
     /** The next scheduled moment, UTC. Carried so the client does no arithmetic, and so a test can assert about the boundary rather than only about which side of it we are on. */
     nextDueAt: string;
-}
-
-export class JiraTokenRequest implements IJiraTokenRequest {
-    token!: string;
-
-    constructor(data?: IJiraTokenRequest) {
-        if (data) {
-            for (var property in data) {
-                if (data.hasOwnProperty(property))
-                    (this as any)[property] = (data as any)[property];
-            }
-        }
-    }
-
-    init(_data?: any) {
-        if (_data) {
-            this.token = _data["token"];
-        }
-    }
-
-    static fromJS(data: any): JiraTokenRequest {
-        data = typeof data === 'object' ? data : {};
-        let result = new JiraTokenRequest();
-        result.init(data);
-        return result;
-    }
-
-    toJSON(data?: any) {
-        data = typeof data === 'object' ? data : {};
-        data["token"] = this.token;
-        return data;
-    }
-}
-
-export interface IJiraTokenRequest {
-    token: string;
-}
-
-export class AdoTokenRequest implements IAdoTokenRequest {
-    token!: string;
-
-    constructor(data?: IAdoTokenRequest) {
-        if (data) {
-            for (var property in data) {
-                if (data.hasOwnProperty(property))
-                    (this as any)[property] = (data as any)[property];
-            }
-        }
-    }
-
-    init(_data?: any) {
-        if (_data) {
-            this.token = _data["token"];
-        }
-    }
-
-    static fromJS(data: any): AdoTokenRequest {
-        data = typeof data === 'object' ? data : {};
-        let result = new AdoTokenRequest();
-        result.init(data);
-        return result;
-    }
-
-    toJSON(data?: any) {
-        data = typeof data === 'object' ? data : {};
-        data["token"] = this.token;
-        return data;
-    }
-}
-
-export interface IAdoTokenRequest {
-    token: string;
 }
 
 export class LoginRequest implements ILoginRequest {

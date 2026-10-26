@@ -1028,9 +1028,6 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("delegates")]
         public System.Collections.Generic.ICollection<string> Delegates { get; set; }
 
-        [System.Text.Json.Serialization.JsonPropertyName("jiraBaseUrl")]
-        public string JiraBaseUrl { get; set; }
-
         [System.Text.Json.Serialization.JsonPropertyName("jiraProjectKey")]
         public string JiraProjectKey { get; set; }
 
@@ -1057,12 +1054,6 @@ namespace Todo.Contracts
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("jiraOnDuty")]
         public bool JiraOnDuty { get; set; }
-
-        /// <summary>
-        /// The Azure DevOps collection URL, which may contain a space in its name.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("adoBaseUrl")]
-        public string AdoBaseUrl { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("adoProject")]
         public string AdoProject { get; set; }
@@ -1165,7 +1156,7 @@ namespace Todo.Contracts
         public bool JiraOnDuty { get; set; }
 
         /// <summary>
-        /// Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/jira-token and cleared through DELETE.
+        /// Whether calls to Jira will carry a token. The host never holds one: the helper on the PC does, and says so when it connects.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("hasJiraToken")]
         public bool HasJiraToken { get; set; }
@@ -1213,10 +1204,16 @@ namespace Todo.Contracts
         public int AdoDefaultDeadlineDays { get; set; }
 
         /// <summary>
-        /// Whether a token is stored. The token itself is never returned; it is written through PUT /api/settings/ado-token and cleared through DELETE.
+        /// Whether calls to Azure DevOps will carry a token. The host never holds one: the helper on the PC does, and says so when it connects.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("hasAdoToken")]
         public bool HasAdoToken { get; set; }
+
+        /// <summary>
+        /// Whether the helper on the PC is connected. Without it nothing reaches Jira, Azure DevOps or the AI model, and the base URLs above are the last ones it reported.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("helperOnline")]
+        public bool HelperOnline { get; set; }
 
         /// <summary>
         /// The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema.
@@ -1256,26 +1253,6 @@ namespace Todo.Contracts
         [System.Text.Json.Serialization.JsonPropertyName("nextDueAt")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.DateTimeOffset NextDueAt { get; set; }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JiraTokenRequest
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("token")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Token { get; set; }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class AdoTokenRequest
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("token")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Token { get; set; }
 
     }
 

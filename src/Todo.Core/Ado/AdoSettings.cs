@@ -32,7 +32,11 @@ public sealed record AdoSettings(
     // Not nullable, and 0 is a value rather than an absence: it means "no deadline". The default of
     // AdoDefaults.DeadlineDays comes from the read layer - the absence of a row - and not from
     // deserialisation, which cannot tell an absent int from a deliberate 0.
-    int DefaultDeadlineDays)
+    int DefaultDeadlineDays,
+    // True when the helper puts the token on each call, so Token is null here and the source still
+    // counts as set up. Last and defaulted, so the tests' fakes - which hand a token over directly -
+    // build the record as before.
+    bool AuthorizedElsewhere = false)
 {
     /// <summary>
     /// The collection URL as something that can actually be called, or null. One spelling shared with
@@ -57,7 +61,8 @@ public sealed record AdoSettings(
     /// user is told which field is missing rather than being told the whole thing is unconfigured. That
     /// check belongs to the task that makes the call.
     /// </summary>
-    public bool IsConfigured => BaseUri is not null && !string.IsNullOrWhiteSpace(Token);
+    public bool IsConfigured =>
+        BaseUri is not null && (!string.IsNullOrWhiteSpace(Token) || AuthorizedElsewhere);
 
     /// <summary>
     /// Where Azure DevOps shows one work item, computed rather than stored. Built by the app because

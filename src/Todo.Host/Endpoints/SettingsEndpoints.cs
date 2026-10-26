@@ -10,6 +10,7 @@ using Todo.Core.Errors;
 using Todo.Core.Jira;
 using Todo.Core.Review;
 using Todo.Core.Settings;
+using Todo.Core.Sources;
 
 namespace Todo.Host.Endpoints;
 
@@ -19,14 +20,17 @@ public static class SettingsEndpoints
 
     public static IEndpointRouteBuilder MapSettings(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/settings", async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review) =>
-            await ReadAllAsync(db, jira, ado, review))
+        app.MapGet("/api/settings", async (
+            TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review,
+            ISourceConnections connections) =>
+            await ReadAllAsync(db, jira, ado, review, connections))
         .WithName("getSettings")
         .WithTags("Settings")
         .Produces<SettingsResponse>();
 
         app.MapPut("/api/settings", async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
-            SettingsRequest request, TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review) =>
+            SettingsRequest request, TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review,
+            ISourceConnections connections) =>
         {
             // No language means "follow the system", which is a value in its own right and not English.
             if (request.Language is { } language && !SupportedLanguages.Contains(language))
@@ -90,10 +94,10 @@ public static class SettingsEndpoints
             // An absent list clears the row, like every other field on this full replacement.
             await StoreAsync(db, SettingKeys.Delegates, SettingList.Write(request.Delegates ?? []));
 
-            // A full replacement, so every field here is written from the request - and the token
-            // is deliberately not one of them. It lives behind /api/settings/jira-token precisely
-            // because an absent field means clear, and a language change must not wipe it.
-            await StoreAsync(db, SettingKeys.JiraBaseUrl, BaseUrl(request.JiraBaseUrl));
+            // A full replacement, so every field here is written from the request - and the base URL
+            // and the token are deliberately not among them. The helper on the PC owns both: it
+            // writes the base URL when it says hello and keeps the token to itself, so a save here
+            // must not clear what the helper reported.
             await StoreAsync(db, SettingKeys.JiraProjectKey, Blank(request.JiraProjectKey));
             await StoreAsync(
                 db, SettingKeys.JiraWaitingStatuses, OrdinalNameList(request.JiraWaitingStatuses));
@@ -116,9 +120,7 @@ public static class SettingsEndpoints
             // ending, or the user would clear it to go off duty and re-pick it a week later.
             await StoreAsync(db, SettingKeys.JiraOnDuty, request.JiraOnDuty ? "true" : null);
 
-            // The ADO half. Its token is absent from this route for the same reason Jira's is, and it
-            // lives behind /api/settings/ado-token below.
-            await StoreAsync(db, SettingKeys.AdoBaseUrl, BaseUrl(request.AdoBaseUrl));
+            // The ADO half. Its collection URL and token are absent for the same reason as Jira's.
             await StoreAsync(db, SettingKeys.AdoProject, Blank(request.AdoProject));
             await StoreAsync(db, SettingKeys.AdoWaitingStates, OrdinalNameList(request.AdoWaitingStates));
             await StoreAsync(db, SettingKeys.AdoDoneStates, OrdinalNameList(request.AdoDoneStates));
@@ -166,93 +168,24 @@ public static class SettingsEndpoints
 
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review, connections));
         })
         .WithName("updateSettings")
-        .WithTags("Settings");
-
-        // The token has a route of its own because PUT /api/settings is a full replacement: were
-        // the token a field on it, saving any other setting would clear the token.
-        app.MapPut("/api/settings/jira-token",
-            async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
-                JiraTokenRequest request, TodoDbContext db, JiraSettingsReader jira,
-                AdoSettingsReader ado, ReviewSettingsReader review) =>
-        {
-            // NSwag puts [Required] on Token, but that is DataAnnotations, which System.Text.Json
-            // does not enforce while deserialising - and it was generated with AllowEmptyStrings.
-            // The contract enforces nothing; this is the only actual validation.
-            if (string.IsNullOrWhiteSpace(request.Token))
-            {
-                return ApiErrors.BadRequest(
-                    ErrorCodes.SettingsEmptyToken, "A token cannot be blank.");
-            }
-
-            await StoreAsync(db, SettingKeys.JiraToken, request.Token.Trim());
-            await db.SaveChangesAsync();
-
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
-        })
-        .WithName("setJiraToken")
-        .WithTags("Settings");
-
-        app.MapDelete("/api/settings/jira-token",
-            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review) =>
-        {
-            await StoreAsync(db, SettingKeys.JiraToken, null);
-            await db.SaveChangesAsync();
-
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
-        })
-        .WithName("clearJiraToken")
-        .WithTags("Settings");
-
-        // A route of its own for the same reason Jira's token has one, written out again rather than
-        // shared: one handler taking the key as a parameter would have to be reached through a route
-        // template, and two literal routes are what the contract declares.
-        app.MapPut("/api/settings/ado-token",
-            async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
-                AdoTokenRequest request, TodoDbContext db, JiraSettingsReader jira,
-                AdoSettingsReader ado, ReviewSettingsReader review) =>
-        {
-            // The contract's [Required] is DataAnnotations, which System.Text.Json does not enforce
-            // while deserialising, so this is the only actual validation.
-            if (string.IsNullOrWhiteSpace(request.Token))
-            {
-                return ApiErrors.BadRequest(
-                    ErrorCodes.SettingsEmptyToken, "A token cannot be blank.");
-            }
-
-            await StoreAsync(db, SettingKeys.AdoToken, request.Token.Trim());
-            await db.SaveChangesAsync();
-
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
-        })
-        .WithName("setAdoToken")
-        .WithTags("Settings");
-
-        app.MapDelete("/api/settings/ado-token",
-            async (TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review) =>
-        {
-            await StoreAsync(db, SettingKeys.AdoToken, null);
-            await db.SaveChangesAsync();
-
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review));
-        })
-        .WithName("clearAdoToken")
         .WithTags("Settings");
 
         return app;
     }
 
     /// <summary>
-    /// Built in one place, so all six routes answer with the same shape - and so there is exactly
-    /// one line to read when asking whether either token can get out.
+    /// Built in one place, so both routes answer with the same shape. No token can get out: the host
+    /// has none to give.
     /// </summary>
     private static async Task<SettingsResponse> ReadAllAsync(
         TodoDbContext db,
         JiraSettingsReader reader,
         AdoSettingsReader adoReader,
-        ReviewSettingsReader reviewReader)
+        ReviewSettingsReader reviewReader,
+        ISourceConnections connections)
     {
         var jira = await reader.ReadAsync();
         var ado = await adoReader.ReadAsync();
@@ -269,8 +202,9 @@ public static class SettingsEndpoints
             JiraDutyStatuses = [.. jira.DutyStatuses],
             JiraDoneStatuses = [.. jira.DoneStatuses],
             JiraOnDuty = jira.OnDuty,
-            // The token itself is deliberately absent. Only whether there is one.
-            HasJiraToken = jira.Token is not null,
+            // Whether calls will carry a token - this process's own, or the helper's, which is the
+            // only one there is outside the tests.
+            HasJiraToken = jira.Token is not null || jira.AuthorizedElsewhere,
             AdoBaseUrl = ado.BaseUrl,
             AdoProject = ado.Project,
             AdoWaitingStates = [.. ado.WaitingStates],
@@ -280,7 +214,8 @@ public static class SettingsEndpoints
             // the reader, and the client has no second place to learn them from.
             AdoWorkItemTypes = [.. ado.WorkItemTypes],
             AdoDefaultDeadlineDays = ado.DefaultDeadlineDays,
-            HasAdoToken = ado.Token is not null,
+            HasAdoToken = ado.Token is not null || ado.AuthorizedElsewhere,
+            HelperOnline = connections.Online,
             // The effective values, not the stored ones: the defaults live in the reader, and the
             // client has no second place to learn them from. lastCompletedAt is deliberately not
             // here - it is not a choice, and this route would clear it.
@@ -288,11 +223,6 @@ public static class SettingsEndpoints
             ReviewTimeOfDay = review.TimeOfDay.ToString(ReviewDefaults.TimeFormat, CultureInfo.InvariantCulture),
         };
     }
-
-    /// <summary>A trailing slash here would make JiraSettings.BrowseUrl a double slash there.</summary>
-    private static string? BaseUrl(string? value) => Blank(value)?.TrimEnd('/') is { Length: > 0 } url
-        ? url
-        : null;
 
     private static string? Blank(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

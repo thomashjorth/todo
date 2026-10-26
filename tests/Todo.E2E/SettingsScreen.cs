@@ -52,16 +52,13 @@ public sealed class SettingsScreen(TodoApp app)
 
     public ILocator DelegatesError => Page.GetByTestId("delegates-error");
 
-    public ILocator JiraBaseUrl => Page.GetByTestId("jira-base-url");
+    /// <summary>
+    /// What the helper on the PC reported about Jira: offline, nothing yet, or the address it is
+    /// connected to. The base URL and the token are typed into the helper, not here.
+    /// </summary>
+    public ILocator JiraHelperConnection => Page.GetByTestId("jira-helper-connection");
 
-    public ILocator JiraToken => Page.GetByTestId("jira-token");
-
-    public ILocator SaveJiraToken => Page.GetByTestId("jira-save-token");
-
-    /// <summary>Says a token is held. Only a stored token puts it or the Clear button on screen.</summary>
-    public ILocator JiraTokenStored => Page.GetByTestId("jira-token-stored");
-
-    public ILocator ClearJiraToken => Page.GetByTestId("jira-clear-token");
+    public ILocator JiraProjectKey => Page.GetByTestId("jira-project-key");
 
     public ILocator TestJiraConnection => Page.GetByTestId("jira-test");
 
@@ -82,18 +79,10 @@ public sealed class SettingsScreen(TodoApp app)
 
     public ILocator JiraError => Page.GetByTestId("jira-error");
 
-    public ILocator AdoBaseUrl => Page.GetByTestId("ado-base-url");
+    /// <summary>What the helper reported about Azure DevOps, the counterpart of Jira's line.</summary>
+    public ILocator AdoHelperConnection => Page.GetByTestId("ado-helper-connection");
 
     public ILocator AdoProject => Page.GetByTestId("ado-project");
-
-    public ILocator AdoToken => Page.GetByTestId("ado-token");
-
-    public ILocator SaveAdoToken => Page.GetByTestId("ado-save-token");
-
-    /// <summary>Says a token is held. Only a stored token puts it or the Clear button on screen.</summary>
-    public ILocator AdoTokenStored => Page.GetByTestId("ado-token-stored");
-
-    public ILocator ClearAdoToken => Page.GetByTestId("ado-clear-token");
 
     public ILocator TestAdoConnection => Page.GetByTestId("ado-test");
 
@@ -218,34 +207,6 @@ public sealed class SettingsScreen(TodoApp app)
 
         await DelegateInput.FillAsync(name);
         await DelegateInput.PressAsync("Enter");
-    }
-
-    /// <summary>
-    /// Types a token and saves it, then waits for the line that says one is held: the field is
-    /// write-only, so the confirmation is the only evidence the round trip happened.
-    /// </summary>
-    public async Task StoreJiraTokenAsync(string token)
-    {
-        await OpenAsync(JiraSection);
-
-        await JiraToken.FillAsync(token);
-        await SaveJiraToken.ClickAsync();
-
-        await Assertions.Expect(JiraTokenStored).ToBeVisibleAsync();
-    }
-
-    /// <summary>
-    /// Types a token and saves it, then waits for the line that says one is held: the field is
-    /// write-only, so the confirmation is the only evidence the round trip happened.
-    /// </summary>
-    public async Task StoreAdoTokenAsync(string token)
-    {
-        await OpenAsync(AdoSection);
-
-        await AdoToken.FillAsync(token);
-        await SaveAdoToken.ClickAsync();
-
-        await Assertions.Expect(AdoTokenStored).ToBeVisibleAsync();
     }
 
     /// <summary>

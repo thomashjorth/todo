@@ -150,7 +150,8 @@
     "receiptReopened": {
       "one": "{{count}} task reopened.",
       "other": "{{count}} tasks reopened."
-    }
+    },
+    "helperOffline": "The helper on your PC is not connected, so there are no issues to load."
   },
   "ado": {
     "heading": "ADO import",
@@ -204,7 +205,8 @@
     "receiptReopened": {
       "one": "{{count}} task reopened.",
       "other": "{{count}} tasks reopened."
-    }
+    },
+    "helperOffline": "The helper on your PC is not connected, so there are no issues to load."
   },
   "settings": {
     "heading": "Settings",
@@ -251,15 +253,8 @@
       "remove": "Remove {{alias}}"
     },
     "jira": {
-      "baseUrl": "Base URL",
-      "baseUrlPlaceholder": "https://jira.example.com",
       "projectKey": "Project key",
       "projectKeyPlaceholder": "SAAS",
-      "token": "Personal access token",
-      "tokenPlaceholder": "Paste the token",
-      "tokenStored": "A token is stored. It is never shown again.",
-      "saveToken": "Save token",
-      "clearToken": "Clear token",
       "testConnection": "Test connection",
       "connectedAs": "Connected as {{name}}",
       "waitingStatuses": "Which statuses mean you are waiting?",
@@ -271,19 +266,13 @@
       "onDuty": "I am on duty",
       "onDutyHint": "The 2nd level support issues are included in the import, even when they are not assigned to you, and they arrive actionable rather than waiting.",
       "doneStatuses": "Done statuses",
-      "doneStatusesHint": "An imported issue in one of these makes the import offer to close the task."
+      "doneStatusesHint": "An imported issue in one of these makes the import offer to close the task.",
+      "connectedTo": "Connected to {{value}} through the helper.",
+      "notConnected": "The helper has no Jira address and token yet."
     },
     "ado": {
-      "baseUrl": "Collection URL",
-      "baseUrlPlaceholder": "https://ado.example.com/My%20Collection",
-      "baseUrlHint": "Paste the URL as it stands in the browser. A space in the collection name is already written as %20 there, and the app leaves it alone.",
       "project": "Project",
       "projectPlaceholder": "The project's name",
-      "token": "Personal access token",
-      "tokenPlaceholder": "Paste the token",
-      "tokenStored": "A token is stored. It is never shown again.",
-      "saveToken": "Save token",
-      "clearToken": "Clear token",
       "testConnection": "Test connection",
       "connectedAs": "Connected as {{name}}",
       "waitingStates": "Which states mean you are waiting?",
@@ -298,7 +287,12 @@
       "deadlineDays": "A deadline how many days ahead?",
       "deadlineDaysHint": "Azure DevOps has no due date field, so the app sets one at import. Zero means no deadline. The change only applies to work items you load from now on.",
       "doneStates": "Done states",
-      "doneStatesHint": "An imported work item in one of these makes the import offer to close the task."
+      "doneStatesHint": "An imported work item in one of these makes the import offer to close the task.",
+      "connectedTo": "Connected to {{value}} through the helper.",
+      "notConnected": "The helper has no collection URL and token yet."
+    },
+    "helper": {
+      "offline": "The helper on your PC is not connected, so Jira, Azure DevOps and AI cannot be reached."
     }
   },
   "ai": {
@@ -385,11 +379,10 @@
     },
     "settings": {
       "unknownLanguage": "That language is not supported.",
-      "emptyToken": "The token cannot be blank.",
       "duplicateDelegate": "The same person is listed more than once."
     },
     "jira": {
-      "notConfigured": "Jira is not set up. Fill in the base URL, project key and token under Settings.",
+      "notConfigured": "Jira is not set up. Give the helper the base URL and token, and fill in the project key in Settings.",
       "projectKeyRequired": "The project key is missing. Fill it in under Settings.",
       "refused": "Jira rejected the token. Check the token under Settings.",
       "unreachable": "Jira could not be reached. Check the base URL and the network.",
@@ -405,7 +398,7 @@
       "noneRecognized": "Jira recognised none of the tasks being reconciled. That looks more like a lost permission than a clear-out, so nothing is suggested."
     },
     "ado": {
-      "notConfigured": "Azure DevOps is not set up. Fill in the collection URL and the token under Settings.",
+      "notConfigured": "Azure DevOps is not set up. Give the helper the collection URL and token in Settings.",
       "projectRequired": "The project is missing. Fill it in under Settings.",
       "refused": "Azure DevOps rejected the token. Check the token under Settings.",
       "unreachable": "Azure DevOps could not be reached. Check the collection URL and the network.",
@@ -442,6 +435,9 @@
       "duplicate": "A tag of that name exists already.",
       "unknown": "One of the tags no longer exists. Reload and try again.",
       "colorInvalid": "That colour does not exist. Choose one of the colours."
+    },
+    "helper": {
+      "offline": "The helper on your PC is not connected. Start it and try again."
     }
   }
 }

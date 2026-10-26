@@ -4,7 +4,13 @@
 
 <!-- Words rather than an empty list: without setup there is nothing to fetch, and a button that
      always fails says less than the way to the page that puts it right. -->
-@if (!configured()) {
+@if (!settings.helperOnline()) {
+  <!-- Before "not set up": with the helper away nothing can reach Jira, however well it is set up,
+       and saying "set it up" would send the user to a page with nothing to fix. -->
+  <p data-testid="jira-helper-offline" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+    {{ 'jira.helperOffline' | transloco }}
+  </p>
+} @else if (!configured()) {
   <p data-testid="jira-not-configured" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
     {{ 'jira.notConfigured' | transloco }}
   </p>

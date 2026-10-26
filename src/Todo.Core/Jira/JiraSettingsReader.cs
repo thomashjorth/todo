@@ -1,10 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Todo.Core.Persistence;
 using Todo.Core.Settings;
+using Todo.Core.Sources;
 
 namespace Todo.Core.Jira;
 
-public sealed class JiraSettingsReader(TodoDbContext db)
+/// <summary>
+/// The Jira settings from the database - the base URL among them, which the helper's hello writes -
+/// and the credentials from <see cref="ISourceConnections"/>, which never come from the database.
+/// </summary>
+public sealed class JiraSettingsReader(TodoDbContext db, ISourceConnections connections)
 {
     public async Task<JiraSettings> ReadAsync(CancellationToken ct = default)
     {
@@ -15,7 +20,7 @@ public sealed class JiraSettingsReader(TodoDbContext db)
         return new JiraSettings(
             BaseUrl: Value(rows, SettingKeys.JiraBaseUrl),
             ProjectKey: Value(rows, SettingKeys.JiraProjectKey),
-            Token: Value(rows, SettingKeys.JiraToken),
+            Token: connections.Jira.Token,
             WaitingStatuses: SettingList.Read(Value(rows, SettingKeys.JiraWaitingStatuses)),
             // Asymmetric on purpose, and the asymmetry is the writer's: SettingsEndpoints stores on
             // as a row and off as no row at all, because two tests there assert about the whole
@@ -27,7 +32,8 @@ public sealed class JiraSettingsReader(TodoDbContext db)
             DutyStatuses: SettingList.Read(Value(rows, SettingKeys.JiraDutyStatuses)),
             // Same asymmetry as IncludeWaiting above, for the same reason, and read the same way.
             OnDuty: Value(rows, SettingKeys.JiraOnDuty) == "true",
-            DoneStatuses: SettingList.Read(Value(rows, SettingKeys.JiraDoneStatuses)));
+            DoneStatuses: SettingList.Read(Value(rows, SettingKeys.JiraDoneStatuses)),
+            AuthorizedElsewhere: connections.Jira.AuthorizedElsewhere);
     }
 
     private static string? Value(Dictionary<string, string> rows, string key) =>

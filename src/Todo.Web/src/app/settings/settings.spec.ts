@@ -46,6 +46,7 @@ interface SettingsFixture {
   adoWorkItemTypes?: string[];
   adoDefaultDeadlineDays?: number;
   hasAdoToken?: boolean;
+  helperOnline?: boolean;
   reviewWeekday?: number;
   reviewTimeOfDay?: string;
 }
@@ -80,6 +81,7 @@ function settingsJson(language: string | null, rest: SettingsFixture = {}): Blob
       adoWorkItemTypes: defaultTypes,
       adoDefaultDeadlineDays: 3,
       hasAdoToken: false,
+      helperOnline: true,
       // Friday at three, the two the read layer answers for an absent row. Both are
       // required on the response, so a fixture without them hands the store an
       // undefined the types say cannot happen - and nothing here type-checks that.
@@ -318,7 +320,7 @@ describe('Settings', () => {
     // Not a single field is in the DOM yet, which is what makes the guard on a colour inside a
     // panel honest: it cannot measure text that was never painted.
     expect(element.querySelector('[data-testid="language-select"]')).toBeNull();
-    expect(element.querySelector('[data-testid="jira-base-url"]')).toBeNull();
+    expect(element.querySelector('[data-testid="jira-project-key"]')).toBeNull();
   });
 
   it('should render only the open group, and point the panel back at its heading', async () => {
@@ -331,7 +333,7 @@ describe('Settings', () => {
     expect(panel.getAttribute('role')).toBe('region');
     expect(panel.getAttribute('aria-labelledby')).toBe('jira-section-toggle');
     expect(toggle(screen.element, 'jira').id).toBe('jira-section-toggle');
-    expect(panel.querySelector('[data-testid="jira-base-url"]')).not.toBeNull();
+    expect(panel.querySelector('[data-testid="jira-project-key"]')).not.toBeNull();
   });
 
   // Named after the rule, and asserted the way it can actually fail: a check that merely counted
@@ -346,8 +348,8 @@ describe('Settings', () => {
     expect(renderedPanels(screen.element)).toEqual(['ado-section-panel']);
     expect(toggle(screen.element, 'jira').getAttribute('aria-expanded')).toBe('false');
     // The fields of the group that closed are gone, not merely hidden.
-    expect(screen.element.querySelector('[data-testid="jira-base-url"]')).toBeNull();
-    expect(screen.element.querySelector('[data-testid="ado-base-url"]')).not.toBeNull();
+    expect(screen.element.querySelector('[data-testid="jira-project-key"]')).toBeNull();
+    expect(screen.element.querySelector('[data-testid="ado-project"]')).not.toBeNull();
   });
 
   it('should fold a group again when its own heading is clicked', async () => {
@@ -552,6 +554,29 @@ describe('Settings', () => {
     expect(error.textContent).toContain('Det samme navn står på listen mere end én gang.');
   });
 
+  // The connection line's three answers, in the order the template asks them: offline first, because
+  // a helper that is away says nothing about what it would have had.
+  it('should say the helper is offline, even when it reported a connection before', async () => {
+    const screen = await open(
+      null,
+      [],
+      { helperOnline: false, jiraBaseUrl: 'https://jira.test', hasJiraToken: true },
+      'jira',
+    );
+
+    expect(
+      screen.element.querySelector('[data-testid="jira-helper-connection"]')!.textContent!.trim(),
+    ).toBe('Hjælperen på din PC er ikke forbundet, så Jira, Azure DevOps og AI kan ikke nås.');
+  });
+
+  it('should say the helper has no Jira yet when it has no token for it', async () => {
+    const screen = await open(null, [], { jiraBaseUrl: 'https://jira.test' }, 'jira');
+
+    expect(
+      screen.element.querySelector('[data-testid="jira-helper-connection"]')!.textContent!.trim(),
+    ).toBe('Hjælperen har ingen Jira-adresse og token endnu.');
+  });
+
   it('should show the stored Jira settings in their fields', async () => {
     const screen = await open(
       null,
@@ -566,104 +591,17 @@ describe('Settings', () => {
       'jira',
     );
 
-    expect(field(screen.element, 'jira-base-url').value).toBe('https://jira.test');
+    expect(
+      screen.element.querySelector('[data-testid="jira-helper-connection"]')!.textContent!.trim(),
+    ).toBe('Forbundet til https://jira.test gennem hjælperen.');
     expect(field(screen.element, 'jira-project-key').value).toBe('SAAS');
     expect(field(screen.element, 'jira-include-waiting').checked).toBe(true);
-    expect(screen.element.querySelector('[data-testid="jira-token-stored"]')).not.toBeNull();
 
     // A stored status is tickable even before the list has been fetched, or it could never be
     // unticked without a working connection.
     const rows = screen.element.querySelectorAll('[data-testid="jira-status-row"]');
     expect(rows).toHaveLength(1);
     expect(rows[0].querySelector<HTMLInputElement>('input')!.checked).toBe(true);
-  });
-
-  // The regression from the store's side, seen through the screen: the base URL is saved by the
-  // same one path, so the language and the rest go with it.
-  it('should keep the other settings when a base URL is typed', async () => {
-    const screen = await open(
-      'en',
-      [],
-      { jiraProjectKey: 'SAAS', jiraIncludeWaiting: true },
-      'jira',
-    );
-
-    const input = field(screen.element, 'jira-base-url');
-    input.value = 'https://jira.test';
-    input.dispatchEvent(new Event('change'));
-
-    const saved = screen.http.expectOne('/api/settings');
-    expect(saved.request.method).toBe('PUT');
-    expect(JSON.parse(saved.request.body)).toEqual({
-      language: 'en',
-      jiraBaseUrl: 'https://jira.test',
-      jiraProjectKey: 'SAAS',
-      jiraIncludeWaiting: true,
-      adoWorkItemTypes: defaultTypes,
-    });
-    saved.flush(
-      settingsJson('en', {
-        jiraBaseUrl: 'https://jira.test',
-        jiraProjectKey: 'SAAS',
-        jiraIncludeWaiting: true,
-      }),
-    );
-  });
-
-  it('should empty the token field once the token is stored, and offer to clear it', async () => {
-    const screen = await open(null, [], {}, 'jira');
-    expect(screen.element.querySelector('[data-testid="jira-clear-token"]')).toBeNull();
-
-    const input = field(screen.element, 'jira-token');
-    expect(input.type).toBe('password');
-    input.value = 'et-personligt-adgangstoken';
-    input.dispatchEvent(new Event('input'));
-
-    press(screen.element, 'jira-save-token');
-
-    const saved = screen.http.expectOne('/api/settings/jira-token');
-    expect(JSON.parse(saved.request.body)).toEqual({ token: 'et-personligt-adgangstoken' });
-    saved.flush(settingsJson(null, { hasJiraToken: true }));
-
-    await settled(screen, () =>
-      expect(screen.element.querySelector('[data-testid="jira-clear-token"]')).not.toBeNull(),
-    );
-    expect(field(screen.element, 'jira-token').value).toBe('');
-
-    press(screen.element, 'jira-clear-token');
-    const cleared = screen.http.expectOne('/api/settings/jira-token');
-    expect(cleared.request.method).toBe('DELETE');
-    cleared.flush(settingsJson(null, { hasJiraToken: false }));
-  });
-
-  it('should keep a refused token in the field so it can be corrected', async () => {
-    const screen = await open(null, [], {}, 'jira');
-
-    const input = field(screen.element, 'jira-token');
-    input.value = '   ';
-    input.dispatchEvent(new Event('input'));
-    press(screen.element, 'jira-save-token');
-
-    screen.http
-      .expectOne('/api/settings/jira-token')
-      .flush(
-        new Blob([JSON.stringify({ code: 'settings.emptyToken', message: 'A token cannot be' })]),
-        { status: 400, statusText: 'Bad Request' },
-      );
-
-    const error = await settled(screen, () => {
-      const found = screen.element.querySelector(
-        '[data-testid="jira-settings"] [data-testid="jira-settings-error"]',
-      );
-      expect(found).not.toBeNull();
-      return found!;
-    });
-
-    expect(error.textContent).toContain('Tokenet må ikke være tomt.');
-    // Not up beside the language select, where SettingsStore.error is shown: with the language
-    // group folded, a message written there would be one the user never sees.
-    expect(screen.element.querySelector('[data-testid="settings-error"]')).toBeNull();
-    expect(field(screen.element, 'jira-token').value).toBe('   ');
   });
 
   // Every Jira control on this page saves through the one settings route, and until the groups could
@@ -673,8 +611,8 @@ describe('Settings', () => {
   it('should show a failed Jira save in the Jira group', async () => {
     const screen = await open(null, [], {}, 'jira');
 
-    const input = field(screen.element, 'jira-base-url');
-    input.value = 'https://jira.test';
+    const input = field(screen.element, 'jira-project-key');
+    input.value = 'SAAS';
     input.dispatchEvent(new Event('change'));
 
     screen.http
@@ -869,11 +807,13 @@ describe('Settings', () => {
       'ado',
     );
 
-    expect(field(screen.element, 'ado-base-url').value).toBe('https://ado.test/Min%20Samling');
+    // The escaped space stays escaped all the way to the screen.
+    expect(
+      screen.element.querySelector('[data-testid="ado-helper-connection"]')!.textContent!.trim(),
+    ).toBe('Forbundet til https://ado.test/Min%20Samling gennem hjælperen.');
     expect(field(screen.element, 'ado-project').value).toBe('Saas');
     expect(field(screen.element, 'ado-include-waiting').checked).toBe(true);
     expect(field(screen.element, 'ado-deadline-days').value).toBe('7');
-    expect(screen.element.querySelector('[data-testid="ado-token-stored"]')).not.toBeNull();
 
     // A stored state is tickable before the list has been fetched, and it matters more here than it
     // does for Jira: the list comes off the user's own work items, so a state nothing is in today is
@@ -1086,60 +1026,6 @@ describe('Settings', () => {
     time.dispatchEvent(new Event('change'));
 
     screen.http.verify();
-  });
-
-  it('should empty the Azure DevOps token field once it is stored, and offer to clear it', async () => {
-    const screen = await open(null, [], {}, 'ado');
-    expect(screen.element.querySelector('[data-testid="ado-clear-token"]')).toBeNull();
-
-    const input = field(screen.element, 'ado-token');
-    expect(input.type).toBe('password');
-    input.value = 'et-personligt-adgangstoken';
-    input.dispatchEvent(new Event('input'));
-
-    press(screen.element, 'ado-save-token');
-
-    // Its own route, so saving this one cannot be what clears the Jira token.
-    const saved = screen.http.expectOne('/api/settings/ado-token');
-    expect(saved.request.method).toBe('PUT');
-    expect(JSON.parse(saved.request.body)).toEqual({ token: 'et-personligt-adgangstoken' });
-    saved.flush(settingsJson(null, { hasAdoToken: true }));
-
-    await settled(screen, () =>
-      expect(screen.element.querySelector('[data-testid="ado-clear-token"]')).not.toBeNull(),
-    );
-    expect(field(screen.element, 'ado-token').value).toBe('');
-
-    press(screen.element, 'ado-clear-token');
-    const cleared = screen.http.expectOne('/api/settings/ado-token');
-    expect(cleared.request.method).toBe('DELETE');
-    cleared.flush(settingsJson(null, { hasAdoToken: false }));
-  });
-
-  it('should show a refused Azure DevOps token in the ADO group', async () => {
-    const screen = await open(null, [], {}, 'ado');
-
-    const input = field(screen.element, 'ado-token');
-    input.value = '   ';
-    input.dispatchEvent(new Event('input'));
-    press(screen.element, 'ado-save-token');
-
-    screen.http
-      .expectOne('/api/settings/ado-token')
-      .flush(
-        new Blob([JSON.stringify({ code: 'settings.emptyToken', message: 'A token cannot be' })]),
-        { status: 400, statusText: 'Bad Request' },
-      );
-
-    const error = await settled(screen, () => {
-      const found = screen.element.querySelector('[data-testid="ado-settings-error"]');
-      expect(found).not.toBeNull();
-      return found!;
-    });
-
-    expect(error.textContent).toContain('Tokenet må ikke være tomt.');
-    expect(screen.element.querySelector('[data-testid="settings-error"]')).toBeNull();
-    expect(field(screen.element, 'ado-token').value).toBe('   ');
   });
 
   it('should name whoever the Azure DevOps token belongs to when the connection is tested', async () => {

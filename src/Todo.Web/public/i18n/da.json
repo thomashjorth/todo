@@ -150,7 +150,8 @@
     "receiptReopened": {
       "one": "{{count}} opgave genåbnet.",
       "other": "{{count}} opgaver genåbnet."
-    }
+    },
+    "helperOffline": "Hjælperen på din PC er ikke forbundet, så der er ingen sager at hente."
   },
   "ado": {
     "heading": "ADO-import",
@@ -204,7 +205,8 @@
     "receiptReopened": {
       "one": "{{count}} opgave genåbnet.",
       "other": "{{count}} opgaver genåbnet."
-    }
+    },
+    "helperOffline": "Hjælperen på din PC er ikke forbundet, så der er ingen sager at hente."
   },
   "settings": {
     "heading": "Indstillinger",
@@ -251,15 +253,8 @@
       "remove": "Fjern {{alias}}"
     },
     "jira": {
-      "baseUrl": "BasisURL",
-      "baseUrlPlaceholder": "https://jira.eksempel.dk",
       "projectKey": "Projektnøgle",
       "projectKeyPlaceholder": "SAAS",
-      "token": "Personligt adgangstoken",
-      "tokenPlaceholder": "Indsæt tokenet",
-      "tokenStored": "Et token er gemt. Det vises aldrig igen.",
-      "saveToken": "Gem token",
-      "clearToken": "Ryd token",
       "testConnection": "Test forbindelse",
       "connectedAs": "Forbundet som {{name}}",
       "waitingStatuses": "Hvilke statusser betyder, at du venter?",
@@ -271,19 +266,13 @@
       "onDuty": "Jeg har vagten",
       "onDutyHint": "2nd. level-sagerne kommer med i importen, også når de ikke er tildelt dig, og de lander som handlingsklare frem for ventende.",
       "doneStatuses": "Færdig-statusser",
-      "doneStatusesHint": "Står en hentet sag i en af dem, foreslår importen at lukke opgaven her."
+      "doneStatusesHint": "Står en hentet sag i en af dem, foreslår importen at lukke opgaven her.",
+      "connectedTo": "Forbundet til {{value}} gennem hjælperen.",
+      "notConnected": "Hjælperen har ingen Jira-adresse og token endnu."
     },
     "ado": {
-      "baseUrl": "Samlingens URL",
-      "baseUrlPlaceholder": "https://ado.eksempel.dk/Min%20Samling",
-      "baseUrlHint": "Indsæt URL'en som den står i browseren. Et mellemrum i samlingens navn er allerede skrevet som %20 der, og appen laver det ikke om.",
       "project": "Projekt",
       "projectPlaceholder": "Projektets navn",
-      "token": "Personligt adgangstoken",
-      "tokenPlaceholder": "Indsæt tokenet",
-      "tokenStored": "Et token er gemt. Det vises aldrig igen.",
-      "saveToken": "Gem token",
-      "clearToken": "Ryd token",
       "testConnection": "Test forbindelse",
       "connectedAs": "Forbundet som {{name}}",
       "waitingStates": "Hvilke tilstande betyder, at du venter?",
@@ -298,7 +287,12 @@
       "deadlineDays": "Deadline om hvor mange dage?",
       "deadlineDaysHint": "Azure DevOps har intet deadline-felt, så appen sætter en ved import. Nul betyder ingen deadline. Ændringen gælder kun sager du henter fremover.",
       "doneStates": "Færdig-tilstande",
-      "doneStatesHint": "Står en hentet sag i en af dem, foreslår importen at lukke opgaven her."
+      "doneStatesHint": "Står en hentet sag i en af dem, foreslår importen at lukke opgaven her.",
+      "connectedTo": "Forbundet til {{value}} gennem hjælperen.",
+      "notConnected": "Hjælperen har ingen samlings-URL og token endnu."
+    },
+    "helper": {
+      "offline": "Hjælperen på din PC er ikke forbundet, så Jira, Azure DevOps og AI kan ikke nås."
     }
   },
   "ai": {
@@ -385,11 +379,10 @@
     },
     "settings": {
       "unknownLanguage": "Sproget understøttes ikke.",
-      "emptyToken": "Tokenet må ikke være tomt.",
       "duplicateDelegate": "Den samme person står på listen mere end én gang."
     },
     "jira": {
-      "notConfigured": "Jira er ikke sat op. Udfyld basisURL, projektnøgle og token under Indstillinger.",
+      "notConfigured": "Jira er ikke sat op. Giv hjælperen basisURL og token, og udfyld projektnøglen under Indstillinger.",
       "projectKeyRequired": "Projektnøglen mangler. Udfyld den under Indstillinger.",
       "refused": "Jira afviste tokenet. Kontrollér tokenet under Indstillinger.",
       "unreachable": "Jira kunne ikke nås. Kontrollér basisURL og netværket.",
@@ -405,7 +398,7 @@
       "noneRecognized": "Jira genkendte ingen af de opgaver der skulle afstemmes. Det ligner en mistet rettighed frem for en oprydning, så der foreslås ingenting."
     },
     "ado": {
-      "notConfigured": "Azure DevOps er ikke sat op. Udfyld samlingens URL og token under Indstillinger.",
+      "notConfigured": "Azure DevOps er ikke sat op. Giv hjælperen samlingens URL og token under Indstillinger.",
       "projectRequired": "Projektet mangler. Udfyld det under Indstillinger.",
       "refused": "Azure DevOps afviste tokenet. Kontrollér tokenet under Indstillinger.",
       "unreachable": "Azure DevOps kunne ikke nås. Kontrollér samlingens URL og netværket.",
@@ -442,6 +435,9 @@
       "duplicate": "Der findes allerede et tag med det navn.",
       "unknown": "Et af tagsene findes ikke længere. Genindlæs og prøv igen.",
       "colorInvalid": "Den farve findes ikke. Vælg en af farverne."
+    },
+    "helper": {
+      "offline": "Hjælperen på din PC er ikke forbundet. Start den, og prøv igen."
     }
   }
 }

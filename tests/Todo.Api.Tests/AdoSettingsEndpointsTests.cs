@@ -7,6 +7,7 @@ using Todo.Core.Ado;
 using Todo.Core.Errors;
 using Todo.Core.Persistence;
 using Todo.Core.Settings;
+using Todo.Core.Sources;
 using Todo.TestSupport;
 using YamlDotNet.Serialization;
 
@@ -20,14 +21,17 @@ public class AdoSettingsEndpointsTests : ApiTest
 {
     private const string Token = "an-ado-secret-that-must-not-come-back";
 
+    /// <summary>
+    /// The project round-trips; the collection URL is the helper's, so a save keeps the one it
+    /// reported - escaped space and all, the case that matters, because the measured collection name
+    /// has a space in it and three layers could un-escape it.
+    /// </summary>
     [Fact]
-    public async Task The_collection_url_and_the_project_round_trip()
+    public async Task The_project_round_trips_and_the_collection_url_the_helper_reported_stays()
     {
-        // The trailing slash is trimmed on the way in, as it is for Jira, so nothing builds a URL with
-        // a doubled slash later. The escaped space is the case that matters: the measured collection
-        // name has a space in it, and the plan names three layers that can un-escape it.
-        var saved = await PutAsync(
-            new { adoBaseUrl = "https://ado.example.invalid/Some%20Collection/", adoProject = "Saas" });
+        await Host.ConnectAdoAsync("https://ado.example.invalid/Some%20Collection", Token);
+
+        var saved = await PutAsync(new { adoProject = "Saas" });
 
         Assert.Equal("https://ado.example.invalid/Some%20Collection", saved.AdoBaseUrl);
         Assert.Equal("Saas", saved.AdoProject);
@@ -343,92 +347,42 @@ public class AdoSettingsEndpointsTests : ApiTest
     }
 
     /// <summary>
-    /// The whole reason the token has a route of its own, asserted on the raw body: a leak could arrive
-    /// under any property name, including one the contract does not declare and the generated client
-    /// would drop without a word.
+    /// The host holds a token only in the tests, where the fake hands it over - and even then it must
+    /// not reach a response. Asserted on the raw body: a leak could arrive under any property name,
+    /// including one the contract does not declare and the generated client would drop without a word.
     /// </summary>
     [Fact]
-    public async Task The_token_never_comes_back_out_of_the_api()
+    public async Task A_token_the_host_holds_never_comes_back_out_of_the_api()
     {
-        var stored = await Client.PutAsJsonAsync("/api/settings/ado-token", new { token = Token });
+        await Host.ConnectAdoAsync("https://ado.example.invalid/Collection", Token);
 
-        stored.EnsureSuccessStatusCode();
+        var body = await Client.GetStringAsync("/api/settings");
 
-        Assert.True(
-            (await stored.Content.ReadFromJsonAsync<SettingsResponse>())!.HasAdoToken,
-            "The token was not stored, so the leak assertion below would prove nothing.");
-
-        Assert.DoesNotContain(Token, await Client.GetStringAsync("/api/settings"), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Storing_a_token_shows_up_as_having_one()
-    {
-        Assert.False((await GetAsync()).HasAdoToken);
-
-        var response = await Client.PutAsJsonAsync("/api/settings/ado-token", new { token = Token });
-
-        response.EnsureSuccessStatusCode();
-
-        Assert.True((await response.Content.ReadFromJsonAsync<SettingsResponse>())!.HasAdoToken);
-    }
-
-    [Fact]
-    public async Task Clearing_the_token_removes_it()
-    {
-        await Client.PutAsJsonAsync("/api/settings/ado-token", new { token = Token });
-
-        var response = await Client.DeleteAsync("/api/settings/ado-token");
-
-        response.EnsureSuccessStatusCode();
-
-        Assert.False((await response.Content.ReadFromJsonAsync<SettingsResponse>())!.HasAdoToken);
-    }
-
-    [Fact]
-    public async Task An_empty_token_is_rejected_rather_than_stored_as_blank()
-    {
-        var response = await Client.PutAsJsonAsync("/api/settings/ado-token", new { token = "  " });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("\"hasAdoToken\":true", body, StringComparison.Ordinal);
+        Assert.DoesNotContain(Token, body, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Two tokens, two rows. The copy-paste this guards against is a handler that stores under the
-    /// other system's key, which would make one token clear or answer for the other.
+    /// One flag per system. The copy-paste this guards against is a response that reads Jira's
+    /// connection for Azure DevOps' flag, which would make one answer for the other.
     /// </summary>
     [Fact]
-    public async Task The_two_tokens_are_stored_apart()
+    public async Task The_two_flags_follow_their_own_systems()
     {
-        await Client.PutAsJsonAsync("/api/settings/ado-token", new { token = Token });
+        Host.Connections.Ado = new(Token: null, AuthorizedElsewhere: true);
 
         var afterAdo = await GetAsync();
 
         Assert.True(afterAdo.HasAdoToken);
         Assert.False(afterAdo.HasJiraToken);
 
-        await Client.PutAsJsonAsync("/api/settings/jira-token", new { token = "a-jira-secret" });
-        await Client.DeleteAsync("/api/settings/ado-token");
+        Host.Connections.Ado = SourceConnection.None;
+        Host.Connections.Jira = new(Token: null, AuthorizedElsewhere: true);
 
         var afterJira = await GetAsync();
 
         Assert.False(afterJira.HasAdoToken);
         Assert.True(afterJira.HasJiraToken);
-    }
-
-    /// <summary>
-    /// The regression the split exists to prevent. PUT /api/settings is a full replacement, so a save
-    /// of anything else must not be able to reach the token.
-    /// </summary>
-    [Fact]
-    public async Task Saving_the_other_settings_does_not_clear_the_token()
-    {
-        await Client.PutAsJsonAsync("/api/settings/ado-token", new { token = Token });
-
-        var after = await PutAsync(new { language = "en", adoProject = "Saas" });
-
-        Assert.True(after.HasAdoToken);
-        Assert.Equal("Saas", after.AdoProject);
     }
 
     private List<Setting> StoredSettings()

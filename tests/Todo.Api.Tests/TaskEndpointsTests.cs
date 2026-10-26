@@ -67,7 +67,6 @@ public class TaskEndpointsTests : TaskApiTest
         await Host.ConnectJiraAsync(jira.BaseUrl, FakeJira.Token);
         await Client.PutAsJsonAsync("/api/settings", new
         {
-            jiraBaseUrl = jira.BaseUrl,
             jiraProjectKey = "SAAS",
             jiraWaitingStatuses = new[] { "Afventer general" },
             jiraIncludeWaiting = false,
@@ -139,7 +138,6 @@ public class TaskEndpointsTests : TaskApiTest
         // assignee and resolution clauses, so growing it there would cost more than it saves here.
         await Client.PutAsJsonAsync("/api/settings", new
         {
-            jiraBaseUrl = jira.BaseUrl,
             jiraProjectKey = "SAAS",
             jiraWaitingStatuses = new[] { "Afventer general" },
             jiraIncludeWaiting = false,

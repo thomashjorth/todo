@@ -48,27 +48,27 @@ public class SettingsAccordionJourneyTests(BrowserFixture fixture) : BrowserTest
         }
 
         await Assertions.Expect(settings.Language).ToHaveCountAsync(0);
-        await Assertions.Expect(settings.JiraBaseUrl).ToHaveCountAsync(0);
+        await Assertions.Expect(settings.JiraProjectKey).ToHaveCountAsync(0);
 
         // One open, and only one.
         await settings.OpenAsync(SettingsScreen.JiraSection);
 
-        await Assertions.Expect(settings.JiraBaseUrl).ToBeVisibleAsync();
+        await Assertions.Expect(settings.JiraProjectKey).ToBeVisibleAsync();
         await AssertOnlyOpenAsync(settings, SettingsScreen.JiraSection);
 
         // The second click is what proves the rule rather than a page that happens to start folded:
         // opening another group has to fold this one, fields and all.
         await settings.OpenAsync(SettingsScreen.AdoSection);
 
-        await Assertions.Expect(settings.AdoBaseUrl).ToBeVisibleAsync();
-        await Assertions.Expect(settings.JiraBaseUrl).ToHaveCountAsync(0);
+        await Assertions.Expect(settings.AdoProject).ToBeVisibleAsync();
+        await Assertions.Expect(settings.JiraProjectKey).ToHaveCountAsync(0);
         await AssertOnlyOpenAsync(settings, SettingsScreen.AdoSection);
 
         // And clicking the open one folds it: nothing open is a state a click can reach, not only
         // the state the page arrived in.
         await settings.SectionToggle(SettingsScreen.AdoSection).ClickAsync();
 
-        await Assertions.Expect(settings.AdoBaseUrl).ToHaveCountAsync(0);
+        await Assertions.Expect(settings.AdoProject).ToHaveCountAsync(0);
         foreach (var (section, _) in Groups)
         {
             await Assertions.Expect(settings.SectionToggle(section))

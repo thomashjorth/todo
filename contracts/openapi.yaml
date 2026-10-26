@@ -393,85 +393,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-  /api/settings/jira-token:
-    put:
-      operationId: setJiraToken
-      tags:
-        - Settings
-      summary: Stores the Jira personal access token the import authenticates with.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JiraTokenRequest'
-      responses:
-        '200':
-          description: The token was stored.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SettingsResponse'
-        '400':
-          description: The token was empty.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-    delete:
-      operationId: clearJiraToken
-      tags:
-        - Settings
-      summary: Forgets the stored Jira token.
-      responses:
-        '200':
-          description: The token was removed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SettingsResponse'
-  /api/settings/ado-token:
-    put:
-      operationId: setAdoToken
-      tags:
-        - Settings
-      summary: Stores the Azure DevOps personal access token the import authenticates with.
-      description: >-
-        A route of its own rather than a field on PUT /api/settings, because that is a full
-        replacement which reads an absent field as "clear": a client saving anything else on
-        the settings page would wipe the token, and the token can never be sent back to the
-        client to be echoed. SettingsResponse carries only hasAdoToken.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdoTokenRequest'
-      responses:
-        '200':
-          description: The token was stored.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SettingsResponse'
-        '400':
-          description: The token was empty.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-    delete:
-      operationId: clearAdoToken
-      tags:
-        - Settings
-      summary: Forgets the stored Azure DevOps token.
-      responses:
-        '200':
-          description: The token was removed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SettingsResponse'
   /api/jira/test:
     post:
       operationId: testJiraConnection
@@ -1847,9 +1768,6 @@ components:
             People you hand tasks to, offered as suggestions when a task moves to WaitingFor. A
             suggestion list, not a closed set: the who field stays free text, because waiting on
             somebody unlisted — or on nobody at all — are both valid states.
-        jiraBaseUrl:
-          type: string
-          nullable: true
         jiraProjectKey:
           type: string
           nullable: true
@@ -1880,10 +1798,6 @@ components:
           description: >-
             Whether the user currently holds the 2nd level support duty. Off by default. Separate
             from the list so the list survives going off duty.
-        adoBaseUrl:
-          type: string
-          nullable: true
-          description: The Azure DevOps collection URL, which may contain a space in its name.
         adoProject:
           type: string
           nullable: true
@@ -1985,6 +1899,7 @@ components:
         - adoWorkItemTypes
         - adoDefaultDeadlineDays
         - hasAdoToken
+        - helperOnline
         - reviewWeekday
         - reviewTimeOfDay
       properties:
@@ -2036,8 +1951,8 @@ components:
         hasJiraToken:
           type: boolean
           description: >-
-            Whether a token is stored. The token itself is never returned; it is written
-            through PUT /api/settings/jira-token and cleared through DELETE.
+            Whether calls to Jira will carry a token. The host never holds one: the helper on the
+            PC does, and says so when it connects.
         adoBaseUrl:
           type: string
           nullable: true
@@ -2080,8 +1995,13 @@ components:
         hasAdoToken:
           type: boolean
           description: >-
-            Whether a token is stored. The token itself is never returned; it is written
-            through PUT /api/settings/ado-token and cleared through DELETE.
+            Whether calls to Azure DevOps will carry a token. The host never holds one: the helper
+            on the PC does, and says so when it connects.
+        helperOnline:
+          type: boolean
+          description: >-
+            Whether the helper on the PC is connected. Without it nothing reaches Jira, Azure DevOps
+            or the AI model, and the base URLs above are the last ones it reported.
         reviewWeekday:
           type: integer
           format: int32
@@ -2128,20 +2048,6 @@ components:
           description: >-
             The next scheduled moment, UTC. Carried so the client does no arithmetic, and so a
             test can assert about the boundary rather than only about which side of it we are on.
-    JiraTokenRequest:
-      type: object
-      additionalProperties: false
-      required: [token]
-      properties:
-        token:
-          type: string
-    AdoTokenRequest:
-      type: object
-      additionalProperties: false
-      required: [token]
-      properties:
-        token:
-          type: string
     LoginRequest:
       type: object
       additionalProperties: false

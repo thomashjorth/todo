@@ -9,6 +9,7 @@ using Todo.Core.Ado;
 using Todo.Core.Ai;
 using Todo.Core.Jira;
 using Todo.Core.Review;
+using Todo.Core.Sources;
 using Todo.Host.Ado;
 using Todo.Host.Ai;
 using Todo.Host.Auth;
@@ -66,6 +67,9 @@ public static class TodoHost
         // as a parameter, which is how a minimal API asks DI for something.
         builder.Services.AddScoped<JiraSettingsReader>();
         builder.Services.AddScoped<AdoSettingsReader>();
+
+        // Where Jira's and Azure DevOps' credentials come from. Never the database from 2.0.0.
+        builder.Services.AddSingleton<ISourceConnections, NoSourceConnections>();
         builder.Services.AddScoped<ReviewSettingsReader>();
 
         // A typed client, so the source gets a pooled HttpClient rather than one per call. The

@@ -80,6 +80,7 @@ function configure(): void {
   settings.adoBaseUrl.set('https://ado.test/Min%20Samling');
   settings.adoProject.set('Saas');
   settings.hasAdoToken.set(true);
+  settings.helperOnline.set(true);
 }
 
 function open(): Screen {
@@ -147,7 +148,19 @@ describe('AdoImport', () => {
   // A spy on window.open must not outlive the test that made it, failed or not.
   afterEach(() => vi.restoreAllMocks());
 
+  it('should say the helper is not connected before it says Azure DevOps is not set up', () => {
+    const { element, http } = open();
+
+    expect(element.querySelector('[data-testid="ado-helper-offline"]')!.textContent!.trim()).toBe(
+      'Hjælperen på din PC er ikke forbundet, så der er ingen sager at hente.',
+    );
+    expect(element.querySelector('[data-testid="ado-not-configured"]')).toBeNull();
+    expect(element.querySelector('[data-testid="ado-preview"]')).toBeNull();
+    http.verify();
+  });
+
   it('should say that Azure DevOps is not set up and point at the settings page', () => {
+    TestBed.inject(SettingsStore).helperOnline.set(true);
     const { element, http } = open();
 
     expect(element.querySelector('[data-testid="ado-not-configured"]')!.textContent).toContain(

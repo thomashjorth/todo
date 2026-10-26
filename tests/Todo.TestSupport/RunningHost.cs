@@ -11,6 +11,7 @@ using Todo.Contracts;
 using Todo.Core.Auth;
 using Todo.Core.Persistence;
 using Todo.Core.Settings;
+using Todo.Core.Sources;
 using Todo.Host;
 
 namespace Todo.TestSupport;
@@ -25,8 +26,14 @@ public sealed class RunningHost : IAsyncDisposable
     private readonly string _databasePath;
     private readonly bool _ownsDatabase;
 
-    private RunningHost(WebApplication app, string baseUrl, string databasePath, bool ownsDatabase)
+    private RunningHost(
+        WebApplication app,
+        string baseUrl,
+        string databasePath,
+        bool ownsDatabase,
+        FakeSourceConnections connections)
     {
+        Connections = connections;
         _app = app;
         BaseUrl = baseUrl;
         _databasePath = databasePath;
@@ -90,26 +97,36 @@ public sealed class RunningHost : IAsyncDisposable
     }
 
     /// <summary>
+    /// The tests' stand-in for the helper: online, and holding whatever token a test hands it.
+    /// </summary>
+    public FakeSourceConnections Connections { get; }
+
+    /// <summary>
     /// Points the host at a Jira and gives it the token to call it with. One place for every test that
     /// needs Jira set up, so where the base URL and the token live is this method's business and not
-    /// a dozen tests'.
+    /// a dozen tests': the base URL is a row, as the helper's hello writes it, and the token is held in
+    /// memory and never stored, as the helper holds it.
     /// </summary>
-    public Task ConnectJiraAsync(string baseUrl, string token) =>
-        ConnectAsync(SettingKeys.JiraBaseUrl, baseUrl, SettingKeys.JiraToken, token);
+    public async Task ConnectJiraAsync(string baseUrl, string token)
+    {
+        await StoreAsync(SettingKeys.JiraBaseUrl, baseUrl);
+        Connections.Jira = new SourceConnection(token, AuthorizedElsewhere: false);
+    }
 
     /// <summary>The same for an Azure DevOps collection.</summary>
-    public Task ConnectAdoAsync(string baseUrl, string token) =>
-        ConnectAsync(SettingKeys.AdoBaseUrl, baseUrl, SettingKeys.AdoToken, token);
+    public async Task ConnectAdoAsync(string baseUrl, string token)
+    {
+        await StoreAsync(SettingKeys.AdoBaseUrl, baseUrl);
+        Connections.Ado = new SourceConnection(token, AuthorizedElsewhere: false);
+    }
 
-    private async Task ConnectAsync(string urlKey, string baseUrl, string tokenKey, string token)
+    private async Task StoreAsync(string key, string value)
     {
         using var scope = _app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
 
-        db.Settings.RemoveRange(db.Settings.Where(s => s.Key == urlKey || s.Key == tokenKey));
-        db.Settings.AddRange(
-            new Setting { Key = urlKey, Value = baseUrl },
-            new Setting { Key = tokenKey, Value = token });
+        db.Settings.RemoveRange(db.Settings.Where(s => s.Key == key));
+        db.Settings.Add(new Setting { Key = key, Value = value });
 
         await db.SaveChangesAsync();
     }
@@ -166,7 +183,14 @@ public sealed class RunningHost : IAsyncDisposable
             .. extraArgs
         ];
 
-        var app = TodoHost.Build(args, configureServices);
+        // Registered before the test's own configureServices, so a test can still replace it.
+        var connections = new FakeSourceConnections();
+
+        var app = TodoHost.Build(args, services =>
+        {
+            services.AddSingleton<ISourceConnections>(connections);
+            configureServices?.Invoke(services);
+        });
         await app.StartAsync();
 
         VerifyPoolKey(app, databasePath);
@@ -176,7 +200,7 @@ public sealed class RunningHost : IAsyncDisposable
             .Features.Get<IServerAddressesFeature>()!
             .Addresses.First();
 
-        var host = new RunningHost(app, baseUrl, databasePath, ownsDatabase);
+        var host = new RunningHost(app, baseUrl, databasePath, ownsDatabase, connections);
         await host.LogInAsync();
 
         return host;

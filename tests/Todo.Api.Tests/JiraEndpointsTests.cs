@@ -48,7 +48,6 @@ public class JiraEndpointsTests : ApiTest
         await Host.ConnectJiraAsync(jira.BaseUrl, FakeJira.Token);
         await Host.Client.PutAsJsonAsync("/api/settings", new
         {
-            jiraBaseUrl = jira.BaseUrl,
             jiraProjectKey = projectKey,
             jiraWaitingStatuses = waitingStatuses ?? ["Afventer general"],
             jiraIncludeWaiting = includeWaiting,

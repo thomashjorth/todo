@@ -643,9 +643,15 @@ public sealed class AdoTaskSource : ITaskSource
         // Basic with an empty user name, not Bearer: measured 2026-08-20, base64(":" + PAT) answers
         // 200 where Jira's Bearer form is what its own instance wants. ASCII because that is what the
         // measurement used and a PAT is base64url text anyway.
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic",
-            Convert.ToBase64String(Encoding.ASCII.GetBytes($":{settings.Token}")));
+        //
+        // Only when this process holds the token: on the NAS it does not, and the helper on the PC
+        // puts the same Basic header on the call instead.
+        if (settings.Token is { } token)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue(
+                "Basic",
+                Convert.ToBase64String(Encoding.ASCII.GetBytes($":{token}")));
+        }
 
         if (json is not null)
         {

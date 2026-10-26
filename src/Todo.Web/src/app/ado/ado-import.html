@@ -4,7 +4,12 @@
 
 <!-- Words rather than an empty list: without setup there is nothing to fetch, and a button that
      always fails says less than the way to the page that puts it right. -->
-@if (!configured()) {
+@if (!settings.helperOnline()) {
+  <!-- Before "not set up", for the same reason as at Jira. -->
+  <p data-testid="ado-helper-offline" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+    {{ 'ado.helperOffline' | transloco }}
+  </p>
+} @else if (!configured()) {
   <p data-testid="ado-not-configured" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
     {{ 'ado.notConfigured' | transloco }}
   </p>
