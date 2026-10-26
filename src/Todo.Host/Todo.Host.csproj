@@ -4,11 +4,11 @@
     <!-- No OutputType: the Web SDK's default is a console exe, which is right for a server. It was
          WinExe while the app was a Photino window, so Windows would not open a terminal beside it. -->
     <ApplicationIcon>..\Todo.Web\public\favicon.ico</ApplicationIcon>
-    <!-- /api/health prints this, so it is the one place a user can read which build is running.
-         Major 1 because the app has been in daily use since slice 1; minor is the slice that
-         shipped the build. Without it the answer was the assembly default, 1.0.0.0, which says
-         only that nobody set a version. -->
-    <Version>1.16.0</Version>
+    <!-- /api/health prints this, so it is the one place a user can read which build is running - on
+         the NAS too, where it says which image the scheduled task pulled. Major 2 is the web version;
+         the desktop app's last number was 1.16.0, tagged v1.16.0. Without a version the answer was
+         the assembly default, 1.0.0.0, which says only that nobody set one. -->
+    <Version>2.0.0</Version>
   </PropertyGroup>
   <!-- Everything below is about the publish output. Measured 2026-08-20 on a self-contained
        single-file publish: 31 files, of which five beside the exe are not needed to run. -->
