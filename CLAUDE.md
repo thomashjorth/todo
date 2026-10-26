@@ -10,6 +10,21 @@ appen i `README.md`. Denne fil er konventioner og målte fælder — den er auto
 så alt der lægges her betales i hver samtale. **Skriv kun det ned der ikke kan udledes af koden**, og
 især ikke tal der forældes; se "Testtal" nederst for hvad det kostede sidst.
 
+## Containeren og NAS'en
+
+`Dockerfile` bygger imaget, `scripts/probe-image.sh` spørger det udefra, og CI's `image`-job skubber
+det til `ghcr.io/thomashjorth/todo` — kun på `main` og kun efter grønne tests. NAS'en henter det
+selv fra en planlagt opgave i DSM (`deploy/update.sh`); **ikke Watchtower, som blev arkiveret i
+december 2025**. Brugerens tjekliste er `docs/NAS.md`. Tre ting der ikke kan ses af koden:
+
+- **Docker på udviklingsmaskinen kører Windows-containere**, så imaget kan hverken bygges eller køres
+  her. CI er det eneste sted det måles; skift ikke brugerens Docker-tilstand for at prøve det.
+- **`ASPNETCORE_URLS` og ikke imagets `ASPNETCORE_HTTP_PORTS`**: `TodoHost.Build` binder loopback på
+  en tilfældig port, når nøglen `urls` mangler, og en container der kun lytter inde i sig selv ser
+  sund ud indefra. Proben kalder udefra af netop den grund.
+- **`deploy/**` og `*.sh` er LF** (`.gitattributes`). En `.env` med CRLF ville ende hashen med `\r`,
+  og værten nægter en hash den ikke kan læse.
+
 ## Fire kommandoer
 
 ```
@@ -1260,8 +1275,14 @@ forkerte grund.
 
 ## Testtal
 
-**265** Todo.Core.Tests, **482** Todo.Api.Tests, **116** Todo.E2E, **435** Vitest — alle grønne,
-målt med `Check.cmd` 2026-10-26 efter 2.0.0's anden leverance, login.
+**265** Todo.Core.Tests, **484** Todo.Api.Tests, **116** Todo.E2E, **435** Vitest — alle grønne,
+målt med `Check.cmd` 2026-10-26 efter 2.0.0's tredje leverance, containeren.
+
+**Kun Api flyttede sig i leverance 3, med to:** `AuthConfigurationTests` måler nøglemappens
+standardplads ved siden af databasen og at en navngiven sti vinder — den standard kun containeren
+bruger, fordi hver testvært navngiver sin egen. Selve imaget måles ikke af nogen af de fire suiter:
+**`scripts/probe-image.sh` er dets vagt og kører kun i CI**, fordi Docker på udviklingsmaskinen kører
+Windows-containere. Planen er `docs/plans/2026-10-26-web-hosting-3-container.md`.
 
 **Alle fire steg, fordi appen fik et login — 47 tests er lagt til med vilje.** Core +17 i
 `PasswordHashTests`. Api +16: `PublicSurfaceTests` (6, skrevet *før* login og grøn på begge sider af
