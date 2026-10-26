@@ -1208,8 +1208,14 @@ forkerte grund.
 
 ## Testtal
 
-**248** Todo.Core.Tests, **468** Todo.Api.Tests, **112** Todo.E2E, **417** Vitest — alle grønne,
+**248** Todo.Core.Tests, **477** Todo.Api.Tests, **113** Todo.E2E, **420** Vitest — alle grønne,
 målt med `Check.cmd` 2026-10-26.
+
+**Api, E2E og Vitest steg, fordi et tags navn og farve kan overstyres — 13 tests er lagt til med
+vilje.** Api +9 i `TagEndpointsTests` (omdøbning, eget navn i andre versaler, dublet, fire afvisninger,
+404, en valgt farve tæller som brugt). E2E +1: `A_tag_is_renamed_and_recoloured_from_its_chip`.
+Vitest +3: to i `tags.spec.ts`, én i `tag-colors.spec.ts`. Designet er
+`docs/plans/2026-10-26-editing-a-tag-design.md`.
 
 **Alle fire steg, fordi tags blev farvede chips — 14 tests er lagt til med vilje.** Core +4 i
 `TagColorsTests` (regnbuen, den frigjorte farve, nuancerne, gentagelsen efter 21). Api +3: to i
