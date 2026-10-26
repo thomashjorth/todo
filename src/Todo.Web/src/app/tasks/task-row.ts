@@ -6,6 +6,7 @@ import { pluralKey } from '../i18n/plural-key';
 import { Shortcut } from '../shortcuts/shortcut';
 import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { SystemStore } from '../system/system-store';
+import { tagChip } from '../tags/tag-colors';
 import { TaskDetail } from './task-detail';
 import { TaskStore, subTaskProgress } from './task-store';
 
@@ -36,6 +37,8 @@ import { TaskStore, subTaskProgress } from './task-store';
   },
 })
 export class TaskRow {
+  protected readonly tagChip = tagChip;
+
   readonly task = input.required<TodoTask>();
 
   /**

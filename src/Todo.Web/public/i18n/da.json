@@ -329,7 +329,7 @@
     "heading": "Tags",
     "new": "Nyt tag",
     "add": "Tilføj",
-    "remove": "Fjern {{name}}",
+    "remove": "Slet {{name}}",
     "none": "Du har ingen tags endnu.",
     "filter": "Filtrér på tags",
     "field": "Tags",

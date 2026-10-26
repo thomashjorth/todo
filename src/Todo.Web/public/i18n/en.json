@@ -329,7 +329,7 @@
     "heading": "Tags",
     "new": "New tag",
     "add": "Add",
-    "remove": "Remove {{name}}",
+    "remove": "Delete {{name}}",
     "none": "You have no tags yet.",
     "filter": "Filter by tags",
     "field": "Tags",

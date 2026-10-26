@@ -106,6 +106,27 @@ public class TagsJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(buttons).ToHaveTextAsync(["Privat"]);
     }
 
+    /// <summary>
+    /// The user's "Det skal være muligt at slette nemt. Så de skal ikke være små": one click on the
+    /// chip's cross, no question asked, and a cross at least 24 px to hit.
+    /// </summary>
+    [Fact]
+    public async Task A_tag_is_deleted_with_one_click_on_its_cross()
+    {
+        await Host.AddAndSaveChangesAsync(new Tag { Name = "estimat" }, new Tag { Name = "Privat", Color = 1 });
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var settings = await App.GoToSettings();
+        await settings.OpenAsync(SettingsScreen.TagsSection);
+        var cross = App.Page.GetByRole(AriaRole.Button, new() { Name = "Slet estimat", Exact = true });
+
+        var box = await cross.BoundingBoxAsync();
+        Assert.True(box is { Width: >= 24, Height: >= 24 }, $"The cross is {box?.Width}x{box?.Height}, under 24 px.");
+        await cross.ClickAsync();
+
+        await Assertions.Expect(App.Page.GetByTestId("tag-row")).ToHaveCountAsync(1);
+        await Assertions.Expect(App.Page.GetByTestId("tag-row")).ToContainTextAsync("Privat");
+    }
+
     /// <summary>Ticked in the panel and saved at once; two pressed filters narrow to the task with both.</summary>
     [Fact]
     public async Task Tags_ticked_in_the_panel_narrow_the_list_together()
@@ -125,7 +146,9 @@ public class TagsJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await App.Page.Keyboard.PressAsync("Alt+Shift+G");
         var first = tasks.Detail.GetByTestId("task-tag").First;
         await Assertions.Expect(first).ToBeFocusedAsync();
-        await tasks.Detail.GetByRole(AriaRole.Checkbox, new() { Name = "Indkøb" }).CheckAsync();
+        var indkobChip = tasks.Detail.GetByRole(AriaRole.Button, new() { Name = "Indkøb", Exact = true });
+        await indkobChip.ClickAsync();
+        await Assertions.Expect(indkobChip).ToHaveAttributeAsync("aria-pressed", "true");
         await Assertions.Expect(tasks.RowShowing("Køb mælk").GetByTestId("row-tags")).ToHaveTextAsync("IndkøbPrivat");
 
         await App.Page.Keyboard.PressAsync("Alt+l");

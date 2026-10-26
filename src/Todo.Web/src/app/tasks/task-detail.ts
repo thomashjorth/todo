@@ -7,6 +7,7 @@ import { renderMarkdown } from '../markdown/render-markdown';
 import { Shortcut } from '../shortcuts/shortcut';
 import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { SystemStore } from '../system/system-store';
+import { tagChip } from '../tags/tag-colors';
 import { TaskChanges, TaskStore } from './task-store';
 
 const statusOptions: readonly TodoStatus[] = [
@@ -38,6 +39,8 @@ const statusOptions: readonly TodoStatus[] = [
   },
 })
 export class TaskDetail {
+  protected readonly tagChip = tagChip;
+
   readonly task = input.required<TodoTask>();
   readonly editingNote = input(false);
 
@@ -183,19 +186,11 @@ export class TaskDetail {
     return this.task().tags?.some((tag) => tag.id === tagId) ?? false;
   }
 
-  /**
-   * Writes the box back from the task after the round trip: [checked] is reapplied only when its
-   * value changes, so a refused save would otherwise leave the box ticked over nothing saved -
-   * CLAUDE.md's [checked] trap, which this field would be the fourth instance of.
-   */
-  protected toggleTag(tagId: number, box: HTMLInputElement): void {
+  protected toggleTag(tagId: number): void {
     const carried = (this.task().tags ?? []).map((tag) => tag.id).filter((id) => id !== tagId);
-    const ids = box.checked ? [...carried, tagId] : carried;
+    const ids = this.carries(tagId) ? carried : [...carried, tagId];
 
-    this.store
-      .setTags(this.task().id, ids)
-      .catch(() => {})
-      .finally(() => (box.checked = this.carries(tagId)));
+    this.store.setTags(this.task().id, ids).catch(() => {});
   }
 
   protected split(): void {

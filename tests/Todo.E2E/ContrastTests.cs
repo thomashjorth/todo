@@ -1879,6 +1879,53 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         AssertNoFailures(failures, scheme);
     }
 
+    /// <summary>
+    /// Every one of the 21 tag colours, on every surface that paints it: one task carries them all,
+    /// so the row shows each filled; the filter shows each as an outline and then pressed, the panel
+    /// each pressed, and the settings group each with its cross (the tag-chips design, 3).
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task Every_tag_colour_meets_WCAG_AA(ColorScheme scheme)
+    {
+        var tags = Enumerable.Range(0, Todo.Core.Tags.TagColors.Count)
+            .Select(slot => new Todo.Core.Tags.Tag { Name = $"Farve {slot:00}", Color = slot })
+            .ToList();
+        var everyColour = new TaskItemBuilder(Clock).Titled("Bærer alle farver").Build();
+        everyColour.Tags.AddRange(tags);
+        await Host.AddAndSaveChangesAsync([.. tags, everyColour]);
+
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
+        var tasks = App.Tasks;
+        var failures = new List<string>();
+        var filter = App.Page.GetByTestId("tag-filter-option");
+
+        await Assertions.Expect(tasks.RowShowing("Bærer alle farver").GetByTestId("row-tag"))
+            .ToHaveCountAsync(Todo.Core.Tags.TagColors.Count);
+        await Assertions.Expect(filter).ToHaveCountAsync(Todo.Core.Tags.TagColors.Count);
+        failures.AddRange(await App.ContrastFailuresAsync());
+
+        for (var i = 0; i < Todo.Core.Tags.TagColors.Count; i++)
+        {
+            await filter.Nth(i).ClickAsync();
+        }
+
+        await Assertions.Expect(App.Page.Locator("[data-testid=tag-filter-option][aria-pressed=true]"))
+            .ToHaveCountAsync(Todo.Core.Tags.TagColors.Count);
+        await tasks.RowShowing("Bærer alle farver").ClickAsync();
+        await Assertions.Expect(tasks.Detail.Locator("[data-testid=task-tag][aria-pressed=true]"))
+            .ToHaveCountAsync(Todo.Core.Tags.TagColors.Count);
+        failures.AddRange(await App.ContrastFailuresAsync());
+
+        var settings = await App.GoToSettings();
+        await settings.OpenAsync(SettingsScreen.TagsSection);
+        await Assertions.Expect(App.Page.GetByTestId("tag-row")).ToHaveCountAsync(Todo.Core.Tags.TagColors.Count);
+        failures.AddRange(await App.ContrastFailuresAsync());
+
+        AssertNoFailures(failures, scheme);
+    }
+
     private static void AssertNoFailures(IEnumerable<string> found, ColorScheme scheme)
     {
         var distinct = found.Distinct().Order().ToList();

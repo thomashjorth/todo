@@ -8,6 +8,7 @@ import { SettingsStore } from '../settings/settings-store';
 import { Shortcut } from '../shortcuts/shortcut';
 import { ShortcutStore } from '../shortcuts/shortcut-store';
 import { SystemStore } from '../system/system-store';
+import { tagChip } from '../tags/tag-colors';
 import { TaskDetail } from './task-detail';
 import { TaskRow } from './task-row';
 import { TaskStore } from './task-store';
@@ -23,6 +24,8 @@ import { TaskStore } from './task-store';
   },
 })
 export class TaskList {
+  protected readonly tagChip = tagChip;
+
   protected readonly store = inject(TaskStore);
   protected readonly ai = inject(AiStore);
   protected readonly shortcuts = inject(ShortcutStore);

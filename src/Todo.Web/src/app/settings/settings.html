@@ -136,20 +136,24 @@
         {{ 'tags.none' | transloco }}
       </p>
     } @else {
-      <ul class="mt-2 space-y-1">
+      <!-- Full-size chips, each with its own delete button of at least 24 px: one click deletes,
+           without asking, because the user asked for deleting to be easy (the tag-chips design, 2). -->
+      <ul class="mt-2 flex flex-wrap gap-2">
         @for (tag of tagStore.tags(); track tag.id) {
-          <li data-testid="tag-row" class="flex items-center gap-2">
-            <span class="min-w-0 flex-1 text-sm break-words text-gray-900 dark:text-gray-100">{{
-              tag.name
-            }}</span>
+          <li
+            data-testid="tag-row"
+            class="inline-flex max-w-full items-center gap-1 rounded-full border-2 py-1 pr-1 pl-3 text-sm"
+            [class]="tagChip(tag.color, true)"
+          >
+            <span class="min-w-0 break-words">{{ tag.name }}</span>
             <button
               type="button"
               data-testid="remove-tag"
               [attr.aria-label]="'tags.remove' | transloco: { name: tag.name }"
-              class="shrink-0 cursor-pointer text-xs text-red-700 dark:text-red-300"
+              class="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-base leading-none hover:bg-black/10 dark:hover:bg-white/15"
               (click)="removeTag(tag.id)"
             >
-              ✕
+              <span aria-hidden="true">×</span>
             </button>
           </li>
         }

@@ -9,8 +9,8 @@ import { TagStore } from './tag-store';
 
 const reload = '/api/tasks?includeCompleted=false&includeSomeday=true';
 
-const privat = new TagRef({ id: 1, name: 'Privat' });
-const indkob = new TagRef({ id: 2, name: 'Indkøb' });
+const privat = new TagRef({ id: 1, name: 'Privat', color: 0 });
+const indkob = new TagRef({ id: 2, name: 'Indkøb', color: 1 });
 
 function configure(): HttpTestingController {
   TestBed.configureTestingModule({
@@ -102,7 +102,7 @@ describe('Tags', () => {
   it('should offer only the tags a loaded task carries, and a pressed one', () => {
     configure();
     const tasks = TestBed.inject(TaskStore);
-    const estimat = new TagRef({ id: 3, name: 'estimat' });
+    const estimat = new TagRef({ id: 3, name: 'estimat', color: 2 });
     TestBed.inject(TagStore).tags.set([estimat, indkob, privat]);
     tasks.tasks.set([task(1, 'Køb mælk', [indkob]), task(2, 'Ring til tandlægen')]);
     tasks.toggleTagFilter(privat.id);

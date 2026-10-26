@@ -5,6 +5,7 @@ import { JiraStore } from '../jira/jira-store';
 import { RetroStore } from '../retro/retro-store';
 import { SettingsSection } from './settings-section';
 import { TagStore } from '../tags/tag-store';
+import { tagChip } from '../tags/tag-colors';
 import { SettingsStore } from './settings-store';
 
 /** Anything the browser's number field can hand over that is not a whole number of days. */
@@ -37,6 +38,8 @@ const weekdayNames = [
   },
 })
 export class Settings {
+  protected readonly tagChip = tagChip;
+
   protected readonly settings = inject(SettingsStore);
   protected readonly tagStore = inject(TagStore);
   protected readonly retro = inject(RetroStore);

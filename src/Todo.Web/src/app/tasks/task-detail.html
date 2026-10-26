@@ -341,8 +341,10 @@
     />
   </label>
 }
-<!-- Every tag as a checkbox, saved on change like the other fields. ⇧G focuses the first. Only
-     when the user has tags: with none there is nothing to tick, and no letter to claim. -->
+<!-- Every tag as a chip pressed or not, saved on a click like the other fields. ⇧G focuses the
+     first. Only when the user has tags: with none there is nothing to press, and no letter to claim.
+     A button's pressed state comes from its binding alone, so unlike the checkboxes these replaced,
+     a refused save needs nothing written back. -->
 @if (tagStore.tags().length > 0) {
   <fieldset data-testid="task-tags" class="space-y-1">
     <legend class="block text-xs text-gray-500 dark:text-gray-400">
@@ -356,21 +358,23 @@
         >
       }
     </legend>
-    <div class="flex flex-wrap gap-x-3 gap-y-1">
+    <div class="flex flex-wrap gap-2">
       @for (tag of tagStore.tags(); track tag.id; let first = $first) {
-        <label class="flex items-center gap-1 text-sm text-gray-900 dark:text-gray-100">
-          <input
-            #tagBox
-            type="checkbox"
-            data-testid="task-tag"
-            class="shrink-0"
-            [appShortcut]="first ? 'g' : ''"
-            appShortcutModifier="alt-shift"
-            [checked]="carries(tag.id)"
-            (change)="toggleTag(tag.id, tagBox)"
-          />
+        <button
+          type="button"
+          data-testid="task-tag"
+          class="cursor-pointer rounded-full border-2 px-3 py-0.5 text-sm"
+          [class]="tagChip(tag.color, carries(tag.id))"
+          [appShortcut]="first ? 'g' : ''"
+          appShortcutModifier="alt-shift"
+          [attr.aria-pressed]="carries(tag.id)"
+          (click)="toggleTag(tag.id)"
+        >
+          @if (carries(tag.id)) {
+            <span aria-hidden="true">✓</span>
+          }
           {{ tag.name }}
-        </label>
+        </button>
       }
     </div>
   </fieldset>
