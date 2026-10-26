@@ -56,6 +56,15 @@ if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyCon
 
 $hostProject = Join-Path $root 'src\Todo.Host'
 
+# The password's hash, from the user-level variable SetPassword.cmd writes. Read from there as well
+# as from the process, because a console opened before SetPassword.cmd ran does not have it yet.
+if (-not $env:Auth__PasswordHash) {
+    $env:Auth__PasswordHash = [Environment]::GetEnvironmentVariable('Auth__PasswordHash', 'User')
+}
+if (-not $env:Auth__PasswordHash) {
+    throw 'No password is set for Todo. Run SetPassword.cmd once, then start Todo again.'
+}
+
 # A host running from the build folder on another port - the Photino app from before 2.0.0, which took
 # a random one - locks the files the build below has to write, and the build then fails with an
 # MSB3027 that names neither the cause nor the cure. Measured 2026-10-26. Named here instead.

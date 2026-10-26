@@ -123,6 +123,16 @@ $listener.Stop()
 $probeDatabase = Join-Path ([IO.Path]::GetTempPath()) ("TodoApp.publish.{0}.db" -f [Guid]::NewGuid().ToString('N'))
 $logFile = Join-Path ([IO.Path]::GetTempPath()) ("TodoApp.publish.{0}.log" -f $port)
 
+# The keys that encrypt the login cookie, beside the probe's database rather than in the shared temp
+# folder the default would pick - and gone with it.
+$probeKeys = "$probeDatabase.keys"
+
+# The host refuses to start without a password hash. This one is of the password "publish-probe" with
+# one iteration, written down because it protects nothing: the probe asks only routes that need no
+# login. Given on the command line, so the user's own Auth__PasswordHash from the environment does
+# not decide whether the probe starts.
+$probeHash = 'pbkdf2-sha256$1$AAECAwQFBgcICQoLDA0ODw==$+OuWg3PolMxZE+0j6HpDErvcym7/av5Pp6NpLGZ7uCI='
+
 # Started from the repo root, deliberately: this is the whole assertion. Run from its own folder the
 # exe answered 200 even before the content root was fixed, so a probe from there could not fail.
 $process = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden `
@@ -130,6 +140,8 @@ $process = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden `
     -RedirectStandardOutput $logFile `
     -ArgumentList @(
         '--urls', ("http://127.0.0.1:{0}" -f $port),
+        '--Auth:PasswordHash', $probeHash,
+        '--Data:KeysPath', $probeKeys,
         '--Data:Path', $probeDatabase
     )
 
@@ -203,6 +215,8 @@ finally {
     foreach ($file in @($probeDatabase, "$probeDatabase-wal", "$probeDatabase-shm", $logFile)) {
         if (Test-Path $file) { Remove-Item $file -Force -ErrorAction SilentlyContinue }
     }
+
+    if (Test-Path $probeKeys) { Remove-Item $probeKeys -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
 if ($failures.Count -gt 0) {
