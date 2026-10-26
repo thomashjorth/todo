@@ -55,8 +55,61 @@ jobs:
       # grøn maskine og en grøn kørsel betyder det samme. Kører alle fire testprojekter,
       # inklusive drift-, friskheds-, kontrast- og migreringsvagterne.
       - name: dotnet test
-        run: dotnet test Todo.sln
+        run: dotnet test Todo.sln --logger trx --results-directory TestResults
+
+      # Hver fejlet test som en annotation. Loggen kræver login hos GitHub, men annotationer kan
+      # læses af API'et uden — og CI fejlede i dotnet test fra september til oktober 2026, uden at
+      # nogen uden for et login kunne se hvorfor.
+      - name: Fejlede tests som annotationer
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem TestResults -Recurse -Filter *.trx | ForEach-Object {
+            [xml]$trx = Get-Content $_.FullName -Raw
+            $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
+            Select-Xml -Xml $trx -Namespace $ns -XPath "//t:UnitTestResult[@outcome='Failed']" | Select-Object -First 30 | ForEach-Object {
+              $name = $_.Node.testName
+              $message = ($_.Node.Output.ErrorInfo.Message -replace '\r?\n', ' ')
+              if ($message.Length -gt 900) { $message = $message.Substring(0, 900) }
+              Write-Output "::error title=$name::$message"
+            }
+          }
 
       - name: Vitest
         working-directory: src/Todo.Web
         run: npm run test -- --watch=false
+
+  # Imaget NAS'en kører. Kun på main og kun efter grønne tests: NAS'en henter :latest hvert
+  # femte minut, så det der skubbes her, er det der kører derhjemme kort efter.
+  image:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Byg imaget
+        run: docker build -t todo:probe .
+
+      # Før skubbet: et image der ikke svarer udefra, ikke logger ind, kører som root,
+      # siger UTC eller lægger data uden for /data, når aldrig NAS'en.
+      - name: Prøv imaget
+        run: bash scripts/probe-image.sh todo:probe
+
+      - name: Log ind på GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # :latest er det NAS'en henter; :<sha> er det man ruller tilbage til. Sha'et først: en
+      # nyere commit afbryder kørslen (cancel-in-progress), og et :latest uden sit sha ville
+      # ikke kunne rulles tilbage til.
+      - name: Skub imaget
+        run: |
+          for tag in "${GITHUB_SHA}" latest; do
+            docker tag todo:probe "ghcr.io/thomashjorth/todo:${tag}"
+            docker push "ghcr.io/thomashjorth/todo:${tag}"
+          done
