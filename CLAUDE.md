@@ -10,15 +10,23 @@ appen i `README.md`. Denne fil er konventioner og målte fælder — den er auto
 så alt der lægges her betales i hver samtale. **Skriv kun det ned der ikke kan udledes af koden**, og
 især ikke tal der forældes; se "Testtal" nederst for hvad det kostede sidst.
 
-## Tre kommandoer
+## Fire kommandoer
 
 ```
-Todo.cmd        starter appen
-Check.cmd       kører alt, i den rækkefølge der er bærende
-Publish.cmd     bygger exe'en til publish\ og prøver den bagefter
+Todo.cmd          starter appen
+Check.cmd         kører alt, i den rækkefølge der er bærende
+Publish.cmd       bygger exe'en til publish\ og prøver den bagefter
+SetPassword.cmd   sætter appens password, én gang før første start
 ```
 
-Alle tre findes for at slippe for at huske `-ExecutionPolicy Bypass`; scripterne bag dem ligger i
+**Fra 2.0.0 har appen et login, og værten nægter at starte uden en password-hash.** `SetPassword.cmd`
+gemmer hashen — aldrig passwordet — i brugerens miljøvariabel `Auth__PasswordHash`; `Todo.cmd` læser
+den derfra og siger det med navn, hvis den mangler. **Passwordet når hash-verbet gennem
+`TODO_PASSWORD` i miljøet, aldrig gennem stdin**: PowerShell 5.1 piper til en native kommando som
+ASCII, og .NET læser en omdirigeret stdin i konsollens OEM-tegntabel, så et password med æøå ville
+blive hashet som noget andet end det browseren sender. Målt at miljøvejen giver UTF-8-hashen.
+
+Alle fire findes for at slippe for at huske `-ExecutionPolicy Bypass`; scripterne bag dem ligger i
 `scripts\`. `Todo.cmd` bygger Angular hvis kilderne er nyere end `wwwroot`, starter værten på den
 faste port **5180** og åbner Edges app-vindue på den; et andet dobbeltklik mens den kører, åbner et
 vindue mere på samme vært. Argumenter går videre til værten, så `Todo.cmd --Data:Path <fil>` kører
@@ -1047,6 +1055,21 @@ forkerte grund.
   `stat -c %Y` eller `find -printf %T@`.
 - **Tests må ikke røre `%APPDATA%`.** `RunningHost` giver hver test sin egen midlertidige
   database. Arv fra `ApiTest` eller `BrowserTest` frem for at starte en host i testen.
+- **Hver test kører login-vejen, og ingen test må arve brugerens password.** `RunningHost` giver
+  **altid** `--Auth:PasswordHash` på kommandolinjen, fordi `WebApplication.CreateBuilder` læser
+  miljøvariabler uden præfiks: efter `SetPassword.cmd` står brugerens `Auth__PasswordHash` i hver
+  proces suiten starter, og en vært der læste den, ville afvise test-passwordet — kun på den maskine.
+  `Client` er logget ind med en cookie; `AnonymousClient()` er det ikke. E2E logger ind gennem
+  `page.APIRequest`, som deler cookies med siden, og `LoginJourneyTests` er den ene rejse der går
+  gennem formularen. **Rate-limiten er pr. adresse og tæller `RunningHost`'s eget login** — en test
+  der vil se 429, har ni forsøg tilbage, ikke ti. Målt.
+- **Login-siden står på systemets sprog**, fordi sproget er en indstilling bag login.
+  `TodoApp.OpenLoggedOutAsync` låser derfor locale til da-DK: Playwrights browser tager ellers
+  maskinens, og et gæt på en-US var forkert på udviklingsmaskinen.
+- **`App.onLogin` læser routerens tilstand ved abonnement, ikke kun `NavigationEnd`.** Indstillingernes
+  initializer får sit 401, før skallen findes, og interceptoren sender routeren til `/login`; routerens
+  egen første navigation går så til samme URL, ignoreres og slutter ingenting. Målt i E2E:
+  navigationen stod på login-siden, indtil `startWith` kom på.
 - **Playwright-tests må ikke have bivirkninger uden for appen — og fra 2.0.0 er det en egenskab ved
   suiten.** Hvert link appen åbner, går gennem `window.open`, og `TodoApp.ReplaceWindowOpenAsync`
   erstatter den på **hver** side `TodoApp.OpenAsync` åbner; `App.OpenedLinkAsync()` læser hvad der
@@ -1063,9 +1086,10 @@ forkerte grund.
   Playwright med en afbrydelse — så en E2E-påstand skrevet på kodens tekst fejler, uden at der er
   noget i vejen med koden.
 - **Kontrast måles i browseren** med `getComputedStyle`, fordi kun browseren har afgjort hvilken
-  baggrund et stykke tekst endte på. `ContrastTests` går appens **seks** skærme igennem i begge
-  farvetemaer — `app.routes.ts` har præcis seks ruter: opgavelisten, gennemgangen, retro-importen,
-  Jira-importen, ADO-importen og indstillingerne — og måler derudover det **udvidede detaljepanel**,
+  baggrund et stykke tekst endte på. `ContrastTests` går appens **seks** skærme bag login igennem i
+  begge farvetemaer — opgavelisten, gennemgangen, retro-importen, Jira-importen, ADO-importen og
+  indstillingerne; `app.routes.ts` har fra 2.0.0 en **syvende** rute, login-siden, som har sin egen
+  teori fordi den åbnes uden cookie — og måler derudover det **udvidede detaljepanel**,
   hvor noten, underopgaverne og statusvælgeren bor. Panelet er en tilstand på opgavelisten, ikke en
   syvende skærm; tæl det ikke som en. (Tallet var fire indtil 2026-08-20; ADO-importen gjorde det
   fem, og den ugentlige gennemgang gjorde det seks 2026-08-28.) **Gennemgangen koster mere end en
@@ -1236,8 +1260,16 @@ forkerte grund.
 
 ## Testtal
 
-**248** Todo.Core.Tests, **466** Todo.Api.Tests, **113** Todo.E2E, **423** Vitest — alle grønne,
-målt med `Check.cmd` 2026-10-26 efter 2.0.0's første leverance.
+**265** Todo.Core.Tests, **482** Todo.Api.Tests, **116** Todo.E2E, **435** Vitest — alle grønne,
+målt med `Check.cmd` 2026-10-26 efter 2.0.0's anden leverance, login.
+
+**Alle fire steg, fordi appen fik et login — 47 tests er lagt til med vilje.** Core +17 i
+`PasswordHashTests`. Api +16: `PublicSurfaceTests` (6, skrevet *før* login og grøn på begge sider af
+det), `AuthConfigurationTests` (3) og `AuthEndpointsTests` (7, deriblandt rutevagten der går hele
+routingtabellen igennem). E2E +3: `LoginJourneyTests` og `ContrastTests.The_login_screen_meets_WCAG_AA`
+i begge temaer. Vitest +12: `auth-store.spec.ts` (3), `unauthorized.interceptor.spec.ts` (4),
+`login.spec.ts` (3) og `app.spec.ts` (2, navigationen skjult på login — den anden i den rækkefølge den
+rigtige app møder). Planen er `docs/plans/2026-10-26-web-hosting-2-login.md`.
 
 **Api faldt og Vitest steg, fordi links åbnes af browseren frem for af serveren.** Api 477 → 466:
 `SystemEndpointsTests` (10) og `LinkLauncherRegistrationTests` (1) er slettet med deres endpoint.

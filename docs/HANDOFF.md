@@ -173,6 +173,9 @@ Skive **15** er livscyklus og arkiv.
 **Web-udgavens første leverance (2.0.0, leverance 1) — Edges app-vindue i stedet for Photino.** Intet
 af det følgende kan en agent måle, fordi det kræver et vindue på dit skrivebord:
 
+0. **Kør `SetPassword.cmd` én gang** (leverance 2). Den beder om passwordet to gange og gemmer kun
+   hashen. Uden den nægter `Todo.cmd` at starte og siger hvorfor. Prøv også at logge ind med et
+   forkert password, og at et password med æøå virker — hashen er målt, men ikke gennem din tast.
 1. **Luk den gamle app først.** Kører den Photino-udgave du har åben nu, fra `bin\Release`, nægter
    `Todo.cmd` at bygge og siger det med pid. Målt 2026-10-26: uden den besked fejler bygningen med
    en MSB3027 om låste filer.

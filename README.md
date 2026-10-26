@@ -4,6 +4,16 @@ Personal todo app. Design: `docs/plans/2026-08-13-todo-app-design.md`.
 
 ## Getting started
 
+Once, before the first start:
+
+```
+SetPassword.cmd
+```
+
+Asks for the app's password twice and stores its hash - never the password - in the user-level
+environment variable `Auth__PasswordHash`. The host refuses to start without it. Run it again to
+change the password. Then:
+
 ```
 Todo.cmd
 ```
@@ -27,6 +37,8 @@ Terminal 1:
 ```
 dotnet run --project src\Todo.Host -- --urls http://127.0.0.1:5199
 ```
+
+The host reads `Auth__PasswordHash` from the environment, so run `SetPassword.cmd` first.
 
 Terminal 2:
 
