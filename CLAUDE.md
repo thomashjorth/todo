@@ -407,10 +407,26 @@ følger med når den valgte søges væk eller slettes, og at auto-valget kun gæ
 valgbare**, fordi deres række er et almindeligt `<li>` uden panel, så den tomme tilstand
 (`tasks.selectPrompt`) findes selv med auto-valg.
 
-**Bundlens advarselsloft er 600 kB, og tallet er valgt frem for arvet.** Det var 500, og en leverance
+**Bundlens advarselsloft er 650 kB, og tallet er valgt frem for arvet.** Det var 500, og en leverance
 på under en halv kilobyte krydsede det: målt 499,97 kB før og 500,37 efter, altså 368 bytes over fra
 30 bytes under. Et loft en 400-bytes funktion kan krydse måler ingenting og træner folk i at ignorere
 advarsler. Fejlgrænsen står stadig på 1 MB, så et rigtigt spring fanges.
+
+**Og 600 blev til 650 den 2026-10-26 (brugerens valg), efter en måling commit for commit** — hver
+bygget i et worktree, "Initial total" fra `ng build`: 538,6 kB før AI-arbejdet (`0973ee3`), 555,0 efter
+første AI-runde, 577,3 med AI på de andre skærme, 594,2 med tags, 597,4 før chipsene (`6e2fcbe`),
+**610,6 med tag-chipsene** (`bcadb64`) og 615,6 med redigeringen af et tag. Chipsene krydsede loftet,
+og 9,6 af deres 13,2 kB er **Tailwinds egen CSS** for de 21 farver i begge temaer — ingen egen CSS,
+men omkring 120 utility-klasser appen ikke brugte før. Væksten var altså ønsket og målt, og appen
+indlæses fra disken. **Læg mærke til fælden der gav en forkert før-måling:** en `git stash` tager ikke
+uversionerede filer med, og Tailwind scanner rå filer, så en ny `.ts`-fil der lå tilbage, fik sine
+klasser i "før"-bygningen og flyttede 9 kB fra efter til før. Mål med en ren checkout.
+
+**Lazy-loading af ruterne er målt og fravalgt som løsning på loftet.** De fem sekundære skærme som
+`loadComponent` gav et "Initial total" på 266 kB, men tallet snyder: Angular regnede en delt chunk på
+266 kB som *lazy*, mens `main` importerer den statisk — `from"./chunk-…js"` i `main`. Den reelle
+besparelse ved opstart var omkring 80 kB, og budgettet ville have holdt op med at måle 266 kB af det der
+faktisk indlæses. Vælges den vej en dag, så ret budgettet så det ser den delte chunk.
 
 **En sortering inde i en sektion er en rang plus en stabil `sort`, ikke en sammenligning der også ser
 på datoerne.** `Array.prototype.sort` er stabil per spec siden ES2019, så lige rangeringer beholder
