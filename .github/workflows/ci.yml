@@ -111,5 +111,9 @@ jobs:
         run: |
           for tag in "${GITHUB_SHA}" latest; do
             docker tag todo:probe "ghcr.io/thomashjorth/todo:${tag}"
-            docker push "ghcr.io/thomashjorth/todo:${tag}"
+            # Fejlen som annotation, af samme grund som testenes: loggen kræver login.
+            if ! out="$(docker push "ghcr.io/thomashjorth/todo:${tag}" 2>&1)"; then
+              echo "::error title=docker push ${tag}::$(echo "$out" | tail -5 | tr '\n' ' ')"
+              exit 1
+            fi
           done
