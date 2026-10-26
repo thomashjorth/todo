@@ -1,15 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <RootNamespace>Todo.Host</RootNamespace>
-    <!-- WinExe, not Exe. The app is a Photino window, and a console subsystem binary makes Windows
-         allocate a terminal beside it - measured on the published exe, whose PE subsystem field read
-         3 (console) and now reads 2 (GUI).
-
-         Nothing in the app writes to the console: Program.cs never mentions it, and the only stdout
-         is ASP.NET's logger. That output is not lost, it is just unattached - a parent that redirects
-         still gets every line, which is how scripts\publish.ps1 reads the probe's log and how
-         dotnet run shows logs during development. -->
-    <OutputType>WinExe</OutputType>
+    <!-- No OutputType: the Web SDK's default is a console exe, which is right for a server. It was
+         WinExe while the app was a Photino window, so Windows would not open a terminal beside it. -->
     <ApplicationIcon>..\Todo.Web\public\favicon.ico</ApplicationIcon>
     <!-- /api/health prints this, so it is the one place a user can read which build is running.
          Major 1 because the app has been in daily use since slice 1; minor is the slice that
@@ -20,8 +13,8 @@
   <!-- Everything below is about the publish output. Measured 2026-08-20 on a self-contained
        single-file publish: 31 files, of which five beside the exe are not needed to run. -->
   <PropertyGroup>
-    <!-- No web.config. It configures the ASP.NET Core Module in IIS, and this app is a Photino
-         window that hosts Kestrel on loopback - it is never a site. -->
+    <!-- No web.config. It configures the ASP.NET Core Module in IIS, and this app runs on Kestrel
+         alone - on this machine under Todo.cmd, and in a container on the NAS. -->
     <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
     <!-- No Todo.Host.staticwebassets.endpoints.json (55 kB). The manifest is read by
          MapStaticAssets; this app serves wwwroot through UseStaticFiles, which reads the file
@@ -39,19 +32,6 @@
     <DebugType>none</DebugType>
     <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
   </PropertyGroup>
-  <ItemGroup>
-    <!-- Three pieces of metadata, and each one is needed for a different reason.
-         CopyToOutputDirectory is build output - it is what makes the icon appear beside a Debug
-         build. CopyToPublishDirectory is publish output, a separate list: having only the first is
-         why the published exe called SetIconFile on a path that did not exist.
-         And ExcludeFromSingleFile, because publish output is not the same as a file on disk under
-         PublishSingleFile: measured with -getItem:ResolvedFileToPublish, the icon is in the list
-         with PublishSingleFile=false and gone with it true, because _ComputeFilesToBundle takes
-         every resolved file that is not marked and hands it to the bundler. Photino needs a path,
-         so this one has to stay outside the exe. The wwwroot glob is marked the same way by the
-         Web SDK, which is why those files were never swallowed. -->
-    <Content Include="..\Todo.Web\public\favicon.ico" Link="icon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
-  </ItemGroup>
   <PropertyGroup>
     <!-- The Angular build goes into the assembly rather than into a folder beside the exe. Slice 16
          chose one file, and wwwroot was the nine that were left after the five in Task 1.
@@ -98,7 +78,6 @@
     <!-- ManifestEmbeddedFileProvider, which is what lets UseStaticFiles read the frontend out of
          the assembly instead of off disk. -->
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.11" />
-    <PackageReference Include="Photino.NET" Version="4.0.16" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.16.20" />
   </ItemGroup>
   <ItemGroup>

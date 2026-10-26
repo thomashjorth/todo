@@ -70,9 +70,9 @@ if ($running.Count -gt 0) {
 
 if (Test-Path $OutputPath) { Remove-Item $OutputPath -Recurse -Force }
 
-# IncludeNativeLibrariesForSelfExtract is what keeps Photino.Native, WebView2Loader and e_sqlite3
-# inside the exe instead of in a runtimes\ folder beside it. Measured: without it the output is a
-# folder, with it there is nothing loose but the icon.
+# IncludeNativeLibrariesForSelfExtract is what keeps e_sqlite3 inside the exe instead of in a
+# runtimes\ folder beside it. Measured with Photino still in the app: without it the output is a
+# folder, with it there was nothing loose but Photino's icon.
 & dotnet publish $hostProject -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $OutputPath
 if ($LASTEXITCODE -ne 0) { Fail ("Publish failed (exit code {0})." -f $LASTEXITCODE) }
@@ -81,10 +81,11 @@ $exe = Join-Path $OutputPath 'Todo.Host.exe'
 if (-not (Test-Path $exe)) { Fail ("No exe in {0}." -f $OutputPath) }
 
 # The shape of the output, and this is the one assertion here that dotnet test cannot make at all.
-# Slice 16 promised one exe; what it delivered is the exe plus an icon Photino needs as a path.
-# Everything else that used to be here - web.config, three pdb files, a 55 kB static web assets
-# manifest and nine wwwroot files - is held out by csproj properties, and a property that stops
-# working looks exactly like one that works. So the list is written down.
+# Slice 16 promised one exe and delivered it plus an icon Photino needed as a path; from 2.0.0
+# there is no Photino, so the promise holds. Everything else that used to be here - web.config,
+# three pdb files, a 55 kB static web assets manifest and nine wwwroot files - is held out by csproj
+# properties, and a property that stops working looks exactly like one that works. So the list is
+# written down.
 #
 # Note what this replaced. The probe below runs the exe from the repo root, which was written to
 # catch finding 5: a published exe whose content root was the working directory answered 404 on
@@ -92,7 +93,7 @@ if (-not (Test-Path $exe)) { Fail ("No exe in {0}." -f $OutputPath) }
 # the mechanism, because the assembly does not care where the process was started. The probe still
 # proves the exe runs and serves; it can no longer prove the content root, and pretending otherwise
 # would be a guard that cannot fail.
-$expected = @('Todo.Host.exe', 'icon.ico')
+$expected = @('Todo.Host.exe')
 $actual = @(Get-ChildItem -Path $OutputPath -Recurse -File |
     ForEach-Object { $_.FullName.Substring($OutputPath.Length).TrimStart('\') } | Sort-Object)
 
@@ -128,7 +129,6 @@ $process = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden `
     -WorkingDirectory $root `
     -RedirectStandardOutput $logFile `
     -ArgumentList @(
-        '--headless',
         '--urls', ("http://127.0.0.1:{0}" -f $port),
         '--Data:Path', $probeDatabase
     )
