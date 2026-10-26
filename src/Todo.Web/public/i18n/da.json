@@ -358,6 +358,10 @@
   },
   "errors": {
     "generic": "Noget gik galt. Prøv igen.",
+    "auth": {
+      "wrongPassword": "Forkert adgangskode.",
+      "tooManyAttempts": "For mange forsøg. Vent et minut, og prøv igen."
+    },
     "task": {
       "titleRequired": "Opgaven mangler en titel.",
       "titleTooLong": "Opgavens titel er for lang."

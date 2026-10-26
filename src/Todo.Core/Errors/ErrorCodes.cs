@@ -8,6 +8,15 @@ public static class ErrorCodes
     // A code is an identity, not a description: once shipped it must never be renamed,
     // or a frontend on an older translation file silently loses the message.
 
+    /// <summary>
+    /// The password does not match. Also what an empty password gets: there is no field to point at,
+    /// and telling the two apart would only help somebody guessing.
+    /// </summary>
+    public const string AuthWrongPassword = "auth.wrongPassword";
+
+    /// <summary>Ten attempts a minute from one address; the eleventh waits for the window to turn.</summary>
+    public const string AuthTooManyAttempts = "auth.tooManyAttempts";
+
     public const string TaskTitleRequired = "task.titleRequired";
     public const string TaskTitleTooLong = "task.titleTooLong";
 

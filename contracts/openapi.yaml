@@ -2,7 +2,37 @@ openapi: 3.0.4
 info:
   title: Todo API
   version: 1.0.0
+  description: >-
+    Every operation answers 401 without the login cookie, except getHealth and login. The 401 is not
+    written on each operation: it is the same for all of them and carries no body.
 paths:
+  /api/auth/login:
+    post:
+      operationId: login
+      tags:
+        - Auth
+      summary: Checks the app's one password and sets the cookie that keeps the browser logged in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '204':
+          description: Logged in; the cookie is set.
+        '400':
+          description: The password is wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Too many attempts in a minute.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/health:
     get:
       operationId: getHealth
@@ -2111,6 +2141,13 @@ components:
       required: [token]
       properties:
         token:
+          type: string
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password:
           type: string
     TagRef:
       type: object

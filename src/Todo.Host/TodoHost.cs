@@ -59,6 +59,7 @@ public static class TodoHost
 
         var databasePath = builder.Configuration["Data:Path"] ?? TodoDatabase.DefaultPath;
         builder.Services.AddDbContext<TodoDbContext>(o => o.UseSqlite($"Data Source={databasePath}"));
+        builder.Services.AddLogin(passwordHash, HostAuth.KeysPath(builder.Configuration, databasePath));
         builder.Services.AddSingleton<IClock, SystemClock>();
 
         // Scoped, because it reads through the request's TodoDbContext. The settings routes take it
@@ -161,6 +162,11 @@ public static class TodoHost
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = frontend });
         app.UseStaticFiles(new StaticFileOptions { FileProvider = frontend });
 
+        // After the static files, so the frontend and the login page load without a cookie.
+        app.UseRateLimiter();
+        app.UseAuthentication();
+        app.UseAuthorization();
+
         app.MapGet("/api/health", () => new HealthResponse
         {
             Status = "ok",
@@ -170,14 +176,21 @@ public static class TodoHost
         .WithTags("Health")
         .Produces<HealthResponse>();
 
-        app.MapTasks();
-        app.MapRetro();
-        app.MapJira();
-        app.MapAdo();
-        app.MapSettings();
-        app.MapReview();
-        app.MapAi();
-        app.MapTags();
+        app.MapAuth();
+
+        // Everything else under /api/ wants the cookie. One group rather than a call per route, so a
+        // new Map* inside it is protected without anyone remembering to ask - and
+        // AuthEndpointsTests walks every route, so one mapped outside it is caught.
+        var protectedApi = app.MapGroup("").RequireAuthorization();
+
+        protectedApi.MapTasks();
+        protectedApi.MapRetro();
+        protectedApi.MapJira();
+        protectedApi.MapAdo();
+        protectedApi.MapSettings();
+        protectedApi.MapReview();
+        protectedApi.MapAi();
+        protectedApi.MapTags();
 
         app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = frontend });
 

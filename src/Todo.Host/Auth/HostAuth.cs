@@ -1,5 +1,12 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Todo.Core.Auth;
+using Todo.Core.Errors;
 
 namespace Todo.Host.Auth;
 
@@ -10,6 +17,11 @@ namespace Todo.Host.Auth;
 public static class HostAuth
 {
     public const string PasswordHashKey = "Auth:PasswordHash";
+
+    public const string KeysPathKey = "Data:KeysPath";
+
+    /// <summary>The rate-limit policy the login route carries.</summary>
+    public const string LoginPolicy = "login";
 
     /// <summary>
     /// The stored hash, or a refusal to start. Refusing is the point: a host that came up without a
@@ -37,4 +49,85 @@ public static class HostAuth
 
         return stored;
     }
+
+    /// <summary>
+    /// Where the keys that encrypt the cookie live: named, or a folder beside the database. Beside the
+    /// database because that is the one place that outlives a deploy - in the container it is the
+    /// mounted volume, and keys left in the container's own file system would be new after every
+    /// pull, logging the user out each time something was pushed.
+    /// </summary>
+    public static string KeysPath(IConfiguration configuration, string databasePath) =>
+        configuration[KeysPathKey]
+        ?? Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "keys");
+
+    public static void AddLogin(this IServiceCollection services, string passwordHash, string keysPath)
+    {
+        services.AddSingleton(new LoginPassword(passwordHash));
+
+        services.AddDataProtection()
+            .SetApplicationName("Todo")
+            .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+
+        services
+            .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(options =>
+            {
+                options.Cookie.Name = "todo.login";
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.Strict;
+
+                // The LAN is plain http, so a Secure-only cookie would never come back. Behind https
+                // the cookie is marked Secure by the same rule.
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+
+                // 400 days is as long as a browser keeps a cookie at all; sliding, so a user who
+                // opens the app now and then never meets the login page again.
+                options.ExpireTimeSpan = TimeSpan.FromDays(400);
+                options.SlidingExpiration = true;
+
+                // An API answers 401, never a redirect: the frontend decides where to go, and a 302
+                // to a login path the server does not have would arrive as index.html with a 200.
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                };
+                options.Events.OnRedirectToAccessDenied = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
+                };
+            });
+
+        services.AddAuthorization();
+
+        services.AddRateLimiter(options =>
+        {
+            options.AddPolicy(LoginPolicy, context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                }));
+
+            // An ApiError with its own code, because the generated client only reads a body as
+            // ApiError for a status the contract declares - and the contract declares this one.
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new ApiError
+                    {
+                        Code = ErrorCodes.AuthTooManyAttempts,
+                        Message = "Too many attempts. Wait a minute and try again.",
+                    },
+                    cancellationToken);
+            };
+        });
+    }
 }
+
+/// <summary>The stored hash, handed to the login route through DI.</summary>
+public sealed record LoginPassword(string Hash);

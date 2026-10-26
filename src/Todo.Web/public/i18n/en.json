@@ -358,6 +358,10 @@
   },
   "errors": {
     "generic": "Something went wrong. Try again.",
+    "auth": {
+      "wrongPassword": "Wrong password.",
+      "tooManyAttempts": "Too many attempts. Wait a minute and try again."
+    },
     "task": {
       "titleRequired": "The task needs a title.",
       "titleTooLong": "The task title is too long."

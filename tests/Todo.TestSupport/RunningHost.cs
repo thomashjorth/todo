@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Net.Sockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Todo.Contracts;
 using Todo.Core.Auth;
 using Todo.Core.Persistence;
 using Todo.Host;
@@ -28,8 +30,34 @@ public sealed class RunningHost : IAsyncDisposable
         BaseUrl = baseUrl;
         _databasePath = databasePath;
         _ownsDatabase = ownsDatabase;
-        Client = new HttpClient { BaseAddress = new Uri(baseUrl) };
+
+        // A cookie container of its own, so the login in StartAsync rides along on every call a test
+        // makes through Client - which is how the whole suite runs the login path without a test
+        // saying so.
+        Client = new HttpClient(new HttpClientHandler { CookieContainer = new CookieContainer() })
+        {
+            BaseAddress = new Uri(baseUrl),
+        };
     }
+
+    /// <summary>A client with no cookie, for the claims about what answers without one.</summary>
+    public HttpClient AnonymousClient() => new() { BaseAddress = new Uri(BaseUrl) };
+
+    private async Task LogInAsync()
+    {
+        using var response = await Client.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest { Password = TestPassword });
+
+        if (response.StatusCode != HttpStatusCode.NoContent)
+        {
+            throw new InvalidOperationException(
+                $"The test host refused its own test password: {(int)response.StatusCode} "
+                + $"{await response.Content.ReadAsStringAsync()}. A test that needs another hash "
+                + "has to build the host itself rather than pass one through extraArgs.");
+        }
+    }
+
+    private static string KeysPathFor(string databasePath) => $"{databasePath}.keys";
 
     /// <summary>The password every test host is started with.</summary>
     public const string TestPassword = "test-password";
@@ -102,6 +130,10 @@ public sealed class RunningHost : IAsyncDisposable
             // read it would refuse the test password - on that machine only.
             "--Auth:PasswordHash", TestPasswordHash,
 
+            // Beside the database rather than the default folder beside it, which for every test
+            // would be the one shared TodoApp.Tests folder. Deleted with the database.
+            "--Data:KeysPath", KeysPathFor(databasePath),
+
             // Before extraArgs, so a test's own --Ai:BaseUrl wins: the command-line provider keeps
             // the last value for a repeated key.
             "--Ai:BaseUrl", ClosedLoopbackUrl(),
@@ -118,7 +150,10 @@ public sealed class RunningHost : IAsyncDisposable
             .Features.Get<IServerAddressesFeature>()!
             .Addresses.First();
 
-        return new RunningHost(app, baseUrl, databasePath, ownsDatabase);
+        var host = new RunningHost(app, baseUrl, databasePath, ownsDatabase);
+        await host.LogInAsync();
+
+        return host;
     }
 
     /// <summary>
@@ -186,6 +221,19 @@ public sealed class RunningHost : IAsyncDisposable
         }
 
         ClearConnectionPoolFor(_databasePath);
+
+        // A folder, so File.Delete below would leave it: the host writes a key file into it when it
+        // starts.
+        try
+        {
+            Directory.Delete(KeysPathFor(_databasePath), recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
 
         foreach (var file in new[] { _databasePath, $"{_databasePath}-wal", $"{_databasePath}-shm" })
         {
