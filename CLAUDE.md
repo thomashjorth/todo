@@ -1078,9 +1078,14 @@ forkerte grund.
   `page.APIRequest`, som deler cookies med siden, og `LoginJourneyTests` er den ene rejse der går
   gennem formularen. **Rate-limiten er pr. adresse og tæller `RunningHost`'s eget login** — en test
   der vil se 429, har ni forsøg tilbage, ikke ti. Målt.
-- **Login-siden står på systemets sprog**, fordi sproget er en indstilling bag login.
-  `TodoApp.OpenLoggedOutAsync` låser derfor locale til da-DK: Playwrights browser tager ellers
-  maskinens, og et gæt på en-US var forkert på udviklingsmaskinen.
+- **Hver side suiten åbner, har locale da-DK, og det var CI's eneste fejl fra september til oktober
+  2026.** En database uden gemt sprog følger systemets, og Playwrights browser tager ellers maskinens:
+  dansk her, en-US på GitHubs runner. Suiten læser dansk tekst, så den var grøn lokalt og rød på
+  hver eneste CI-kørsel — og loggen kræver login, så ingen kunne se hvorfor. Fundet ved at lade
+  `test`-jobbet skrive fejlede tests som annotationer, som API'et viser uden login; genskabt lokalt ved
+  at låse `TodoApp.Locale` til en-US. **En grøn suite her beviser intet om CI, når noget afhænger af
+  maskinen** — sprog, tidszone, installerede browsere. Login-siden står i øvrigt også på systemets
+  sprog, fordi sprogindstillingen ligger bag login.
 - **`App.onLogin` læser routerens tilstand ved abonnement, ikke kun `NavigationEnd`.** Indstillingernes
   initializer får sit 401, før skallen findes, og interceptoren sender routeren til `/login`; routerens
   egen første navigation går så til samme URL, ignoreres og slutter ingenting. Målt i E2E:

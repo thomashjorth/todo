@@ -13,6 +13,16 @@ public sealed class TodoApp
 
     public IPage Page { get; }
 
+    /// <summary>
+    /// The browser's language, pinned for every page the suite opens. A database with no stored
+    /// language follows the system's, and Playwright's browser otherwise takes the machine's: Danish on
+    /// the developer's machine, en-US on GitHub's runner. Unpinned, the whole suite - which reads
+    /// Danish text - was green on one and red on the other, and CI failed from September 2026 until
+    /// this line, on every run, with nobody outside a login able to read why. Measured from the first
+    /// run that published its failures as annotations.
+    /// </summary>
+    private const string Locale = "da-DK";
+
     public ILocator Heading => Page.GetByRole(AriaRole.Heading, new() { Name = "Mandalorian ToDo", Exact = true });
 
     public ILocator Health => Page.GetByTestId("health");
@@ -31,6 +41,7 @@ public sealed class TodoApp
         {
             ViewportSize = viewport,
             ColorScheme = colorScheme,
+            Locale = Locale,
         });
 
         var app = new TodoApp(page);
@@ -60,11 +71,7 @@ public sealed class TodoApp
         {
             ViewportSize = viewport,
             ColorScheme = colorScheme,
-
-            // Pinned, because the login page speaks the system's language - the language setting is
-            // behind the login - and Playwright's browser otherwise takes the machine's. Measured
-            // 2026-10-26: Danish on the developer's machine, where an en-US guess had failed.
-            Locale = "da-DK",
+            Locale = Locale,
         });
 
         var app = new TodoApp(page);
