@@ -65,10 +65,6 @@ public class ImportClosureJourneyTests(BrowserFixture fixture) : BrowserTest(fix
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1800 });
 
-        // Nothing clicks an item's link, but a stray click must not reach the machine — and the abort
-        // is a property of this test rather than of the file.
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
-
         var ado = await App.GoToAdo();
         await ado.PreviewAsync();
         await Assertions.Expect(ado.Rows).ToHaveCountAsync(FilteredRows);

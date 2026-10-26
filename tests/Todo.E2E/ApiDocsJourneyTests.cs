@@ -39,16 +39,6 @@ public class ApiDocsJourneyTests : BrowserTest
     {
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
 
-        var opened = new TaskCompletionSource<string?>();
-
-        // Aborting is not only how the URL is read: letting the call through would ask the
-        // operating system to open a real browser window on the machine running the tests.
-        await App.Page.RouteAsync("**/api/system/open-link", async route =>
-        {
-            opened.TrySetResult(route.Request.PostDataJSON()?.GetProperty("url").GetString());
-            await route.AbortAsync();
-        });
-
         // The button lives in the ok branch; the failure branch has none by design, so the state
         // has to be reached before the button can be looked for. This is the gate, not the
         // assertion: the button sits inside this paragraph, so anything phrased against the
@@ -73,7 +63,7 @@ public class ApiDocsJourneyTests : BrowserTest
         // too, because the port is assigned at startup and only the app itself knows it.
         Assert.Equal(
             DocsUrl(),
-            await opened.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+            await App.OpenedLinkAsync());
 
         Assert.True(
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),

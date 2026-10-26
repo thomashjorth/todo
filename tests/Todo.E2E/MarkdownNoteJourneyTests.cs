@@ -86,21 +86,11 @@ public class MarkdownNoteJourneyTests(BrowserFixture fixture) : BrowserTest(fixt
 
         await Assertions.Expect(tasks.NoteBullets).ToHaveTextAsync(BulletsAfter);
 
-        var opened = new TaskCompletionSource<string?>();
-
-        // Letting the request through would ask the operating system to open the link, and a
-        // test run has no business putting a browser window on the machine it runs on.
-        await App.Page.RouteAsync("**/api/system/open-link", async route =>
-        {
-            opened.TrySetResult(route.Request.PostDataJSON()?.GetProperty("url").GetString());
-            await route.AbortAsync();
-        });
-
         await App.Page.EvaluateAsync("window.stampedBeforeTheClick = true");
 
         await tasks.NoteLink.ClickAsync();
 
-        Assert.Equal(LinkUrl, await opened.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Equal(LinkUrl, await App.OpenedLinkAsync());
         await Assertions.Expect(tasks.NoteEditor).ToHaveCountAsync(0);
         await Assertions.Expect(tasks.NoteBullets).ToHaveTextAsync(BulletsAfter);
 

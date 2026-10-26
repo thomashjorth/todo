@@ -32,12 +32,66 @@ public sealed class TodoApp
             ViewportSize = viewport,
             ColorScheme = colorScheme,
         });
-        await page.GotoAsync(host.BaseUrl);
 
         var app = new TodoApp(page);
+        await app.CaptureOpenedLinksAsync();
+
+        await page.GotoAsync(host.BaseUrl);
         await app.Tasks.WaitUntilShownAsync();
 
         return app;
+    }
+
+    private readonly List<string> _openedLinks = [];
+
+    /// <summary>
+    /// Records every link the app asks to have opened and aborts the call, for the whole suite rather
+    /// than per test: letting it through would ask the operating system to open a real browser on the
+    /// machine running the tests, and an abort that is a property of one test is one a new button can
+    /// forget. A test registering its own route on the same pattern still wins, because Playwright
+    /// tries the most recently registered route first.
+    /// </summary>
+    private Task CaptureOpenedLinksAsync() => Page.RouteAsync("**/api/system/open-link", async route =>
+    {
+        // A body without the field is recorded as a sentence rather than left to throw inside the
+        // handler, where it would surface as a bare timeout that says nothing about the field. The
+        // sentinel is a failing value, never a passing one.
+        var body = route.Request.PostDataJSON();
+        var url = body is { } json && json.TryGetProperty("url", out var field)
+            ? field.GetString() ?? "<url was null>"
+            : "<the body carried no url>";
+
+        lock (_openedLinks)
+        {
+            _openedLinks.Add(url);
+        }
+
+        await route.AbortAsync();
+    });
+
+    /// <summary>Waits for the app to open its n-th link, and answers with it.</summary>
+    public async Task<string> OpenedLinkAsync(int ordinal = 1)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+
+        while (true)
+        {
+            lock (_openedLinks)
+            {
+                if (_openedLinks.Count >= ordinal)
+                {
+                    return _openedLinks[ordinal - 1];
+                }
+            }
+
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new TimeoutException(
+                    $"The app opened {_openedLinks.Count} link(s) within ten seconds, not {ordinal}.");
+            }
+
+            await Task.Delay(50);
+        }
     }
 
     public async Task<TaskListScreen> GoToTasks()

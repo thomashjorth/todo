@@ -1590,7 +1590,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await App.Page.RouteAsync("**/api/ai/parse-task", Answer);
         await App.Page.RouteAsync("**/api/ai/tasks/*/split", Answer);
         await App.Page.RouteAsync("**/api/ai/tasks/*/summary", Answer);
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         var tasks = await App.ReloadAsync();
         var failures = new List<string>();
@@ -1709,7 +1708,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
                   "reconciled": false, "suggestsClosing": false, "suggestsReopening": false }], "total": 1 }
                 """,
         }));
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         var tasks = await App.ReloadAsync();
         var failures = new List<string>();
@@ -1829,7 +1827,6 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
             ContentType = "application/json",
             Body = $$"""{ "tagIds": [{{privat.Id}}] }""",
         }));
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         var tasks = await App.ReloadAsync();
         var failures = new List<string>();

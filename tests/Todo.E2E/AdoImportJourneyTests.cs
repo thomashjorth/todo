@@ -346,24 +346,6 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
         await AnswerPreviewWithAsync(OneImportableWorkItem);
 
-        var opened = new TaskCompletionSource<string?>();
-
-        // A body without the field is answered with a sentence rather than left to throw inside the
-        // handler: GetProperty on an absent "url" takes the completion source down with it, and the
-        // test then fails as a bare timeout that says nothing about which field went missing. The
-        // sentinel is a failing value, never a passing one.
-        await App.Page.RouteAsync("**/api/system/open-link", async route =>
-        {
-            var body = route.Request.PostDataJSON();
-
-            opened.TrySetResult(
-                body is { } json && json.TryGetProperty("url", out var url)
-                    ? url.GetString() ?? "<url was null>"
-                    : "<the body carried no url>");
-
-            await route.AbortAsync();
-        });
-
         var ado = await App.GoToAdo();
         await ado.PreviewAsync();
 
@@ -379,7 +361,7 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
 
         Assert.Equal(
             $"{BaseUrl}/{Project}/_workitems/edit/{ImportedKey}",
-            await opened.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+            await App.OpenedLinkAsync());
 
         Assert.True(
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
@@ -440,10 +422,6 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
             posted.TrySetResult(route.Request.PostDataJSON());
             await route.ContinueAsync();
         });
-
-        // Nothing here clicks an item's link, but a stray click must not reach the machine — and the
-        // abort is a property of this test rather than of the file.
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         var ado = await App.GoToAdo();
         await ado.PreviewAsync();
@@ -524,26 +502,11 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
         await Assertions.Expect(link).ToHaveTextAsync("Åbn sagen");
         Assert.Equal("BUTTON", await link.EvaluateAsync<string>("el => el.tagName"));
 
-        var opened = new TaskCompletionSource<string?>();
-
-        await App.Page.UnrouteAsync("**/api/system/open-link");
-        await App.Page.RouteAsync("**/api/system/open-link", async route =>
-        {
-            var asked = route.Request.PostDataJSON();
-
-            opened.TrySetResult(
-                asked is { } json && json.TryGetProperty("url", out var url)
-                    ? url.GetString() ?? "<url was null>"
-                    : "<the body carried no url>");
-
-            await route.AbortAsync();
-        });
-
         await link.ClickAsync();
 
         Assert.Equal(
             $"{fake.BaseUrl}/{Uri.EscapeDataString(FakeAdo.Project)}/_workitems/edit/{StoryKey}",
-            await opened.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+            await App.OpenedLinkAsync());
     }
 
     /// <summary>
@@ -569,10 +532,6 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
 
         await ConfigureAdoAsync(fake);
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1800 });
-
-        // Nothing here clicks an item's link, but a stray click must not reach the machine — and the
-        // abort is a property of this test rather than of the file.
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         var ado = await App.GoToAdo();
 
@@ -691,8 +650,6 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
 
         await ConfigureAdoAsync(fake);
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1800 });
-
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         var ado = await App.GoToAdo();
 

@@ -265,14 +265,6 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
 
-        var opened = new TaskCompletionSource<string?>();
-
-        await App.Page.RouteAsync("**/api/system/open-link", async route =>
-        {
-            opened.TrySetResult(route.Request.PostDataJSON()?.GetProperty("url").GetString());
-            await route.AbortAsync();
-        });
-
         var link = App.Tasks.ExternalLinkIn(ImportedTitle);
 
         await Assertions.Expect(link).ToHaveTextAsync("Åbn sagen");
@@ -284,7 +276,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
 
         Assert.Equal(
             $"{BaseUrl}/browse/SAAS-1",
-            await opened.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+            await App.OpenedLinkAsync());
 
         Assert.True(
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
@@ -309,24 +301,6 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
         await AnswerPreviewWithAsync(OneDutyIssue);
 
-        var opened = new TaskCompletionSource<string?>();
-
-        // A body without the field is answered with a sentence rather than left to throw inside the
-        // handler: GetProperty on an absent "url" takes the completion source down with it, and the
-        // test then fails as a bare timeout that says nothing about which field went missing. The
-        // sentinel is a failing value, never a passing one.
-        await App.Page.RouteAsync("**/api/system/open-link", async route =>
-        {
-            var body = route.Request.PostDataJSON();
-
-            opened.TrySetResult(
-                body is { } json && json.TryGetProperty("url", out var url)
-                    ? url.GetString() ?? "<url was null>"
-                    : "<the body carried no url>");
-
-            await route.AbortAsync();
-        });
-
         var jira = await App.GoToJira();
         await jira.PreviewAsync();
 
@@ -342,7 +316,7 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
 
         Assert.Equal(
             $"{BaseUrl}/browse/SAAS-9",
-            await opened.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+            await App.OpenedLinkAsync());
 
         Assert.True(
             await App.Page.EvaluateAsync<bool>("window.stampedBeforeTheClick === true"),
@@ -407,9 +381,6 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
         await AnswerPreviewWithAsync(OneDutyIssue);
-
-        // Nothing here clicks the issue's link, but a stray click must not reach the machine.
-        await App.Page.RouteAsync("**/api/system/open-link", route => route.AbortAsync());
 
         // Ticked through the page rather than seeded: the switch is the user's whole say in this,
         // and the server reads it back from the settings on both the preview and the import.
