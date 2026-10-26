@@ -243,6 +243,45 @@ describe('TaskList', () => {
     expect(element.querySelector('[data-testid="meaning-hits"]')).toBeNull();
   });
 
+  // The second hit's link, not the first: a screen that sent one address for every hit would
+  // pass a test that only ever pressed the first button.
+  it("should open a meaning hit's issue through the system", async () => {
+    const fixture = TestBed.createComponent(TaskList);
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
+      .flush(new Blob([JSON.stringify({ items })]));
+    await rendered(fixture);
+    TestBed.inject(TaskStore).query.set('regning til tandlæge');
+    TestBed.inject(AiStore).meaningHits.set({
+      query: 'regning til tandlæge',
+      hits: [
+        new AiSearchHit({
+          id: 77,
+          title: 'Betal tandlægen sidste år',
+          status: TodoStatus.Done,
+          externalUrl: 'https://jira.test/browse/SAAS-1',
+        }),
+        new AiSearchHit({
+          id: 78,
+          title: 'Betal tandlægen i år',
+          status: TodoStatus.Done,
+          externalUrl: 'https://jira.test/browse/SAAS-2',
+        }),
+      ],
+    });
+
+    const section = await shown(fixture, '[data-testid="meaning-hits"]');
+    const opens = section.querySelectorAll<HTMLButtonElement>('[data-testid="meaning-hit-open"]');
+    expect(opens).toHaveLength(2);
+
+    opens[1].click();
+
+    expect(JSON.parse(http.expectOne('/api/system/open-link').request.body)).toEqual({
+      url: 'https://jira.test/browse/SAAS-2',
+    });
+  });
+
   it('should say so when nothing is alike in meaning', async () => {
     const fixture = TestBed.createComponent(TaskList);
     TestBed.inject(HttpTestingController)
