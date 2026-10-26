@@ -1,7 +1,8 @@
 # CLAUDE.md
 
-Personlig todo-app. Én Photino-proces: ASP.NET Core + Angular i ét vindue, SQLite i
-`%APPDATA%\TodoApp\`.
+Personlig todo-app. Én proces: ASP.NET Core + Angular, vist i Edges app-vindue, SQLite i
+`%APPDATA%\TodoApp\`. Fra 2.0.0 er den på vej til brugerens NAS — se
+`docs/plans/2026-10-26-web-hosting*.md`. Desktop-udgaven med Photino er tagget `v1.16.0`.
 
 **Hvor tingene står:** design og leveranceplan i `docs/plans/2026-08-13-todo-app-design.md`; aktuel
 tilstand, næste skridt og de målinger kun brugeren kan lave i `docs/HANDOFF.md`; hvordan man bruger
@@ -18,11 +19,15 @@ Publish.cmd     bygger exe'en til publish\ og prøver den bagefter
 ```
 
 Alle tre findes for at slippe for at huske `-ExecutionPolicy Bypass`; scripterne bag dem ligger i
-`scripts\`. `Todo.cmd` bygger Angular hvis kilderne er nyere end `wwwroot`, og tager `--headless`
-med for at køre uden vindue.
+`scripts\`. `Todo.cmd` bygger Angular hvis kilderne er nyere end `wwwroot`, starter værten på den
+faste port **5180** og åbner Edges app-vindue på den; et andet dobbeltklik mens den kører, åbner et
+vindue mere på samme vært. Argumenter går videre til værten, så `Todo.cmd --Data:Path <fil>` kører
+mod en anden database. **Kører en ældre `Todo.Host` fra `bin\Release` på en anden port** — Photino-
+udgaven fra før 2.0.0 — låser den filerne bygningen skal skrive, og `dotnet build` fejler med en
+MSB3027 der hverken nævner årsag eller kur. Målt 2026-10-26; scriptet siger det nu selv.
 
-`Publish.cmd` udgiver self-contained til `publish\` (gitignoreret) — **to filer**, exe'en og
-`icon.ico`, som Photino skal have som sti — og **prøver derefter exe'en**: headless på en fri port
+`Publish.cmd` udgiver self-contained til `publish\` (gitignoreret) — **én fil**, exe'en — og
+**prøver derefter exe'en**: på en fri port
 mod en midlertidig database, og 200 krævet på frontenden, health og dokumentationssiden. Den nægter
 at overskrive en exe der kører, og navngiver processen frem for at dræbe den. `-OutputPath <mappe>`
 når du vil installere et blivende sted.
@@ -107,6 +112,10 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   skal blive i tjekkets rækkevidde, og vagten påstår netop det. Og bemærk hvad der **ikke** fanger
   en formateret generator-fil: `GeneratedCodeFreshnessTests` hasher `contracts/openapi.yaml`, ikke
   generatorens output, så den er **grøn** mens `todo-client.ts` er omformateret. Målt.
+- **Backticks i en Bash-streng i dobbelte anførselstegn er kommandosubstitution.** Mødt 2026-10-26:
+  en release-tekst med `` `docs/plans/…md` `` i et `python -c "…"` fik Git Bash til at køre
+  designfilen **som et script**. Den stoppede ved første syntaksfejl, og intet blev ændret, men det
+  var held. Tekst med backticks hører i en fil eller i enkelte anførselstegn.
 - **Brug ikke `sed -i` på en fil i dette repo — brug `Edit`.** `sed` skriver **LF** i en
   CRLF-arbejdskopi, og `git diff` viser derefter **ingen ændring**, fordi autocrlf normaliserer på
   vejen ind. Filen på disken *er* ændret, men Git siger nej, så en midlertidig ændring man tror er
@@ -528,8 +537,9 @@ lige så meget som den handler. Direktivet har derfor
 `appShortcutAction="focus" | "activate"`, hvor `'activate'` kalder begge.
 
 **Bogstaverne er `Alt+O/G/I/J/A/S/N/K/V/M`**, valgt udenom `Alt+D`, `Alt+E`, `Alt+F`, `Alt+Home` og
-piletasterne, som Chrome stjæler under udvikling. De er frie i Photino-vinduet, men en genvej der
-virker i appen og ikke i browseren bliver fejlsøgt i den forkerte ende. `J` kom til med
+piletasterne, som Chrome stjæler under udvikling. De var frie i Photino-vinduet; om Edges
+app-vindue tager nogen af dem, er **umålt** (se `docs/HANDOFF.md`). En genvej der virker i ét vindue
+og ikke i et andet, bliver fejlsøgt i den forkerte ende. `J` kom til med
 Jira-importen i skive 11 og kolliderer ikke: Chrome på Windows binder intet `Alt+J`, og den nære
 nabo er DevTools-konsollen, som er `Ctrl+Shift+J` — et andet modifikatorsæt. (På macOS er den
 `Cmd+Option+J`, men appen er Windows-only.) `A` kom til med ADO-importen i skive 12 og kolliderer
@@ -549,8 +559,9 @@ række på listen; det lag er stadig last-writer-wins, så både bogstaver og ci
 være globalt unikke. `alt-shift`-laget er detaljepanelets **ni** felter og hører **kun** til
 opgavelisten — `I` titlen, `D` deadline, `S` startdato, `O` opgavestiller, `N` noten, `T` status
 (`T` og ikke `S`, fordi startdatoen har det stærkere krav på et felt man skriver i), `V` venter-på,
-`U` ny underopgave, `L` slet. Cifrene kan **kun** prøves i Photino-vinduet: Chrome binder
-`Alt+1`–`8` til faneskift og `Alt+9` til sidste fane.
+`U` ny underopgave, `L` slet. Cifrene kan ikke prøves i en almindelig Chrome-fane: Chrome binder
+`Alt+1`–`8` til faneskift og `Alt+9` til sidste fane. Om Edges app-vindue — som har én fane — gør
+det samme, er **umålt**.
 
 **Og `I` frem for `T` til titlen er en afvist konsekvens, ikke en forglemmelse.** Begrundelsen for
 status' `T` ovenfor — feltet man skriver i har det stærkeste krav — gælder titlen endnu stærkere, så
@@ -1036,13 +1047,14 @@ forkerte grund.
   `stat -c %Y` eller `find -printf %T@`.
 - **Tests må ikke røre `%APPDATA%`.** `RunningHost` giver hver test sin egen midlertidige
   database. Arv fra `ApiTest` eller `BrowserTest` frem for at starte en host i testen.
-- **Playwright-tests må ikke have bivirkninger uden for appen.** Kald til
-  `/api/system/open-link` opsnappes med `page.RouteAsync` og afbrydes; ellers åbner hver
-  testkørsel en rigtig browser. **Og afbrydelsen gælder kun den test der opsætter den** — den er
-  ikke en egenskab ved suiten. `ContrastTests` havde den på opgavelisten, og en ny knap på
-  Jira-skærmen ville derfor have bedt Windows om at åbne en rigtig browser fra en *anden* test i
-  samme fil. Målt. Skriver du et klik på et udadgående link, så tjek at **netop den test** har
-  ruten, frem for at antage at filen har.
+- **Playwright-tests må ikke have bivirkninger uden for appen — og fra 2.0.0 er det en egenskab ved
+  suiten.** Hvert link appen åbner, går gennem `window.open`, og `TodoApp.ReplaceWindowOpenAsync`
+  erstatter den på **hver** side `TodoApp.OpenAsync` åbner; `App.OpenedLinkAsync()` læser hvad der
+  blev åbnet. Før 2.0.0 var det en route på `/api/system/open-link` pr. test, og en ny knap på
+  Jira-skærmen ville have bedt Windows om at åbne en rigtig browser fra en *anden* test i samme
+  fil — målt. **Åbner en test sin egen side uden om `OpenAsync`**, skal den selv kalde
+  `ReplaceWindowOpenAsync`, som `ApiDocsJourneyTests`' offline-test gør. Listen bor i C# bag en
+  `ExposeFunctionAsync`, så den overlever en genindlæsning; et array på `window` ville tømmes af den.
 - **En afbrudt request er ikke en 400, og de to tager forskellige veje gennem `apiErrorMessage`.**
   En `route.AbortAsync()` giver status 0, som den genererede klient kaster som `ApiException` —
   ikke `ApiError` — så beskeden falder tilbage på `errors.generic` ("Noget gik galt. Prøv igen.").
@@ -1085,8 +1097,8 @@ forkerte grund.
 - **En gren bag et fremmedsystem er umålt, indtil kaldet opsnappes.** Skive 11 efterlod **elleve**
   `@if`-grene som ingen farve nogensinde blev renderet i, fordi hver af dem kræver et svar fra Jira;
   skive 12 efterlod **toogtyve** af samme slags bag ADO. `ContrastTests` svarer derfor selv på
-  `**/api/jira/preview|test|statuses` og `**/api/ado/preview|test|states` med `page.RouteAsync` — samme
-  greb som afbrydelsen af `/api/system/open-link`. **Grenene udelukker hinanden, så der skal stages
+  `**/api/jira/preview|test|statuses` og `**/api/ado/preview|test|states` med `page.RouteAsync`.
+  **Grenene udelukker hinanden, så der skal stages
   ét svar pr. gren, i rækkefølge** — en afvisning, en tom liste, en notits uden rækker, en liste hvor
   hver række er blokeret, en afstemt liste, en liste med én række der kan importeres. Tallet vokser
   med hver gren og står derfor ikke her; læs `ContrastTests`' konstanter. **Én rute-handler der

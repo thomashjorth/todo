@@ -14,8 +14,7 @@ concurrency:
 
 jobs:
   test:
-    # Windows er ikke et valg: FrontendStrictnessTests kalder node_modules\.bin\tsc.cmd,
-    # og appen selv er Photino + %APPDATA%.
+    # Windows er ikke et valg: FrontendStrictnessTests kalder node_modules\.bin\tsc.cmd.
     runs-on: windows-latest
     timeout-minutes: 40
 

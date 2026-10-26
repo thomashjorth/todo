@@ -170,6 +170,23 @@ Skive **15** er livscyklus og arkiv.
 
 ## Målinger kun du kan lave
 
+**Web-udgavens første leverance (2.0.0, leverance 1) — Edges app-vindue i stedet for Photino.** Intet
+af det følgende kan en agent måle, fordi det kræver et vindue på dit skrivebord:
+
+1. **Luk den gamle app først.** Kører den Photino-udgave du har åben nu, fra `bin\Release`, nægter
+   `Todo.cmd` at bygge og siger det med pid. Målt 2026-10-26: uden den besked fejler bygningen med
+   en MSB3027 om låste filer.
+2. **Åbner `Todo.cmd` et Edge-vindue uden adresselinje på `http://127.0.0.1:5180/`, i 480×1000?**
+3. **Stopper værten når du lukker konsolvinduet?** Antaget, ikke målt: `dotnet run` starter appen
+   som et barnebarn, og Windows sender lukningen til alle processer i konsollen. Tjek bagefter med
+   `Get-NetTCPConnection -LocalPort 5180 -State Listen` — svarer den noget, kører værten stadig.
+4. **Åbner et andet dobbeltklik et nyt vindue på den kørende vært** frem for at fejle?
+5. **Åbner "Åbn sagen", et betydningshit og et link i en note en fane i Edge**, mens app-vinduet
+   bliver stående? Og giver et `file:`-link i en note sætningen "Kun web- og mail-links kan åbnes."?
+6. **Genvejene i app-vinduet:** de ti `Alt`-bogstaver, `Alt+1`–`9` på listen og de ni `Alt+Shift`
+   i panelet. Chrome binder `Alt+1`–`8` til faneskift i en almindelig fane; om app-vinduet gør det
+   samme, er umålt. Målingerne nedenfor, der nævner Photino-vinduet, gælder nu app-vinduet.
+
 **Bliver `type="time"`s vælger-popup mørk i Photino-vinduet?** Ny 2026-08-28 med gennemgangens
 indstillinger. Åbn Indstillinger → Gennemgang under et mørkt tema og klik på urikonet. Er popup'en
 hvid, er det samme klasse af fejl som statusvælgerens, og faldbacket er navngivet i designets afsnit

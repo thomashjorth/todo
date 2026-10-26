@@ -8,8 +8,11 @@ Personal todo app. Design: `docs/plans/2026-08-13-todo-app-design.md`.
 Todo.cmd
 ```
 
-Builds Angular if the sources are newer than `wwwroot`, then opens the window. Pass `--headless`
-to run without one. To do it by hand:
+Builds Angular if the sources are newer than `wwwroot`, starts the server on
+`http://127.0.0.1:5180` and opens the app in an Edge app window. Close the console window to stop
+it; a second double-click while it runs opens another window on the same server. Arguments are
+passed on to the host, so `Todo.cmd --Data:Path <file>` runs against another database. To do it
+by hand:
 
 ```
 powershell -ExecutionPolicy Bypass -File scripts\generate-api.ps1
@@ -22,7 +25,7 @@ dotnet run --project src\Todo.Host
 Terminal 1:
 
 ```
-dotnet run --project src\Todo.Host -- --headless --urls http://127.0.0.1:5199
+dotnet run --project src\Todo.Host -- --urls http://127.0.0.1:5199
 ```
 
 Terminal 2:
@@ -189,14 +192,14 @@ renaming something in markup hits one file.
 Publish.cmd
 ```
 
-Publishes a self-contained exe to `publish\` - two files, `Todo.Host.exe` and `icon.ico` - and then
-probes it: starts it headless on a free port against a throwaway database and requires the frontend,
-the health route and the documentation page to answer. `publish\` is gitignored. Pass
-`-OutputPath <folder>` to install somewhere permanent.
+Publishes a self-contained exe to `publish\` - one file, `Todo.Host.exe` - and then probes it:
+starts it on a free port against a throwaway database and requires the frontend, the health route
+and the documentation page to answer. `publish\` is gitignored. Pass `-OutputPath <folder>` to
+install somewhere permanent. The exe is a server with no window of its own: open its address in a
+browser.
 
 The frontend is embedded in the assembly, so Angular has to be built before the host and the host
-rebuilt after; the script does both. The published app needs the WebView2 runtime, which ships with
-Edge on Windows 11.
+rebuilt after; the script does both.
 
 ## The database
 
