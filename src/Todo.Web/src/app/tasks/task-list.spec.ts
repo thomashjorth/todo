@@ -143,6 +143,9 @@ const linkNote = 'Se [dokumentationen](https://example.com/docs) først';
 
 const withLink = [{ ...items[0], note: linkNote }, items[1]];
 
+// A note is text somebody else wrote, so a link the app refuses to open is a note one can be handed.
+const withFileLink = [{ ...items[0], note: 'Se [filen](file:///C:/Windows) først' }, items[1]];
+
 // externalUrl is computed by the server from the source and the key, and only a Jira task has one.
 const fromJira = [
   { ...items[0], sourceId: 'jira', externalUrl: 'https://jira.test/browse/SAAS-1' },
@@ -180,6 +183,9 @@ describe('TaskList', () => {
       ],
     }).compileComponents();
   });
+
+  // A spy on window.open must not outlive the test that made it, failed or not.
+  afterEach(() => vi.restoreAllMocks());
 
   // The answering model can be ready while the embedding model is still downloading.
   it('should offer search by meaning only when the embedding model is ready', async () => {
@@ -274,12 +280,11 @@ describe('TaskList', () => {
     const section = await shown(fixture, '[data-testid="meaning-hits"]');
     const opens = section.querySelectorAll<HTMLButtonElement>('[data-testid="meaning-hit-open"]');
     expect(opens).toHaveLength(2);
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null);
 
     opens[1].click();
 
-    expect(JSON.parse(http.expectOne('/api/system/open-link').request.body)).toEqual({
-      url: 'https://jira.test/browse/SAAS-2',
-    });
+    expect(opened).toHaveBeenCalledWith('https://jira.test/browse/SAAS-2', '_blank', 'noopener');
   });
 
   it('should say so when nothing is alike in meaning', async () => {
@@ -812,62 +817,53 @@ describe('TaskList', () => {
   });
 
   // Following the link in place would replace the app with a website, in a window with no way back.
-  it('should send a link in the note to the system browser rather than open the editor', async () => {
+  it('should open a link in the note beside the app rather than open the editor', async () => {
     const fixture = TestBed.createComponent(TaskList);
-    const http = TestBed.inject(HttpTestingController);
-    http
+    TestBed.inject(HttpTestingController)
       .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: withLink })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
     fixture.detectChanges();
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null);
 
     const click = new MouseEvent('click', { bubbles: true, cancelable: true });
     row.querySelector<HTMLAnchorElement>('[data-testid="note-rendered"] a')!.dispatchEvent(click);
     fixture.detectChanges();
 
     expect(click.defaultPrevented).toBe(true);
-    expect(JSON.parse(http.expectOne('/api/system/open-link').request.body)).toEqual({
-      url: 'https://example.com/docs',
-    });
+    expect(opened).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener');
     expect(row.querySelector('[data-testid="note-editor"]')).toBeNull();
     expect(row.querySelector('[data-testid="note-rendered"]')).not.toBeNull();
   });
 
   it('should say beside the note when a link could not be opened', async () => {
     const fixture = TestBed.createComponent(TaskList);
-    const http = TestBed.inject(HttpTestingController);
-    http
+    TestBed.inject(HttpTestingController)
       .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
-      .flush(new Blob([JSON.stringify({ items: withLink })]));
+      .flush(new Blob([JSON.stringify({ items: withFileLink })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
     row.querySelector('button')!.click();
     fixture.detectChanges();
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null);
+
+    // Absent before the click, so the assertion below is about the click.
+    expect(row.querySelector('[data-testid="note-link-error"]')).toBeNull();
 
     row
       .querySelector<HTMLAnchorElement>('[data-testid="note-rendered"] a')!
       .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    http
-      .expectOne('/api/system/open-link')
-      .flush(new Blob([JSON.stringify({ code: 'system.unsupportedScheme', message: 'nope' })]), {
-        status: 400,
-        statusText: 'Bad Request',
-      });
+    fixture.detectChanges();
 
-    const error = await vi.waitFor(() => {
-      fixture.detectChanges();
-      const element = row.querySelector('[data-testid="note-link-error"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
-
-    expect(error.textContent!.trim()).toBe('Kun http- og https-links kan åbnes.');
+    expect(opened).not.toHaveBeenCalled();
+    expect(row.querySelector('[data-testid="note-link-error"]')!.textContent!.trim()).toBe(
+      'Kun web- og mail-links kan åbnes.',
+    );
   });
 
-  it('should open the issue through the system, from a button and outside the row button', async () => {
+  it('should open the issue beside the app, from a button and outside the row button', async () => {
     const fixture = TestBed.createComponent(TaskList);
-    const http = TestBed.inject(HttpTestingController);
-    http
+    TestBed.inject(HttpTestingController)
       .expectOne('/api/tasks?includeCompleted=false&includeSomeday=true')
       .flush(new Blob([JSON.stringify({ items: fromJira })]));
     const row = (await rendered(fixture)).querySelector('[data-testid="task-row"]')!;
@@ -880,12 +876,11 @@ describe('TaskList', () => {
     // Outside the row button: its label would otherwise join the row's accessible name, which
     // TaskListScreen.RowTitled matches in full — and the failure would read as a missing row.
     expect(row.querySelector('button')!.textContent).not.toContain('Åbn sagen');
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null);
 
     link.click();
 
-    expect(JSON.parse(http.expectOne('/api/system/open-link').request.body)).toEqual({
-      url: 'https://jira.test/browse/SAAS-1',
-    });
+    expect(opened).toHaveBeenCalledWith('https://jira.test/browse/SAAS-1', '_blank', 'noopener');
   });
 
   it('should show no issue link on a task that has none', async () => {

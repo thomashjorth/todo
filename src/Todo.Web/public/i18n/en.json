@@ -419,7 +419,7 @@
       "timeOfDayInvalid": "The time has to be written as hours and minutes, for example 15:00."
     },
     "system": {
-      "unsupportedScheme": "Only http and https links can be opened."
+      "unsupportedScheme": "Only web and mail links can be opened."
     },
     "ai": {
       "unavailable": "The local AI model is not answering. Check that Ollama is running.",

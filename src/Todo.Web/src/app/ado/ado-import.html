@@ -306,8 +306,8 @@
           <!-- Outside the <label> on purpose: a button inside it would put its text into the
                checkbox's accessible name, and the E2E suite matches names in their entirety. -->
           <p class="mt-1 pl-6 text-xs">
-            <!-- A <button>, not an <a href>: the Photino window has neither an address bar nor a
-                 back button, so a navigation away is one-way. No @if: url is required on the
+            <!-- A <button>, not an <a href>: the app window has neither an address bar nor a back
+                 button, so a navigation inside it is one-way. No @if: url is required on the
                  contract. The key is tasks.openIssue, the same action on the same kind of
                  thing. -->
             <button
@@ -319,18 +319,6 @@
               {{ 'tasks.openIssue' | transloco }}
             </button>
           </p>
-          <!-- Beside the row you pressed, not at the top: the column is ~480 px and the list can
-               be twenty rows long, so a message at the top would be out of sight. -->
-          @let failedOpen = openError();
-          @if (failedOpen && failedOpen.key === row.key) {
-            <p
-              data-testid="ado-open-error"
-              role="alert"
-              class="mt-1 pl-6 text-xs text-red-700 dark:text-red-300"
-            >
-              {{ failedOpen.message }}
-            </p>
-          }
         </li>
       }
     </ul>

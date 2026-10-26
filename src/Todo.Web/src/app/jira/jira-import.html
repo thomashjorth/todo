@@ -221,9 +221,9 @@
                checkbox's accessible name. Slice 11 measured that text put into an element whose
                name a test matches in its entirety fells three E2E tests. -->
           <p class="mt-1 pl-6 text-xs">
-            <!-- A <button>, not an <a href>: the Photino window has neither an address bar nor a
-                 back button, so a navigation away is one-way. The system browser opens it. No
-                 @if: url is required on the contract, so the row always has an address.
+            <!-- A <button>, not an <a href>: the app window has neither an address bar nor a back
+                 button, so a navigation inside it is one-way. The browser opens it beside the app.
+                 No @if: url is required on the contract, so the row always has an address.
                  The key is tasks.openIssue rather than a jira.* one with the same wording: the
                  action is the same on the same kind of thing, and two keys with identical text
                  drift apart by hand. The price is that a tasks.* key is used here. -->
@@ -236,20 +236,6 @@
               {{ 'tasks.openIssue' | transloco }}
             </button>
           </p>
-          <!-- Beside the row you pressed, not at the top next to jira-import-error: the column is
-               ~480 px and the list can be twenty rows long, so a message at the top would be out
-               of sight — that is to say still silent to the eye. @let rather than as: @if does not
-               narrow a signal call, and as binds on truthiness. -->
-          @let failedOpen = openError();
-          @if (failedOpen && failedOpen.key === row.key) {
-            <p
-              data-testid="jira-open-error"
-              role="alert"
-              class="mt-1 pl-6 text-xs text-red-700 dark:text-red-300"
-            >
-              {{ failedOpen.message }}
-            </p>
-          }
         </li>
       }
     </ul>

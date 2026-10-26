@@ -419,7 +419,7 @@
       "timeOfDayInvalid": "Klokkeslættet skal skrives som timer og minutter, for eksempel 15:00."
     },
     "system": {
-      "unsupportedScheme": "Kun http- og https-links kan åbnes."
+      "unsupportedScheme": "Kun web- og mail-links kan åbnes."
     },
     "ai": {
       "unavailable": "Den lokale AI-model svarer ikke. Kontrollér at Ollama kører.",

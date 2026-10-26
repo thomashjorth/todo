@@ -1,27 +1,47 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
-import { firstValueFrom } from 'rxjs';
-import { apiErrorMessage } from '../api/api-error-message';
-import { OpenLinkRequest, SystemClient } from '../api/todo-client';
+
+/**
+ * The schemes a link may open with. Marked turns a bare address in a note into mailto:, so refusing
+ * it would make an ordinary note look broken.
+ */
+const ALLOWED_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
 
 @Injectable({ providedIn: 'root' })
 export class SystemStore {
-  private readonly client = inject(SystemClient);
   private readonly transloco = inject(TranslocoService);
 
   readonly error = signal<string | null>(null);
 
-  /** Opens a link outside the app: the window has no address bar to come back from. */
-  async openLink(url: string): Promise<void> {
+  /**
+   * Opens a link in a new tab or window, never in place of the app: the app window has neither an
+   * address bar nor a back button, so a navigation inside it is one-way. 'noopener', because the page
+   * that opens is somebody else's and has no business holding a handle on the app's window.
+   */
+  openLink(url: string): void {
     this.error.set(null);
-    try {
-      await firstValueFrom(this.client.openLink(new OpenLinkRequest({ url })));
-    } catch (error) {
-      this.error.set(apiErrorMessage(this.transloco, error));
+
+    if (!ALLOWED_SCHEMES.has(schemeOf(url))) {
+      // The key lives under errors.* because it was the server's error code until 2.0.0.
+      // ErrorCodeTranslationTests walks from code to key and never the other way, so a key without
+      // a code fells nothing.
+      this.error.set(this.transloco.translate('errors.system.unsupportedScheme'));
+      return;
     }
+
+    window.open(url, '_blank', 'noopener');
   }
 
   clearError(): void {
     this.error.set(null);
+  }
+}
+
+/** The scheme with its colon, spelled as URL.protocol spells it, or '' for text that is not a URL. */
+function schemeOf(url: string): string {
+  try {
+    return new URL(url).protocol;
+  } catch {
+    return '';
   }
 }

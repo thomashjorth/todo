@@ -215,9 +215,9 @@ export class TaskList {
     this.selectedId.set(id);
   }
 
-  /** The system browser, like every other outward link: the window has no address bar to return by. */
+  /** Beside the app, like every other outward link: the app window has no address bar to return by. */
   protected openHit(url: string): void {
-    this.system.openLink(url).catch(() => {});
+    this.system.openLink(url);
   }
 
   protected searchByMeaning(query: string): void {

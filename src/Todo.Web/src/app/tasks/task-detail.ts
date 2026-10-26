@@ -161,9 +161,9 @@ export class TaskDetail {
     const link = (event.target as HTMLElement).closest('a');
 
     if (link) {
-      // Following the link instead would replace the whole app: the window has no way back.
+      // Following the link instead would replace the whole app: the app window has no way back.
       event.preventDefault();
-      this.system.openLink(link.href).catch(() => {});
+      this.system.openLink(link.href);
       return;
     }
 

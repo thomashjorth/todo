@@ -144,6 +144,9 @@ describe('AdoImport', () => {
     }).compileComponents();
   });
 
+  // A spy on window.open must not outlive the test that made it, failed or not.
+  afterEach(() => vi.restoreAllMocks());
+
   it('should say that Azure DevOps is not set up and point at the settings page', () => {
     const { element, http } = open();
 
@@ -381,58 +384,19 @@ describe('AdoImport', () => {
     const second = rows(screen.element)[1];
     const open = second.querySelector<HTMLButtonElement>('[data-testid="ado-open-item"]')!;
 
-    // A BUTTON, not an anchor: the Photino window has no address bar and no way back.
+    // A BUTTON, not an anchor: the app window has no address bar and no way back.
     expect(open.tagName).toBe('BUTTON');
     expect(open.textContent!.trim()).toBe('Åbn sagen');
 
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null);
+
     open.click();
 
-    const request = await vi.waitFor(() => screen.http.expectOne('/api/system/open-link'));
-    expect(JSON.parse(request.request.body).url).toBe(
+    expect(opened).toHaveBeenCalledWith(
       'https://ado.example/Min%20Samling/Saas/_workitems/edit/16901',
+      '_blank',
+      'noopener',
     );
-  });
-
-  it('should say beside the row that its work item could not be opened, and only there', async () => {
-    const screen = await preview({
-      total: 2,
-      rows: [row({ key: '15664' }), row({ key: '16901', title: 'Den anden' })],
-    });
-
-    const [first, second] = rows(screen.element);
-
-    // Absent before the click, so the assertion below is about the click rather than about a
-    // paragraph that was always there.
-    expect(second.querySelector('[data-testid="ado-open-error"]')).toBeNull();
-
-    second.querySelector<HTMLButtonElement>('[data-testid="ado-open-item"]')!.click();
-
-    const request = await vi.waitFor(() => screen.http.expectOne('/api/system/open-link'));
-    request.flush(
-      new Blob([
-        JSON.stringify({
-          code: 'system.unsupportedScheme',
-          message: 'Only http and https links can be opened.',
-        }),
-      ]),
-      { status: 400, statusText: 'Bad Request' },
-    );
-
-    const error = await vi.waitFor(() => {
-      screen.fixture.detectChanges();
-      const element = second.querySelector('[data-testid="ado-open-error"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
-
-    // The text, not only the element: a paragraph carrying an empty message would satisfy a claim
-    // about its presence and still say nothing at all to the user.
-    expect(error.textContent!.trim()).toBe('Kun http- og https-links kan åbnes.');
-    expect(error.getAttribute('role')).toBe('alert');
-
-    // The half that measures the key match. SystemStore.error is a single screen-level signal, so a
-    // paragraph bound straight to it would stand in every row at once.
-    expect(first.querySelector('[data-testid="ado-open-error"]')).toBeNull();
   });
 
   it('should show why Azure DevOps refused instead of a list', async () => {

@@ -129,8 +129,8 @@
     @let issueUrl = task().externalUrl;
     @if (issueUrl) {
       <p class="text-xs">
-        <!-- A <button>, not an <a href>: the Photino window has neither an address bar nor a back
-             button, so a navigation away is one-way. The system browser opens it. -->
+        <!-- A <button>, not an <a href>: the app window has neither an address bar nor a back
+             button, so a navigation inside it is one-way. The browser opens it beside the app. -->
         <button
           type="button"
           data-testid="external-link"

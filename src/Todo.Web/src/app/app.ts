@@ -56,9 +56,12 @@ export class App {
     this.ai.load().catch(() => {});
   }
 
-  /** The port is random, so the URL is built from the app's own origin. */
+  /**
+   * Built from the app's own origin, because the app does not know its host: a fixed port on this
+   * machine under Todo.cmd, the NAS's name once it is deployed, a random port under the tests.
+   */
   protected openApiDocs(): void {
-    this.system.openLink(`${location.origin}/scalar/`).catch(() => {});
+    this.system.openLink(`${location.origin}/scalar/`);
   }
 
   protected onKeyDown(event: KeyboardEvent): void {

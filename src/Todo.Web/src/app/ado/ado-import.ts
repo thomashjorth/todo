@@ -48,14 +48,6 @@ export class AdoImport {
   protected readonly selectedKeys = signal<ReadonlySet<string>>(new Set());
 
   /**
-   * Which row's open failed, and what to say about it. SystemStore.error is a single screen-level
-   * signal and cannot say which row it belongs to - and the message has to sit next to the button
-   * that was pressed, because a notice at the top of a twenty-row list in a 480 px column is out of
-   * sight.
-   */
-  protected readonly openError = signal<{ key: string; message: string } | null>(null);
-
-  /**
    * Read from the settings rather than by letting the call fail: an empty list with an error over it
    * teaches the user less than a link to the page that fixes it. The project is in here even though
    * the server's own <c>IsConfigured</c> only wants a collection URL and a token, because Azure
@@ -198,21 +190,12 @@ export class AdoImport {
   }
 
   /**
-   * Opens the work item in the system's browser, so a row can be read before it is imported.
-   * <c>openLink</c> catches on its own and sets its error signal, so an empty catch here would throw
-   * the only sign away; the message is copied onto this row, because the store's signal is
-   * screen-level and the row is where the user is looking.
+   * Opens the work item in the browser, so a row can be read before it is imported. There is no
+   * error to show beside the row: the only refusal left is the scheme, and the row's URL is built
+   * from AdoSettings.BaseUri, which accepts http and https alone.
    */
-  protected async openItem(row: AdoPreviewRow): Promise<void> {
-    this.openError.set(null);
-
-    await this.system.openLink(row.url);
-
-    const message = this.system.error();
-
-    if (message) {
-      this.openError.set({ key: row.key, message });
-    }
+  protected openItem(row: AdoPreviewRow): void {
+    this.system.openLink(row.url);
   }
 
   protected isSelected(row: AdoPreviewRow): boolean {

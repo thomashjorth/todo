@@ -89,8 +89,8 @@ export class TaskRow {
       .catch(() => {});
   }
 
-  /** Same one-way street as a note's link: the window has no address bar to come back from. */
+  /** Same one-way street as a note's link: the app window has no address bar to come back from. */
   protected openIssue(url: string): void {
-    this.system.openLink(url).catch(() => {});
+    this.system.openLink(url);
   }
 }

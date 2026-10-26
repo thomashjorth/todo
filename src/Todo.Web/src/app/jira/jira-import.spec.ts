@@ -138,6 +138,9 @@ describe('JiraImport', () => {
     }).compileComponents();
   });
 
+  // A spy on window.open must not outlive the test that made it, failed or not.
+  afterEach(() => vi.restoreAllMocks());
+
   it('should say that Jira is not set up and point at the settings page', () => {
     const { element, http } = open();
 
@@ -427,60 +430,15 @@ describe('JiraImport', () => {
     const second = rows(screen.element)[1];
     const open = second.querySelector<HTMLButtonElement>('[data-testid="jira-open-issue"]')!;
 
-    // A BUTTON, not an anchor: the Photino window has no address bar and no way back.
+    // A BUTTON, not an anchor: the app window has no address bar and no way back.
     expect(open.tagName).toBe('BUTTON');
     expect(open.textContent!.trim()).toBe('Åbn sagen');
 
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null);
+
     open.click();
 
-    const request = await vi.waitFor(() => screen.http.expectOne('/api/system/open-link'));
-    expect(JSON.parse(request.request.body).url).toBe('https://jira.example/browse/SAAS-2');
-  });
-
-  // The silence this closes: openLink catches its own failure and sets a signal, so an empty catch
-  // in the component threw the only sign away.
-  it('should say beside the row that its issue could not be opened, and only there', async () => {
-    const screen = await preview({
-      total: 2,
-      rows: [row({ key: 'SAAS-1' }), row({ key: 'SAAS-2', title: 'Den anden' })],
-    });
-
-    const [first, second] = rows(screen.element);
-
-    // Absent before the click, so the assertion below is about the click rather than about a
-    // paragraph that was always there.
-    expect(second.querySelector('[data-testid="jira-open-error"]')).toBeNull();
-
-    // The second row again: a message that appeared on the first one whatever was clicked would
-    // pass a test that only ever pressed the first button.
-    second.querySelector<HTMLButtonElement>('[data-testid="jira-open-issue"]')!.click();
-
-    const request = await vi.waitFor(() => screen.http.expectOne('/api/system/open-link'));
-    request.flush(
-      new Blob([
-        JSON.stringify({
-          code: 'system.unsupportedScheme',
-          message: 'Only http and https links can be opened.',
-        }),
-      ]),
-      { status: 400, statusText: 'Bad Request' },
-    );
-
-    const error = await vi.waitFor(() => {
-      screen.fixture.detectChanges();
-      const element = second.querySelector('[data-testid="jira-open-error"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
-
-    // The text, not only the element: a paragraph carrying an empty message would satisfy a claim
-    // about its presence and still say nothing at all to the user.
-    expect(error.textContent!.trim()).toBe('Kun http- og https-links kan åbnes.');
-    expect(error.getAttribute('role')).toBe('alert');
-
-    // The half that measures the key match. SystemStore.error is a single screen-level signal, so a
-    // paragraph bound straight to it would stand in every row at once.
-    expect(first.querySelector('[data-testid="jira-open-error"]')).toBeNull();
+    expect(opened).toHaveBeenCalledWith('https://jira.example/browse/SAAS-2', '_blank', 'noopener');
   });
 
   it('should show why Jira refused instead of a list', async () => {
