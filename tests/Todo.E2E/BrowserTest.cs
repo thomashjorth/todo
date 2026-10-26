@@ -23,6 +23,11 @@ public abstract class BrowserTest(BrowserFixture fixture) : IClassFixture<Browse
     {
     }
 
+    /// <summary>The app as somebody without the cookie meets it: the login page.</summary>
+    protected async Task OpenLoggedOutAsync(
+        ViewportSize? viewport = null, ColorScheme? colorScheme = null)
+        => App = await TodoApp.OpenLoggedOutAsync(fixture.Browser, _host, viewport, colorScheme);
+
     protected async Task OpenAppAsync(
         ViewportSize? viewport = null, ColorScheme? colorScheme = null)
         => App = await TodoApp.OpenAsync(fixture.Browser, _host, viewport, colorScheme);

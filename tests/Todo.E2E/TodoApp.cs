@@ -36,11 +36,47 @@ public sealed class TodoApp
         var app = new TodoApp(page);
         await ReplaceWindowOpenAsync(page, app.RecordOpenedLink);
 
+        // Through the API rather than the page: page.APIRequest shares its cookies with the page, so
+        // one call logs the browser in, and the page itself is measured once, in LoginJourneyTests.
+        // Every journey still runs the login route and the cookie on every request it makes.
+        var login = await page.APIRequest.PostAsync($"{host.BaseUrl}/api/auth/login", new()
+        {
+            DataObject = new { password = RunningHost.TestPassword },
+        });
+        Assert.Equal(204, login.Status);
+
         await page.GotoAsync(host.BaseUrl);
         await app.Tasks.WaitUntilShownAsync();
 
         return app;
     }
+
+    /// <summary>The app as somebody without the cookie meets it: the login page.</summary>
+    public static async Task<TodoApp> OpenLoggedOutAsync(
+        IBrowser browser, RunningHost host, ViewportSize? viewport = null,
+        ColorScheme? colorScheme = null)
+    {
+        var page = await browser.NewPageAsync(new()
+        {
+            ViewportSize = viewport,
+            ColorScheme = colorScheme,
+
+            // Pinned, because the login page speaks the system's language - the language setting is
+            // behind the login - and Playwright's browser otherwise takes the machine's. Measured
+            // 2026-10-26: Danish on the developer's machine, where an en-US guess had failed.
+            Locale = "da-DK",
+        });
+
+        var app = new TodoApp(page);
+        await ReplaceWindowOpenAsync(page, app.RecordOpenedLink);
+
+        await page.GotoAsync(host.BaseUrl);
+        await Assertions.Expect(app.Login.Password).ToBeVisibleAsync();
+
+        return app;
+    }
+
+    public LoginScreen Login => new(this);
 
     private readonly List<string> _openedLinks = [];
 

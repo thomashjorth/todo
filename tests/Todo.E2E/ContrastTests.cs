@@ -875,6 +875,24 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
     /// depends on: a refusal, an empty list, a list where every row is blocked, and a list with one
     /// row that can be imported.
     /// </summary>
+    /// <summary>
+    /// The login page, which no other theory reaches: every other one opens the app logged in. The
+    /// error line is a branch of its own, so a wrong password is typed first and the line is waited
+    /// for by its text - without it the measurement would pass on a paragraph that was never painted.
+    /// </summary>
+    [Theory]
+    [InlineData(ColorScheme.Light)]
+    [InlineData(ColorScheme.Dark)]
+    public async Task The_login_screen_meets_WCAG_AA(ColorScheme scheme)
+    {
+        await OpenLoggedOutAsync(new() { Width = ColumnWidth, Height = 1000 }, scheme);
+
+        await App.Login.LogInAsync("forkert");
+        await Assertions.Expect(App.Login.Error).ToHaveTextAsync("Forkert adgangskode.");
+
+        AssertNoFailures([.. await App.ContrastFailuresAsync()], scheme);
+    }
+
     [Theory]
     [InlineData(ColorScheme.Light)]
     [InlineData(ColorScheme.Dark)]

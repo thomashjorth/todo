@@ -5,6 +5,11 @@
     "healthUnavailable": "API: unavailable",
     "apiDocs": "API documentation"
   },
+  "login": {
+    "title": "Log in",
+    "password": "Password",
+    "submit": "Log in"
+  },
   "nav": {
     "tasks": "Tasks",
     "review": "Review",

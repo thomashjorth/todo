@@ -5,6 +5,11 @@
     "healthUnavailable": "API: ikke tilgængelig",
     "apiDocs": "API-dokumentation"
   },
+  "login": {
+    "title": "Log ind",
+    "password": "Adgangskode",
+    "submit": "Log ind"
+  },
   "nav": {
     "tasks": "Opgaver",
     "review": "Gennemgang",

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AdoImport } from './ado/ado-import';
+import { Login } from './auth/login';
 import { JiraImport } from './jira/jira-import';
 import { RetroImport } from './retro/retro-import';
 import { Review } from './review/review';
@@ -13,4 +14,5 @@ export const routes: Routes = [
   { path: 'jira', component: JiraImport },
   { path: 'ado', component: AdoImport },
   { path: 'settings', component: Settings },
+  { path: 'login', component: Login },
 ];

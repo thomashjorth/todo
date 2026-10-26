@@ -1,6 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { filter, map, startWith } from 'rxjs';
 import { AiStore } from './ai/ai-store';
 import { HealthClient, HealthResponse } from './api/todo-client';
 import { ReviewStore } from './review/review-store';
@@ -40,6 +42,23 @@ export class App {
 
   protected readonly status = signal<HealthResponse | undefined>(undefined);
   protected readonly failed = signal(false);
+
+  private readonly router = inject(Router);
+
+  /**
+   * Whether the login page is showing, which hides the navigation: every link leads behind it. The
+   * router's state is read when the shell subscribes as well as on each NavigationEnd, because the
+   * settings initializer's 401 can have sent the router to /login before the shell existed - and
+   * the router's own first navigation, to the same URL, is then ignored and ends nothing.
+   */
+  protected readonly onLogin = toSignal(
+    this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      startWith(null),
+      map(() => this.router.url.startsWith('/login')),
+    ),
+    { requireSync: true },
+  );
 
   constructor() {
     this.health.getHealth().subscribe({

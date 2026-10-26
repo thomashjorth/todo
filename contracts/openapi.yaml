@@ -6,6 +6,19 @@ info:
     Every operation answers 401 without the login cookie, except getHealth and login. The 401 is not
     written on each operation: it is the same for all of them and carries no body.
 paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      tags:
+        - Health
+      summary: Reports that the API is running.
+      responses:
+        '200':
+          description: The service is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
   /api/auth/login:
     post:
       operationId: login
@@ -33,19 +46,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-  /api/health:
-    get:
-      operationId: getHealth
-      tags:
-        - Health
-      summary: Reports that the API is running.
-      responses:
-        '200':
-          description: The service is running.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
   /api/tasks:
     get:
       operationId: listTasks

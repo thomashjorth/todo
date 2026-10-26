@@ -1,0 +1,32 @@
+<section class="mt-6 max-w-sm">
+  <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+    {{ 'login.title' | transloco }}
+  </h2>
+  <form class="mt-4 flex flex-col gap-3" (submit)="submit($event, password)">
+    <label class="block">
+      <span class="text-sm text-gray-700 dark:text-gray-300">{{
+        'login.password' | transloco
+      }}</span>
+      <input
+        #password
+        data-testid="login-password"
+        type="password"
+        autocomplete="current-password"
+        required
+        class="mt-1 w-full rounded border border-gray-500 bg-white px-2 py-1 text-sm text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:outline-blue-400"
+      />
+    </label>
+    <button
+      type="submit"
+      data-testid="login-submit"
+      class="cursor-pointer self-start rounded bg-blue-700 px-3 py-2 text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-600 dark:focus-visible:outline-blue-400"
+    >
+      {{ 'login.submit' | transloco }}
+    </button>
+    @if (auth.error(); as message) {
+      <p data-testid="login-error" role="alert" class="text-sm text-red-700 dark:text-red-300">
+        {{ message }}
+      </p>
+    }
+  </form>
+</section>

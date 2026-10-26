@@ -39,6 +39,35 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
+  // Every link in it leads behind the login, so on the login page it would only be a row of doors
+  // that send you back. Shown again on the next screen, which is what the second half measures.
+  it('should hide the navigation on the login page and show it everywhere else', async () => {
+    const fixture = TestBed.createComponent(App);
+    const router = TestBed.inject(Router);
+    const nav = () => (fixture.nativeElement as HTMLElement).querySelector('nav')!;
+
+    await router.navigateByUrl('/login');
+    fixture.detectChanges();
+    expect(nav().hidden).toBe(true);
+
+    await router.navigateByUrl('/settings');
+    fixture.detectChanges();
+    expect(nav().hidden).toBe(false);
+  });
+
+  // The order the real app meets: the settings initializer gets its 401 and the interceptor sends
+  // the router to /login before the shell exists, so no NavigationEnd is left for the shell to hear -
+  // the router's own first navigation is to the same URL and is ignored. Measured in E2E: the nav
+  // stood on the login page until the shell read the router's state as well as its events.
+  it('should hide the navigation when the login page was reached before the shell existed', async () => {
+    await TestBed.inject(Router).navigateByUrl('/login');
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('nav')!.hidden).toBe(true);
+  });
+
   it('should ask once at startup whether the AI model is ready', () => {
     TestBed.createComponent(App);
 

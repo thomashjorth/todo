@@ -5,11 +5,12 @@ import {
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { provideTransloco } from '@jsverse/transloco';
 
 import { API_BASE_URL } from './api/todo-client';
+import { unauthorizedInterceptor } from './auth/unauthorized.interceptor';
 import { routes } from './app.routes';
 import { TranslationLoader } from './i18n/translation-loader';
 import { SettingsStore } from './settings/settings-store';
@@ -18,7 +19,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([unauthorizedInterceptor])),
     provideTransloco({
       config: {
         availableLangs: ['da', 'en'],

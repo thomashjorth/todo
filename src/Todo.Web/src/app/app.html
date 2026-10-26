@@ -7,7 +7,9 @@
      are written down beside it. -->
 <main class="mx-auto max-w-2xl p-4 sm:p-8 xl:flex xl:h-screen xl:max-w-none xl:flex-col">
   <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ 'app.title' | transloco }}</h1>
-  <nav class="mt-2 flex flex-wrap gap-4">
+  <!-- Hidden on the login page: every link in it leads behind the login. The hidden attribute rather
+       than @if, so the block does not move one indent for a state that lasts one page. -->
+  <nav class="mt-2 flex flex-wrap gap-4" [hidden]="onLogin()">
     <a
       data-testid="nav-tasks"
       appShortcut="o"
