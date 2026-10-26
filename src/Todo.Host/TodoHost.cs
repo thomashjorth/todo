@@ -13,7 +13,6 @@ using Todo.Host.Ado;
 using Todo.Host.Ai;
 using Todo.Host.Endpoints;
 using Todo.Host.Jira;
-using Todo.Host.Links;
 
 namespace Todo.Host;
 
@@ -86,8 +85,6 @@ public static class TodoHost
 
         // A singleton, because it is a cache: the tasks' vectors live as long as the process.
         builder.Services.AddSingleton<TaskEmbeddings>();
-
-        builder.Services.AddSingleton<ILinkLauncher, ShellLinkLauncher>();
 
         configureServices?.Invoke(builder.Services);
 
@@ -174,7 +171,6 @@ public static class TodoHost
         app.MapAdo();
         app.MapSettings();
         app.MapReview();
-        app.MapSystem();
         app.MapAi();
         app.MapTags();
 

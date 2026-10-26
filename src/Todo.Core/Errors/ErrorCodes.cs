@@ -203,8 +203,6 @@ public static class ErrorCodes
     /// </summary>
     public const string ReviewTimeOfDayInvalid = "review.timeOfDayInvalid";
 
-    public const string SystemUnsupportedScheme = "system.unsupportedScheme";
-
     /// <summary>
     /// Ollama did not answer, or does not have the model. The user's move is to start Ollama, which
     /// is why this is told apart from <see cref="AiUnreadableAnswer"/>.
