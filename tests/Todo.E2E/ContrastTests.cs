@@ -1810,7 +1810,11 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         var indkob = new Todo.Core.Tags.Tag { Name = "Indkøb" };
         var tagged = new TaskItemBuilder(Clock).Titled("Køb mælk").Build();
         tagged.Tags.Add(indkob);
-        await Host.AddAndSaveChangesAsync(privat, indkob, tagged);
+        // The filter offers only tags a task carries, so without this one the button left unpressed
+        // below would not render, and the unpressed pair would go unmeasured without a failure.
+        var privately = new TaskItemBuilder(Clock).Titled("Ring til mor").Build();
+        privately.Tags.Add(privat);
+        await Host.AddAndSaveChangesAsync(privat, indkob, tagged, privately);
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
         await App.Page.RouteAsync("**/api/ai/status", route => route.FulfillAsync(new()
@@ -1845,13 +1849,15 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await tasks.NewTaskInput.FillAsync("Ring til tandlægen");
         await tasks.NewTaskInput.PressAsync("Enter");
         await Assertions.Expect(App.Page.GetByTestId("tag-suggestion-names")).ToHaveTextAsync("Privat");
-        await Assertions.Expect(App.Page.GetByTestId("row-tags")).ToHaveTextAsync("Indkøb");
+        await Assertions.Expect(tasks.RowShowing("Køb mælk").GetByTestId("row-tags")).ToHaveTextAsync("Indkøb");
         await Snapshot();
         await BadgesHeld("Y");
 
         // One filter pressed, one not - and the L badge on the pressed one.
         await App.Page.GetByTestId("tag-filter-option").Filter(new() { HasText = "Indkøb" }).ClickAsync();
         await Assertions.Expect(App.Page.GetByTestId("tag-filter-option").First).ToHaveAttributeAsync("aria-pressed", "true");
+        await Assertions.Expect(App.Page.GetByTestId("tag-filter-option").Filter(new() { HasText = "Privat" }))
+            .ToHaveAttributeAsync("aria-pressed", "false");
         await Snapshot();
         await BadgesHeld("L");
 

@@ -78,6 +78,7 @@ describe('Tags', () => {
   it('should keep only the tasks that carry every pressed tag', () => {
     configure();
     const tasks = TestBed.inject(TaskStore);
+    TestBed.inject(TagStore).tags.set([indkob, privat]);
     tasks.tasks.set([
       task(1, 'Ring til tandlægen', [privat]),
       task(2, 'Køb kaffe til kontoret', [indkob]),
@@ -94,6 +95,34 @@ describe('Tags', () => {
     tasks.toggleTagFilter(privat.id);
     tasks.toggleTagFilter(indkob.id);
     expect(shown()).toEqual([1, 2, 3]);
+  });
+
+  // A button that can only empty the list is no filter: the user deleted the one task carrying
+  // "estimat" and the button stayed (2026-10-26). A pressed one stays offered, so it can be let go.
+  it('should offer only the tags a loaded task carries, and a pressed one', () => {
+    configure();
+    const tasks = TestBed.inject(TaskStore);
+    const estimat = new TagRef({ id: 3, name: 'estimat' });
+    TestBed.inject(TagStore).tags.set([estimat, indkob, privat]);
+    tasks.tasks.set([task(1, 'Køb mælk', [indkob]), task(2, 'Ring til tandlægen')]);
+    tasks.toggleTagFilter(privat.id);
+
+    expect(tasks.filterTags().map((t) => t.name)).toEqual(['Indkøb', 'Privat']);
+  });
+
+  // Deleted under Settings while pressed: its button is gone with the tag, so a filter that still
+  // counted it would leave an empty list with nothing to press.
+  it('should stop filtering by a tag that no longer exists', () => {
+    configure();
+    const tasks = TestBed.inject(TaskStore);
+    const tags = TestBed.inject(TagStore);
+    tags.tags.set([indkob, privat]);
+    tasks.tasks.set([task(1, 'Køb mælk', [indkob]), task(2, 'Ring til tandlægen')]);
+    tasks.toggleTagFilter(privat.id);
+
+    tags.tags.set([indkob]);
+
+    expect(tasks.sections().flatMap((s) => s.tasks.map((t) => t.id))).toEqual([1, 2]);
   });
 
   it('should not ask for tags while the model is not ready or no tags exist', async () => {

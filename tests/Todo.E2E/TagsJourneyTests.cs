@@ -80,6 +80,32 @@ public class TagsJourneyTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(tasks.RowShowing("Køb mælk")).ToBeVisibleAsync();
     }
 
+    /// <summary>
+    /// The user's own report (2026-10-26): the last task carrying "estimat" was deleted, and its button
+    /// stayed above the list, where pressing it could only empty it. The tag itself stays defined.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_the_last_task_carrying_a_tag_takes_its_button_out_of_the_filter()
+    {
+        var estimat = new Tag { Name = "estimat" };
+        var privat = new Tag { Name = "Privat" };
+        var tagged = new TaskItemBuilder().Titled("Adyen talk").Build();
+        tagged.Tags.Add(estimat);
+        var other = new TaskItemBuilder().Titled("Køb mælk").Build();
+        other.Tags.Add(privat);
+        await Host.AddAndSaveChangesAsync(estimat, privat, tagged, other);
+        await OpenAppAsync(new() { Width = ColumnWidth, Height = 1200 });
+        var tasks = App.Tasks;
+        var buttons = App.Page.GetByTestId("tag-filter-option");
+        await Assertions.Expect(buttons).ToHaveTextAsync(["estimat", "Privat"]);
+
+        await tasks.RowShowing("Adyen talk").ClickAsync();
+        await tasks.Detail.GetByTestId("delete-task").ClickAsync();
+
+        await Assertions.Expect(tasks.RowShowing("Adyen talk")).ToHaveCountAsync(0);
+        await Assertions.Expect(buttons).ToHaveTextAsync(["Privat"]);
+    }
+
     /// <summary>Ticked in the panel and saved at once; two pressed filters narrow to the task with both.</summary>
     [Fact]
     public async Task Tags_ticked_in_the_panel_narrow_the_list_together()

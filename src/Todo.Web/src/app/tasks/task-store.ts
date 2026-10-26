@@ -15,6 +15,7 @@ import {
   UpdateTodoTaskRequest,
 } from '../api/todo-client';
 import { ReducedMotion } from '../layout/reduced-motion';
+import { TagStore } from '../tags/tag-store';
 
 const bucketOrder: readonly DeadlineBucket[] = [
   DeadlineBucket.Overdue,
@@ -141,6 +142,7 @@ export interface TaskChanges {
 export class TaskStore {
   private readonly client = inject(TasksClient);
   private readonly tagsClient = inject(TagsClient);
+  private readonly tagStore = inject(TagStore);
   private readonly appRef = inject(ApplicationRef);
   private readonly reducedMotion = inject(ReducedMotion);
 
@@ -202,9 +204,25 @@ export class TaskStore {
    */
   readonly tagFilter = signal<ReadonlySet<number>>(new Set());
 
-  /** The tasks the tag filter leaves in, which the search then narrows further. */
+  /**
+   * The tags the filter offers: those a loaded task carries, and any pressed, so it can be let go. A
+   * tag no task carries would only empty the list - the user met one after deleting the last task
+   * carrying it (2026-10-26).
+   */
+  readonly filterTags = computed(() => {
+    const pressed = this.tagFilter();
+    const carried = new Set(this.tasks().flatMap((t) => (t.tags ?? []).map((tag) => tag.id)));
+
+    return this.tagStore.tags().filter((tag) => pressed.has(tag.id) || carried.has(tag.id));
+  });
+
+  /**
+   * The tasks the tag filter leaves in, which the search then narrows further. A pressed tag that has
+   * since been deleted counts for nothing: its button went with it, so nothing could let it go.
+   */
   private readonly tagged = computed(() => {
-    const wanted = this.tagFilter();
+    const known = new Set(this.tagStore.tags().map((tag) => tag.id));
+    const wanted = new Set([...this.tagFilter()].filter((id) => known.has(id)));
 
     if (wanted.size === 0) {
       return this.tasks();
