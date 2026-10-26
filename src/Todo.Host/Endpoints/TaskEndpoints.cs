@@ -298,7 +298,7 @@ public static class TaskEndpoints
         CompletedAt = AsUtc(task.CompletedAt),
         CreatedAt = AsUtc(task.CreatedAt),
         SubTasks = [.. task.SubTasks.OrderBy(s => s.SortOrder).Select(ToContract)],
-        Tags = [.. task.Tags.OrderBy(t => t.Name).Select(t => new TagRef { Id = t.Id, Name = t.Name })],
+        Tags = [.. task.Tags.OrderBy(t => t.Name).Select(t => new TagRef { Id = t.Id, Name = t.Name, Color = t.Color })],
     };
 
     /// <summary>

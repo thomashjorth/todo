@@ -47,11 +47,11 @@ public static class TagEndpoints
                 return ApiErrors.BadRequest(ErrorCodes.TagDuplicate, "A tag of that name exists already.");
             }
 
-            var tag = new Tag { Name = name };
+            var tag = new Tag { Name = name, Color = TagColors.Next(await db.Tags.Select(t => t.Color).ToListAsync()) };
             db.Tags.Add(tag);
             await db.SaveChangesAsync();
 
-            return TypedResults.Created($"/api/tags/{tag.Id}", new TagRef { Id = tag.Id, Name = tag.Name });
+            return TypedResults.Created($"/api/tags/{tag.Id}", new TagRef { Id = tag.Id, Name = tag.Name, Color = tag.Color });
         })
         .WithName("createTag")
         .WithTags("Tags");
@@ -97,5 +97,5 @@ public static class TagEndpoints
     }
 
     internal static async Task<List<TagRef>> AllAsync(TodoDbContext db) =>
-        [.. (await db.Tags.OrderBy(t => t.Name).ToListAsync()).Select(t => new TagRef { Id = t.Id, Name = t.Name })];
+        [.. (await db.Tags.OrderBy(t => t.Name).ToListAsync()).Select(t => new TagRef { Id = t.Id, Name = t.Name, Color = t.Color })];
 }

@@ -5317,6 +5317,8 @@ export interface IOpenLinkRequest {
 export class TagRef implements ITagRef {
     id!: number;
     name!: string;
+    /** The colour's slot: the rainbow's seven, then each again in two more shades. Given by the server when the tag is created, the first free slot (the tag-chips design). */
+    color!: number;
 
     constructor(data?: ITagRef) {
         if (data) {
@@ -5331,6 +5333,7 @@ export class TagRef implements ITagRef {
         if (_data) {
             this.id = _data["id"];
             this.name = _data["name"];
+            this.color = _data["color"];
         }
     }
 
@@ -5345,6 +5348,7 @@ export class TagRef implements ITagRef {
         data = typeof data === 'object' ? data : {};
         data["id"] = this.id;
         data["name"] = this.name;
+        data["color"] = this.color;
         return data;
     }
 }
@@ -5352,6 +5356,8 @@ export class TagRef implements ITagRef {
 export interface ITagRef {
     id: number;
     name: string;
+    /** The colour's slot: the rainbow's seven, then each again in two more shades. Given by the server when the tag is created, the first free slot (the tag-chips design). */
+    color: number;
 }
 
 export class TagListResponse implements ITagListResponse {

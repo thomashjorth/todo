@@ -11,4 +11,7 @@ public class Tag
     public long Id { get; set; }
 
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>The colour's slot, 0-20, given by <see cref="TagColors.Next"/> when the tag is created.</summary>
+    public int Color { get; set; }
 }

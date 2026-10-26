@@ -1300,6 +1300,13 @@ namespace Todo.Contracts
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string Name { get; set; }
 
+        /// <summary>
+        /// The colour's slot: the rainbow's seven, then each again in two more shades. Given by the server when the tag is created, the first free slot (the tag-chips design).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("color")]
+        [System.ComponentModel.DataAnnotations.Range(0, 20)]
+        public int Color { get; set; }
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]

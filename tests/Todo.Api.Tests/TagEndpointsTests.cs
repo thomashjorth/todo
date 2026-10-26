@@ -41,6 +41,37 @@ public class TagEndpointsTests : ApiTest
         await AssertRefusedAsync(response, code);
     }
 
+    /// <summary>The rainbow in the order of creation, on every route a tag reaches the client by.</summary>
+    [Fact]
+    public async Task Each_new_tag_takes_the_next_colour_and_carries_it_everywhere()
+    {
+        var task = new TaskItemBuilder().Titled("Køb mælk").Build();
+        await Host.AddAndSaveChangesAsync(task);
+
+        var rod = await CreateAsync("Rød");
+        var orange = await CreateAsync("Orange");
+        await Client.PutAsJsonAsync($"/api/tasks/{task.Id}/tags", new SetTaskTagsRequest { TagIds = [orange.Id] });
+
+        Assert.Equal([0, 1], new[] { rod.Color, orange.Color });
+        Assert.Equal([1, 0], (await ListAsync()).Select(t => t.Color));
+        Assert.Equal(1, Assert.Single(Assert.Single(await TasksAsync()).Tags).Color);
+        Assert.Contains("\"color\":1", await Client.GetStringAsync("/api/tags"));
+    }
+
+    /// <summary>The user's "frigjort": the deleted tag's colour is the one the next tag gets.</summary>
+    [Fact]
+    public async Task A_deleted_tag_frees_its_colour_for_the_next()
+    {
+        await CreateAsync("Rød");
+        var orange = await CreateAsync("Orange");
+        await CreateAsync("Gul");
+
+        await Client.DeleteAsync($"/api/tags/{orange.Id}");
+
+        Assert.Equal(1, (await CreateAsync("Ny")).Color);
+        Assert.Equal(3, (await CreateAsync("Grøn")).Color);
+    }
+
     [Fact]
     public async Task A_task_carries_the_tags_it_is_given_and_shows_them_by_name()
     {
