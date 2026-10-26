@@ -58,7 +58,7 @@ public class AdoEndpointsTests : ApiTest
     {
         var ado = await FakeAdo.StartAsync();
 
-        await Host.Client.PutAsJsonAsync("/api/settings/ado-token", new { token = FakeAdo.Token });
+        await Host.ConnectAdoAsync(ado.BaseUrl, FakeAdo.Token);
         await Host.Client.PutAsJsonAsync("/api/settings", new
         {
             adoBaseUrl = ado.BaseUrl,

@@ -64,7 +64,7 @@ public class TaskEndpointsTests : TaskApiTest
         // exactly what this would fail to notice.
         await using var jira = await FakeJira.StartAsync();
 
-        await Client.PutAsJsonAsync("/api/settings/jira-token", new { token = FakeJira.Token });
+        await Host.ConnectJiraAsync(jira.BaseUrl, FakeJira.Token);
         await Client.PutAsJsonAsync("/api/settings", new
         {
             jiraBaseUrl = jira.BaseUrl,

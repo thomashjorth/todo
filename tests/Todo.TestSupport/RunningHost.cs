@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Todo.Contracts;
 using Todo.Core.Auth;
 using Todo.Core.Persistence;
+using Todo.Core.Settings;
 using Todo.Host;
 
 namespace Todo.TestSupport;
@@ -84,6 +85,31 @@ public sealed class RunningHost : IAsyncDisposable
         var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
 
         db.AddRange(entities);
+
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Points the host at a Jira and gives it the token to call it with. One place for every test that
+    /// needs Jira set up, so where the base URL and the token live is this method's business and not
+    /// a dozen tests'.
+    /// </summary>
+    public Task ConnectJiraAsync(string baseUrl, string token) =>
+        ConnectAsync(SettingKeys.JiraBaseUrl, baseUrl, SettingKeys.JiraToken, token);
+
+    /// <summary>The same for an Azure DevOps collection.</summary>
+    public Task ConnectAdoAsync(string baseUrl, string token) =>
+        ConnectAsync(SettingKeys.AdoBaseUrl, baseUrl, SettingKeys.AdoToken, token);
+
+    private async Task ConnectAsync(string urlKey, string baseUrl, string tokenKey, string token)
+    {
+        using var scope = _app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
+
+        db.Settings.RemoveRange(db.Settings.Where(s => s.Key == urlKey || s.Key == tokenKey));
+        db.Settings.AddRange(
+            new Setting { Key = urlKey, Value = baseUrl },
+            new Setting { Key = tokenKey, Value = token });
 
         await db.SaveChangesAsync();
     }

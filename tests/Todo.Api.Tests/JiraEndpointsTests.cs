@@ -45,7 +45,7 @@ public class JiraEndpointsTests : ApiTest
     {
         var jira = await FakeJira.StartAsync();
 
-        await Host.Client.PutAsJsonAsync("/api/settings/jira-token", new { token = FakeJira.Token });
+        await Host.ConnectJiraAsync(jira.BaseUrl, FakeJira.Token);
         await Host.Client.PutAsJsonAsync("/api/settings", new
         {
             jiraBaseUrl = jira.BaseUrl,

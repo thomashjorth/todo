@@ -773,14 +773,16 @@ public sealed class FakeAdo : IAsyncDisposable
                 name.Groups[1].Value, item.Fields?.WorkItemType, StringComparison.Ordinal));
     }
 
+    // Reset on every call rather than only set when a header came: a request without one must read
+    // as without one, or "no Authorization when the host holds no token" could never be seen after the
+    // first call that had one.
     private void Record(HttpContext context)
     {
-        if (AuthenticationHeaderValue.TryParse(
-            context.Request.Headers.Authorization.ToString(), out var header))
-        {
-            LastAuthorizationScheme = header.Scheme;
-            LastAuthorizationParameter = header.Parameter;
-        }
+        var parsed = AuthenticationHeaderValue.TryParse(
+            context.Request.Headers.Authorization.ToString(), out var header);
+
+        LastAuthorizationScheme = parsed ? header!.Scheme : null;
+        LastAuthorizationParameter = parsed ? header!.Parameter : null;
 
         LastPath = context.Request.Path.Value;
         LastRawTarget = context.Features.Get<IHttpRequestFeature>()?.RawTarget;

@@ -58,10 +58,9 @@ public class ImportClosureJourneyTests(BrowserFixture fixture) : BrowserTest(fix
     {
         await using var fake = await FakeAdo.StartAsync();
 
+        await Host.ConnectAdoAsync(fake.BaseUrl, FakeAdo.Token);
         await Host.AddAndSaveChangesAsync(
-            new Setting { Key = SettingKeys.AdoBaseUrl, Value = fake.BaseUrl },
-            new Setting { Key = SettingKeys.AdoProject, Value = FakeAdo.Project },
-            new Setting { Key = SettingKeys.AdoToken, Value = FakeAdo.Token });
+            new Setting { Key = SettingKeys.AdoProject, Value = FakeAdo.Project });
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1800 });
 

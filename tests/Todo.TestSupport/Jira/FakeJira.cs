@@ -562,13 +562,16 @@ public sealed class FakeJira : IAsyncDisposable
     private static HistoryBody[] Changelog(string key) =>
         Changelogs.TryGetValue(key, out var histories) ? histories : [];
 
+    // Reset on every call rather than only set when a header came: a request without one must read
+    // as without one, or "no Authorization when the host holds no token" could never be seen after the
+    // first call that had one.
     private void Record(HttpRequest request)
     {
-        if (AuthenticationHeaderValue.TryParse(request.Headers.Authorization.ToString(), out var header))
-        {
-            LastAuthorizationScheme = header.Scheme;
-            LastAuthorizationParameter = header.Parameter;
-        }
+        var parsed = AuthenticationHeaderValue.TryParse(
+            request.Headers.Authorization.ToString(), out var header);
+
+        LastAuthorizationScheme = parsed ? header!.Scheme : null;
+        LastAuthorizationParameter = parsed ? header!.Parameter : null;
     }
 
     /// <summary>

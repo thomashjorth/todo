@@ -418,10 +418,12 @@ public class JiraImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixtur
     /// a browse URL. Written straight to the database rather than typed in: what a token does to the
     /// settings page is <see cref="SettingsJourneyTests"/>' business, not this suite's.
     /// </summary>
-    private Task ConfigureJiraAsync() => Host.AddAndSaveChangesAsync(
-        new Setting { Key = SettingKeys.JiraBaseUrl, Value = BaseUrl },
-        new Setting { Key = SettingKeys.JiraProjectKey, Value = ProjectKey },
-        new Setting { Key = SettingKeys.JiraToken, Value = "not-a-real-token" });
+    private async Task ConfigureJiraAsync()
+    {
+        await Host.ConnectJiraAsync(BaseUrl, "not-a-real-token");
+        await Host.AddAndSaveChangesAsync(
+            new Setting { Key = SettingKeys.JiraProjectKey, Value = ProjectKey });
+    }
 
     private Task AnswerPreviewWithAsync(string json)
         => App.Page.RouteAsync("**/api/jira/preview", route => route.FulfillAsync(new()

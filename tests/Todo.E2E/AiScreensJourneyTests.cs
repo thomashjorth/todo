@@ -122,11 +122,10 @@ public class AiScreensJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     [Fact]
     public async Task A_jira_row_resembling_a_task_of_your_own_says_so()
     {
+        await Host.ConnectJiraAsync("https://jira.test", "not-a-real-token");
         await Host.AddAndSaveChangesAsync(
             new TaskItemBuilder().Titled("Ret login timeout for mange roller").Build(),
-            new Setting { Key = SettingKeys.JiraBaseUrl, Value = "https://jira.test" },
-            new Setting { Key = SettingKeys.JiraProjectKey, Value = "SAAS" },
-            new Setting { Key = SettingKeys.JiraToken, Value = "not-a-real-token" });
+            new Setting { Key = SettingKeys.JiraProjectKey, Value = "SAAS" });
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1000 });
         await App.Page.RouteAsync("**/api/jira/preview", route => route.FulfillAsync(new()
         {

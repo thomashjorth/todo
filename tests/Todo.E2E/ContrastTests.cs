@@ -1650,9 +1650,8 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Host.AddAndSaveChangesAsync(
             alike,
             new UserAlias { Value = "Thomas" },
-            new Setting { Key = SettingKeys.JiraBaseUrl, Value = JiraBaseUrl },
-            new Setting { Key = SettingKeys.JiraProjectKey, Value = JiraProjectKey },
-            new Setting { Key = SettingKeys.JiraToken, Value = "not-a-real-token" });
+            new Setting { Key = SettingKeys.JiraProjectKey, Value = JiraProjectKey });
+        await Host.ConnectJiraAsync(JiraBaseUrl, "not-a-real-token");
 
         await OpenAppAsync(new() { Width = ColumnWidth, Height = 1400 }, scheme);
 

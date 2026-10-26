@@ -772,19 +772,22 @@ public class AdoImportJourneyTests(BrowserFixture fixture) : BrowserTest(fixture
     /// browse URL. Written straight to the database rather than typed in: what a token does to the
     /// settings page is <see cref="SettingsJourneyTests"/>' business, not this suite's.
     /// </summary>
-    private Task ConfigureAdoAsync() => Host.AddAndSaveChangesAsync(
-        new Setting { Key = SettingKeys.AdoBaseUrl, Value = BaseUrl },
-        new Setting { Key = SettingKeys.AdoProject, Value = Project },
-        new Setting { Key = SettingKeys.AdoToken, Value = "not-a-real-token" });
+    private async Task ConfigureAdoAsync()
+    {
+        await Host.ConnectAdoAsync(BaseUrl, "not-a-real-token");
+        await Host.AddAndSaveChangesAsync(new Setting { Key = SettingKeys.AdoProject, Value = Project });
+    }
 
     /// <summary>
     /// The same three settings, but pointed at a fake on loopback so the whole chain is real. The
     /// collection URL is the fake's own, which already carries <c>%20</c> for the space in its name.
     /// </summary>
-    private Task ConfigureAdoAsync(FakeAdo fake) => Host.AddAndSaveChangesAsync(
-        new Setting { Key = SettingKeys.AdoBaseUrl, Value = fake.BaseUrl },
-        new Setting { Key = SettingKeys.AdoProject, Value = FakeAdo.Project },
-        new Setting { Key = SettingKeys.AdoToken, Value = FakeAdo.Token });
+    private async Task ConfigureAdoAsync(FakeAdo fake)
+    {
+        await Host.ConnectAdoAsync(fake.BaseUrl, FakeAdo.Token);
+        await Host.AddAndSaveChangesAsync(
+            new Setting { Key = SettingKeys.AdoProject, Value = FakeAdo.Project });
+    }
 
     private Task AnswerPreviewWithAsync(string json)
         => App.Page.RouteAsync("**/api/ado/preview", route => route.FulfillAsync(new()
