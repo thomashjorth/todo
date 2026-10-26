@@ -9,10 +9,11 @@ kræver hjælperen fra leverance 4, og dine tokens må aldrig ligge på NAS'en. 
 `data`-mappen skal ligge på NAS'ens egen disk, ikke på et netværksdrev: SQLite's WAL kræver et lokalt
 filsystem.
 
-## Én gang på GitHub
+## GitHub
 
-1. Efter første grønne push: åbn pakken `todo` under din profil → **Packages** → **Package settings**
-   → **Change visibility** → **Public**. En ny pakke er privat, og NAS'en har ingen GitHub-nøgle.
+Intet at gøre. Pakken arvede repoets offentlige synlighed: målt 2026-10-26 efter første grønne
+push, svarede GHCR 200 på `ghcr.io/thomashjorth/todo:latest` med et anonymt token. NAS'en behøver
+derfor ingen GitHub-nøgle.
 
 ## Én gang på NAS'en
 
