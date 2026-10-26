@@ -1,0 +1,12 @@
+# The image builds from sources alone: everything a local build or a run leaves behind stays out, so
+# a stale wwwroot or a bin folder from Windows can never end up in it.
+.git
+**/bin
+**/obj
+**/node_modules
+**/.angular
+src/Todo.Host/wwwroot
+publish
+tests
+docs
+deploy
