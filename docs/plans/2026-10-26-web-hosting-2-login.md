@@ -39,6 +39,29 @@ xUnit, Playwright, Vitest.
 - **Login-siden står på systemets sprog**, fordi sproget er en indstilling bag login.
   `SettingsStore.start()` tåler allerede en fejl og falder tilbage på netop det.
 
+## Fund fra `prep-refactor` (2026-10-26), lagt ind i opgaverne
+
+Ingen refaktorering foreslået. Seks huller i planen, hver verificeret i koden:
+
+1. **Brugerens miljøvariabel når testenes værter.** `WebApplication.CreateBuilder` læser
+   miljøvariabler uden præfiks, så efter `SetPassword.cmd` ser hver vært testprocessen bygger, den
+   rigtige `Auth__PasswordHash`. Derfor giver `RunningHost` **altid** `--Auth:PasswordHash`
+   eksplicit (kommandolinjen slår miljøet), "mangler"-testen giver `--Auth:PasswordHash=`, og en
+   **tom** værdi læses som manglende. Ellers er testen grøn i CI og rød på brugerens maskine.
+2. **Hashen tjekkes før databasen røres** — `Build` migrerer og tager backup længere nede.
+3. **En test kan ikke overskrive hashen gennem `RunningHost`**, fordi `StartAsync` logger ind med
+   test-passwordet. Tests der vil have en anden hash, bygger værten direkte.
+4. **429 skal stå i kontrakten.** Den genererede klient kaster kun `ApiError` for statusser
+   kontrakten erklærer; ellers viser `apiErrorMessage` `errors.generic`.
+5. **Nøglemappen skal slettes rekursivt** i `RunningHost.DisposeAsync`, og publish-proben skal have
+   sin egen `--Data:KeysPath` og rydde den.
+6. **Interceptoren skal læse `location.pathname`, ikke `router.url`**: initialiseringen og
+   `app.ts`' opstartskald går før routerens første navigation, hvor `router.url` stadig er `/`.
+
+Og én test **før** featuren: `PublicSurfaceTests` — `/`, `/login`, `/i18n/da.json`, `/scalar/`,
+`/openapi/contract.yaml` og `/api/health` svarer 200 uden cookie. Efter opgave 4 kører
+`EmbeddedFrontendTests` og de andre med den indloggede klient og beviser ikke længere anonym adgang.
+
 ## Fælder der rammer netop denne plan
 
 Alle fælderne fra leverance 1 gælder. Dertil:
