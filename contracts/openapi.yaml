@@ -793,6 +793,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
   /api/tags/{id}:
+    put:
+      operationId: updateTag
+      tags:
+        - Tags
+      summary: Renames a tag and sets its colour.
+      description: >-
+        Both fields are required: a tag has no other, so the full replacement costs nothing. A name
+        another tag has, case aside, is refused; the tag's own name in another case is not.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTagRequest'
+      responses:
+        '200':
+          description: The tag as it now is.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagRef'
+        '400':
+          description: >-
+            tags.nameRequired, tags.nameTooLong, tags.duplicate or tags.colorInvalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: No tag with that id.
     delete:
       operationId: deleteTag
       tags:
@@ -2134,6 +2171,13 @@ components:
       required: [name]
       properties:
         name: { type: string, minLength: 1, maxLength: 50 }
+    UpdateTagRequest:
+      type: object
+      additionalProperties: false
+      required: [name, color]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
+        color: { type: integer, format: int32, minimum: 0, maximum: 20 }
     SetTaskTagsRequest:
       type: object
       additionalProperties: false

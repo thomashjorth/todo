@@ -413,7 +413,8 @@
       "nameRequired": "A tag needs a name.",
       "nameTooLong": "A tag name may be at most 50 characters.",
       "duplicate": "A tag of that name exists already.",
-      "unknown": "One of the tags no longer exists. Reload and try again."
+      "unknown": "One of the tags no longer exists. Reload and try again.",
+      "colorInvalid": "That colour does not exist. Choose one of the colours."
     }
   }
 }

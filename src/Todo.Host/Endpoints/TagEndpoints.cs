@@ -28,23 +28,9 @@ public static class TagEndpoints
         {
             var name = request.Name?.Trim() ?? string.Empty;
 
-            if (name.Length == 0)
+            if (await NameRefusalAsync(name, db, self: null) is { } refused)
             {
-                return ApiErrors.BadRequest(ErrorCodes.TagNameRequired, "A tag needs a name.");
-            }
-
-            if (name.Length > Tag.NameMaxLength)
-            {
-                return ApiErrors.BadRequest(
-                    ErrorCodes.TagNameTooLong, $"A tag name may be at most {Tag.NameMaxLength} characters.");
-            }
-
-            // Asked before the insert, so the answer is a code the user can read rather than the
-            // unique index's exception. The index is NOCASE, and so is this comparison.
-            var lower = name.ToLowerInvariant();
-            if (await db.Tags.AnyAsync(t => t.Name.ToLower() == lower))
-            {
-                return ApiErrors.BadRequest(ErrorCodes.TagDuplicate, "A tag of that name exists already.");
+                return refused;
             }
 
             var tag = new Tag { Name = name, Color = TagColors.Next(await db.Tags.Select(t => t.Color).ToListAsync()) };
@@ -54,6 +40,38 @@ public static class TagEndpoints
             return TypedResults.Created($"/api/tags/{tag.Id}", new TagRef { Id = tag.Id, Name = tag.Name, Color = tag.Color });
         })
         .WithName("createTag")
+        .WithTags("Tags");
+
+        app.MapPut("/api/tags/{id:long}", async Task<Results<Ok<TagRef>, BadRequest<ApiError>, NotFound>> (
+            long id, UpdateTagRequest request, TodoDbContext db) =>
+        {
+            var tag = await db.Tags.FindAsync(id);
+
+            if (tag is null)
+            {
+                return TypedResults.NotFound();
+            }
+
+            var name = request.Name?.Trim() ?? string.Empty;
+
+            if (await NameRefusalAsync(name, db, self: id) is { } refused)
+            {
+                return refused;
+            }
+
+            if (request.Color is < 0 or >= TagColors.Count)
+            {
+                return ApiErrors.BadRequest(
+                    ErrorCodes.TagColorInvalid, $"A colour is a slot from 0 to {TagColors.Count - 1}.");
+            }
+
+            tag.Name = name;
+            tag.Color = request.Color;
+            await db.SaveChangesAsync();
+
+            return TypedResults.Ok(new TagRef { Id = tag.Id, Name = tag.Name, Color = tag.Color });
+        })
+        .WithName("updateTag")
         .WithTags("Tags");
 
         app.MapDelete("/api/tags/{id:long}", async Task<Results<NoContent, NotFound>> (long id, TodoDbContext db) =>
@@ -94,6 +112,31 @@ public static class TagEndpoints
         .WithTags("Tags");
 
         return app;
+    }
+
+    /// <summary>
+    /// Why a name cannot be a tag's, or nothing. Asked before the write, so the answer is a code the
+    /// user can read rather than the unique index's exception. The index is NOCASE, and so is the
+    /// comparison; <paramref name="self"/> is left out, so a tag may take its own name in another case.
+    /// </summary>
+    private static async Task<BadRequest<ApiError>?> NameRefusalAsync(string name, TodoDbContext db, long? self)
+    {
+        if (name.Length == 0)
+        {
+            return ApiErrors.BadRequest(ErrorCodes.TagNameRequired, "A tag needs a name.");
+        }
+
+        if (name.Length > Tag.NameMaxLength)
+        {
+            return ApiErrors.BadRequest(
+                ErrorCodes.TagNameTooLong, $"A tag name may be at most {Tag.NameMaxLength} characters.");
+        }
+
+        var lower = name.ToLowerInvariant();
+
+        return await db.Tags.AnyAsync(t => t.Id != self && t.Name.ToLower() == lower)
+            ? ApiErrors.BadRequest(ErrorCodes.TagDuplicate, "A tag of that name exists already.")
+            : null;
     }
 
     internal static async Task<List<TagRef>> AllAsync(TodoDbContext db) =>

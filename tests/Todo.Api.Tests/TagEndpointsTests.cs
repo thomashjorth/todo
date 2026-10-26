@@ -159,6 +159,90 @@ public class TagEndpointsTests : ApiTest
         Assert.Contains("\"tags\":[]", body);
     }
 
+    /// <summary>The rename reaches the task, which refers to the tag and not to its name.</summary>
+    [Fact]
+    public async Task A_tag_is_renamed_and_recoloured_and_the_task_carrying_it_shows_both()
+    {
+        var task = new TaskItemBuilder().Titled("Adyen talk").Build();
+        await Host.AddAndSaveChangesAsync(task);
+        var estimat = await CreateAsync("estimat");
+        await Client.PutAsJsonAsync($"/api/tasks/{task.Id}/tags", new SetTaskTagsRequest { TagIds = [estimat.Id] });
+
+        var response = await Client.PutAsJsonAsync(
+            $"/api/tags/{estimat.Id}", new UpdateTagRequest { Name = "  Estimering ", Color = 12 });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = (await response.Content.ReadFromJsonAsync<TagRef>())!;
+        Assert.Equal(("Estimering", 12), (updated.Name, updated.Color));
+        var carried = Assert.Single(Assert.Single(await TasksAsync()).Tags);
+        Assert.Equal((estimat.Id, "Estimering", 12), (carried.Id, carried.Name, carried.Color));
+    }
+
+    /// <summary>"estimat" to "Estimat" is the same tag, so the duplicate check must leave it out.</summary>
+    [Fact]
+    public async Task A_tag_may_take_its_own_name_in_another_case()
+    {
+        var estimat = await CreateAsync("estimat");
+
+        var response = await Client.PutAsJsonAsync(
+            $"/api/tags/{estimat.Id}", new UpdateTagRequest { Name = "Estimat", Color = estimat.Color });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(["Estimat"], (await ListAsync()).Select(t => t.Name));
+    }
+
+    [Fact]
+    public async Task A_rename_to_another_tag_s_name_is_refused()
+    {
+        await CreateAsync("Privat");
+        var estimat = await CreateAsync("estimat");
+
+        var response = await Client.PutAsJsonAsync(
+            $"/api/tags/{estimat.Id}", new UpdateTagRequest { Name = "privat", Color = estimat.Color });
+
+        await AssertRefusedAsync(response, ErrorCodes.TagDuplicate);
+    }
+
+    [Theory]
+    [InlineData("  ", 0, ErrorCodes.TagNameRequired)]
+    [InlineData("123456789012345678901234567890123456789012345678901", 0, ErrorCodes.TagNameTooLong)]
+    [InlineData("estimat", -1, ErrorCodes.TagColorInvalid)]
+    [InlineData("estimat", TagColors.Count, ErrorCodes.TagColorInvalid)]
+    public async Task An_update_that_cannot_be_a_tag_is_refused(string name, int color, string code)
+    {
+        var estimat = await CreateAsync("estimat");
+
+        var response = await Client.PutAsJsonAsync(
+            $"/api/tags/{estimat.Id}", new UpdateTagRequest { Name = name, Color = color });
+
+        await AssertRefusedAsync(response, code);
+        Assert.Equal([("estimat", 0)], (await ListAsync()).Select(t => (t.Name, t.Color)));
+    }
+
+    [Fact]
+    public async Task Updating_a_tag_that_does_not_exist_is_a_404()
+    {
+        var response = await Client.PutAsJsonAsync("/api/tags/4242", new UpdateTagRequest { Name = "x", Color = 0 });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A chosen colour counts as used: red moved to green leaves red free and green taken, so the
+    /// next tag is red, and the one after it orange rather than green.
+    /// </summary>
+    [Fact]
+    public async Task A_chosen_colour_counts_as_used_for_the_next_tag()
+    {
+        var rod = await CreateAsync("Rød");
+        await Client.PutAsJsonAsync($"/api/tags/{rod.Id}", new UpdateTagRequest { Name = "Rød", Color = 3 });
+
+        Assert.Equal(0, (await CreateAsync("Ny")).Color);
+        Assert.Equal(1, (await CreateAsync("Næste")).Color);
+        Assert.Equal(2, (await CreateAsync("Tredje")).Color);
+        Assert.Equal(4, (await CreateAsync("Fjerde")).Color);
+    }
+
     private async Task<TagRef> CreateAsync(string name)
     {
         var response = await Client.PostAsJsonAsync("/api/tags", new CreateTagRequest { Name = name });

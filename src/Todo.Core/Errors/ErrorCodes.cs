@@ -228,4 +228,7 @@ public static class ErrorCodes
 
     /// <summary>A task was given a tag id that does not exist - deleted meanwhile, most likely.</summary>
     public const string TagUnknown = "tags.unknown";
+
+    /// <summary>A colour outside the palette's 21 slots (TagColors.Count).</summary>
+    public const string TagColorInvalid = "tags.colorInvalid";
 }

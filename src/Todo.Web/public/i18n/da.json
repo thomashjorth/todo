@@ -413,7 +413,8 @@
       "nameRequired": "Et tag skal have et navn.",
       "nameTooLong": "Et tag-navn må højst være 50 tegn.",
       "duplicate": "Der findes allerede et tag med det navn.",
-      "unknown": "Et af tagsene findes ikke længere. Genindlæs og prøv igen."
+      "unknown": "Et af tagsene findes ikke længere. Genindlæs og prøv igen.",
+      "colorInvalid": "Den farve findes ikke. Vælg en af farverne."
     }
   }
 }
