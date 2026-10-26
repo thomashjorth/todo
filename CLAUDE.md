@@ -1208,8 +1208,15 @@ forkerte grund.
 
 ## Testtal
 
-**244** Todo.Core.Tests, **465** Todo.Api.Tests, **109** Todo.E2E, **413** Vitest — alle grønne,
+**248** Todo.Core.Tests, **468** Todo.Api.Tests, **112** Todo.E2E, **417** Vitest — alle grønne,
 målt med `Check.cmd` 2026-10-26.
+
+**Alle fire steg, fordi tags blev farvede chips — 14 tests er lagt til med vilje.** Core +4 i
+`TagColorsTests` (regnbuen, den frigjorte farve, nuancerne, gentagelsen efter 21). Api +3: to i
+`TagEndpointsTests` (farven på wiren, den frigjorte farve) og `TagColorMigrationTests`. E2E +3: sletning
+med ét klik på krydset og `ContrastTests.Every_tag_colour_meets_WCAG_AA` i begge temaer, som måler alle 21
+farver på alle fire flader. Vitest +4 i `tag-colors.spec.ts`. Designet er
+`docs/plans/2026-10-26-tag-chips-design.md`.
 
 **E2E og Vitest steg, fordi tagfilteret kun tilbyder tags en opgave bærer.** E2E 108 → 109:
 `TagsJourneyTests.Deleting_the_last_task_carrying_a_tag_takes_its_button_out_of_the_filter`, brugerens
