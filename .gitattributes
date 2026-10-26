@@ -4,3 +4,10 @@
 # cmd.exe misparses LF line endings and eats characters.
 *.cmd text eol=crlf
 *.bat text eol=crlf
+
+# bash reads a CR as part of the line and fails on it; these run on Linux - in CI and on the NAS.
+*.sh text eol=lf
+
+# Copied to the NAS as they stand. A .env made from a CRLF .env.example would end the password's hash
+# with a CR, and the host refuses a hash it cannot read.
+deploy/** text eol=lf

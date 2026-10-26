@@ -16,3 +16,6 @@ tests/**/obj/
 *.db
 *.db-shm
 *.db-wal
+
+# The NAS's settings, the password's hash among them. deploy/.env.example is the template.
+.env
