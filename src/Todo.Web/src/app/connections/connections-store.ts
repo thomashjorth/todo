@@ -1,5 +1,5 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, firstValueFrom } from 'rxjs';
 
 import { ConnectionsStatus } from './connections-status';
@@ -24,13 +24,29 @@ export class ConnectionsStore {
   private readonly http = inject(HttpClient);
   private readonly parent = inject(ParentChannel);
 
+  /**
+   * Counts the reads and saves in flight. A poll sent before a save can answer after it, and its older
+   * status would put the old address back into the field - so only the newest answer may write.
+   */
+  private sequence = 0;
+
   readonly status = signal<ConnectionsStatus | null>(null);
 
   /** The hash of a key just made. Shown once, because the key behind it changes with every pairing. */
   readonly keyHash = signal<string | null>(null);
 
-  /** Whether the helper failed to answer the last call. */
-  readonly failed = signal(false);
+  /** A pairing in flight, so a second click cannot make a key the first answer's hash no longer fits. */
+  readonly pairing = signal(false);
+
+  /**
+   * Two reasons for the one error line, kept apart because the poll answers every two seconds: a save
+   * the helper refused stays said until the next save, and the poll only says whether the helper is
+   * there at all.
+   */
+  private readonly saveFailed = signal(false);
+  private readonly unreachable = signal(false);
+
+  readonly failed = computed(() => this.saveFailed() || this.unreachable());
 
   /**
    * Reads the status again. Tells the app when the tunnel moved, so its settings - whether the helper
@@ -38,26 +54,28 @@ export class ConnectionsStore {
    */
   async load(): Promise<void> {
     const before = this.status()?.tunnel;
+    const answer = await this.call(
+      this.http.get<ConnectionsStatus>('/api/connections', { headers: HELPER_HEADERS }),
+    );
 
-    if (
-      await this.call(
-        this.http.get<ConnectionsStatus>('/api/connections', { headers: HELPER_HEADERS }),
-      )
-    ) {
-      if (before !== undefined && before !== this.status()?.tunnel) {
-        this.parent.post({ type: 'changed' });
-      }
+    this.unreachable.set(answer === 'failed');
+
+    if (answer === 'written' && before !== undefined && before !== this.status()?.tunnel) {
+      this.parent.post({ type: 'changed' });
     }
   }
 
-  async saveServer(url: string): Promise<void> {
-    await this.save(
+  async saveServer(url: string): Promise<boolean> {
+    return this.save(
       this.http.put<ConnectionsStatus>('/api/server', { url }, { headers: HELPER_HEADERS }),
     );
   }
 
   async pair(): Promise<void> {
-    this.failed.set(false);
+    if (this.pairing()) return;
+
+    this.pairing.set(true);
+    this.saveFailed.set(false);
 
     try {
       const response = await firstValueFrom(
@@ -65,16 +83,22 @@ export class ConnectionsStore {
       );
       this.keyHash.set(response.keyHash);
     } catch {
-      this.failed.set(true);
+      this.saveFailed.set(true);
       return;
+    } finally {
+      this.pairing.set(false);
     }
 
     await this.load();
   }
 
-  /** The base URL as given; the token only when one was typed, because the field is write-only. */
-  async saveSource(source: SourceName, baseUrl: string, token: string): Promise<void> {
-    await this.save(
+  /**
+   * The base URL as given; the token only when one was typed, because the field is write-only. Says
+   * whether the helper took it, so the page empties the token field only then - a refused save would
+   * otherwise lose what the user typed.
+   */
+  async saveSource(source: SourceName, baseUrl: string, token: string): Promise<boolean> {
+    return this.save(
       this.http.put<ConnectionsStatus>(
         `/api/connections/${source}`,
         { baseUrl, token: token.trim() === '' ? null : token },
@@ -83,8 +107,8 @@ export class ConnectionsStore {
     );
   }
 
-  async clearToken(source: SourceName): Promise<void> {
-    await this.save(
+  async clearToken(source: SourceName): Promise<boolean> {
+    return this.save(
       this.http.put<ConnectionsStatus>(
         `/api/connections/${source}`,
         { baseUrl: this.status()?.[source].baseUrl ?? null, clearToken: true },
@@ -93,21 +117,33 @@ export class ConnectionsStore {
     );
   }
 
-  private async save(request: Observable<ConnectionsStatus>): Promise<void> {
-    if (await this.call(request)) {
-      this.parent.post({ type: 'changed' });
+  private async save(request: Observable<ConnectionsStatus>): Promise<boolean> {
+    this.saveFailed.set(false);
+
+    const answer = await this.call(request);
+    if (answer === 'failed') {
+      this.saveFailed.set(true);
+      return false;
     }
+
+    this.parent.post({ type: 'changed' });
+    return true;
   }
 
-  private async call(request: Observable<ConnectionsStatus>): Promise<boolean> {
-    this.failed.set(false);
+  /** 'written' when this answer is the newest and became the status, 'stale' when a later one won. */
+  private async call(
+    request: Observable<ConnectionsStatus>,
+  ): Promise<'written' | 'stale' | 'failed'> {
+    const mine = ++this.sequence;
 
     try {
-      this.status.set(await firstValueFrom(request));
-      return true;
+      const status = await firstValueFrom(request);
+      if (mine !== this.sequence) return 'stale';
+
+      this.status.set(status);
+      return 'written';
     } catch {
-      this.failed.set(true);
-      return false;
+      return 'failed';
     }
   }
 }

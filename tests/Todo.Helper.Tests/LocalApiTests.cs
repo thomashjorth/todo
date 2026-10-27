@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Todo.Helper.Tests;
 
@@ -68,6 +69,20 @@ public class LocalApiTests : IAsyncLifetime
             .Content.ReadFromJsonAsync<ConnectionsStatus>();
 
         Assert.False(cleared!.Ado.HasToken);
+    }
+
+    // The server's address is also who may frame the page, so an address without http(s) is refused
+    // rather than stored - "nas:8080" would otherwise lock the page out of every browser.
+    [Fact]
+    public async Task A_server_address_that_is_not_http_is_refused_and_the_old_one_kept()
+    {
+        await SendAsync(HttpMethod.Put, "/api/server", new { url = "http://nas.local:8080" });
+
+        var refused = await SendAsync(HttpMethod.Put, "/api/server", new { url = "nas:8080" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal("http://nas.local:8080",
+            _helper.Services.GetRequiredService<HelperStore>().Current.ServerUrl);
     }
 
     // The Connections page reads this by hand, so the names are pinned on the raw body rather than read

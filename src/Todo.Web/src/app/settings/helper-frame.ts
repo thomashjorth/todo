@@ -73,12 +73,17 @@ export class HelperFrame {
 
   private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
 
+  private secondRead: ReturnType<typeof setTimeout> | undefined;
+
   constructor() {
     const timer = setTimeout(
       () => this.timedOut.set(!this.ready()),
       inject(HELPER_READY_TIMEOUT_MS),
     );
-    this.destroyRef.onDestroy(() => clearTimeout(timer));
+    this.destroyRef.onDestroy(() => {
+      clearTimeout(timer);
+      clearTimeout(this.secondRead);
+    });
   }
 
   protected openPage(): void {
@@ -102,12 +107,13 @@ export class HelperFrame {
       case 'height':
         this.height.set(Math.max(1, Math.ceil(event.data.height)));
         break;
-      case 'changed': {
+      case 'changed':
+        // One second read at a time: a flapping tunnel sends a `changed` per move, and each would
+        // otherwise leave a timer of its own behind.
         void this.settings.refresh();
-        const again = setTimeout(() => void this.settings.refresh(), SECOND_READ_MS);
-        this.destroyRef.onDestroy(() => clearTimeout(again));
+        clearTimeout(this.secondRead);
+        this.secondRead = setTimeout(() => void this.settings.refresh(), SECOND_READ_MS);
         break;
-      }
     }
   }
 }

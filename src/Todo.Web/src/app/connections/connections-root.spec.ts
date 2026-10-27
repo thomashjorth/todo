@@ -72,16 +72,32 @@ describe('ConnectionsRoot', () => {
     expect(element.querySelector('h1')).toBeNull();
   });
 
-  it('should send a typed token and empty the field at once', async () => {
-    const { http, element } = await render();
+  it('should send a typed token and empty the field once the helper has it', async () => {
+    const { fixture, http, element } = await render();
 
     const token = byTestId<HTMLInputElement>(element, 'connections-ado-token');
     token.value = 'an-ado-pat';
     token.dispatchEvent(new Event('change'));
 
-    expect(token.value).toBe('');
     const request = http.expectOne('/api/connections/ado');
     expect(request.request.body).toEqual({ baseUrl: '', token: 'an-ado-pat' });
     request.flush(connected);
+    await fixture.whenStable();
+
+    expect(token.value).toBe('');
+  });
+
+  // A refused save must not lose what the user typed: the field keeps it to try again.
+  it('should keep the typed token when the helper refuses the save', async () => {
+    const { fixture, http, element } = await render();
+
+    const token = byTestId<HTMLInputElement>(element, 'connections-ado-token');
+    token.value = 'an-ado-pat';
+    token.dispatchEvent(new Event('change'));
+
+    http.expectOne('/api/connections/ado').flush(null, { status: 500, statusText: 'Error' });
+    await fixture.whenStable();
+
+    expect(token.value).toBe('an-ado-pat');
   });
 });

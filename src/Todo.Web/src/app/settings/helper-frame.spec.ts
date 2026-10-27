@@ -91,7 +91,9 @@ describe('HelperFrame', () => {
     expect(
       element.querySelector('[data-testid="helper-frame-fallback"]')?.textContent?.trim(),
     ).toBe(
-      'Forbindelserne indstilles fra den PC, hvor hjælperen kører. Kører den her, så start Helper.cmd.',
+      'Forbindelserne indstilles fra den PC, hvor hjælperen kører. Kører den her, så start Helper.cmd. ' +
+        'Kører den allerede, kender den måske serveren under en anden adresse end den du bruger nu: ' +
+        'åbn dens side og ret adressen.',
     );
   });
 });

@@ -1,10 +1,12 @@
 import {
   Component,
   DestroyRef,
+  ElementRef,
   InjectionToken,
   OnInit,
   afterNextRender,
   inject,
+  viewChild,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 
@@ -35,20 +37,25 @@ export class ConnectionsRoot implements OnInit {
 
   protected readonly sources: SourceName[] = ['jira', 'ado'];
 
+  private readonly page = viewChild.required<ElementRef<HTMLElement>>('page');
+
   constructor() {
     this.transloco.setActiveLang(this.parent.language);
     document.documentElement.lang = this.parent.language;
 
-    // The app sizes the frame from this, so the page never scrolls inside the settings page.
+    // The app sizes the frame from this, so the page never scrolls inside the settings page. The
+    // content's own height rather than the document's: a document is never shorter than the frame
+    // showing it, so the frame could grow and never shrink back.
     afterNextRender(() => {
+      const page = this.page().nativeElement;
       const post = () =>
-        this.parent.post({ type: 'height', height: document.documentElement.scrollHeight });
+        this.parent.post({ type: 'height', height: page.getBoundingClientRect().height });
       post();
 
       // jsdom has no ResizeObserver; the app keeps the frame's own height there.
       if (typeof ResizeObserver !== 'undefined') {
         const observer = new ResizeObserver(post);
-        observer.observe(document.body);
+        observer.observe(page);
         this.destroyRef.onDestroy(() => observer.disconnect());
       }
     });
@@ -72,15 +79,18 @@ export class ConnectionsRoot implements OnInit {
     void this.store.pair();
   }
 
-  /** Empties the token field first: it is write-only, and a token left in it would sit in the DOM. */
+  /**
+   * Empties the token field once the helper has it: the field is write-only, and a token left in it
+   * would sit in the DOM. Not before - a refused save would otherwise lose what the user typed.
+   */
   protected async saveSource(
     source: SourceName,
     baseUrl: string,
     token: HTMLInputElement,
   ): Promise<void> {
-    const typed = token.value;
-    token.value = '';
-    await this.store.saveSource(source, baseUrl, typed);
+    if (await this.store.saveSource(source, baseUrl, token.value)) {
+      token.value = '';
+    }
   }
 
   protected clearToken(source: SourceName): void {

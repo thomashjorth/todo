@@ -101,6 +101,55 @@ describe('ConnectionsStore', () => {
     expect(posted()).toEqual([]);
   });
 
+  // The poll answers every two seconds; a refused save has to stay said until the next save.
+  it('should keep a refused save said through a poll that succeeds', async () => {
+    const { store, http } = configure();
+
+    const saved = store.saveServer('http://nas.test:8080');
+    http.expectOne('/api/server').flush(null, { status: 500, statusText: 'Error' });
+    await saved;
+
+    const polled = store.load();
+    http.expectOne('/api/connections').flush(status());
+    await polled;
+
+    expect(store.failed()).toBe(true);
+  });
+
+  // A poll sent before a save and answered after it would put the old address back into the field.
+  it('should let only the newest answer write the status', async () => {
+    const { store, http } = configure();
+
+    const polled = store.load();
+    const saved = store.saveSource('jira', 'https://jira.new', '');
+    const [poll, save] = [
+      http.expectOne('/api/connections'),
+      http.expectOne('/api/connections/jira'),
+    ];
+
+    save.flush(status({ jira: { baseUrl: 'https://jira.new', hasToken: false } }));
+    await saved;
+    poll.flush(status({ jira: { baseUrl: 'https://jira.old', hasToken: false } }));
+    await polled;
+
+    expect(store.status()?.jira.baseUrl).toBe('https://jira.new');
+  });
+
+  // Two keys made at once could answer crossed, and the hash shown would fit the key replaced.
+  it('should make one key at a time', async () => {
+    const { store, http } = configure();
+
+    const first = store.pair();
+    const second = store.pair();
+    http.expectOne('/api/server/pair').flush({ keyHash: 'pbkdf2-sha256$1$salt$hash' });
+    await second;
+    await Promise.resolve();
+    http.expectOne('/api/connections').flush(status());
+    await first;
+
+    expect(store.keyHash()).toBe('pbkdf2-sha256$1$salt$hash');
+  });
+
   // The app's helperOnline follows the tunnel without a reload: the page says so when it moves.
   it('should tell the app when the tunnel moved between two reads, and not on the first', async () => {
     const { store, http, posted } = configure();

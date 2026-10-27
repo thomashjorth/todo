@@ -254,7 +254,7 @@
       "remove": "Remove {{alias}}"
     },
     "connections": {
-      "fallback": "Connections are set up from the PC the helper runs on. If that is this one, start Helper.cmd.",
+      "fallback": "Connections are set up from the PC the helper runs on. If that is this one, start Helper.cmd. If it runs already, it may know the server under another address than the one you use now: open its page and correct the address.",
       "openPage": "Open the helper's page",
       "frameTitle": "The helper's connections"
     },

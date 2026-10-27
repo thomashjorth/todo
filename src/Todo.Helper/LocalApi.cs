@@ -40,14 +40,23 @@ public static class LocalApi
             return Status(store.Current, tunnel);
         });
 
+        // Only http(s): the address is also who may frame the Connections page, and "nas:8080" parses as
+        // an absolute URI with the scheme "nas", which would lock the page out of every browser.
         api.MapPut("/server", (ServerRequest request, HelperStore store, TunnelClient tunnel) =>
         {
+            var url = Blank(request.Url)?.TrimEnd('/');
+
+            if (url is not null && !IsHttp(url))
+            {
+                return Results.BadRequest();
+            }
+
             store.Update(s => s with
             {
-                ServerUrl = Blank(request.Url)?.TrimEnd('/'),
+                ServerUrl = url,
                 HelperKey = Blank(request.Key) ?? s.HelperKey,
             });
-            return Status(store.Current, tunnel);
+            return Results.Ok(Status(store.Current, tunnel));
         });
 
         // A new key, made here and kept here: only its hash leaves, once, for the host's configuration
@@ -96,6 +105,9 @@ public static class LocalApi
         new SourceStatus(settings.Jira.BaseUrl, HasToken: !string.IsNullOrEmpty(settings.Jira.Token)),
         new SourceStatus(settings.Ado.BaseUrl, HasToken: !string.IsNullOrEmpty(settings.Ado.Token)),
         settings.OllamaUrl);
+
+    private static bool IsHttp(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "http" or "https";
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
