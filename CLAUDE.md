@@ -1321,16 +1321,17 @@ forkerte grund.
 
 ## Testtal
 
-**265** Todo.Core.Tests, **492** Todo.Api.Tests, **33** Todo.Helper.Tests, **119** Todo.E2E, **448**
+**265** Todo.Core.Tests, **493** Todo.Api.Tests, **34** Todo.Helper.Tests, **119** Todo.E2E, **452**
 Vitest — alle grønne, målt med `Check.cmd` 2026-10-27 på grenen `web-hosting/helper` efter
 leverance 5, "Forbindelser" og flytningen. **Grenen er ikke flettet endnu**, så `main` står stadig på
 tallene fra leverance 3 nedenfor.
 
-**Alle undtagen Core steg i leverance 5 — 34 tests er lagt til med vilje.** Api +5:
-`DatabaseExportTests` (2) og `ConnectionsPageTests` (3). Helper +7: `HelperPageTests` (6) og
-`LocalApiTests`' wire-format. E2E +3: `ConnectionsJourneyTests`, rejsen med token-vagten og kontrasten
-inde i rammen i begge temaer. Vitest +19: `parent-channel.spec.ts` (4), `connections-store.spec.ts`
-(6), `connections-root.spec.ts` (3), `helper-frame.spec.ts` (5) og én i `settings-store.spec.ts`. To
+**Alle undtagen Core steg i leverance 5 — 40 tests er lagt til med vilje.** Api +6:
+`DatabaseExportTests` (3, den ene om rå bytes: en slettet række blev målt stående i filen) og
+`ConnectionsPageTests` (3). Helper +8: `HelperPageTests` (6), `LocalApiTests`' wire-format og dens
+afvisning af en serveradresse uden http. E2E +3: `ConnectionsJourneyTests`, rejsen med token-vagten og kontrasten
+inde i rammen i begge temaer. Vitest +23: `parent-channel.spec.ts` (4), `connections-store.spec.ts`
+(9), `connections-root.spec.ts` (4), `helper-frame.spec.ts` (5) og én i `settings-store.spec.ts`. To
 eksisterende i `settings.spec.ts` skiftede forventning uden at flytte tallet: gruppetællingerne læses
 nu af siden frem for at stå som tal. Planen er `docs/plans/2026-10-27-web-hosting-5-connections.md`.
 
