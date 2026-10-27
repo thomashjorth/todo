@@ -100,4 +100,22 @@ describe('ConnectionsRoot', () => {
 
     expect(token.value).toBe('an-ado-pat');
   });
+
+  // The address is saved on leaving its field, and the token is typed while that save is out: the
+  // answer must not empty a token it never carried.
+  it('should keep a token typed while the address was being saved', async () => {
+    const { fixture, http, element } = await render();
+
+    const baseUrl = byTestId<HTMLInputElement>(element, 'connections-ado-base-url');
+    baseUrl.value = 'https://ado.example';
+    baseUrl.dispatchEvent(new Event('change'));
+    const request = http.expectOne('/api/connections/ado');
+
+    const token = byTestId<HTMLInputElement>(element, 'connections-ado-token');
+    token.value = 'an-ado-pat';
+    request.flush(connected);
+    await fixture.whenStable();
+
+    expect(token.value).toBe('an-ado-pat');
+  });
 });

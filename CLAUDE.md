@@ -1328,14 +1328,16 @@ forkerte grund.
 
 ## Testtal
 
-**265** Todo.Core.Tests, **493** Todo.Api.Tests, **35** Todo.Helper.Tests, **119** Todo.E2E, **452**
+**265** Todo.Core.Tests, **493** Todo.Api.Tests, **35** Todo.Helper.Tests, **119** Todo.E2E, **453**
 Vitest — alle grønne, målt med `Check.cmd` 2026-10-27 på `main` efter `VerifyLocal.cmd`. Sætningen om
 at grenen ikke var flettet, var forældet: `web-hosting/helper` blev flettet til `main` samme dag.
 
 **Kun Helper flyttede sig, med én:** `TunnelIntegrationTests.A_new_server_address_takes_the_tunnel_there_without_stopping_the_helper`.
 En ny adresse eller nøgle mens tunnelen var oppe, stoppede hele hjælperen, fordi socket'ens abort
 kastede en `OperationCanceledException` som løkken ikke fangede. Fundet da `VerifyLocal.cmd`s kald
-blev prøvet mod en midlertidig hjælper; testen er set fejle før rettelsen.
+blev prøvet mod en midlertidig hjælper; testen er set fejle før rettelsen. **Og Vitest +1 i
+`connections-root.spec.ts`:** svaret på en gemt adresse tømte token-feltet, også for et token tastet
+mens gemningen var ude. CI fangede det i `ConnectionsJourneyTests` — lokalt vandt rejsen kapløbet.
 
 **Alle undtagen Core steg i leverance 5 — 40 tests er lagt til med vilje.** Api +6:
 `DatabaseExportTests` (3, den ene om rå bytes: en slettet række blev målt stående i filen) og

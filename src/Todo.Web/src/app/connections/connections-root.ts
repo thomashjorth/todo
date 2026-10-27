@@ -81,14 +81,17 @@ export class ConnectionsRoot implements OnInit {
 
   /**
    * Empties the token field once the helper has it: the field is write-only, and a token left in it
-   * would sit in the DOM. Not before - a refused save would otherwise lose what the user typed.
+   * would sit in the DOM. Not before - a refused save would otherwise lose what the user typed - and
+   * only when the field still holds what was sent: a token typed while the address was being saved
+   * was never in this save.
    */
   protected async saveSource(
     source: SourceName,
     baseUrl: string,
     token: HTMLInputElement,
   ): Promise<void> {
-    if (await this.store.saveSource(source, baseUrl, token.value)) {
+    const sent = token.value;
+    if ((await this.store.saveSource(source, baseUrl, sent)) && token.value === sent) {
       token.value = '';
     }
   }
