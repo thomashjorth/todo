@@ -75,7 +75,28 @@ The data lives in the Docker volume `todo-try_data`, not in a folder: SQLite's w
 real filesystem, and a Windows folder shared into Docker's Linux VM is not one. To start from empty,
 `docker volume rm todo-try_data` after `TryNas.cmd stop`. Point the helper at
 `http://127.0.0.1:8088` under **Forbindelser** while you try it, and back to `http://127.0.0.1:5180`
-for `Todo.cmd` afterwards.
+for `Todo.cmd` afterwards - or let `VerifyLocal.cmd` do all of that.
+
+## Everything at once, for a local check
+
+```
+VerifyLocal.cmd
+```
+
+Starts what the NAS setup needs on this PC and connects it, so the AI, Jira and Azure DevOps are there
+when the window opens:
+
+1. Ollama, if it is installed and not running.
+2. The helper, in a window of its own (`Helper.cmd`) - close that window to stop it.
+3. The pairing: the helper is pointed at `http://127.0.0.1:8088`, and when it has no key, or you have
+   no `Helper__KeyHash`, it makes a new one and stores the hash as `SetHelperKey.cmd` would.
+4. The container, through `TryNas.cmd` - `-Build` and `-WithMyData` are passed on.
+5. The app's window, once the helper's tunnel is connected. A key the container does not know is
+   replaced once, and the container started again with it.
+
+At the end it says which of Jira and Azure DevOps still need a token under **Forbindelser**.
+`VerifyLocal.cmd stop` takes the container down, switches Docker back and points the helper at the
+server it had before.
 
 ## Development with hot reload
 

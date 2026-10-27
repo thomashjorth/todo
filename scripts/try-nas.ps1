@@ -8,7 +8,10 @@ param(
     [switch] $Build,
 
     # Your own tasks, exported without tokens the way ExportData.cmd does, on the first start only.
-    [switch] $WithMyData
+    [switch] $WithMyData,
+
+    # No app window and no advice at the end - verify-local.ps1 opens the app once the helper is through.
+    [switch] $NoOpen
 )
 $ErrorActionPreference = 'Stop'
 
@@ -180,6 +183,8 @@ if (-not $ready) {
     & docker logs --tail 40 todo-try
     throw "The container did not answer on ${url}api/health within a minute. Its log is above."
 }
+
+if ($NoOpen) { exit 0 }
 
 Start-Process 'msedge.exe' -ArgumentList @("--app=$url", '--window-size=480,1000')
 

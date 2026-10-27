@@ -20,7 +20,9 @@ december 2025**. Brugerens tjekliste er `docs/NAS.md`. Tre ting der ikke kan ses
 - **Docker på udviklingsmaskinen kører Windows-containere**, så imaget kan hverken bygges eller køres
   her. CI er det eneste sted det måles; skift ikke brugerens Docker-tilstand for at prøve det.
   `TryNas.cmd` gør netop det — skifter til Linux, kører NAS'ens compose-fil på 8088 og skifter tilbage
-  ved `TryNas.cmd stop` — men den er **brugerens** knap, ikke en agents måling. Dens fletning af
+  ved `TryNas.cmd stop` — men den og `VerifyLocal.cmd`, som kalder den, er **brugerens** knapper, ikke
+  en agents måling. `VerifyLocal.cmd`s kald til hjælperens API er målt mod en midlertidig hjælper og
+  vært på andre porte, og det er sådan de prøves uden Docker. Dens fletning af
   compose-filerne er målt med `docker compose config`, som ikke behøver en daemon.
 - **`ASPNETCORE_URLS` og ikke imagets `ASPNETCORE_HTTP_PORTS`**: `TodoHost.Build` binder loopback på
   en tilfældig port, når nøglen `urls` mangler, og en container der kun lytter inde i sig selv ser
@@ -71,6 +73,7 @@ SetPassword.cmd   sætter appens password, én gang før første start
 SetHelperKey.cmd  gemmer hash'en af hjælperens nøgle til Todo.cmd
 ExportData.cmd    eksporterer databasen til NAS'en, uden tokens
 TryNas.cmd        kører NAS'ens container på PC'en; "TryNas.cmd stop" tager den ned
+VerifyLocal.cmd   TryNas plus Ollama og hjælperen, parret og forbundet; "stop" tager den ned
 ```
 
 **Fra 2.0.0 har appen et login, og værten nægter at starte uden en password-hash.** `SetPassword.cmd`
@@ -1325,10 +1328,14 @@ forkerte grund.
 
 ## Testtal
 
-**265** Todo.Core.Tests, **493** Todo.Api.Tests, **34** Todo.Helper.Tests, **119** Todo.E2E, **452**
-Vitest — alle grønne, målt med `Check.cmd` 2026-10-27 på grenen `web-hosting/helper` efter
-leverance 5, "Forbindelser" og flytningen. **Grenen er ikke flettet endnu**, så `main` står stadig på
-tallene fra leverance 3 nedenfor.
+**265** Todo.Core.Tests, **493** Todo.Api.Tests, **35** Todo.Helper.Tests, **119** Todo.E2E, **452**
+Vitest — alle grønne, målt med `Check.cmd` 2026-10-27 på `main` efter `VerifyLocal.cmd`. Sætningen om
+at grenen ikke var flettet, var forældet: `web-hosting/helper` blev flettet til `main` samme dag.
+
+**Kun Helper flyttede sig, med én:** `TunnelIntegrationTests.A_new_server_address_takes_the_tunnel_there_without_stopping_the_helper`.
+En ny adresse eller nøgle mens tunnelen var oppe, stoppede hele hjælperen, fordi socket'ens abort
+kastede en `OperationCanceledException` som løkken ikke fangede. Fundet da `VerifyLocal.cmd`s kald
+blev prøvet mod en midlertidig hjælper; testen er set fejle før rettelsen.
 
 **Alle undtagen Core steg i leverance 5 — 40 tests er lagt til med vilje.** Api +6:
 `DatabaseExportTests` (3, den ene om rå bytes: en slettet række blev målt stående i filen) og
