@@ -79,6 +79,29 @@ public class TunnelIntegrationTests
         await WaitUntilAsync(host, s => s.JiraBaseUrl == "https://jira.second");
     }
 
+    /// <summary>
+    /// A new address drops the open tunnel and connects to the new server - the Connections page and
+    /// VerifyLocal.cmd both do it with the tunnel up. Aborting the socket used to stop the whole helper.
+    /// </summary>
+    [Fact]
+    public async Task A_new_server_address_takes_the_tunnel_there_without_stopping_the_helper()
+    {
+        var keyHash = PasswordHash.Create(Key, iterations: 1);
+        await using var first = await RunningHost.StartAsync("--Sources:Mode", "Helper", "--Helper:KeyHash", keyHash);
+        await using var second = await RunningHost.StartAsync("--Sources:Mode", "Helper", "--Helper:KeyHash", keyHash);
+        await using var helper = await RunningHelper.StartAsync(new HelperSettings
+        {
+            ServerUrl = first.BaseUrl,
+            HelperKey = Key,
+        });
+
+        await WaitUntilOnlineAsync(first);
+
+        helper.Services.GetRequiredService<HelperStore>().Update(s => s with { ServerUrl = second.BaseUrl });
+
+        await WaitUntilOnlineAsync(second);
+    }
+
     private static Task WaitUntilOnlineAsync(RunningHost host) => WaitUntilAsync(host, s => s.HelperOnline);
 
     private static async Task WaitUntilAsync(RunningHost host, Func<SettingsResponse, bool> condition)

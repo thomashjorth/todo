@@ -53,7 +53,10 @@ public sealed class TunnelClient(
                         delay = TimeSpan.FromSeconds(1);
                     }
                 }
-                catch (Exception exception) when (exception is WebSocketException or HttpRequestException or InvalidOperationException)
+                // OnChanged aborts the socket for a new address or key, and the read in progress then
+                // throws OperationCanceledException without the helper stopping - one more way down.
+                catch (Exception exception) when (exception is WebSocketException or HttpRequestException or InvalidOperationException
+                    || (exception is OperationCanceledException && !stoppingToken.IsCancellationRequested))
                 {
                     log.LogInformation("The tunnel to {Server} is down: {Reason}", settings.ServerUrl, exception.Message);
                 }
