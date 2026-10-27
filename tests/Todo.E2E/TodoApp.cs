@@ -249,7 +249,16 @@ public sealed class TodoApp
     /// sits behind it. The browser has already resolved which background that is, which is why
     /// this runs in the page rather than over the class attributes.
     /// </summary>
-    public Task<string[]> ContrastFailuresAsync() => Page.EvaluateAsync<string[]>(
+    public Task<string[]> ContrastFailuresAsync() => ContrastFailuresAsync(Page.MainFrame);
+
+    /// <summary>
+    /// The same walk inside one frame. The helper's Connections page is on another origin, so the
+    /// page's own walk cannot reach into it; Playwright runs this in the frame, and the frame's own
+    /// opaque body stops the climb for a background there.
+    /// </summary>
+    public static Task<string[]> ContrastFailuresAsync(IFrame frame) => frame.EvaluateAsync<string[]>(ContrastScript);
+
+    private const string ContrastScript =
         """
         () => {
           // Tailwind's palette is oklch, and getComputedStyle hands back the colour in the space
@@ -380,5 +389,5 @@ public sealed class TodoApp
 
           return failures;
         }
-        """);
+        """;
 }

@@ -18,6 +18,9 @@ public abstract class BrowserTest(BrowserFixture fixture) : IClassFixture<Browse
     /// <summary>The app under test, once a journey has opened it.</summary>
     protected TodoApp App { get; private set; } = null!;
 
+    /// <summary>The host's command line, for every test in the class - the same pattern as below.</summary>
+    protected virtual string[] HostArgs => [];
+
     /// <summary>Stands in for a registration, for every test in the class.</summary>
     protected virtual void ConfigureServices(IServiceCollection services)
     {
@@ -33,7 +36,7 @@ public abstract class BrowserTest(BrowserFixture fixture) : IClassFixture<Browse
         => App = await TodoApp.OpenAsync(fixture.Browser, _host, viewport, colorScheme);
 
     public virtual async ValueTask InitializeAsync()
-        => _host = await RunningHost.StartWithAsync(ConfigureServices);
+        => _host = await RunningHost.StartWithAsync(ConfigureServices, HostArgs);
 
     public virtual async ValueTask DisposeAsync()
     {

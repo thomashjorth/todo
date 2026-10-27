@@ -8,13 +8,24 @@ export const PAGE_SEARCH = new InjectionToken<string>('PAGE_SEARCH', {
   factory: () => window.location.search,
 });
 
-/** The window around the frame, or null when the page is opened on its own. */
-export const PARENT_WINDOW = new InjectionToken<Pick<Window, 'postMessage'> | null>(
-  'PARENT_WINDOW',
-  {
-    factory: () => (window.parent !== window ? window.parent : null),
+/** The one thing the page does with the window around it. */
+export interface ParentWindow {
+  postMessage(message: unknown, targetOrigin: string): void;
+}
+
+/**
+ * The window around the frame, or null when the page is opened on its own. Wrapped rather than the
+ * window itself: Angular looks for ngOnDestroy on whatever a provider hands out, and reading any
+ * property off a cross-origin window throws a SecurityError - which stopped the page from starting.
+ */
+export const PARENT_WINDOW = new InjectionToken<ParentWindow | null>('PARENT_WINDOW', {
+  factory: () => {
+    if (window.parent === window) return null;
+
+    const parent = window.parent;
+    return { postMessage: (message, targetOrigin) => parent.postMessage(message, targetOrigin) };
   },
-);
+});
 
 /**
  * The page's one line to the app around it. A message goes only to the origin the app named in

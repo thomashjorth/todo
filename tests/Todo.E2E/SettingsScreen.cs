@@ -3,7 +3,7 @@ using Microsoft.Playwright;
 namespace Todo.E2E;
 
 /// <summary>
-/// The settings page, whose five groups fold. Only one is open at a time and none is open on
+/// The settings page, whose groups fold. Only one is open at a time and none is open on
 /// arrival, so every locator below the headings finds nothing until its group has been unfolded —
 /// the panel is removed from the DOM, not hidden in it.
 /// <para>
@@ -14,12 +14,15 @@ namespace Todo.E2E;
 /// </summary>
 public sealed class SettingsScreen(TodoApp app)
 {
-    /// <summary>The five groups, spelled the way each heading button's test id is built.</summary>
+    /// <summary>The groups, spelled the way each heading button's test id is built.</summary>
     public const string LanguageSection = "language";
 
     public const string DelegateSection = "delegate";
 
     public const string TagsSection = "tags";
+
+    /// <summary>The helper's own page in a frame; its fields are inside the frame, not on this page.</summary>
+    public const string ConnectionsSection = "connections";
 
     public const string JiraSection = "jira";
 

@@ -790,7 +790,7 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         var settings = await App.GoToSettings();
         await Assertions.Expect(settings.Heading).ToHaveTextAsync("Indstillinger");
 
-        // The page arrives with all six groups folded, which is a screen state of its own: six
+        // The page arrives with every group folded, which is a screen state of its own: the
         // heading buttons and their chevrons, and nothing else. Snapshotted before anything is
         // opened, because it is not reachable again afterwards — one group is always open from here.
         await Snapshot();
@@ -818,6 +818,15 @@ public class ContrastTests(BrowserFixture fixture) : BrowserTest(fixture)
         await Assertions.Expect(App.Page.GetByTestId("review-weekday")).ToBeVisibleAsync();
         await Assertions.Expect(App.Page.GetByTestId("review-settings-hint"))
             .ToContainTextAsync("hver uge");
+        await Snapshot();
+
+        // The connections group as it is without a helper: RunningHost points the page at a closed
+        // port, so the frame never says it is ready and the sentence and the button stand in for it
+        // after the three seconds. The page itself is another origin and is measured from inside, in
+        // ConnectionsJourneyTests.
+        await settings.OpenAsync(SettingsScreen.ConnectionsSection);
+        await Assertions.Expect(App.Page.GetByTestId("helper-frame-fallback"))
+            .ToContainTextAsync("hjælperen kører");
         await Snapshot();
 
         // The other half of that branch, and it cannot be staged: nothing in this suite stubs

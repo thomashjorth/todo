@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Windows, as the helper is: the Connections journey runs the real one, whose store encrypts
+         with DPAPI. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -15,5 +18,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Todo.TestSupport\Todo.TestSupport.csproj" />
+    <ProjectReference Include="..\..\src\Todo.Helper\Todo.Helper.csproj" />
+    <!-- The helper's own test host, linked rather than copied, so the two suites start it the same way. -->
+    <Compile Include="..\Todo.Helper.Tests\RunningHelper.cs" Link="RunningHelper.cs" />
   </ItemGroup>
 </Project>

@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 
-import { PAGE_SEARCH, PARENT_WINDOW, ParentChannel } from './parent-channel';
+import { PAGE_SEARCH, PARENT_WINDOW, ParentChannel, ParentWindow } from './parent-channel';
 
-function channel(search: string, parent: Pick<Window, 'postMessage'> | null) {
+function channel(search: string, parent: ParentWindow | null) {
   TestBed.configureTestingModule({
     providers: [
       { provide: PAGE_SEARCH, useValue: search },
