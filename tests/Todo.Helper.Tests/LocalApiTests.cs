@@ -70,6 +70,26 @@ public class LocalApiTests : IAsyncLifetime
         Assert.False(cleared!.Ado.HasToken);
     }
 
+    // The Connections page reads this by hand, so the names are pinned on the raw body rather than read
+    // back through the record that wrote them.
+    [Fact]
+    public async Task The_status_wire_format_uses_camel_case_names()
+    {
+        await SendAsync(HttpMethod.Put, "/api/connections/jira", new { baseUrl = "https://jira.example", token = "a-jira-pat" });
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/connections");
+        request.Headers.Add(LocalApi.RequiredHeader, "1");
+        var body = await (await _helper.Client.SendAsync(request)).Content.ReadAsStringAsync();
+
+        Assert.Contains("\"serverUrl\":null", body);
+        Assert.Contains("\"hasKey\":false", body);
+        Assert.Contains("\"tunnel\":\"NotConfigured\"", body);
+        Assert.Contains("\"refusal\":null", body);
+        Assert.Contains("\"jira\":{\"baseUrl\":\"https://jira.example\",\"hasToken\":true}", body);
+        Assert.Contains("\"ado\":{\"baseUrl\":null,\"hasToken\":false}", body);
+        Assert.Contains("\"ollamaUrl\":", body);
+    }
+
     private Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object body)
     {
         var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };

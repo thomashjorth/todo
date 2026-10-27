@@ -12,9 +12,22 @@ public static class HelperPage
 {
     public const string Path = "/connections";
 
+    private const string ManifestName = "Microsoft.Extensions.FileProviders.Embedded.Manifest.xml";
+
     public static void UseHelperPage(this WebApplication app)
     {
-        var bundle = new ManifestEmbeddedFileProvider(typeof(HelperPage).Assembly, "wwwroot");
+        // With only .gitkeep in the host's wwwroot the build makes no manifest and merely warns, and the
+        // provider would then throw at startup with a message about a missing resource. Said by name
+        // instead, with the cure.
+        var assembly = typeof(HelperPage).Assembly;
+        if (!assembly.GetManifestResourceNames().Contains(ManifestName))
+        {
+            throw new InvalidOperationException(
+                "The helper was built without the app's bundle, so it has no Connections page to serve. "
+                + @"Run scripts\build-web.ps1, then build the helper again.");
+        }
+
+        var bundle = new ManifestEmbeddedFileProvider(assembly, "wwwroot");
 
         // Who may show the page in a frame: the server the helper is paired with, once it knows one. Until
         // then anyone, because the first setup happens precisely inside the app's iframe, before the

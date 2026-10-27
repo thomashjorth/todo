@@ -99,20 +99,3 @@ public static class LocalApi
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
-
-public sealed record SourceRequest(string? BaseUrl, string? Token, bool ClearToken = false);
-
-public sealed record ServerRequest(string? Url, string? Key);
-
-public sealed record PairResponse(string KeyHash);
-
-public sealed record SourceStatus(string? BaseUrl, bool HasToken);
-
-public sealed record ConnectionsStatus(
-    string? ServerUrl,
-    bool HasKey,
-    string Tunnel,
-    string? Refusal,
-    SourceStatus Jira,
-    SourceStatus Ado,
-    string OllamaUrl);
