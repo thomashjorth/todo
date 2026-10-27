@@ -4819,6 +4819,8 @@ export class SettingsResponse implements ISettingsResponse {
     hasAdoToken!: boolean;
     /** Whether the helper on the PC is connected. Without it nothing reaches Jira, Azure DevOps or the AI model, and the base URLs above are the last ones it reported. */
     helperOnline!: boolean;
+    /** Where the helper's Connections page is, shown in an iframe on the settings page. From the host's configuration (Helper:PageUrl), because the page is served by the helper on the user's PC and never by this server: code from here on the token's origin could read the token. The settings page accepts messages only from this origin. */
+    helperPageUrl!: string;
     /** The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema. */
     reviewWeekday!: number;
     /** The time of day the review is suggested at, HH:mm local. Always the effective value: an absent row reads back as 15:00. */
@@ -4891,6 +4893,7 @@ export class SettingsResponse implements ISettingsResponse {
             this.adoDefaultDeadlineDays = _data["adoDefaultDeadlineDays"];
             this.hasAdoToken = _data["hasAdoToken"];
             this.helperOnline = _data["helperOnline"];
+            this.helperPageUrl = _data["helperPageUrl"];
             this.reviewWeekday = _data["reviewWeekday"];
             this.reviewTimeOfDay = _data["reviewTimeOfDay"];
         }
@@ -4952,6 +4955,7 @@ export class SettingsResponse implements ISettingsResponse {
         data["adoDefaultDeadlineDays"] = this.adoDefaultDeadlineDays;
         data["hasAdoToken"] = this.hasAdoToken;
         data["helperOnline"] = this.helperOnline;
+        data["helperPageUrl"] = this.helperPageUrl;
         data["reviewWeekday"] = this.reviewWeekday;
         data["reviewTimeOfDay"] = this.reviewTimeOfDay;
         return data;
@@ -4991,6 +4995,8 @@ export interface ISettingsResponse {
     hasAdoToken: boolean;
     /** Whether the helper on the PC is connected. Without it nothing reaches Jira, Azure DevOps or the AI model, and the base URLs above are the last ones it reported. */
     helperOnline: boolean;
+    /** Where the helper's Connections page is, shown in an iframe on the settings page. From the host's configuration (Helper:PageUrl), because the page is served by the helper on the user's PC and never by this server: code from here on the token's origin could read the token. The settings page accepts messages only from this origin. */
+    helperPageUrl: string;
     /** The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema. */
     reviewWeekday: number;
     /** The time of day the review is suggested at, HH:mm local. Always the effective value: an absent row reads back as 15:00. */

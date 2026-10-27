@@ -224,6 +224,11 @@ public static class TodoHost
         protectedApi.MapAi();
         protectedApi.MapTags();
 
+        // The Connections page is the helper's, and main.ts starts it on this path. Served from here it
+        // would be the page on the NAS's origin, and a token typed into it would go to the NAS - so the
+        // fallback below must never answer it.
+        protectedApi.MapGet("/connections", () => Results.NotFound()).ExcludeFromDescription();
+
         app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = frontend });
 
         return app;

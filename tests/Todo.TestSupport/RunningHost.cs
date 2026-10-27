@@ -186,6 +186,11 @@ public sealed class RunningHost : IAsyncDisposable
             // Before extraArgs, so a test's own --Ai:BaseUrl wins: the command-line provider keeps
             // the last value for a repeated key.
             "--Ai:BaseUrl", ClosedLoopbackUrl(),
+
+            // And for the same reason the Connections page: the default is the user's real helper on
+            // 47600, which a test that opens the settings group would otherwise frame - with the user's
+            // real connections in it.
+            "--Helper:PageUrl", $"{ClosedLoopbackUrl()}/connections",
             .. extraArgs
         ];
 

@@ -15,6 +15,9 @@ public static class HelperEndpoints
 {
     public const string KeyHashKey = "Helper:KeyHash";
 
+    /// <summary>Where the settings page finds the helper's Connections page; see HelperAddress.DefaultPageUrl.</summary>
+    public const string PageUrlKey = "Helper:PageUrl";
+
     /// <summary>
     /// The socket the helper on the PC opens out to the host. Outside the cookie: the helper is not a
     /// browser, and it proves itself with its own key against <see cref="KeyHashKey"/> - the same hash

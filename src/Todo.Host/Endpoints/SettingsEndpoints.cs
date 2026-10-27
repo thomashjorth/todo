@@ -5,12 +5,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Todo.Core.Ado;
 using Todo.Core.Errors;
 using Todo.Core.Jira;
 using Todo.Core.Review;
 using Todo.Core.Settings;
 using Todo.Core.Sources;
+using Todo.Tunnel;
 
 namespace Todo.Host.Endpoints;
 
@@ -22,15 +24,16 @@ public static class SettingsEndpoints
     {
         app.MapGet("/api/settings", async (
             TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review,
-            ISourceConnections connections) =>
-            await ReadAllAsync(db, jira, ado, review, connections))
+            ISourceConnections connections, IConfiguration configuration) =>
+            await ReadAllAsync(db, jira, ado, review, connections, configuration))
         .WithName("getSettings")
         .WithTags("Settings")
         .Produces<SettingsResponse>();
 
         app.MapPut("/api/settings", async Task<Results<Ok<SettingsResponse>, BadRequest<ApiError>>> (
             SettingsRequest request, TodoDbContext db, JiraSettingsReader jira, AdoSettingsReader ado, ReviewSettingsReader review,
-            ISourceConnections connections) =>
+            ISourceConnections connections,
+            IConfiguration configuration) =>
         {
             // No language means "follow the system", which is a value in its own right and not English.
             if (request.Language is { } language && !SupportedLanguages.Contains(language))
@@ -168,7 +171,7 @@ public static class SettingsEndpoints
 
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review, connections));
+            return TypedResults.Ok(await ReadAllAsync(db, jira, ado, review, connections, configuration));
         })
         .WithName("updateSettings")
         .WithTags("Settings");
@@ -185,7 +188,8 @@ public static class SettingsEndpoints
         JiraSettingsReader reader,
         AdoSettingsReader adoReader,
         ReviewSettingsReader reviewReader,
-        ISourceConnections connections)
+        ISourceConnections connections,
+        IConfiguration configuration)
     {
         var jira = await reader.ReadAsync();
         var ado = await adoReader.ReadAsync();
@@ -216,6 +220,7 @@ public static class SettingsEndpoints
             AdoDefaultDeadlineDays = ado.DefaultDeadlineDays,
             HasAdoToken = ado.Token is not null || ado.AuthorizedElsewhere,
             HelperOnline = connections.Online,
+            HelperPageUrl = Blank(configuration[HelperEndpoints.PageUrlKey]) ?? HelperAddress.DefaultPageUrl,
             // The effective values, not the stored ones: the defaults live in the reader, and the
             // client has no second place to learn them from. lastCompletedAt is deliberately not
             // here - it is not a choice, and this route would clear it.

@@ -1900,6 +1900,7 @@ components:
         - adoDefaultDeadlineDays
         - hasAdoToken
         - helperOnline
+        - helperPageUrl
         - reviewWeekday
         - reviewTimeOfDay
       properties:
@@ -2002,6 +2003,13 @@ components:
           description: >-
             Whether the helper on the PC is connected. Without it nothing reaches Jira, Azure DevOps
             or the AI model, and the base URLs above are the last ones it reported.
+        helperPageUrl:
+          type: string
+          description: >-
+            Where the helper's Connections page is, shown in an iframe on the settings page. From
+            the host's configuration (Helper:PageUrl), because the page is served by the helper on
+            the user's PC and never by this server: code from here on the token's origin could read
+            the token. The settings page accepts messages only from this origin.
         reviewWeekday:
           type: integer
           format: int32

@@ -49,6 +49,7 @@ interface SettingsJson {
   adoDefaultDeadlineDays?: number;
   hasAdoToken?: boolean;
   helperOnline?: boolean;
+  helperPageUrl?: string;
   reviewWeekday?: number;
   reviewTimeOfDay?: string;
 }
@@ -77,6 +78,7 @@ function settingsJson(overrides: SettingsJson = {}): Blob {
       adoDefaultDeadlineDays: 3,
       hasAdoToken: false,
       helperOnline: true,
+      helperPageUrl: 'http://helper.test/connections',
       // Friday at three, the two the read layer answers for an absent row. Both are
       // required on the response, so a fixture without them hands the store an
       // undefined the types say cannot happen - and nothing here type-checks that.
@@ -284,6 +286,18 @@ describe('SettingsStore', () => {
     await started;
 
     expect(store.helperOnline()).toBe(false);
+  });
+
+  it('should read where the helper page is, and know nothing before the read', async () => {
+    const { store, http } = configure('da-DK');
+
+    expect(store.helperPageUrl()).toBeNull();
+
+    const started = store.start();
+    http.expectOne('/api/settings').flush(settingsJson({ helperPageUrl: 'http://pc.test:47600/connections' }));
+    await started;
+
+    expect(store.helperPageUrl()).toBe('http://pc.test:47600/connections');
   });
 
   it('should read every Azure DevOps setting the server answers with', async () => {

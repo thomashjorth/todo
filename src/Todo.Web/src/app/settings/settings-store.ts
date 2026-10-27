@@ -136,6 +136,12 @@ export class SettingsStore {
    */
   readonly helperOnline = signal(false);
 
+  /**
+   * Where the helper's Connections page is, from the host's configuration. Null until the settings
+   * are read, so the page is never framed from a guess.
+   */
+  readonly helperPageUrl = signal<string | null>(null);
+
   /** The weekday the weekly review is suggested on, 0 = Sunday. */
   readonly reviewWeekday = signal(defaultWeekday);
 
@@ -331,6 +337,7 @@ export class SettingsStore {
     this.adoDefaultDeadlineDays.set(response.adoDefaultDeadlineDays);
     this.hasAdoToken.set(response.hasAdoToken);
     this.helperOnline.set(response.helperOnline);
+    this.helperPageUrl.set(response.helperPageUrl);
     this.reviewWeekday.set(response.reviewWeekday);
     this.reviewTimeOfDay.set(response.reviewTimeOfDay);
   }

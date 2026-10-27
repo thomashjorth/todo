@@ -47,6 +47,7 @@ interface SettingsFixture {
   adoDefaultDeadlineDays?: number;
   hasAdoToken?: boolean;
   helperOnline?: boolean;
+  helperPageUrl?: string;
   reviewWeekday?: number;
   reviewTimeOfDay?: string;
 }
@@ -82,6 +83,7 @@ function settingsJson(language: string | null, rest: SettingsFixture = {}): Blob
       adoDefaultDeadlineDays: 3,
       hasAdoToken: false,
       helperOnline: true,
+      helperPageUrl: 'http://helper.test/connections',
       // Friday at three, the two the read layer answers for an absent row. Both are
       // required on the response, so a fixture without them hands the store an
       // undefined the types say cannot happen - and nothing here type-checks that.

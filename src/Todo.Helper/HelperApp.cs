@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Todo.Tunnel;
 
 namespace Todo.Helper;
 
@@ -11,16 +12,13 @@ namespace Todo.Helper;
 /// </summary>
 public static class HelperApp
 {
-    /// <summary>Fixed, because the app's settings page embeds the helper's page from this address.</summary>
-    public const int DefaultPort = 47600;
-
     public static WebApplication Build(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
         // Loopback only: the local API changes where the user's tokens go, and nothing outside this
         // machine has any business reaching it.
-        var port = builder.Configuration.GetValue("Helper:Port", DefaultPort);
+        var port = builder.Configuration.GetValue("Helper:Port", HelperAddress.DefaultPort);
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
 
         var settingsPath = builder.Configuration["Helper:SettingsPath"] ?? HelperStore.DefaultPath;

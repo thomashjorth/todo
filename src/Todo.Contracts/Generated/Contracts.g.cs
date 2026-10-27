@@ -1216,6 +1216,13 @@ namespace Todo.Contracts
         public bool HelperOnline { get; set; }
 
         /// <summary>
+        /// Where the helper's Connections page is, shown in an iframe on the settings page. From the host's configuration (Helper:PageUrl), because the page is served by the helper on the user's PC and never by this server: code from here on the token's origin could read the token. The settings page accepts messages only from this origin.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("helperPageUrl")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string HelperPageUrl { get; set; }
+
+        /// <summary>
         /// The weekday the weekly review is suggested on, 0 = Sunday. Always the effective value: an absent row reads back as 5. No default is declared here on purpose — see the request schema.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("reviewWeekday")]
