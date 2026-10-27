@@ -19,6 +19,9 @@ december 2025**. Brugerens tjekliste er `docs/NAS.md`. Tre ting der ikke kan ses
 
 - **Docker på udviklingsmaskinen kører Windows-containere**, så imaget kan hverken bygges eller køres
   her. CI er det eneste sted det måles; skift ikke brugerens Docker-tilstand for at prøve det.
+  `TryNas.cmd` gør netop det — skifter til Linux, kører NAS'ens compose-fil på 8088 og skifter tilbage
+  ved `TryNas.cmd stop` — men den er **brugerens** knap, ikke en agents måling. Dens fletning af
+  compose-filerne er målt med `docker compose config`, som ikke behøver en daemon.
 - **`ASPNETCORE_URLS` og ikke imagets `ASPNETCORE_HTTP_PORTS`**: `TodoHost.Build` binder loopback på
   en tilfældig port, når nøglen `urls` mangler, og en container der kun lytter inde i sig selv ser
   sund ud indefra. Proben kalder udefra af netop den grund.
@@ -67,6 +70,7 @@ Publish.cmd       bygger exe'en til publish\ og prøver den bagefter
 SetPassword.cmd   sætter appens password, én gang før første start
 SetHelperKey.cmd  gemmer hash'en af hjælperens nøgle til Todo.cmd
 ExportData.cmd    eksporterer databasen til NAS'en, uden tokens
+TryNas.cmd        kører NAS'ens container på PC'en; "TryNas.cmd stop" tager den ned
 ```
 
 **Fra 2.0.0 har appen et login, og værten nægter at starte uden en password-hash.** `SetPassword.cmd`

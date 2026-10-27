@@ -57,6 +57,26 @@ it reported.
 To move the data to the NAS, `ExportData.cmd` writes the database as one file on the desktop
 without the tokens 1.16.0 kept in it; `docs/NAS.md` says where it goes.
 
+## Trying the NAS setup on this PC
+
+```
+TryNas.cmd
+```
+
+Runs the NAS's own `deploy/docker-compose.yml` with the image CI pushed, on `http://127.0.0.1:8088`,
+with your password and helper key from `SetPassword.cmd` and `SetHelperKey.cmd`. It installs Docker
+Desktop with winget if it is missing, and switches Docker to Linux containers if it runs Windows ones.
+`TryNas.cmd stop` takes the container down and switches Docker back. Two arguments:
+
+- `-Build` runs an image built from this working tree, for a change not yet on `main`.
+- `-WithMyData` exports your own tasks without tokens into the container on its first start.
+
+The data lives in the Docker volume `todo-try_data`, not in a folder: SQLite's write-ahead log needs a
+real filesystem, and a Windows folder shared into Docker's Linux VM is not one. To start from empty,
+`docker volume rm todo-try_data` after `TryNas.cmd stop`. Point the helper at
+`http://127.0.0.1:8088` under **Forbindelser** while you try it, and back to `http://127.0.0.1:5180`
+for `Todo.cmd` afterwards.
+
 ## Development with hot reload
 
 Terminal 1:
