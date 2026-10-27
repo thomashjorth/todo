@@ -33,6 +33,7 @@ public static class HelperApp
         builder.Services.AddHostedService(services => services.GetRequiredService<TunnelClient>());
 
         var app = builder.Build();
+        app.UseHelperPage();
         app.MapLocalApi();
 
         return app;

@@ -1,6 +1,8 @@
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Todo.Tunnel;
 
 namespace Todo.Helper;
 
@@ -47,6 +49,17 @@ public static class LocalApi
             });
             return Status(store.Current, tunnel);
         });
+
+        // A new key, made here and kept here: only its hash leaves, once, for the host's configuration
+        // (Helper:KeyHash). Pairing again replaces the key, so the host refuses the helper until it has
+        // the new hash - which is the point when the old one may have been seen.
+        api.MapPost("/server/pair", (HelperStore store) =>
+        {
+            var key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+            store.Update(s => s with { HelperKey = key });
+
+            return new PairResponse(PasswordHash.Create(key));
+        });
     }
 
     /// <summary>
@@ -90,6 +103,8 @@ public static class LocalApi
 public sealed record SourceRequest(string? BaseUrl, string? Token, bool ClearToken = false);
 
 public sealed record ServerRequest(string? Url, string? Key);
+
+public sealed record PairResponse(string KeyHash);
 
 public sealed record SourceStatus(string? BaseUrl, bool HasToken);
 
