@@ -191,6 +191,19 @@ export class SettingsStore {
     await this.apply();
   }
 
+  /**
+   * Reads the settings again and saves nothing: the helper's page said its connections changed, and
+   * what the host knows of them - online, the base URLs, which tokens there are - arrives in the
+   * settings. The language is left alone, because nothing on that page can change it.
+   */
+  async refresh(): Promise<void> {
+    try {
+      this.read(await firstValueFrom(this.client.getSettings()));
+    } catch {
+      // The next refresh, or the next visit to the page, tries again.
+    }
+  }
+
   /** The language select's one path to the server, so it cannot forget the other thirteen fields. */
   async choose(language: string | null): Promise<void> {
     await this.save({ language });

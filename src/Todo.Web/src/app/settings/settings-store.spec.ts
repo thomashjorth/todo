@@ -294,7 +294,9 @@ describe('SettingsStore', () => {
     expect(store.helperPageUrl()).toBeNull();
 
     const started = store.start();
-    http.expectOne('/api/settings').flush(settingsJson({ helperPageUrl: 'http://pc.test:47600/connections' }));
+    http
+      .expectOne('/api/settings')
+      .flush(settingsJson({ helperPageUrl: 'http://pc.test:47600/connections' }));
     await started;
 
     expect(store.helperPageUrl()).toBe('http://pc.test:47600/connections');

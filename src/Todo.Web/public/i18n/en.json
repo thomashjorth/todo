@@ -221,6 +221,7 @@
       "language": "General",
       "delegates": "Delegating",
       "tags": "Tags",
+      "connections": "Connections",
       "jira": "Jira import",
       "ado": "ADO import",
       "retro": "Retro import",
@@ -251,6 +252,11 @@
       "heading": "Who are you on the board?",
       "add": "Add a name",
       "remove": "Remove {{alias}}"
+    },
+    "connections": {
+      "fallback": "Connections are set up from the PC the helper runs on. If that is this one, start Helper.cmd.",
+      "openPage": "Open the helper's page",
+      "frameTitle": "The helper's connections"
     },
     "jira": {
       "projectKey": "Project key",

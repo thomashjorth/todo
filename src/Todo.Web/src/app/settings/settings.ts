@@ -3,6 +3,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { AdoStore } from '../ado/ado-store';
 import { JiraStore } from '../jira/jira-store';
 import { RetroStore } from '../retro/retro-store';
+import { HelperFrame } from './helper-frame';
 import { SettingsSection } from './settings-section';
 import { TagStore } from '../tags/tag-store';
 import { tagChip, tagColors, tagColourKeys } from '../tags/tag-colors';
@@ -14,8 +15,9 @@ const wholeNumber = /^\d+$/;
 
 const languageOptions = ['system', 'da', 'en'] as const;
 
-/** The six groups. Only used as a type here — the page names them one by one in the template. */
-type SettingsSectionName = 'language' | 'delegate' | 'tags' | 'jira' | 'ado' | 'retro' | 'review';
+/** The groups. Only used as a type here — the page names them one by one in the template. */
+type SettingsSectionName =
+  'language' | 'delegate' | 'tags' | 'connections' | 'jira' | 'ado' | 'retro' | 'review';
 
 /** Sunday first, the way DayOfWeek numbers them, so the value is the index and not a lookup. */
 const weekdayNames = [
@@ -30,7 +32,7 @@ const weekdayNames = [
 
 @Component({
   selector: 'app-settings',
-  imports: [SettingsSection, TranslocoPipe],
+  imports: [HelperFrame, SettingsSection, TranslocoPipe],
   templateUrl: './settings.html',
   // The shell's ceiling is raised on xl so the task list can be two columns. This screen is not two
   // columns, and a form stretched over 1440 px is unreadable - so it puts the ceiling back.

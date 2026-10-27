@@ -102,12 +102,12 @@ function press(element: HTMLElement, testid: string): void {
   element.querySelector<HTMLButtonElement>(`[data-testid="${testid}"]`)!.click();
 }
 
-/** The five groups, named the way the heading button's id and test id are built from. */
-type Section = 'language' | 'delegate' | 'jira' | 'ado' | 'retro' | 'review';
+/** The groups, named the way the heading button's id and test id are built from. */
+type Section = 'language' | 'delegate' | 'connections' | 'jira' | 'ado' | 'retro' | 'review';
 
 /**
  * Unfolds one group, and folds whichever was open. Every control on this page now lives behind an
- * `@if`, so a lookup for anything but the five headings finds nothing until its group is open —
+ * `@if`, so a lookup for anything but the headings finds nothing until its group is open —
  * one helper rather than the same click spelled out at each of the ninety-odd lookups.
  */
 function expand(screen: Screen, section: Section): void {
@@ -243,11 +243,12 @@ describe('Settings', () => {
     expect(select(screen.element).value).toBe('system');
   });
 
-  // The five groups, and the order they are in: your own settings first, the sources last, because
-  // the sources are set up once while the language and the delegates are what you touch. ADO sits
+  // The groups, and the order they are in: your own settings first, the sources last, because
+  // the sources are set up once while the language and the delegates are what you touch. The
+  // helper's connections come just before the two sources that need them. ADO sits
   // beside Jira because the two groups have the same shape, and the retro import is last because it
   // is not a connected source at all — no URL, no token, just a file.
-  it('should hold the settings in seven equal groups', async () => {
+  it('should hold the settings in equal groups', async () => {
     const { element } = await open(null);
 
     const sections = [...element.querySelectorAll('section')];
@@ -255,6 +256,7 @@ describe('Settings', () => {
       'language-settings',
       'delegate-settings',
       'tag-settings',
+      'connections-settings',
       'jira-settings',
       'ado-settings',
       'retro-settings',
@@ -270,16 +272,17 @@ describe('Settings', () => {
       'Generelt',
       'Uddelegering',
       'Tags',
+      'Forbindelser',
       'Jira-import',
       'ADO-import',
       'Retro-import',
       'Gennemgang',
     ]);
 
-    // Equal groups look equal: one class list for all six, rather than three structures with
+    // Equal groups look equal: one class list for all of them, rather than three structures with
     // three levels, which is what the page had.
     expect([...new Set(headings.map((h) => h.className))]).toHaveLength(1);
-    expect(element.querySelectorAll('h3')).toHaveLength(7);
+    expect(element.querySelectorAll('h3')).toHaveLength(sections.length);
   });
 
   // One group at a time, so each of these has to be unfolded before its subsections exist at all.
@@ -372,13 +375,17 @@ describe('Settings', () => {
     const screen = await open(null, [], {}, 'jira');
 
     const chevrons = [...screen.element.querySelectorAll('[data-testid="section-chevron"]')];
-    expect(chevrons).toHaveLength(7);
+    const groups = screen.element.querySelectorAll('section[appSettingsSection]').length;
+    expect(chevrons).toHaveLength(groups);
     expect(chevrons.every((c) => c.getAttribute('aria-hidden') === 'true')).toBe(true);
 
-    // The open one points down, the folded ones sideways. Jira is the fourth since the tags group
-    // came in as the third.
-    expect(chevrons[3].textContent!.trim()).toBe('▾');
-    expect(chevrons.filter((c) => c.textContent!.trim() === '▸')).toHaveLength(6);
+    // The open one points down, the folded ones sideways. Found by its group rather than by its
+    // place, which moved twice: when the tags group came in, and when the connections did.
+    const jira = screen.element.querySelector(
+      '[data-testid="jira-settings"] [data-testid="section-chevron"]',
+    )!;
+    expect(jira.textContent!.trim()).toBe('▾');
+    expect(chevrons.filter((c) => c.textContent!.trim() === '▸')).toHaveLength(groups - 1);
   });
 
   it('should say that delegating is bookkeeping only, and that nobody is on the list yet', async () => {

@@ -221,6 +221,7 @@
       "language": "Generelt",
       "delegates": "Uddelegering",
       "tags": "Tags",
+      "connections": "Forbindelser",
       "jira": "Jira-import",
       "ado": "ADO-import",
       "retro": "Retro-import",
@@ -251,6 +252,11 @@
       "heading": "Hvem er du på boardet?",
       "add": "Tilføj et navn",
       "remove": "Fjern {{alias}}"
+    },
+    "connections": {
+      "fallback": "Forbindelserne indstilles fra den PC, hvor hjælperen kører. Kører den her, så start Helper.cmd.",
+      "openPage": "Åbn hjælperens side",
+      "frameTitle": "Hjælperens forbindelser"
     },
     "jira": {
       "projectKey": "Projektnøgle",

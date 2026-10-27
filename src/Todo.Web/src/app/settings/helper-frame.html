@@ -1,0 +1,30 @@
+@let source = src();
+@if (source !== null) {
+  @if (timedOut()) {
+    <p data-testid="helper-frame-fallback" class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+      {{ 'settings.connections.fallback' | transloco }}
+    </p>
+    <button
+      type="button"
+      data-testid="helper-frame-open"
+      class="mt-2 cursor-pointer rounded border border-gray-500 px-3 py-1 text-sm text-gray-900 dark:border-gray-500 dark:text-gray-100"
+      (click)="openPage()"
+    >
+      {{ 'settings.connections.openPage' | transloco }}
+    </button>
+  }
+
+  <!-- Hidden until the page says it is there, so a helper that is not running shows the sentence
+       above rather than the browser's own error page. The height is the page's own, posted to us,
+       and an attribute rather than a style: the app allows exactly two inline styles. -->
+  <iframe
+    #frame
+    data-testid="helper-frame"
+    [src]="source"
+    [title]="'settings.connections.frameTitle' | transloco"
+    allow="local-network-access"
+    [height]="height()"
+    [class.hidden]="!ready()"
+    class="mt-3 w-full border-0"
+  ></iframe>
+}

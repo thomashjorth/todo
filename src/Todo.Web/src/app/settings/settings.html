@@ -247,6 +247,19 @@
     }
   </section>
 
+  <!-- The helper's own page, from the PC rather than from here: the tokens are typed into it, so
+       they never touch this origin. Before Jira and Azure DevOps, because both need it first. -->
+  <section
+    appSettingsSection
+    data-testid="connections-settings"
+    name="connections"
+    heading="settings.groups.connections"
+    [open]="isOpen('connections')"
+    (toggled)="toggleSection('connections')"
+  >
+    <app-helper-frame />
+  </section>
+
   <section
     appSettingsSection
     data-testid="jira-settings"
