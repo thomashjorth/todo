@@ -1,3 +1,4 @@
+using Todo.Core.Persistence;
 using Todo.Tunnel;
 
 namespace Todo.Host;
@@ -20,6 +21,16 @@ public static class Program
             return HashPassword();
         }
 
+        if (args is ["export-db", var target])
+        {
+            return ExportDatabase(target, TodoDatabase.DefaultPath);
+        }
+
+        if (args is ["export-db", var exportTarget, var source])
+        {
+            return ExportDatabase(exportTarget, source);
+        }
+
         TodoHost.Build(args).Run();
 
         return 0;
@@ -38,6 +49,35 @@ public static class Program
         }
 
         Console.WriteLine(PasswordHash.Create(password));
+
+        return 0;
+    }
+
+    /// <summary>
+    /// The database as one file for the NAS, without the tokens 1.16.0 stored. The source is read, never
+    /// changed, so it is safe while the app is open.
+    /// </summary>
+    private static int ExportDatabase(string target, string source)
+    {
+        if (!File.Exists(source))
+        {
+            Console.Error.WriteLine($"There is no database at '{source}'.");
+
+            return 1;
+        }
+
+        try
+        {
+            DatabaseExport.ExportAsync(source, target).GetAwaiter().GetResult();
+        }
+        catch (InvalidOperationException exception)
+        {
+            Console.Error.WriteLine(exception.Message);
+
+            return 1;
+        }
+
+        Console.WriteLine(Path.GetFullPath(target));
 
         return 0;
     }
