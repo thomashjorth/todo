@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.Data.Sqlite;
 using Todo.Core.Persistence;
 using Todo.TestSupport;
@@ -53,6 +54,12 @@ public class DatabaseExportTests : IDisposable
         Assert.Equal(["Flyt til NAS'en"], Query(Target, "SELECT Title FROM Tasks"));
         Assert.Equal(["jira.projectKey"], Query(Target, "SELECT Key FROM Settings ORDER BY Key"));
 
+        // And not in the file's free space either: a deleted row stays on its page until something
+        // overwrites it, so a query that finds no token says nothing about the bytes.
+        var bytes = Encoding.Latin1.GetString(await File.ReadAllBytesAsync(Target));
+        Assert.DoesNotContain("a-jira-pat", bytes);
+        Assert.DoesNotContain("an-ado-pat", bytes);
+
         // And the source keeps what it had: the export is a copy, not a clean-up.
         Assert.Contains("jira.token", Query(Source, "SELECT Key FROM Settings"));
     }
@@ -69,6 +76,20 @@ public class DatabaseExportTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => DatabaseExport.ExportAsync(Source, Target));
         Assert.Equal("somebody's file", await File.ReadAllTextAsync(Target));
+    }
+
+    // The copy is whole before the tokens are taken out of it, so a failure in between must not leave it
+    // under the name the user is told to carry to the NAS. Provoked with a database without a Settings
+    // table: the VACUUM INTO succeeds and the DELETE does not.
+    [Fact]
+    public async Task An_export_that_fails_halfway_leaves_no_file_behind()
+    {
+        Execute(Source, "CREATE TABLE Tasks (Title TEXT); INSERT INTO Tasks VALUES ('a-jira-pat');");
+
+        await Assert.ThrowsAsync<SqliteException>(() => DatabaseExport.ExportAsync(Source, Target));
+
+        Assert.False(File.Exists(Target), "The half-made copy was left under the target's name.");
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(Target)!));
     }
 
     private static void Execute(string database, string sql)

@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Todo.Core.Persistence;
 using Todo.Tunnel;
 
@@ -70,7 +71,7 @@ public static class Program
         {
             DatabaseExport.ExportAsync(source, target).GetAwaiter().GetResult();
         }
-        catch (InvalidOperationException exception)
+        catch (Exception exception) when (exception is InvalidOperationException or SqliteException or IOException)
         {
             Console.Error.WriteLine(exception.Message);
 
