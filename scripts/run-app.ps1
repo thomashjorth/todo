@@ -2,36 +2,9 @@
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$web = Join-Path $root 'src\Todo.Web'
-$index = Join-Path $root 'src\Todo.Host\wwwroot\index.html'
 
-if (-not (Test-Path (Join-Path $web 'node_modules'))) {
-    Write-Host 'Installing npm packages...' -ForegroundColor Cyan
-    & npm.cmd ci --prefix $web
-    if ($LASTEXITCODE -ne 0) { throw "npm ci failed ($LASTEXITCODE)" }
-}
-
-# ng build takes a couple of seconds, but skipping it after a frontend change leaves the window
-# blank - so timestamps are compared rather than the user being asked.
-$sources = @(Get-ChildItem -Recurse -File (Join-Path $web 'src'))
-foreach ($name in 'angular.json', 'package.json', '.postcssrc.json') {
-    $path = Join-Path $web $name
-    if (Test-Path $path) { $sources += Get-Item $path }
-}
-$newestSource = ($sources | Measure-Object -Property LastWriteTimeUtc -Maximum).Maximum
-
-$needsBuild = -not (Test-Path $index)
-if (-not $needsBuild) {
-    $needsBuild = (Get-Item $index).LastWriteTimeUtc -lt $newestSource
-}
-
-if ($needsBuild) {
-    Write-Host 'Building Angular...' -ForegroundColor Cyan
-    & npm.cmd run build --prefix $web
-    if ($LASTEXITCODE -ne 0) { throw "ng build failed ($LASTEXITCODE)" }
-} else {
-    Write-Host 'Angular is up to date.' -ForegroundColor DarkGray
-}
+# Angular, built first if the sources are newer than wwwroot. The helper serves the same bundle.
+& (Join-Path $PSScriptRoot 'ensure-web.ps1')
 
 try {
     & (Join-Path $PSScriptRoot 'install-ai-model.ps1')
@@ -63,6 +36,16 @@ if (-not $env:Auth__PasswordHash) {
 }
 if (-not $env:Auth__PasswordHash) {
     throw 'No password is set for Todo. Run SetPassword.cmd once, then start Todo again.'
+}
+
+# The hash of the helper's key, from the user-level variable SetHelperKey.cmd writes. Without it the
+# app still starts, but turns the helper away - so Jira, Azure DevOps and the AI model are out of reach,
+# and the settings page says the helper is not connected. Said here too, with the cure.
+if (-not $env:Helper__KeyHash) {
+    $env:Helper__KeyHash = [Environment]::GetEnvironmentVariable('Helper__KeyHash', 'User')
+}
+if (-not $env:Helper__KeyHash) {
+    Write-Host 'No helper key is set, so the helper cannot connect. Pair it on the settings page, then run SetHelperKey.cmd.' -ForegroundColor Yellow
 }
 
 # A host running from the build folder on another port - the Photino app from before 2.0.0, which took

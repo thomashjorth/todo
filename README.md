@@ -30,6 +30,33 @@ powershell -ExecutionPolicy Bypass -File scripts\build-web.ps1
 dotnet run --project src\Todo.Host
 ```
 
+## The helper
+
+Jira, Azure DevOps and the AI model are reached through the helper on the PC, never by the server -
+the server may be the NAS, which can reach none of them, and the tokens must never lie there.
+
+```
+Helper.cmd
+```
+
+Builds Angular if it is out of date (the helper carries the app's bundle), starts the helper on
+`http://127.0.0.1:47600` and leaves it running while the console window is open. A second
+double-click opens its page instead. Then, on the app's settings page under **Forbindelser** - the
+helper's own page, shown in a frame:
+
+1. Type the server's address: `http://127.0.0.1:5180` for `Todo.cmd`, `http://<nas>:8080` for the NAS.
+2. **Make a new key.** The page shows the key's hash once. The key itself stays in the helper.
+3. Give the server the hash: `SetHelperKey.cmd` for `Todo.cmd` (it stores it in the user-level
+   variable `Helper__KeyHash`), or `TODO_HELPER_KEY_HASH` in the NAS's `.env`. Restart the server.
+4. Type Jira's and Azure DevOps' addresses and tokens. A token goes in and never comes back out: the
+   field is write-only, and the helper keeps it encrypted with DPAPI in `%APPDATA%\TodoHelper`.
+
+When the server says the helper is connected, the Jira and Azure DevOps groups show the addresses
+it reported.
+
+To move the data to the NAS, `ExportData.cmd` writes the database as one file on the desktop
+without the tokens 1.16.0 kept in it; `docs/NAS.md` says where it goes.
+
 ## Development with hot reload
 
 Terminal 1:
@@ -143,9 +170,9 @@ second keypress is the confirmation.
 
 ## Language and settings
 
-The screen is called **Indstillinger** in the top menu and lives on the `/settings` route. It holds
-five groups, folded so that at most one is open at a time: general, delegating, Jira import, Azure
-DevOps import and retro import.
+The screen is called **Indstillinger** in the top menu and lives on the `/settings` route. Its
+groups fold so that at most one is open at a time: general, delegating, tags, connections, Jira
+import, Azure DevOps import, retro import and the weekly review.
 
 The language has three choices: **Følg systemet**, **Dansk** and **Engelsk**. "Follow the system" is
 the default - the language is then read from the browser's `navigator.language`, and anything that
@@ -158,10 +185,8 @@ Deadlines are written in the active language - `14. aug. 2026` against `Aug 14, 
 built from the three numbers in `yyyy-MM-dd` and never by letting a `Date` interpret the string:
 `new Date("2026-08-14")` is midnight UTC and would read as the 13th west of Greenwich.
 
-**Start with Windows** is in the general group. It writes the app's own path under
-`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, per user rather than per machine, and the
-switch reads that key back rather than anything the app stored - so removing the entry with another
-tool turns the switch off. There is no tray icon yet, so the app opens a window at sign-in.
+There is no "Start with Windows" any more: it was removed on 2026-08-25, because without a tray icon
+the app opened a window at sign-in.
 
 ## Tests
 

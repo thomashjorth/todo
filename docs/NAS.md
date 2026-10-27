@@ -1,10 +1,9 @@
 # Todo på NAS'en — tjekliste
 
-Leverance 3 af web-udgaven 2.0.0. Når listen er fulgt, henter NAS'en hvert nyt image selv inden for
-fem minutter efter et grønt push til `main`. **Databasen er tom indtil leverance 5**: AI og importen
-kræver hjælperen fra leverance 4, og dine tokens må aldrig ligge på NAS'en. Bliv ved med at bruge
-`Todo.cmd` på PC'en indtil da. **AI står som utilgængelig på NAS'en** indtil hjælperen findes —
-`127.0.0.1:11434` er containerens egen loopback, ikke din PC's.
+Web-udgaven 2.0.0. Når listen er fulgt, henter NAS'en hvert nyt image selv inden for fem minutter
+efter et grønt push til `main`. **Jira, Azure DevOps og AI går gennem hjælperen på PC'en** —
+`Helper.cmd` — og dine tokens ligger kun dér, aldrig på NAS'en. Uden hjælperen kører appen, men siger
+at den ikke er forbundet.
 
 `data`-mappen skal ligge på NAS'ens egen disk, ikke på et netværksdrev: SQLite's WAL kræver et lokalt
 filsystem.
@@ -36,7 +35,14 @@ derfor ingen GitHub-nøgle.
    end det lokale.
 5. **Projektet:** Container Manager → Projekt → Opret → stien `/volume1/docker/todo`, brug den
    eksisterende `docker-compose.yml`. Appen svarer på `http://<nas>:8080`.
-6. **Auto-deploy:** Kontrolpanel → Opgaveplanlægning → Opret → Planlagt opgave → Brugerdefineret
+6. **Hjælperen:** start `Helper.cmd` på PC'en, log ind på `http://<nas>:8080`, og åbn Indstillinger →
+   Forbindelser. Skriv `http://<nas>:8080` som serverens adresse, tryk **Lav en ny nøgle**, og læg
+   hash'en i `.env` som `TODO_HELPER_KEY_HASH='…'` — i enkelte anførselstegn, som passwordets. Genstart
+   projektet. Siden siger "Forbundet til serveren." når den er inde. Spørger Edge om siden må nå
+   enheder på dit lokale netværk, så sig ja: det er NAS'ens side der viser hjælperens. Viser gruppen
+   kun en sætning om PC'en efter tre sekunder, så åbn `http://127.0.0.1:47600/connections` direkte —
+   og sig det, for så er rammen blokeret (se `docs/HANDOFF.md`).
+7. **Auto-deploy:** Kontrolpanel → Opgaveplanlægning → Opret → Planlagt opgave → Brugerdefineret
    script. Bruger `root`, hvert 5. minut, script:
 
    ```sh
@@ -44,10 +50,22 @@ derfor ingen GitHub-nøgle.
    ```
 
    Hedder kommandoen `docker-compose` med bindestreg på din DSM, så ret de to linjer i `update.sh`.
-7. **Backup:** tag `/volume1/docker/todo/data` med i Hyper Backup. Den rummer databasen, backupperne
+8. **Backup:** tag `/volume1/docker/todo/data` med i Hyper Backup. Den rummer databasen, backupperne
    før hver migrering og nøglerne der krypterer login-cookien.
-8. **Adgang:** åbn **ingen** port i routeren. Uden for huset går vejen gennem Tailscale, som findes
+9. **Adgang:** åbn **ingen** port i routeren. Uden for huset går vejen gennem Tailscale, som findes
    til DSM i Pakkecenter.
+
+## Flyt dine data
+
+Gør det når du er klar til at skifte, for fra da af er det NAS'en der har opgaverne — `Todo.cmd` på
+PC'en holder sin egen database og følger ikke med.
+
+1. `ExportData.cmd` på PC'en. Den skriver `todo.db` på skrivebordet: én fil, med det nyeste fra WAL'en,
+   og **uden** de Jira- og ADO-tokens 1.16.0 gemte. Din egen database læses kun.
+2. Stop projektet i Container Manager.
+3. Slet `todo.db`, `todo.db-wal` og `todo.db-shm` i `/volume1/docker/todo/data`, hvis de findes, og
+   kopiér den eksporterede `todo.db` derind — som den bruger der ejer mappen, så filen er dens.
+4. Start projektet. Migreringerne kører ved første start og tager en backup før dem.
 
 ## Rul tilbage
 

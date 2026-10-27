@@ -40,13 +40,33 @@ sætter `Authorization` selv og kun kalder sine egne tre mål. Tre ting der ikke
 - **`helper.offline` spørges før `notConfigured`.** En hjælper der er væk, ville ellers læses som "ikke
   sat op" og sende brugeren til en side uden noget at rette.
 
-## Fire kommandoer
+**Fra leverance 5 skriver brugeren hjælperens server, nøgle og tokens på siden "Forbindelser"** — en
+anden rod i appens egen bundle (`src/app/connections/`), som `main.ts` starter på `/connections`, og
+som hjælperen serverer fra en kopi af `wwwroot` indlejret i sin exe. Indstillingssiden viser den i en
+iframe fra `helperPageUrl`. Tre ting der ikke kan ses af koden:
+
+- **Værtens 404 på `/connections` er bærende.** Uden den svarer fallbacken med `index.html`, siden
+  starter på NAS'ens origin, og et token tastet ind der går til NAS'en. `ConnectionsPageTests` er
+  set fejle på netop det, og E2E-vagten (`ConnectionsJourneyTests`) blev set fejle på et læk fra
+  rammen til værten.
+- **Hjælperens side er så frisk som den sidste Angular-bygning *før* hjælperen blev bygget.** Globben
+  i `Todo.Helper.csproj` evalueres ved hver bygning, men ændrer du Angular og bygger hjælperen først,
+  tester E2E den gamle side. Byg Angular, så hjælperen — `Check.cmd` gør det i den rækkefølge.
+- **Et cross-origin `window` må ikke leveres gennem DI.** Angular leder efter `ngOnDestroy` på hvad
+  en provider leverer, og browseren kaster `SecurityError` på enhver egenskab af et fremmed vindue —
+  siden startede aldrig. `PARENT_WINDOW` pakker derfor `postMessage` ind. Målt i E2E; Vitest kan
+  ikke se det, fordi jsdom ikke har en anden origin.
+
+## Kommandoerne
 
 ```
 Todo.cmd          starter appen
+Helper.cmd        starter hjælperen, som holder tokens og åbner tunnelen
 Check.cmd         kører alt, i den rækkefølge der er bærende
 Publish.cmd       bygger exe'en til publish\ og prøver den bagefter
 SetPassword.cmd   sætter appens password, én gang før første start
+SetHelperKey.cmd  gemmer hash'en af hjælperens nøgle til Todo.cmd
+ExportData.cmd    eksporterer databasen til NAS'en, uden tokens
 ```
 
 **Fra 2.0.0 har appen et login, og værten nægter at starte uden en password-hash.** `SetPassword.cmd`
@@ -56,7 +76,7 @@ den derfra og siger det med navn, hvis den mangler. **Passwordet når hash-verbe
 ASCII, og .NET læser en omdirigeret stdin i konsollens OEM-tegntabel, så et password med æøå ville
 blive hashet som noget andet end det browseren sender. Målt at miljøvejen giver UTF-8-hashen.
 
-Alle fire findes for at slippe for at huske `-ExecutionPolicy Bypass`; scripterne bag dem ligger i
+De findes alle for at slippe for at huske `-ExecutionPolicy Bypass`; scripterne bag dem ligger i
 `scripts\`. `Todo.cmd` bygger Angular hvis kilderne er nyere end `wwwroot`, starter værten på den
 faste port **5180** og åbner Edges app-vindue på den; et andet dobbeltklik mens den kører, åbner et
 vindue mere på samme vært. Argumenter går videre til værten, så `Todo.cmd --Data:Path <fil>` kører
@@ -154,6 +174,12 @@ npm.cmd run test --prefix src\Todo.Web -- --watch=false
   en release-tekst med `` `docs/plans/…md` `` i et `python -c "…"` fik Git Bash til at køre
   designfilen **som et script**. Den stoppede ved første syntaksfejl, og intet blev ændret, men det
   var held. Tekst med backticks hører i en fil eller i enkelte anførselstegn.
+- **Et Python-script med Windows-stier hører i en fil, ikke i en heredoc gennem Bash-værktøjet.**
+  Mødt i leverance 5: `\\` i en `<<'EOF'`-heredoc nåede Python som `\`, så `scripts\\build-web`
+  blev til `scripts` + backspace + `uild-web` i en csproj-kommentar, og en `assert` på README'ens
+  tekst fejlede uden at teksten var forkert. Og `printf` læser `\r` i `scripts\run-helper` som et
+  vognretur — `Helper.cmd` pegede på en fil der ikke fandtes. Skriv scriptet med `Write`, kør det,
+  og grep efter stien bagefter.
 - **Brug ikke `sed -i` på en fil i dette repo — brug `Edit`.** `sed` skriver **LF** i en
   CRLF-arbejdskopi, og `git diff` viser derefter **ingen ændring**, fordi autocrlf normaliserer på
   vejen ind. Filen på disken *er* ændret, men Git siger nej, så en midlertidig ændring man tror er

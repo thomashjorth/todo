@@ -170,6 +170,26 @@ Skive **15** er livscyklus og arkiv.
 
 ## Målinger kun du kan lave
 
+**Hjælperen og "Forbindelser" (leverance 4 og 5).** Kæden er målt i E2E med den rigtige vært, den
+rigtige hjælper og en falsk Jira, men alt på loopback — det følgende kræver din PC, dine tokens og
+NAS'en:
+
+1. **Hav dine Jira- og ADO-tokens klar før første `Todo.cmd` efter fletningen.** Migreringen
+   `TokensLeave` sletter dem fra den lokale database, og fra da af ligger de kun i hjælperen.
+2. **Lokalt:** start `Helper.cmd` og `Todo.cmd`, og åbn Indstillinger → Forbindelser. Vises
+   hjælperens side i gruppen? Skriv `http://127.0.0.1:5180`, lav en nøgle, kør `SetHelperKey.cmd`
+   med hash'en, og genstart `Todo.cmd`. Siger siden "Forbundet til serveren."?
+3. **Tokens:** skriv Jira- og ADO-adresser og tokens på siden, og prøv "Test forbindelse" og en
+   import på begge skærme. Virker AI'en (hjælperen kalder Ollama på `127.0.0.1:11434`)?
+4. **Fra NAS'en:** spørger Edge om Local Network Access, når NAS'ens side viser hjælperens? Det kan
+   E2E ikke se, fordi begge ender er loopback dér. Svar ja, og sig hvad der stod.
+5. **`frame-ancestors`:** hjælperen tillader kun at blive vist af serverens origin, når den kender den.
+   Når du NAS'en på en anden adresse end den hjælperen har (LAN-IP mod Tailscale-navn, eller fra
+   telefonen), bliver rammen blokeret, og gruppen viser sætningen og knappen i stedet. Sig hvilke
+   adresser du bruger, så kan reglen tage dem med.
+6. **Hjælperen starter ikke med Windows** — det er ikke bygget. Indtil da er det `Helper.cmd`.
+7. **Flytningen:** `ExportData.cmd` og `docs/NAS.md`, afsnittet "Flyt dine data".
+
 **Web-udgavens første leverance (2.0.0, leverance 1) — Edges app-vindue i stedet for Photino.** Intet
 af det følgende kan en agent måle, fordi det kræver et vindue på dit skrivebord:
 

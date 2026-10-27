@@ -22,3 +22,7 @@ services:
     environment:
       # Never the password, only its hash - see docs/NAS.md for making one inside the container.
       Auth__PasswordHash: '${TODO_PASSWORD_HASH}'
+
+      # The hash of the helper's key, from "Make a new key" on the Connections page. Without it the app
+      # runs, but turns the helper away - and with it Jira, Azure DevOps and the AI model.
+      Helper__KeyHash: '${TODO_HELPER_KEY_HASH}'
