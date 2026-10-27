@@ -355,6 +355,46 @@
       "deep": "dyb"
     }
   },
+  "connections": {
+    "title": "Forbindelser",
+    "intro": "Det her står på din PC, ikke på serveren. Hjælperen holder dine tokens, og de forlader den aldrig.",
+    "error": "Hjælperen svarede ikke. Kører den?",
+    "server": {
+      "heading": "Serveren",
+      "url": "Serverens adresse",
+      "urlPlaceholder": "http://nas:8080"
+    },
+    "tunnel": {
+      "NotConfigured": "Ikke sat op endnu: hjælperen mangler serverens adresse eller en nøgle.",
+      "Connecting": "Forbinder …",
+      "Connected": "Forbundet til serveren.",
+      "Refused": "Serveren afviste hjælperen:",
+      "Disconnected": "Ikke forbundet. Hjælperen prøver igen af sig selv."
+    },
+    "key": {
+      "has": "Hjælperen har en nøgle.",
+      "none": "Hjælperen har ingen nøgle endnu.",
+      "pair": "Lav en ny nøgle",
+      "hashLabel": "Nøglens hash",
+      "hashHelp": "Vises kun nu. Læg den i NAS'ens .env som TODO_HELPER_KEY_HASH, og kør SetHelperKey.cmd, hvis du også bruger Todo.cmd. Serveren afviser hjælperen, indtil den har den nye."
+    },
+    "source": {
+      "baseUrl": "Adresse",
+      "token": "Personligt adgangstoken",
+      "tokenPlaceholder": "Skriv et nyt for at skifte",
+      "hasToken": "Hjælperen har et token.",
+      "noToken": "Intet token endnu.",
+      "clearToken": "Fjern token"
+    },
+    "jira": {
+      "heading": "Jira",
+      "baseUrlPlaceholder": "https://jira.eksempel.dk"
+    },
+    "ado": {
+      "heading": "Azure DevOps",
+      "baseUrlPlaceholder": "https://ado.eksempel.dk/Samling"
+    }
+  },
   "errors": {
     "generic": "Noget gik galt. Prøv igen.",
     "auth": {

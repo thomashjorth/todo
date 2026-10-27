@@ -355,6 +355,46 @@
       "deep": "deep"
     }
   },
+  "connections": {
+    "title": "Connections",
+    "intro": "This lives on your PC, not on the server. The helper keeps your tokens, and they never leave it.",
+    "error": "The helper did not answer. Is it running?",
+    "server": {
+      "heading": "The server",
+      "url": "Server address",
+      "urlPlaceholder": "http://nas:8080"
+    },
+    "tunnel": {
+      "NotConfigured": "Not set up yet: the helper needs the server address or a key.",
+      "Connecting": "Connecting …",
+      "Connected": "Connected to the server.",
+      "Refused": "The server turned the helper away:",
+      "Disconnected": "Not connected. The helper keeps trying on its own."
+    },
+    "key": {
+      "has": "The helper has a key.",
+      "none": "The helper has no key yet.",
+      "pair": "Make a new key",
+      "hashLabel": "The key's hash",
+      "hashHelp": "Shown only now. Put it in the NAS's .env as TODO_HELPER_KEY_HASH, and run SetHelperKey.cmd if you also use Todo.cmd. The server turns the helper away until it has the new one."
+    },
+    "source": {
+      "baseUrl": "Address",
+      "token": "Personal access token",
+      "tokenPlaceholder": "Type a new one to replace it",
+      "hasToken": "The helper has a token.",
+      "noToken": "No token yet.",
+      "clearToken": "Remove token"
+    },
+    "jira": {
+      "heading": "Jira",
+      "baseUrlPlaceholder": "https://jira.example.com"
+    },
+    "ado": {
+      "heading": "Azure DevOps",
+      "baseUrlPlaceholder": "https://ado.example.com/Collection"
+    }
+  },
   "errors": {
     "generic": "Something went wrong. Try again.",
     "auth": {

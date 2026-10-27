@@ -1,18 +1,16 @@
 import {
   ApplicationConfig,
   inject,
-  isDevMode,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { provideTransloco } from '@jsverse/transloco';
 
 import { API_BASE_URL } from './api/todo-client';
 import { unauthorizedInterceptor } from './auth/unauthorized.interceptor';
 import { routes } from './app.routes';
-import { TranslationLoader } from './i18n/translation-loader';
+import { provideAppTransloco } from './i18n/transloco';
 import { SettingsStore } from './settings/settings-store';
 
 export const appConfig: ApplicationConfig = {
@@ -20,16 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
     provideHttpClient(withInterceptors([unauthorizedInterceptor])),
-    provideTransloco({
-      config: {
-        availableLangs: ['da', 'en'],
-        defaultLang: 'da',
-        fallbackLang: 'en',
-        reRenderOnLangChange: true,
-        prodMode: !isDevMode(),
-      },
-      loader: TranslationLoader,
-    }),
+    provideAppTransloco(),
     { provide: API_BASE_URL, useValue: '' },
     // The stored language decides the first render, so Danish never flashes past on the way to English.
     provideAppInitializer(() => inject(SettingsStore).start()),
